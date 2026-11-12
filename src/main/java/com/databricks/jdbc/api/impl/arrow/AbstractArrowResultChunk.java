@@ -432,7 +432,7 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /** Releases all Arrow-related resources and clears the record batch list. */
-  private void purgeArrowData(List<List<ValueVector>> recordBatchList) {
+  void purgeArrowData(List<List<ValueVector>> recordBatchList) {
     recordBatchList.forEach(vectors -> vectors.forEach(ValueVector::close));
     recordBatchList.clear();
   }

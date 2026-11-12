@@ -23,8 +23,8 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.time.Instant;
 import java.util.Map;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.commons.io.input.CloseShieldInputStream;
+import org.apache.commons.io.input.CountingInputStream;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -89,9 +89,6 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       TelemetryHelper.recordChunkDownloadLatency(
           connectionContext, getStatementIdString(statementId), chunkIndex, downloadTimeMs);
 
-      long size = response.getEntity().getContentLength();
-      logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
-
       // Stream the body through decompression straight into the Arrow reader so no copy of the
       // chunk payload is buffered on-heap. Network errors can surface mid-parse, so any failure
       // here is a retryable DOWNLOAD_FAILED; the body has been fully read once parsing returns.
@@ -99,15 +96,14 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
               this.chunkIndex, StatementId.loggableStatementId(this.statementId));
-      InputStream body =
-          DecompressionUtil.decompressToInputStream(
-              response.getEntity().getContent(), compressionCodec, ctx);
+      CountingInputStream counted = new CountingInputStream(response.getEntity().getContent());
+      InputStream body = DecompressionUtil.decompressToInputStream(counted, compressionCodec, ctx);
       // Arrow's interruptible channel closes its source on the interrupting thread (e.g. the one
       // closing the result set), which would drain the live body there. Only this thread closes it.
       ArrowData arrowData = readArrowData(CloseShieldInputStream.wrap(body));
       if (Thread.currentThread().isInterrupted()) {
         // An interrupted Arrow read returns early without batches; never report it as complete.
-        arrowData.getValueVectors().forEach(batch -> batch.forEach(ValueVector::close));
+        purgeArrowData(arrowData.getValueVectors());
         throw new InterruptedIOException("Chunk download interrupted");
       }
       try {
@@ -117,10 +113,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       } catch (IOException e) {
         LOGGER.debug("Ignoring error closing chunk body after a complete read: {}", e.getMessage());
       }
+      long contentLength = response.getEntity().getContentLength();
+      long size = contentLength > 0 ? contentLength : counted.getByteCount();
+      logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
       setArrowData(arrowData);
       LOGGER.debug(
-          "Chunk download complete: statementId={}, chunkIndex={}, contentLength={}, "
+          "Chunk download complete: statementId={}, chunkIndex={}, compressedBytes={}, "
               + "httpResponseMs={}, readAndParseMs={}",
           StatementId.loggableStatementId(statementId),
           chunkIndex,

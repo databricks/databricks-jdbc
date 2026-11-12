@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -84,13 +85,15 @@ public class ArrowResultChunkStatusTest {
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
   }
 
-  @Test
-  void lz4Body_isStreamedIntoArrowAndClosed() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void lz4Body_isStreamedIntoArrowAndClosed(boolean knownLength) throws Exception {
     byte[] payload = lz4(arrowStream(3, 100));
     ArrowResultChunk chunk = newChunk();
     TrackingInputStream body = new TrackingInputStream(payload, Integer.MAX_VALUE);
 
-    chunk.downloadData(httpWithEntity(body, payload.length), CompressionCodec.LZ4_FRAME, 0.0);
+    chunk.downloadData(
+        httpWithEntity(body, knownLength ? payload.length : -1), CompressionCodec.LZ4_FRAME, 0.0);
 
     assertEquals(ChunkStatus.PROCESSING_SUCCEEDED, chunk.getStatus());
     assertEquals(300, rowCount(chunk));
@@ -195,6 +198,7 @@ public class ArrowResultChunkStatusTest {
     assertNotEquals(Thread.currentThread(), closedBy.get());
     release.set(true);
     worker.join(10_000);
+    assertFalse(worker.isAlive());
 
     assertInstanceOf(DatabricksParsingException.class, failure.get());
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
