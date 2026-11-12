@@ -16,6 +16,9 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -384,30 +387,58 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
-  void testRemoteChunkProviderRaisesItsHostLimitWhileOpen() throws Exception {
+  void testRemoteChunkProviderDoesNotRaiseItsHostLimitForAnEmptyResult() throws Exception {
     String host = newHost();
+    RemoteChunkProvider provider = newRemoteChunkProvider(host, 0, TEST_DEFAULT_PERMITS + 1);
+    try {
+      assertSame(ChunkDownloadLimiter.forHost(host), provider.getDownloadLimiter());
+      assertEquals(TEST_DEFAULT_PERMITS, ChunkDownloadLimiter.forHost(host).totalPermits());
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void testRemoteChunkProviderRaisesItsHostLimitOnlyToItsChunkCountWhileOpen() throws Exception {
+    String host = "limiter-test-" + UUID.randomUUID();
+    ChunkDownloadLimiter.registerForTesting(host, 1);
+    // 17 download threads, but only 2 chunks can ever download at once.
+    RemoteChunkProvider provider = newRemoteChunkProvider(host, 2, TEST_DEFAULT_PERMITS + 1);
+    try {
+      assertEquals(2, ChunkDownloadLimiter.forHost(host).totalPermits());
+    } finally {
+      provider.close();
+    }
+    assertEquals(1, ChunkDownloadLimiter.forHost(host).totalPermits());
+  }
+
+  /** A provider whose chunks have valid links; their downloads fail fast on the mock client. */
+  private RemoteChunkProvider newRemoteChunkProvider(String host, int chunkCount, int poolSize)
+      throws Exception {
     IDatabricksSession session = mock(IDatabricksSession.class);
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(session.getConnectionContext()).thenReturn(context);
     when(context.getHost()).thenReturn(host);
+    List<BaseChunkInfo> chunks = new ArrayList<>();
+    List<ExternalLink> links = new ArrayList<>();
+    String expiration = Instant.now().plus(1, ChronoUnit.HOURS).toString();
+    for (long i = 0; i < chunkCount; i++) {
+      chunks.add(new BaseChunkInfo().setChunkIndex(i).setRowOffset(i).setRowCount(1L));
+      links.add(
+          new ExternalLink()
+              .setChunkIndex(i)
+              .setExternalLink("https://storage.invalid/chunk-" + i)
+              .setExpiration(expiration));
+    }
     ResultManifest manifest =
         new ResultManifest()
-            .setTotalChunkCount(0L)
-            .setTotalRowCount(0L)
+            .setTotalChunkCount((long) chunkCount)
+            .setTotalRowCount((long) chunkCount)
+            .setChunks(chunks)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
-    ResultData data = new ResultData().setExternalLinks(new ArrayList<>());
-
-    int poolSize = TEST_DEFAULT_PERMITS + 1;
-    RemoteChunkProvider provider =
-        new RemoteChunkProvider(
-            new StatementId("statement"), manifest, data, session, null, poolSize);
-    try {
-      assertSame(ChunkDownloadLimiter.forHost(host), provider.getDownloadLimiter());
-      assertEquals(poolSize, ChunkDownloadLimiter.forHost(host).totalPermits());
-    } finally {
-      provider.close();
-    }
-    assertEquals(TEST_DEFAULT_PERMITS, ChunkDownloadLimiter.forHost(host).totalPermits());
+    ResultData data = new ResultData().setExternalLinks(links);
+    return new RemoteChunkProvider(
+        new StatementId("statement"), manifest, data, session, httpClient, poolSize);
   }
 
   @Test

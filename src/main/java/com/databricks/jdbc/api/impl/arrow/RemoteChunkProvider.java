@@ -184,7 +184,8 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
             return thread;
           }
         };
-    poolRegistration = getDownloadLimiter().registerPool(maxParallelChunkDownloadsPerQuery);
+    // At most allowedChunksInMemory (already set, and at most the pool size) download at once.
+    poolRegistration = getDownloadLimiter().registerPool((int) allowedChunksInMemory);
     return Executors.newFixedThreadPool(maxParallelChunkDownloadsPerQuery, threadFactory);
   }
 }

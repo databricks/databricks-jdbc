@@ -41,6 +41,8 @@ final class ChunkDownloadLimiter {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloadLimiter.class);
 
+  // Never evicted: an entry is small, and dropping one that a provider or task still holds would
+  // give its host a second limiter and twice the bound.
   private static final ConcurrentHashMap<String, ChunkDownloadLimiter> BY_HOST =
       new ConcurrentHashMap<>();
 
@@ -50,6 +52,7 @@ final class ChunkDownloadLimiter {
   // Pool size -> number of open queries with that size. Guarded by this.
   private final TreeMap<Integer, Integer> openPoolSizes = new TreeMap<>();
   private int totalPermits = 0;
+  private boolean loggedRaise = false; // Guarded by this.
 
   private ChunkDownloadLimiter(String host, int defaultPermits) {
     this.host = host;
@@ -86,7 +89,7 @@ final class ChunkDownloadLimiter {
   }
 
   /**
-   * Lets an open query use up to {@code poolSize} parallel downloads (its
+   * Lets an open query use up to {@code poolSize} parallel downloads (at most its
    * cloudFetchThreadPoolSize). The total is the largest pool size among open queries, at least the
    * heap-based default and at most MAX_PERMITS. Close the returned registration when the query
    * closes.
@@ -115,13 +118,16 @@ final class ChunkDownloadLimiter {
       // enough in-progress downloads finish.
       permits.reduce(totalPermits - target);
     }
-    LOGGER.info(
-        "Set the concurrent CloudFetch download limit for host [{}] to {} (largest open "
-            + "cloudFetchThreadPoolSize {}, heap-based default {})",
-        host,
-        target,
-        largestOpen,
-        defaultPermits);
+    String message =
+        "Set the concurrent CloudFetch download limit for host [{}] to {} (largest open query"
+            + " parallelism {}, heap-based default {})";
+    // INFO only once per host, so queries that keep raising and restoring it do not add noise.
+    if (target > defaultPermits && !loggedRaise) {
+      loggedRaise = true;
+      LOGGER.info(message, host, target, largestOpen, defaultPermits);
+    } else {
+      LOGGER.debug(message, host, target, largestOpen, defaultPermits);
+    }
     totalPermits = target;
   }
 
