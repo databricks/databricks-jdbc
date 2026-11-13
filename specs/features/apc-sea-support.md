@@ -169,7 +169,9 @@ SEA identifiers serialize a compute discriminator, org id, cluster id, and raw s
 id: sessions use `s|a|orgId|clusterId|sessionId|protocolVersion-or--`, and statements use
 `s|a|orgId|clusterId|statementId`. The `-` marker preserves an absent protocol version. Parsing
 remains backward-compatible with existing warehouse `s|warehouseId|sessionId[|r]` and raw SEA
-statement ids.
+statement ids. These compound forms are internal routing serialization only:
+`StatementId.toString()`, `toSQLExecStatementId()`, public `IDatabricksResultSet.getStatementId()`,
+logs, and telemetry continue to expose only the raw server statement id.
 - R10: APC ExecuteStatement preserves the existing SEA timeout behavior: `wait_timeout` is unset
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
 results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
@@ -350,7 +352,9 @@ negotiated protocol version WHEN its `SessionId` and a derived `StatementId` are
 deserialized THEN client type, APC compute target, raw ids, and protocol capability round-trip
 unchanged; existing warehouse and Thrift serialized identifiers still parse identically. Creating
 an APC SEA `SessionId` never dereferences a Thrift session handle. The serialized APC forms match
-the R9 formats exactly, including `-` for a missing protocol version.
+the R9 formats exactly, including `-` for a missing protocol version. Public
+`IDatabricksResultSet.getStatementId()`, `StatementId.toString()`, logs, and telemetry return the
+raw server statement id and never expose the internal compound form, org id, or cluster id.
 - AC26: GIVEN an ExecuteStatement request with `SqlExecResultFormat.ARROW_BATCH` WHEN serialized
 THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BATCH` WHEN
 deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
@@ -399,6 +403,9 @@ propagate without fallback.
    `databricks.partnerplatform.clientConfigsFeatureFlags`, default off, and target it only to
    Reyder-supported regions. No connector-service version filtering is needed because older
    drivers ignore unknown sub-flags.
+   In `connector-service/src/featureflags/FeatureFlagsHandler.scala`, unconditionally apply the
+   same partner User-Agent override as the warehouse flag so
+   `enableSqlExecForJdbcApc` is returned as `false` for partners.
 2. Add wire models `BackendCompute { AllPurposeClusterCompute all_purpose_cluster_compute }` and
    `AllPurposeClusterCompute { cluster_id }`, and an optional `backend_compute` field on every SEA
    request model the driver sends.
@@ -419,7 +426,8 @@ propagate without fallback.
    dispatch on it. Preserve legacy warehouse identifier parsing, and add APC SEA session and
    statement forms carrying the compute discriminator, org/cluster ids, raw id, and (for sessions)
    nullable negotiated protocol version so reconstruction cannot turn APC into warehouse compute
-   or lose capabilities.
+   or lose capabilities. Keep compound serialization internal; public statement-id APIs,
+   `StatementId.toString()`, logs, and telemetry continue returning the raw server id.
 4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
    no `statements`; preserve existing timeout behavior (`wait_timeout` unset for synchronous
    direct results and `0s` for async or direct results disabled). Execution polling uses
@@ -467,8 +475,9 @@ propagate without fallback.
 - `src/main/java/com/databricks/jdbc/api/impl/DatabricksConnectionContext.java` — APC routing
   (Arrow availability > explicit `UseThriftClient` >
   `TreatMetadataCatalogNameAsPattern=1` > APC flag), `APC_SQL_EXEC_FLAG_NAME`, client type.
-- universe `feature-flag/configs/` (new APC sub-flag) and, only if Q9 says so,
-`connector-service/src/featureflags/FeatureFlagsHandler.scala`.
+- universe `feature-flag/configs/` (new APC sub-flag) and
+  `connector-service/src/featureflags/FeatureFlagsHandler.scala` (unconditional partner
+  User-Agent override).
 - `src/main/java/com/databricks/jdbc/api/impl/DatabricksSession.java` — verify APC SEA errors propagate without
 fallback.
 - `src/main/java/com/databricks/jdbc/api/impl/SessionInfo.java` — client type and
@@ -513,8 +522,9 @@ preserves existing JSON values, adds `ARROW_BATCH`, and maps unknown response va
 
 ### API Changes
 
-- `UseThriftClient` becomes meaningful on cluster URLs; previously it was ignored there. No
-public Java API changes.
+- `UseThriftClient` becomes meaningful on cluster URLs; previously it was ignored there.
+Public statement ids remain the raw server ids; compound APC routing serialization is internal.
+No public Java API changes.
 
 ### Risks
 
@@ -573,7 +583,7 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   encodings in R2, including TerminateSession and merging the compute field with `row_offset` (R2,
   R9; AC2, AC3, AC11, AC14). Assert that external-link URLs and headers remain unchanged. Add
   backward-compatible APC SEA `SessionId`/`StatementId` serialization and round-trip tests,
-  dispatching `SessionId.create` by client type (R9; AC25).
+  dispatching `SessionId.create` by client type while keeping public statement ids raw (R9; AC25).
 
 ### Phase 2 — Routing and session lifecycle
 
