@@ -104,8 +104,9 @@ including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` valu
 `1` → Thrift); when unset, the APC flag decides (ON → SEA, OFF, absent, or lookup failure →
 Thrift). `enableSqlExecForJdbc` has no effect on APC routing.
 - R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
-GetResultData/chunk links, CancelStatement, CloseStatement, DeleteSession) carries
-`backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`.
+GetResultData/chunk links, CancelStatement, CloseStatement, and TerminateSession) carries
+`backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
+`deleteSession` method and `DeleteSessionRequest` model implement the TerminateSession server RPC.
 - R3: For APC over SEA, statement polling uses `GetStatementResult`; the driver never calls
 `GetStatementStatus`.
 - R4: APC non-metadata execution sends `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
@@ -121,7 +122,9 @@ the returned response representation, not the requested format or a cached conne
 choice. Both representations use native-Thrift-shaped metadata decoding when
 `is_native_metadata_result=true`.
 - R6: The driver records `negotiated_protocol_version` from CreateSession and gates parameterized
-queries (≥ V8) and batch execution (≥ V10) on it for APC sessions.
+queries (≥ V8) and batch execution (≥ V10) on it for APC sessions. When an APC session below V8
+downgrades to client-side parameter interpolation, the driver records that downgrade in logs and
+telemetry.
 - R7: APC uses Thrift only when the pre-connection routing decision selects Thrift (an explicit
 `UseThriftClient=1`, the APC client-config flag is off or unavailable, or Arrow is unavailable).
 `UseBoundedSeaApi` does not control APC routing. Once SEA is selected, server errors—including
@@ -216,7 +219,10 @@ and the ResultSet matches the Thrift metadata result. Both representations must 
 connection without reconnecting or changing protocol.
 - AC6: GIVEN an APC-SEA session with `negotiated_protocol_version` below V8 WHEN a
 parameterized PreparedStatement is executed THEN the driver uses the non-native
-(client-interpolated) path instead of sending SEA parameters.
+(client-interpolated) path instead of sending SEA parameters and emits a parameter-downgrade log
+and telemetry signal; escaping and injection tests with quotes, comments, delimiters, and
+backslashes produce the same values as the existing client-interpolated path without executing
+injected SQL.
 - AC7: GIVEN `UseThriftClient=0` and the APC flag ON on AIX/PowerPC with Arrow unavailable WHEN a
 connection is opened THEN the Arrow prerequisite takes precedence, the pre-connection routing
 decision selects Thrift, and the driver logs the routing reason.
@@ -318,8 +324,9 @@ propagate without fallback.
 5. APC result decoding: add an `ArrowBatchSchemaBuilder` that converts `manifest.schema`
    (`type_text`/`type_json`) into an Arrow `Schema`, and prepend it to the bare record batches so
    the existing Arrow reader (`SeaInlineArrowChunkProvider` for inline, CloudFetch for external
-   links) can consume them. Page by `next_chunk_index`/`row_offset` through the bounded-SEA
-   streaming path; never read `total_chunk_count`/`total_row_count` for APC.
+   links) can consume them. For APC, enter the streaming provider through an explicit compute-type
+   check, never through `isBoundedSeaApiEnabled`; page by `next_chunk_index`/`row_offset` and never
+   read `total_chunk_count`/`total_row_count`.
 6. APC metadata: send `format=ARROW_STREAM` plus the sync header; add a `ColumnarDataResult`
    reader for `chunk.columnar_data` (null masks, string/integer/etc. vectors). For every metadata
    response, multiplex between `chunk.attachment` (Arrow IPC, primary path) and
@@ -339,31 +346,36 @@ propagate without fallback.
 
 ### Affected Components
 
-- `jdbc-core/.../api/impl/DatabricksConnectionContext.java` — APC routing (client setting > APC flag), `APC_SQL_EXEC_FLAG_NAME`, client type.
+- `src/main/java/com/databricks/jdbc/api/impl/DatabricksConnectionContext.java` — APC routing
+  (client setting > APC flag), `APC_SQL_EXEC_FLAG_NAME`, client type.
 - universe `feature-flag/configs/` (new APC sub-flag) and, only if Q9 says so,
 `connector-service/src/featureflags/FeatureFlagsHandler.scala`.
-- `jdbc-core/.../api/impl/DatabricksSession.java` — verify APC SEA errors propagate without
+- `src/main/java/com/databricks/jdbc/api/impl/DatabricksSession.java` — verify APC SEA errors propagate without
 fallback.
-- `jdbc-core/.../api/impl/SessionInfo.java` — `negotiatedProtocolVersion`.
-- `jdbc-core/.../dbclient/impl/sqlexec/DatabricksSdkClient.java` — compute targeting, APC URL
+- `src/main/java/com/databricks/jdbc/api/impl/SessionInfo.java` — `negotiatedProtocolVersion`.
+- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksSdkClient.java` — compute targeting, APC URL
 family, disposition/format selection.
-- `jdbc-core/.../dbclient/impl/sqlexec/PathConstants.java` — reuse standard session/statement
+- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/PathConstants.java` — reuse standard session/statement
 paths for APC (no new constants expected).
-- `jdbc-core/.../dbclient/impl/common/SessionId.java`, `StatementId.java` — remove
+- `src/main/java/com/databricks/jdbc/dbclient/impl/common/SessionId.java` and
+  `src/main/java/com/databricks/jdbc/dbclient/impl/common/StatementId.java` — remove
 `(Warehouse)` casts; encode APC compute.
-- `jdbc-core/.../dbclient/impl/sqlexec/` — new `SeaComputeTarget` helper.
-- `jdbc-core/.../model/client/sqlexec/` — `BackendCompute`, `AllPurposeClusterCompute`;
-`backend_compute` on CreateSession/ExecuteStatement/GetStatement/Cancel/Close/DeleteSession
-request models.
-- `jdbc-core/.../dbclient/impl/sqlexec/DatabricksMetadataQueryClient.java` — APC metadata
+- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/` — new `SeaComputeTarget` helper.
+- `src/main/java/com/databricks/jdbc/model/client/sqlexec/` — `BackendCompute`,
+  `AllPurposeClusterCompute`; `backend_compute` on
+  CreateSession/ExecuteStatement/GetStatement/Cancel/Close/DeleteSession request models, where
+  `DeleteSessionRequest` implements the TerminateSession RPC.
+- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataQueryClient.java` — APC metadata
 format/header, native-result decoder selection.
-- `jdbc-core/.../api/impl/arrow/` — `ArrowBatchSchemaBuilder`; schema prepend for bare
+- `src/main/java/com/databricks/jdbc/api/impl/arrow/` — `ArrowBatchSchemaBuilder`; schema prepend for bare
 `ARROW_BATCH` record batches; `row_offset` paging for APC.
-- `jdbc-core/.../api/impl/` — new `ColumnarDataResult` reader for `chunk.columnar_data`.
-- `jdbc-core/.../model/core/` — `ColumnarData`/`ColumnVector` models, `is_native_metadata_result`
+- `src/main/java/com/databricks/jdbc/api/impl/` — new `ColumnarDataResult` reader for
+  `chunk.columnar_data`.
+- `src/main/java/com/databricks/jdbc/model/core/` — `ColumnarData`/`ColumnVector` models, `is_native_metadata_result`
 on the manifest, `negotiated_protocol_version` on CreateSessionResponse.
-- `jdbc-core/.../telemetry/` — compute type, protocol, routing-reason, and failure fields.
-- `jdbc-core/src/test/...` — unit tests per AC; fake-service / integration tests.
+- `src/main/java/com/databricks/jdbc/telemetry/` — compute type, protocol, routing-reason,
+  parameter-downgrade, and failure fields.
+- `src/test/java/com/databricks/jdbc/` — unit tests per AC; fake-service / integration tests.
 - `NEXT_CHANGELOG.md`, `docs/` — document APC routing and the `UseThriftClient` override.
 
 ### Data Model Changes
@@ -396,6 +408,9 @@ needed, asking Reyder to populate `arrow_schema`.
   than assuming all responses from a connection or DBR version use the same representation.
 - Native metadata results have different columns than SHOW-command results; choosing the wrong
 decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_metadata_result`.
+- APC sessions below protocol V8 use client-side parameter interpolation. Reuse the existing
+  escaping implementation, cover SQL-injection edge cases in AC6, and emit the downgrade signal
+  required by R6 so operators can identify affected sessions.
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
 mitigated by centralizing in `SeaComputeTarget` and AC3 coverage of every call.
 - Accidentally changing warehouse request bodies — mitigated by AC11 regression tests with
@@ -417,7 +432,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 
 - [ ] T1: Add `BackendCompute` and `AllPurposeClusterCompute` models with JSON serialization tests.
 - [ ] T2: Add optional `backend_compute` to CreateSession, ExecuteStatement, GetStatement,
-  CancelStatement, CloseStatement, and DeleteSession request models.
+  CancelStatement, CloseStatement, and DeleteSession request models; verify that the driver's
+  DeleteSession request covers the server's TerminateSession RPC.
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
   Real-time routing byte-identical (R2, R9; AC2, AC11).
@@ -439,7 +455,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
   result download is disabled (R4, R10; AC4, AC8, AC12).
 - [ ] T9: Gate parameters (≥ 42248) and `parameter_sets` batch inserts (≥ 42250, else
-  per-set execution) on negotiated protocol version for APC sessions (R6; AC6, AC17).
+  per-set execution) on negotiated protocol version for APC sessions; add interpolation
+  escaping/injection coverage and parameter-downgrade logging/telemetry (R6; AC6, AC17).
 - [ ] T10: Add `ArrowBatchSchemaBuilder` and prepend the built schema to bare record batches for
   inline and external-link results (R11; AC13, Q7).
 - [ ] T11: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
