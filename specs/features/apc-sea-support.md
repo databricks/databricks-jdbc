@@ -84,7 +84,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   - Warehouse is assumed throughout: `(Warehouse)` casts in `DatabricksSdkClient` (createSession,
   session/statement paths, deleteSession, execute, error messages), `SessionId`, and
   `StatementId`. APC cannot be served without removing these.
-  - Polling already uses `GET /statements/{id}`; `STATEMENT_STATUS_PATH_WITH_ID` is unused.
+  - Execution polling uses `GET /statements/{id}`, but `DatabricksSdkClient#checkStatementAlive`
+  builds `GET /statements/{id}/status` inline for result heartbeats. The constant
+  `STATEMENT_STATUS_PATH_WITH_ID` is unused, but the unsupported status RPC is still called when
+  heartbeats are enabled.
   - Bounded SEA inline Arrow (#1734, `SeaInlineArrowChunkProvider`, LZ4 in
   `DecompressionUtil`) and CloudFetch external links are the existing SEA result paths.
   - `DatabricksSdkClient` already sends `X-Databricks-Metadata-Operation-Type` for SEA metadata
@@ -107,8 +110,12 @@ Thrift). `enableSqlExecForJdbc` has no effect on APC routing.
 GetResultData/chunk links, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
 `deleteSession` method and `DeleteSessionRequest` model implement the TerminateSession server RPC.
-- R3: For APC over SEA, statement polling uses `GetStatementResult`; the driver never calls
-`GetStatementStatus`.
+CreateSession, ExecuteStatement, CancelStatement, and TerminateSession encode `backend_compute`
+in the JSON body. GetStatementResult, GetResultData, and CloseStatement have no HTTP body in their
+REST bindings and encode the cluster id as the URL-encoded dotted query field
+`backend_compute.all_purpose_cluster_compute.cluster_id`.
+- R3: For APC over SEA, execution polling and `checkStatementAlive` heartbeats use
+`GetStatementResult`; the driver never calls `GetStatementStatus` or its `/status` endpoint.
 - R4: APC non-metadata execution sends `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
 and a `session_id`, never sends `statements`, and handles LZ4-compressed Arrow batches for both
 inline results and external links. `EnableQueryResultDownload=0` keeps the connection on SEA but
@@ -134,8 +141,9 @@ never switches the connection to Thrift.
 each connection, including the routing reason and any connection failure.
 - R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient` is type-safe — no unchecked
 cast to `Warehouse`.
-- R10: APC ExecuteStatement sends `wait_timeout` unset for direct-result execution and `0s`
-otherwise — never the warehouse `10s` sync value.
+- R10: APC ExecuteStatement preserves the existing SEA timeout behavior: `wait_timeout` is unset
+for synchronous execution with direct results and `0s` for asynchronous execution or when direct
+results are disabled. No APC-specific timeout override is needed.
 - R11: For APC `ARROW_BATCH` results, the driver builds the Arrow schema from
 `manifest.schema` (`type_text`/`type_json`, including nested types) and does not require
 `manifest.arrow_schema`.
@@ -205,8 +213,9 @@ AND Arrow available THEN it uses SEA.
 CreateSession request body contains `backend_compute.all_purpose_cluster_compute.cluster_id`
 equal to the URL's cluster id and contains no `warehouse_id`.
 - AC3: GIVEN an open APC-SEA session WHEN a statement is executed, polled, fetched, cancelled, and
-closed THEN every corresponding SEA request includes the APC `backend_compute` and the driver
-issues no `GetStatementStatus` call.
+closed, the session is terminated, or `checkStatementAlive` runs THEN every corresponding SEA
+request includes the APC `backend_compute` using the body/query encoding in R2, heartbeats call
+`GetStatementResult`, and the driver issues no `GetStatementStatus` or `/status` call.
 - AC4: GIVEN an APC-SEA query whose LZ4-compressed Arrow result is returned inline or through
 multi-chunk external links WHEN the ResultSet is iterated THEN all rows and types match the same
 query executed over Thrift.
@@ -314,13 +323,18 @@ propagate without fallback.
    `backend_compute`) and the URL family. Warehouses keep today's behavior
    (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC uses
    the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
-   body/query and never sets `realtimeSession`. Route every `(Warehouse)` cast in
-   `DatabricksSdkClient`, `SessionId`, and `StatementId` through it.
+   JSON body for CreateSession, ExecuteStatement, CancelStatement, and TerminateSession. For
+   GetStatementResult, GetResultData, and CloseStatement, append the URL-encoded dotted query
+   field `backend_compute.all_purpose_cluster_compute.cluster_id`; do not rely on JSON bodies for
+   GET/DELETE bindings that declare no body. APC never sets `realtimeSession`. Route every
+   `(Warehouse)` cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through the helper.
 4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
-   no `statements`; `wait_timeout` unset for direct results and `0s` otherwise (override
-   `SYNC_TIMEOUT_VALUE`). Keep polling on `GET /statements/{id}` (already not using `/status`) and
-   accept responses with or without inline result data. Preserve `EnableQueryResultDownload=0`
-   by setting CreateSession session config `can_cloud_download=false`.
+   no `statements`; preserve existing timeout behavior (`wait_timeout` unset for synchronous
+   direct results and `0s` for async or direct results disabled). Execution polling and
+   `checkStatementAlive` both use `GET /statements/{id}` with `GetStatementResult`; APC never calls
+   `/status`. Accept responses with or without inline result data. Preserve
+   `EnableQueryResultDownload=0` by setting CreateSession session config
+   `can_cloud_download=false`.
 5. APC result decoding: add an `ArrowBatchSchemaBuilder` that converts `manifest.schema`
    (`type_text`/`type_json`) into an Arrow `Schema`, and prepend it to the bare record batches so
    the existing Arrow reader (`SeaInlineArrowChunkProvider` for inline, CloudFetch for external
@@ -412,7 +426,8 @@ decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_met
   escaping implementation, cover SQL-injection edge cases in AC6, and emit the downgrade signal
   required by R6 so operators can identify affected sessions.
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
-mitigated by centralizing in `SeaComputeTarget` and AC3 coverage of every call.
+mitigated by centralizing in `SeaComputeTarget`, explicit per-binding body/query encoding in R2,
+and AC3 serialized-request coverage of every call.
 - Accidentally changing warehouse request bodies — mitigated by AC11 regression tests with
 serialized-body assertions.
 - Server-side routing disablement causes visible connection failures until the cached client flag
@@ -436,7 +451,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   DeleteSession request covers the server's TerminateSession RPC.
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
-  Real-time routing byte-identical (R2, R9; AC2, AC11).
+  Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
+  encodings in R2 (R2, R9; AC2, AC3, AC11).
 
 ### Phase 2 — Routing and session lifecycle
 
@@ -449,8 +465,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 
 ### Phase 3 — Execution and results
 
-- [ ] T7: Add tests that APC polling, fetch, cancel, and close use standard `/statements` URLs
-  with `backend_compute` and never hit `/status` (R2, R3; AC3).
+- [ ] T7: Route APC `checkStatementAlive` through GetStatementResult and add tests that execution
+  polling, heartbeat, fetch, cancel, and close use standard `/statements` URLs with
+  `backend_compute` and never hit `/status` (R2, R3; AC3).
 - [ ] T8: APC execute request shape: `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, `session_id`,
   no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
   result download is disabled (R4, R10; AC4, AC8, AC12).
