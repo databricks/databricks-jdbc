@@ -939,7 +939,10 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   branch containing T1–T16, including T9. After package review and the external SC fixes are
   deployed to a test region, run end-to-end against a dogfood APC with the APC flag on and off
   and `UseThriftClient` set to 0 and 1. The flag-on dogfood case requires T17's flag creation
-  and an externally prepared test-region assignment; assignment and ramp are outside this plan.
+  and an externally prepared test-region assignment; verify that T17's Universe package is
+  approved before starting the flag-on dogfood run. Assignment and ramp are outside this plan.
+  The JDBC and Universe PR stacks have separate roots because a stacked PR can only branch from
+  a parent in the same repository; this cross-repository validation gate is checked at T18.
   Record cluster runtime, region, protocol observed, and
   result for each configuration without credentials. Require the deployed metadata fix for
   dogfood AC5, inline-only fix for dogfood AC8, and TerminateSession binding fix for dogfood AC3;
