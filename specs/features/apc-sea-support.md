@@ -114,7 +114,10 @@ including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` valu
 absent, or lookup failure → Thrift). The explicit setting's precedence over the metadata parameter
 matches warehouse behavior, but Arrow-first is APC-specific: warehouse routing remains unchanged
 and still lets explicit `UseThriftClient=0` select SEA before its Arrow check.
-`enableSqlExecForJdbc` has no effect on APC routing.
+`enableSqlExecForJdbc` has no effect on APC routing. `TreatMetadataCatalogNameAsPattern=1` preserves
+its existing Thrift behavior: wildcard characters in catalog arguments are passed unescaped to
+native metadata RPCs. When explicit `UseThriftClient=0` selects SEA, the Thrift-only property is
+ignored and metadata uses the normal SEA SHOW-command semantics.
 - R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
 GetResultData, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
@@ -167,13 +170,19 @@ not control APC routing. Once SEA is selected, server errors—including unsuppo
 regions—propagate to the client exactly as they do for warehouse SEA; the driver never switches
 the connection to Thrift.
 - R8: Telemetry and logs identify the compute type (APC vs warehouse) and the chosen protocol for
-each connection, including the routing reason and any connection failure.
+each connection, including the routing reason and any connection failure. When explicit
+`UseThriftClient=0` overrides `TreatMetadataCatalogNameAsPattern=1`, the driver logs that the
+Thrift-only metadata property has no effect under SEA.
 - R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient`, `SessionId`, and
 `StatementId` is type-safe — no unchecked cast to `Warehouse`. `ImmutableSessionInfo` records the
 client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
 SEA session identifiers serialize a compute discriminator, org id, cluster id, raw session id, and
 protocol version as `s|a|orgId|clusterId|sessionId|protocolVersion-or--`; the `-` marker preserves
-an absent protocol version. Parsing remains backward-compatible with existing warehouse
+an absent protocol version. The parser dispatches to the APC grammar whenever the first two
+segments are exactly `s|a`; it requires exactly six non-empty segments except that the protocol
+segment may be `-`, and otherwise raises an error carrying
+`DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION` without attempting warehouse parsing.
+Other `s|...` forms continue through the existing backward-compatible warehouse grammar
 `s|warehouseId|sessionId[|r]`. APC statement ids do not have a separate compound serialization:
 `StatementId.forCurrentSession` associates a raw server statement id with the APC compute target
 from `ImmutableSessionInfo`, and `DatabricksSdkClient` uses it for newly executed statements.
@@ -375,7 +384,10 @@ exactly, including `-` for a missing protocol version. GIVEN an APC ResultSet WH
 cancelled or closed THEN the raw id is associated with the current APC session's compute target and
 the request includes `backend_compute`. Public `IDatabricksResultSet.getStatementId()`,
 `StatementId.toString()`, logs, and telemetry return the raw server statement id and never expose
-the org id or cluster id.
+the org id or cluster id. GIVEN an input beginning `s|a` with a wrong segment count, an empty
+required segment, or an invalid protocol version WHEN it is parsed THEN parsing fails with
+`DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION` and never falls back to the warehouse
+grammar.
 - AC26: GIVEN an ExecuteStatement request with `SqlExecResultFormat.ARROW_BATCH` WHEN serialized
 THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BATCH` WHEN
 deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
@@ -615,7 +627,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 - [ ] T4: Replace the `AllPurposeCluster → THRIFT` early return in `getClientTypeFromContext`
   with Arrow prerequisite > explicit `UseThriftClient` >
   `TreatMetadataCatalogNameAsPattern=1` > APC flag routing. Keep `UseBoundedSeaApi` out of APC
-  protocol selection (R1, R7; AC1, AC7, AC8, AC19, AC20, AC21).
+  protocol selection. Preserve catalog-pattern behavior under Thrift; when explicit
+  `UseThriftClient=0` selects SEA, ignore the Thrift-only property and log that it has no effect
+  (R1, R7, R8; AC1, AC7, AC8, AC19, AC20, AC21).
 - [ ] T5: Persist client type and `negotiated_protocol_version` from CreateSession into
   `SessionInfo`, including through APC `SessionId` reconstruction (R6, R9; AC23, AC25).
 - [ ] T6: Add tests that APC CreateSession failures propagate and never construct or switch to a
