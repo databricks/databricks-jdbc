@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
+import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
@@ -615,6 +616,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   @Override
   public String getColumnTypeName(int column) throws SQLException {
     return columns.get(getEffectiveIndex(column)).columnTypeText();
+  }
+
+  ObjectConverter getColumnConverter(int column) {
+    return columns.get(getEffectiveIndex(column)).converter();
   }
 
   /**

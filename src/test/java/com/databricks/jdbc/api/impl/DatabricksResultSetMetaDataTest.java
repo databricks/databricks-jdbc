@@ -7,6 +7,8 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
+import com.databricks.jdbc.api.impl.converters.StringConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
@@ -801,12 +803,14 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("geom_col", metaData.getColumnName(1));
     assertEquals("STRING", metaData.getColumnTypeName(1));
     assertEquals(Types.VARCHAR, metaData.getColumnType(1));
+    assertInstanceOf(StringConverter.class, metaData.getColumnConverter(1));
     assertEquals("java.lang.String", metaData.getColumnClassName(1));
 
     // Verify GEOGRAPHY column is converted to STRING
     assertEquals("geog_col", metaData.getColumnName(2));
     assertEquals("STRING", metaData.getColumnTypeName(2));
     assertEquals(Types.VARCHAR, metaData.getColumnType(2));
+    assertInstanceOf(StringConverter.class, metaData.getColumnConverter(2));
     assertEquals("java.lang.String", metaData.getColumnClassName(2));
   }
 
@@ -833,6 +837,7 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("geom_col", metaData.getColumnName(1));
     assertEquals("GEOMETRY", metaData.getColumnTypeName(1));
     assertEquals(Types.OTHER, metaData.getColumnType(1));
+    assertInstanceOf(GeospatialConverter.class, metaData.getColumnConverter(1));
     assertEquals(
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOMETRY),
         metaData.getColumnClassName(1));
@@ -841,6 +846,7 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("geog_col", metaData.getColumnName(2));
     assertEquals("GEOGRAPHY", metaData.getColumnTypeName(2));
     assertEquals(Types.OTHER, metaData.getColumnType(2));
+    assertInstanceOf(GeospatialConverter.class, metaData.getColumnConverter(2));
     assertEquals(
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOGRAPHY),
         metaData.getColumnClassName(2));

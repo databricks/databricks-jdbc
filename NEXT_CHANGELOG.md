@@ -10,6 +10,7 @@
 
 ### Updated
 
+- Reduced typed result getter CPU by resolving each column's converter once when its metadata is built and reusing it across rows.
 - Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
 
 ### Fixed
