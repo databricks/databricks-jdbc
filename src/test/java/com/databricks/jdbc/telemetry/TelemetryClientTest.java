@@ -14,10 +14,13 @@ import com.databricks.jdbc.model.telemetry.TelemetryResponse;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpHeaders;
@@ -166,6 +169,76 @@ public class TelemetryClientTest {
               client.exportEvent(
                   new TelemetryFrontendLog(TelemetryLogLevel.ERROR)
                       .setFrontendLogEventId("event2")));
+    }
+  }
+
+  @Test
+  public void testCloseGivesUpOnStuckFlushAfterTelemetrySocketTimeout() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + ";TelemetrySocketTimeout=1", new Properties());
+    // A push that never completes, like one held in retries by a degraded telemetry endpoint.
+    CompletableFuture<Void> stuckPush = new CompletableFuture<>();
+    ExecutorService executor = mock(ExecutorService.class);
+    doReturn(stuckPush).when(executor).submit(any(Runnable.class));
+    TelemetryClient client = new TelemetryClient(context, executor, createMockScheduler());
+    client.exportEvent(
+        new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+
+    long start = System.nanoTime();
+    assertTimeoutPreemptively(Duration.ofSeconds(10), client::close);
+    long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+    // Waited for the configured 1s, not the 5s default, then gave up on the push.
+    assertTrue(elapsedMillis >= 900, "close() returned after " + elapsedMillis + " ms");
+    assertTrue(elapsedMillis < 5000, "close() returned after " + elapsedMillis + " ms");
+    assertTrue(stuckPush.isCancelled());
+  }
+
+  @Test
+  public void testCloseWaitsForFinalFlushWhenTelemetrySocketTimeoutIsZero() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + ";TelemetrySocketTimeout=0", new Properties());
+    CompletableFuture<Void> slowPush = new CompletableFuture<>();
+    ExecutorService executor = mock(ExecutorService.class);
+    doReturn(slowPush).when(executor).submit(any(Runnable.class));
+    TelemetryClient client = new TelemetryClient(context, executor, createMockScheduler());
+    client.exportEvent(
+        new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+    ScheduledExecutorService completer = createRealScheduler();
+    try {
+      completer.schedule(() -> slowPush.complete(null), 1, TimeUnit.SECONDS);
+
+      assertTimeoutPreemptively(Duration.ofSeconds(10), client::close);
+
+      assertTrue(slowPush.isDone());
+      assertFalse(slowPush.isCancelled());
+    } finally {
+      completer.shutdownNow();
+    }
+  }
+
+  @Test
+  public void testCloseRestoresInterruptAndCancelsPushWhenInterruptedDuringFinalFlush()
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    // Never run, like a push queued on the shared pool. FutureTask.get() clears the interrupt
+    // flag before throwing InterruptedException, so close() has to restore it.
+    FutureTask<Void> pendingPush = new FutureTask<>(() -> null);
+    ExecutorService executor = mock(ExecutorService.class);
+    doReturn(pendingPush).when(executor).submit(any(Runnable.class));
+    TelemetryClient client = new TelemetryClient(context, executor, createMockScheduler());
+    client.exportEvent(
+        new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+
+    Thread.currentThread().interrupt();
+    try {
+      client.close();
+      assertTrue(Thread.interrupted(), "close() swallowed the caller's interrupt");
+      assertTrue(pendingPush.isCancelled(), "close() left the abandoned push queued");
+    } finally {
+      // Never leak the flag into later tests on this thread.
+      Thread.interrupted();
     }
   }
 
