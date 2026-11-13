@@ -10,6 +10,8 @@
 
 ### Updated
 
+- Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
+
 ### Fixed
 
 - Fixed numeric getters returning shifted values for BC and pre-1582 dates: `getLong`, `getInt` and `getShort` (and `getObject(column, Long/Integer/Short/BigInteger)`) on DATE columns, and `getLong` (and `getObject(column, Long/BigInteger)`) on TIMESTAMP columns. For example, `DATE '1582-10-05'` returned epoch day -141427 instead of -141437. Values after the 1582 Gregorian cutover are unchanged. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
