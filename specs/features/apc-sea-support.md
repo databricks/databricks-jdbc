@@ -32,9 +32,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   - Requests: `warehouse_id` null; `backend_compute.all_purpose_cluster_compute.cluster_id` on
   CreateSession(V2), TerminateSession, ExecuteStatement, GetStatementResult, GetResultData,
   CancelStatement, CloseStatement; `session_id` required on ExecuteStatement;
-  `disposition=INLINE_OR_EXTERNAL_LINKS`; `wait_timeout` null (direct results) or `0`, any other
-  value rejected; `on_wait_timeout` ignored; `statements` (batch commands) unsupported; SQL text
-  ≤ 16 MB. Non-OSS-JDBC clients are rejected.
+  `disposition=INLINE_OR_EXTERNAL_LINKS`; `wait_timeout` unset (direct results) or the SEA duration
+  string `0s` (parsed by the service as zero for async execution), any nonzero value rejected;
+  `on_wait_timeout` ignored; `statements` (batch commands) unsupported; SQL text ≤ 16 MB.
+  Non-OSS-JDBC clients are rejected.
   - Non-metadata results: `format=ARROW_BATCH` (bare Arrow record batches, no schema header).
   Schema comes only in `manifest.schema` (`ColumnInfo` with `type_text`/`type_json`);
   `manifest.arrow_schema`, `total_chunk_count`, `chunks`, `total_row_count`, and
@@ -87,7 +88,7 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   - Warehouse is assumed throughout: `(Warehouse)` casts in `DatabricksSdkClient` (createSession,
   session/statement paths, deleteSession, execute, error messages), `SessionId`, and
   `StatementId`. APC cannot be served without removing these.
-  - Execution polling uses `GET /statements/{id}`, but `DatabricksSdkClient#checkStatementAlive`
+  - Execution polling uses `GET /statements/{id}`, while `DatabricksSdkClient#checkStatementAlive`
   builds `GET /statements/{id}/status` inline for result heartbeats. The constant
   `STATEMENT_STATUS_PATH_WITH_ID` is unused, but the unsupported status RPC is still called when
   heartbeats are enabled.
@@ -125,8 +126,10 @@ parameters such as `row_offset` through a query builder; they are not appended a
 fragment. Only the SEA `GET /statements/{id}/result/chunks/{n}` GetResultData request gets these
 query fields. Presigned external-link URLs and their required headers are used byte-for-byte as
 returned, without adding the compute field or otherwise modifying them.
-- R3: For APC over SEA, execution polling and `checkStatementAlive` heartbeats use
-`GetStatementResult`; the driver never calls `GetStatementStatus` or its `/status` endpoint.
+- R3: For APC over SEA, execution polling uses `GetStatementResult`. Result heartbeats are
+disabled for APC even when `EnableHeartbeat=1`, because `GetStatementStatus` is unsupported and
+using full `GetStatementResult` after completion can re-download result payloads. The driver logs
+that heartbeat is unsupported and never schedules `checkStatementAlive` or calls `/status`.
 - R4: APC non-metadata execution sends `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
 and a `session_id`, never sends `statements`, and handles LZ4-compressed Arrow batches for both
 inline results and external links. `EnableQueryResultDownload=0` keeps the connection on SEA but
@@ -163,7 +166,8 @@ each connection, including the routing reason and any connection failure.
 cast to `Warehouse`.
 - R10: APC ExecuteStatement preserves the existing SEA timeout behavior: `wait_timeout` is unset
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
-results are disabled. No APC-specific timeout override is needed.
+results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
+APC-specific timeout override is needed.
 - R11: For APC `ARROW_BATCH` results, the driver builds the Arrow schema from
 `manifest.schema` (`type_text`/`type_json`, including nested types) and does not require
 `manifest.arrow_schema`.
@@ -240,9 +244,9 @@ AND Arrow available THEN it uses SEA.
 CreateSession request body contains `backend_compute.all_purpose_cluster_compute.cluster_id`
 equal to the URL's cluster id and contains no `warehouse_id`.
 - AC3: GIVEN an open APC-SEA session WHEN a statement is executed, polled, fetched, cancelled, and
-closed, the session is terminated, or `checkStatementAlive` runs THEN every corresponding SEA
-request includes the APC `backend_compute` using the body/query encoding in R2, heartbeats call
-`GetStatementResult`, and the driver issues no `GetStatementStatus` or `/status` call.
+closed or the session is terminated THEN every corresponding SEA request includes the APC
+`backend_compute` using the body/query encoding in R2 and the driver issues no
+`GetStatementStatus` or `/status` call.
 - AC4: GIVEN an APC-SEA query whose LZ4-compressed Arrow result is returned inline or through
 multi-chunk external links WHEN the ResultSet is iterated THEN all rows and types match the same
 query executed over Thrift, with each payload decompressed before the generated Arrow schema
@@ -279,10 +283,12 @@ type (APC/warehouse) and protocol (SEA/Thrift).
 - AC11: GIVEN a SQL warehouse connection WHEN any of the above flows run THEN request bodies and
 behavior are unchanged from the current release (regression).
 - AC12: GIVEN an APC-SEA session WHEN a statement is executed with and without direct results
-THEN `wait_timeout` is unset and `0s` respectively, and `statements` is never sent.
+THEN `wait_timeout` is unset and `0s` respectively, Reyder accepts both request shapes, and
+`statements` is never sent.
 - AC13: GIVEN an APC `ARROW_BATCH` response with empty `arrow_schema` and a `manifest.schema`
-containing primitive, decimal, array, map, and struct columns WHEN the ResultSet is read THEN
-values and `ResultSetMetaData` match the same query over Thrift.
+containing primitive, decimal, array, map, struct, interval, geography, geometry, timestamp,
+timestamp_ntz, and variant columns WHEN the ResultSet is read THEN values and
+`ResultSetMetaData` match the same query over Thrift.
 - AC14: GIVEN an APC result with empty `total_chunk_count`/`total_row_count` spread across
 several chunks WHEN the ResultSet is iterated THEN the driver fetches with increasing
 `row_offset` until `next_chunk_index` is empty and returns every row exactly once; each fetch URL
@@ -320,6 +326,10 @@ does not execute the third and throws `BatchUpdateException` with the first comm
 parameterized query or prepared batch is executed THEN the driver treats the capability as below
 V8, uses the tested client-interpolation path, never sends `parameters` or `parameter_sets`, and
 emits telemetry identifying the protocol version as missing.
+- AC24: GIVEN an APC-SEA connection with `EnableHeartbeat=1` WHEN a completed ResultSet remains
+open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
+`GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
+logs that heartbeat is unsupported for APC.
 
 ## Constraints
 
@@ -383,9 +393,10 @@ propagate without fallback.
    as returned.
 4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
    no `statements`; preserve existing timeout behavior (`wait_timeout` unset for synchronous
-   direct results and `0s` for async or direct results disabled). Execution polling and
-   `checkStatementAlive` both use `GET /statements/{id}` with `GetStatementResult`; APC never calls
-   `/status`. Accept responses with or without inline result data. Preserve
+   direct results and `0s` for async or direct results disabled). Execution polling uses
+   `GET /statements/{id}` with `GetStatementResult`. Disable result heartbeat registration for
+   APC instead of routing `checkStatementAlive` through a full-result endpoint; APC never calls
+   `/status`. Accept polling responses with or without inline result data. Preserve
    `EnableQueryResultDownload=0` by setting CreateSession session config
    `can_cloud_download=false`. Select the APC format/disposition and set this session config via
    an explicit APC compute-type check, not `isBoundedSeaApiEnabled`.
@@ -499,8 +510,9 @@ and AC3 serialized-request coverage of every call.
 serialized-body assertions.
 - Server-side routing disablement causes visible connection failures until the cached client flag
 refreshes; mitigate with flag sequencing and R8 telemetry.
-- Polling with `GET /statements/{id}` may fetch first-chunk data repeatedly; confirm server
-returns status-only payloads while running.
+- Execution polling with `GET /statements/{id}` may fetch first-chunk data repeatedly; confirm
+server returns status-only payloads while running. Do not use this endpoint for post-completion
+heartbeats; APC heartbeat is disabled by R3.
 - The SEA routing code has changed substantially through #1744, #1746, #1747, and #1749; rebase
 often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fallback paths.
 - APC on the standard `/sessions` URL must not be mistaken for a Real-time session; the
@@ -534,9 +546,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 
 ### Phase 3 — Execution and results
 
-- [ ] T7: Route APC `checkStatementAlive` through GetStatementResult and add tests that execution
-  polling, heartbeat, fetch, cancel, and close use standard `/statements` URLs with
-  `backend_compute` and never hit `/status` (R2, R3; AC3).
+- [ ] T7: Disable result heartbeat registration for APC, with an unsupported-heartbeat log, and
+  add tests that execution polling, fetch, cancel, and close use standard `/statements` URLs with
+  `backend_compute` and never hit `/status` (R2, R3; AC3, AC24).
 - [ ] T8: APC execute request shape: `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, `session_id`,
   no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
   result download is disabled. Use an APC compute-type check for format/disposition and session
@@ -547,7 +559,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   missing-version case. Keep non-parameterized batches sequential with one ExecuteStatement per
   SQL (R6, R15; AC6, AC17, AC22, AC23).
 - [ ] T10: Add `ArrowBatchSchemaBuilder` and prepend the built schema to bare record batches for
-  inline and external-link results after LZ4 decompression (R4, R11; AC4, AC13, Q7).
+  inline and external-link results after LZ4 decompression; cover primitive, decimal, nested,
+  interval, geospatial, timestamp/timestamp_ntz, and variant types (R4, R11; AC4, AC13, Q7).
 - [ ] T11: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
   `UseBoundedSeaApi`; handle `GetStatementResult` with and without inline data and never read
   chunk/row totals (R12; AC14, AC15).
