@@ -450,4 +450,31 @@ class InlineJsonResultTest {
 
     assertFalse(result.next());
   }
+
+  @Test
+  void testGetTemporalObjectEvaluatesSuppliersOnlyWhenRead() throws DatabricksSQLException {
+    java.util.concurrent.atomic.AtomicInteger calls =
+        new java.util.concurrent.atomic.AtomicInteger();
+    java.time.LocalDate exact = java.time.LocalDate.of(1582, 10, 5);
+    java.util.function.Supplier<Object> supplier =
+        () -> {
+          calls.incrementAndGet();
+          return exact;
+        };
+    InlineJsonResult result =
+        new InlineJsonResult(
+            List.of(Arrays.asList(1L, java.sql.Date.valueOf(exact)), Arrays.asList(2L, null)),
+            List.of(Arrays.asList(null, supplier), Arrays.asList(null, null)));
+
+    assertTrue(result.next());
+    assertEquals(0, calls.get());
+    assertEquals(java.sql.Date.valueOf(exact), result.getObject(1));
+    assertEquals(1L, result.getTemporalObject(0)); // no exact value: same as getObject
+    assertEquals(0, calls.get());
+    assertEquals(exact, result.getTemporalObject(1));
+    assertEquals(1, calls.get());
+
+    assertTrue(result.next());
+    assertNull(result.getTemporalObject(1));
+  }
 }

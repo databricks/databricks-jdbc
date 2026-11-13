@@ -16,6 +16,7 @@ max_replies_per_thread: 5
 #   - .github/ — the workflows that run WITH the bot's tokens; a bug fix has no
 #     business editing them, and hard-blocking them at the tool layer removes a
 #     self-modification foothold.
+#   - .bot/ — the config and prompts that define the agent's own permissions.
 #   - src/main/java/org/apache/arrow/ — the PATCHED Apache Arrow classes
 #     (ArrowBuf.java, util/MemoryUtil.java, vector/util/DecimalUtility.java) that
 #     spotless is configured to EXCLUDE from formatting; they are deliberate
@@ -26,6 +27,7 @@ max_replies_per_thread: 5
 # change also requires a NEXT_CHANGELOG.md entry + NOTICE update.
 denied_subpaths:
   - .github
+  - .bot
   - src/main/java/org/apache/arrow
 
 # Filled from the tracking ISSUE the maintainer labelled. (pr_body_template has no

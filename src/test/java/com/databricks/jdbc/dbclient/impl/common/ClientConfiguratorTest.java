@@ -37,9 +37,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,6 +55,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ClientConfiguratorTest {
   @Mock private IDatabricksConnectionContext mockContext;
   private ClientConfigurator configurator;
+
+  // Local test servers reuse ephemeral ports, so cached discovery responses must not leak.
+  @BeforeEach
+  @AfterEach
+  void clearDiscoveryCache() {
+    DiscoveryResponseCache.clear();
+  }
 
   @Test
   void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()
@@ -845,6 +859,113 @@ public class ClientConfiguratorTest {
         clientPorts.get(1),
         clientPorts.get(2),
         "IdleHttpConnectionExpiry=0 keeps idle connections");
+  }
+
+  @Test
+  void hostMetadataIsFetchedOncePerHostAndTrustSettings() throws Exception {
+    AtomicInteger hostMetadataRequests = new AtomicInteger();
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    server.createContext(
+        "/.well-known/databricks-config",
+        exchange -> {
+          hostMetadataRequests.incrementAndGet();
+          byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.start();
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn("http://localhost:" + server.getAddress().getPort());
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    try {
+      new ClientConfigurator(mockContext).close();
+      new ClientConfigurator(mockContext).close();
+      assertEquals(1, hostMetadataRequests.get());
+
+      when(mockContext.allowSelfSignedCerts()).thenReturn(true);
+      new ClientConfigurator(mockContext).close();
+      assertEquals(2, hostMetadataRequests.get());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @ParameterizedTest
+  @EmptySource
+  @ValueSource(strings = {"{", "{\"token_endpoint\":{}}"})
+  void oauthDiscoveryRecoversAfterInvalidResponse(String invalidBody) throws Exception {
+    AtomicInteger discoveryRequests = new AtomicInteger();
+    AtomicReference<String> discoveryBody = new AtomicReference<>(invalidBody);
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    String host = "http://localhost:" + server.getAddress().getPort();
+    server.createContext(
+        "/.well-known/databricks-config",
+        exchange -> {
+          byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.createContext(
+        "/oidc/.well-known/oauth-authorization-server",
+        exchange -> {
+          discoveryRequests.incrementAndGet();
+          byte[] body = discoveryBody.get().getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.createContext(
+        "/oidc/v1/token",
+        exchange -> {
+          byte[] body =
+              "{\"access_token\":\"test-token\",\"token_type\":\"Bearer\",\"expires_in\":3600}"
+                  .getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn(host);
+    when(mockContext.getClientId()).thenReturn("client-id");
+    when(mockContext.getClientSecret()).thenReturn("client-secret");
+    when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+    when(mockContext.getOAuthDiscoveryURL())
+        .thenReturn(host + "/oidc/.well-known/oauth-authorization-server");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    server.start();
+    try {
+      try (ClientConfigurator first = new ClientConfigurator(mockContext)) {
+        assertThrows(DatabricksException.class, () -> first.getDatabricksConfig().authenticate());
+      }
+      assertEquals(1, discoveryRequests.get());
+
+      discoveryBody.set(
+          "{\"token_endpoint\":\""
+              + host
+              + "/oidc/v1/token\",\"authorization_endpoint\":\""
+              + host
+              + "/oidc/v1/authorize\"}");
+      for (int i = 0; i < 2; i++) {
+        try (ClientConfigurator healthy = new ClientConfigurator(mockContext)) {
+          assertEquals(
+              "Bearer test-token",
+              healthy.getDatabricksConfig().authenticate().get("Authorization"));
+        }
+      }
+      assertEquals(2, discoveryRequests.get());
+    } finally {
+      server.stop(0);
+    }
   }
 
   /**

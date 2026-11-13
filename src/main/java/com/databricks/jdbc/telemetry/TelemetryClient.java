@@ -110,15 +110,32 @@ public class TelemetryClient implements ITelemetryClient {
         TelemetryCollectorManager.getInstance().getOrCreateCollector(context);
     collector.exportAllPendingTelemetryDetails();
 
+    Future<?> finalFlush = null;
     try {
-      // Synchronously flush the remaining events and wait for the task to complete
-      flush(true).get();
+      // Bound the wait so a slow or retrying telemetry endpoint cannot hang Connection.close()
+      // (issue #1442). A timeout of 0 means no limit, as it does for the telemetry HTTP client;
+      // negative values are treated the same way.
+      int timeoutSeconds = context.getTelemetrySocketTimeout();
+      finalFlush = flush(true);
+      if (timeoutSeconds > 0) {
+        finalFlush.get(timeoutSeconds, TimeUnit.SECONDS);
+      } else {
+        finalFlush.get();
+      }
+    } catch (TimeoutException e) {
+      // The caller tears down the connection's HTTP client next, so a push still running would
+      // fail anyway. Cancel it so its retry sleeps do not hold a shared executor thread; the
+      // final batch is dropped.
+      finalFlush.cancel(true);
+      LOGGER.trace("Timed out waiting for final telemetry flush; dropping the batch.");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      // An interrupted close gives up on the final batch, as a timeout does.
+      finalFlush.cancel(true);
+      LOGGER.trace("Interrupted while waiting for final telemetry flush; dropping the batch.");
     } catch (Exception e) {
       // Log the exception but do not re-throw, as the goal is to shut down gracefully
       // even if the final flush fails.
-      // This makes the close() operation robust.
-      // The `get()` method will block until the task is complete (or fails), making the close()
-      // method synchronous.
       LOGGER.trace(
           "Caught error while performing final synchronous flush for telemetry. Error: {}", e);
     }

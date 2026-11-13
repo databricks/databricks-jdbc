@@ -51,4 +51,13 @@ public interface DatabricksColumn {
   String tableName();
 
   String catalogName();
+
+  /**
+   * True for TIMESTAMP_NTZ columns, including when {@link #columnTypeText()} reports them as
+   * TIMESTAMP (EnableTimestampNtzTypeName=0).
+   */
+  @Value.Default
+  default boolean isTimestampNtz() {
+    return false;
+  }
 }

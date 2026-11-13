@@ -155,6 +155,10 @@ public class TelemetryClientFactory {
    * re-creating a TelemetryClient during or after the close sequence. Pending TelemetryCollector
    * events are exported BEFORE the TelemetryClient is closed (inside try-finally), so they are
    * flushed through the existing client. See GitHub issue #1325.
+   *
+   * <p>The last connection's client is removed from the map under the lock but closed after the
+   * lock is released: close() waits on a network flush, and getTelemetryClient() for the same host
+   * must not wait behind it. See GitHub issue #1442.
    */
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
     String key = TelemetryHelper.keyOf(connectionContext);
@@ -175,29 +179,34 @@ public class TelemetryClientFactory {
         collector.exportAllPendingTelemetryDetails();
       }
     } finally {
-      telemetryClientHolders.computeIfPresent(
-          key,
-          (k, holder) -> {
-            holder.connectionUuids.remove(connectionUuid);
-            if (holder.connectionUuids.isEmpty()) {
-              closeTelemetryClient(holder.client, "telemetry client");
-              return null;
-            }
-            return holder;
-          });
-      noauthTelemetryClientHolders.computeIfPresent(
-          key,
-          (k, holder) -> {
-            holder.connectionUuids.remove(connectionUuid);
-            if (holder.connectionUuids.isEmpty()) {
-              closeTelemetryClient(holder.client, "unauthenticated telemetry client");
-              return null;
-            }
-            return holder;
-          });
+      TelemetryClient client = detachIfLastConnection(telemetryClientHolders, key, connectionUuid);
+      TelemetryClient noauthClient =
+          detachIfLastConnection(noauthTelemetryClientHolders, key, connectionUuid);
+      closeTelemetryClient(client, "telemetry client");
+      closeTelemetryClient(noauthClient, "unauthenticated telemetry client");
 
       TelemetryHelper.removeConnectionParameters(connectionUuid);
     }
+  }
+
+  /**
+   * Removes the connection from its host's holder. If it was the last connection, removes the
+   * holder and returns its client for the caller to close; otherwise returns null.
+   */
+  private static TelemetryClient detachIfLastConnection(
+      Map<String, TelemetryClientHolder> holders, String key, String connectionUuid) {
+    TelemetryClient[] detached = new TelemetryClient[1];
+    holders.computeIfPresent(
+        key,
+        (k, holder) -> {
+          holder.connectionUuids.remove(connectionUuid);
+          if (holder.connectionUuids.isEmpty()) {
+            detached[0] = holder.client;
+            return null;
+          }
+          return holder;
+        });
+    return detached[0];
   }
 
   public ExecutorService getTelemetryExecutorService() {
