@@ -260,6 +260,26 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("timestamp_ntz", metaData.getColumnName(1));
     assertEquals(TIMESTAMP, metaData.getColumnTypeName(1));
     assertEquals(Types.TIMESTAMP, metaData.getColumnType(1));
+    // The column is still known to be TIMESTAMP_NTZ, for java.time conversions of text values.
+    assertTrue(metaData.isTimestampNtz(1));
+  }
+
+  @Test
+  public void testIsTimestampNtz() throws SQLException {
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(10L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(2L);
+    schema.setColumns(
+        List.of(
+            getColumn("ntz", null, "TIMESTAMP_NTZ"),
+            getColumn("ts", ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP")));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertTrue(metaData.isTimestampNtz(1));
+    assertFalse(metaData.isTimestampNtz(2));
   }
 
   @Test

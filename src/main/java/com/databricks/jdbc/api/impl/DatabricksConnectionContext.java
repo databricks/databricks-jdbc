@@ -1131,6 +1131,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isStrictGetObjectConversionEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_STRICT_GET_OBJECT_CONVERSION).equals("1");
+  }
+
+  @Override
   public boolean isRequestTracingEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_REQUEST_TRACING).equals("1");
   }

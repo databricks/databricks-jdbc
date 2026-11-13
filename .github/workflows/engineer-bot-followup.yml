@@ -79,8 +79,10 @@ jobs:
     # Leave setup headroom before the agent's separate 30-minute limit.
     timeout-minutes: 45
     concurrency:
+      # Share the branch-editing queue with engineer-bot-mention.yml.
       group: engineer-bot-followup-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false
+      queue: max
     steps:
       # Checkout FIRST (remote action) so the local `./` composites resolve. Check
       # out the PR head BRANCH (not the merge ref) so fixups push back to it.

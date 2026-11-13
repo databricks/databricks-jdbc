@@ -9,7 +9,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.Date;
 
@@ -496,8 +495,8 @@ public class ConverterHelper {
       return converter.toFloat(obj);
     } else if (javaType == Double.class || javaType == double.class) {
       return converter.toDouble(obj);
-    } else if (javaType == LocalDate.class) {
-      return converter.toLocalDate(obj);
+    } else if (JavaTimeConverter.isJavaTimeType(javaType)) {
+      return JavaTimeConverter.convert(javaType, columnSqlType, columnTypeName, obj);
     } else if (javaType == BigInteger.class) {
       return converter.toBigInteger(obj);
     } else if (javaType == Date.class || javaType == java.sql.Date.class) {
