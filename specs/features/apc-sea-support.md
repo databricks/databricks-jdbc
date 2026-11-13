@@ -17,7 +17,10 @@ precedence so customers can force either protocol.
 ## Context
 
 - Server side is shipped: `SqlExecBackendRouter` (universe `cmdexec/sql-exec-api`) routes a
-request to Reyden when it carries `backend_compute.all_purpose_cluster_compute.cluster_id`; APC does not support `GetStatementStatus` — clients must poll with `GetStatementResult`.
+request to Reyden when it carries `backend_compute.all_purpose_cluster_compute.cluster_id`; this
+route is guarded by `databricks.sqlexecapi.enable_apc_reyder_routing`. APC does not support
+`GetStatementStatus` — clients must poll with `GetStatementResult`. In this document, Reyder is
+the SEA service and Reyden is the runtime backend.
 - Client-config flags come from connector-service
 (`/api/2.0/connector-service/feature-flags/OSS_JDBC/{version}`), which returns every sub-flag of
 the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
@@ -96,9 +99,10 @@ iteration baseline, not the production implementation described by the requireme
 ## Requirements
 
 - R1: APC routing to SEA is controlled by a dedicated APC client-config flag (Q8), separate from
-the warehouse flag `enableSqlExecForJdbc`, and client config takes precedence: an explicit
-client setting (Q1) forces SEA or Thrift; when unset, the APC flag decides (ON → SEA, OFF,
-absent, or lookup failure → Thrift). `enableSqlExecForJdbc` has no effect on APC routing.
+the warehouse flag `enableSqlExecForJdbc`, with this precedence: Arrow unavailable → Thrift,
+including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` value wins (`0` → SEA,
+`1` → Thrift); when unset, the APC flag decides (ON → SEA, OFF, absent, or lookup failure →
+Thrift). `enableSqlExecForJdbc` has no effect on APC routing.
 - R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
 GetResultData/chunk links, CancelStatement, CloseStatement, DeleteSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`.
@@ -106,7 +110,9 @@ GetResultData/chunk links, CancelStatement, CloseStatement, DeleteSession) carri
 `GetStatementStatus`.
 - R4: APC non-metadata execution sends `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
 and a `session_id`, never sends `statements`, and handles LZ4-compressed Arrow batches for both
-inline results and external links.
+inline results and external links. `EnableQueryResultDownload=0` keeps the connection on SEA but
+sets the CreateSession `can_cloud_download=false` session config, requiring inline results even
+though the request disposition remains `INLINE_OR_EXTERNAL_LINKS`.
 - R5: APC metadata operations go through `DatabricksMetadataQueryClient` as SHOW commands with
 `X-Databricks-Metadata-Operation-Type` and `X-Databricks-Sea-Can-Run-Fully-Sync`, request
 `format=ARROW_STREAM`, and multiplex per response between Arrow IPC in `chunk.attachment` (the
@@ -142,8 +148,9 @@ warehouses.
 
 - Q1: What is the client setting — reuse `UseThriftClient` on cluster URLs (prototype
 behavior; `0` → SEA, `1` → Thrift), or a new dedicated property (e.g. `EnableApcSea`)?
-A1: Reuse `UseThriftClient`: `0` forces SEA and `1` forces Thrift. An explicit value takes
-precedence over the APC client-config flag, matching warehouse behavior.
+A1: Reuse `UseThriftClient`: with Arrow available, `0` forces SEA and `1` forces Thrift. Arrow
+unavailability is a hard prerequisite and selects Thrift even when `UseThriftClient=0`; otherwise
+an explicit value takes precedence over the APC client-config flag, matching warehouse behavior.
 - Q2: Should an explicit client setting (`UseThriftClient=0`) still auto-fall back to Thrift on
 unsupported-routing errors, or
 fail loudly so users notice (prototype uses `no_fallback=true`)?
@@ -161,8 +168,8 @@ the requested `ARROW_STREAM` format or select one decoder for the lifetime of th
 A4: Emulate. `statements` is unsupported for APC; batch parameterized inserts use
 `parameter_sets` only at ≥ 42250 (V10), otherwise one execution per parameter set (design doc,
 Phase II DD2/DD3).
-- Q5: Do govcloud / non-Reyden regions need a client-side denylist, or is a server rejection +
-Thrift fallback (R7) sufficient?
+- Q5: Do govcloud / non-Reyden regions need a client-side denylist, or is keeping the APC flag
+off and propagating a server rejection sufficient?
 A5: No client-side denylist. Keep the APC client-config flag off in unsupported regions. If SEA is
 explicitly selected or mis-targeted there, propagate the server error without falling back.
 - Q6: Is there a server-side requirement on the `User-Agent` or a client-capability header to
@@ -190,7 +197,7 @@ A9: UNRESOLVED
 - AC1: GIVEN a cluster HTTP path with no client setting AND the APC flag OFF or absent (or the
 flag lookup fails), even with `enableSqlExecForJdbc` ON, WHEN a connection is opened THEN the
 driver uses `DatabricksThriftServiceClient` and no SEA request is sent; GIVEN the APC flag ON
-THEN it uses SEA.
+AND Arrow available THEN it uses SEA.
 - AC2: GIVEN a cluster HTTP path with APC-SEA enabled (R1) WHEN a connection is opened THEN the
 CreateSession request body contains `backend_compute.all_purpose_cluster_compute.cluster_id`
 equal to the URL's cluster id and contains no `warehouse_id`.
@@ -210,10 +217,12 @@ connection without reconnecting or changing protocol.
 - AC6: GIVEN an APC-SEA session with `negotiated_protocol_version` below V8 WHEN a
 parameterized PreparedStatement is executed THEN the driver uses the non-native
 (client-interpolated) path instead of sending SEA parameters.
-- AC7: GIVEN APC-SEA enabled (R1) on AIX/PowerPC with Arrow disabled WHEN a connection is opened
-THEN the pre-connection routing decision selects Thrift and logs the routing reason.
+- AC7: GIVEN `UseThriftClient=0` and the APC flag ON on AIX/PowerPC with Arrow unavailable WHEN a
+connection is opened THEN the Arrow prerequisite takes precedence, the pre-connection routing
+decision selects Thrift, and the driver logs the routing reason.
 - AC8: GIVEN APC-SEA enabled (R1) AND `EnableQueryResultDownload=0` WHEN a connection is opened
-THEN the driver remains on SEA and reads inline Arrow; setting `UseBoundedSeaApi` to either `0` or
+THEN the driver remains on SEA, sets CreateSession session config `can_cloud_download=false`, and
+reads inline Arrow without following external links; setting `UseBoundedSeaApi` to either `0` or
 `1` does not change APC protocol selection or its `next_chunk_index`/`row_offset` paging behavior.
 - AC9: GIVEN APC-SEA enabled (R1) AND CreateSession returns an "all-purpose clusters are not
 supported" error WHEN a connection is opened THEN the driver propagates a clear connection error,
@@ -243,16 +252,18 @@ parameter set is executed separately.
 - AC18: GIVEN an APC-SEA statement with `setQueryTimeout(n)` WHEN it runs longer than `n`
 seconds THEN the driver cancels it via CancelStatement with `backend_compute` and raises the
 standard timeout SQLException.
-- AC19: GIVEN a cluster HTTP path with `UseThriftClient=1` AND the APC flag ON WHEN a connection
-is opened THEN the driver uses Thrift; GIVEN `UseThriftClient=0` AND the APC flag OFF THEN it
-uses SEA (client setting takes precedence).
+- AC19: GIVEN Arrow available and a cluster HTTP path with `UseThriftClient=1` AND the APC flag ON
+WHEN a connection is opened THEN the driver uses Thrift; GIVEN Arrow available,
+`UseThriftClient=0`, AND the APC flag OFF THEN it uses SEA (client setting takes precedence after
+the Arrow prerequisite).
 - AC20: GIVEN a warehouse HTTP path WHEN the APC flag is ON or OFF THEN warehouse routing is
 unchanged and still follows `enableSqlExecForJdbc`.
 
 ## Constraints
 
-- APC default protocol is decided by the dedicated APC flag (R1, default off); an explicit client
-setting always wins. No change to warehouse requests or routing.
+- APC default protocol is decided by the dedicated APC flag (R1, default off); after the Arrow
+availability prerequisite, an explicit client setting always wins. No change to warehouse
+requests or routing.
 - No new runtime dependencies; reuse the existing SDK client, Arrow, and LZ4 stack.
 - Protocol selection is final before CreateSession; never switch from SEA to Thrift after an error.
 - New error paths use `DatabricksDriverErrorCode` values per the repo telemetry rules.
@@ -266,7 +277,8 @@ setting always wins. No change to warehouse requests or routing.
 - Benchmark suites (`MultiJdbcDriverBenchmark` APC variant, Quicksilver `dust-cluster-benchmark`
 parameter sets).
 - ODBC, Python, Go, and Node.js connectors.
-- Govcloud / non-Reyden region enablement beyond falling back to Thrift.
+- Govcloud / non-Reyden region enablement beyond keeping the APC flag off there; server errors
+propagate without fallback.
 - Removing the direct-Thrift APC code path.
 
 ---
@@ -277,11 +289,11 @@ parameter sets).
 
 1. Remove the unconditional `AllPurposeCluster → THRIFT` early return in
    `getClientTypeFromContext` and route APC with this precedence:
-   1. Explicit `UseThriftClient`: `1` → Thrift, `0` → SEA.
-   2. Otherwise the dedicated APC flag (`APC_SQL_EXEC_FLAG_NAME`, Q8): ON → SEA; OFF, absent, or
+   1. Arrow unavailable → Thrift, regardless of client setting or APC flag.
+   2. Explicit `UseThriftClient`: `1` → Thrift, `0` → SEA.
+   3. Otherwise the dedicated APC flag (`APC_SQL_EXEC_FLAG_NAME`, Q8): ON → SEA; OFF, absent, or
       lookup failure → Thrift. `SQL_EXEC_FLAG_NAME` and `UseBoundedSeaApi` do not decide APC
       protocol selection.
-   3. SEA additionally requires Arrow support; otherwise select Thrift before CreateSession.
 
    Once selected, SEA errors propagate without switching to Thrift. Server side (universe,
    separate PR): create the APC sub-flag under
@@ -289,41 +301,36 @@ parameter sets).
    Reyder-supported regions. No connector-service version filtering is needed because older
    drivers ignore unknown sub-flags.
 2. Add wire models `BackendCompute { AllPurposeClusterCompute all_purpose_cluster_compute }` and
-
    `AllPurposeClusterCompute { cluster_id }`, and an optional `backend_compute` field on every SEA
-     request model the driver sends.
+   request model the driver sends.
 3. Add a small `SeaComputeTarget` helper in `dbclient/impl/sqlexec` that, given an
-
    `IDatabricksComputeResource`, produces both the request target (`warehouse_id` or
-     `backend_compute`) and the URL family. Warehouses keep today's behavior
-     (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC
-     uses the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in
-     the body/query and never sets `realtimeSession`. Route every `(Warehouse)` cast in
-     `DatabricksSdkClient`, `SessionId`, and `StatementId` through it.
-4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
-
-   `session_id`, no `statements`; `wait_timeout` unset for direct results and `0s` otherwise
-     (override `SYNC_TIMEOUT_VALUE`). Keep polling on `GET /statements/{id}` (already not using
-     `/status`) and accept responses with or without inline result data.
+   `backend_compute`) and the URL family. Warehouses keep today's behavior
+   (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC uses
+   the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
+   body/query and never sets `realtimeSession`. Route every `(Warehouse)` cast in
+   `DatabricksSdkClient`, `SessionId`, and `StatementId` through it.
+4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
+   no `statements`; `wait_timeout` unset for direct results and `0s` otherwise (override
+   `SYNC_TIMEOUT_VALUE`). Keep polling on `GET /statements/{id}` (already not using `/status`) and
+   accept responses with or without inline result data. Preserve `EnableQueryResultDownload=0`
+   by setting CreateSession session config `can_cloud_download=false`.
 5. APC result decoding: add an `ArrowBatchSchemaBuilder` that converts `manifest.schema`
-
    (`type_text`/`type_json`) into an Arrow `Schema`, and prepend it to the bare record batches so
-     the existing Arrow reader (`SeaInlineArrowChunkProvider` for inline, CloudFetch for external
-     links) can consume them. Page by `next_chunk_index`/`row_offset` through the bounded-SEA
-     streaming path; never read `total_chunk_count`/`total_row_count` for APC.
+   the existing Arrow reader (`SeaInlineArrowChunkProvider` for inline, CloudFetch for external
+   links) can consume them. Page by `next_chunk_index`/`row_offset` through the bounded-SEA
+   streaming path; never read `total_chunk_count`/`total_row_count` for APC.
 6. APC metadata: send `format=ARROW_STREAM` plus the sync header; add a `ColumnarDataResult`
-
    reader for `chunk.columnar_data` (null masks, string/integer/etc. vectors). For every metadata
-      response, multiplex between `chunk.attachment` (Arrow IPC, primary path) and
-      `chunk.columnar_data` (alternate path) using the returned payload representation; do not
-      cache a decoder choice at connection scope or infer it solely from the requested format or
-      DBR version. When `is_native_metadata_result=true`, use the Thrift-native metadata column
-      decoders instead of the SHOW-command decoders for either representation.
+   response, multiplex between `chunk.attachment` (Arrow IPC, primary path) and
+   `chunk.columnar_data` (alternate path) using the returned payload representation; do not cache
+   a decoder choice at connection scope or infer it solely from the requested format or DBR
+   version. When `is_native_metadata_result=true`, use the Thrift-native metadata column decoders
+   instead of the SHOW-command decoders for either representation.
 7. Query timeout for APC reuses `TimeoutHandler` → CancelStatement with `backend_compute`.
 8. Persist `negotiated_protocol_version` in `ImmutableSessionInfo`; expose capability checks:
-
    parameters at ≥ 42248, `parameter_sets` batch inserts at ≥ 42250, else one execution per
-     parameter set.
+   parameter set.
 9. Preserve warehouse SEA error behavior in `DatabricksSession#open`: APC CreateSession failures
    propagate without constructing a Thrift client or changing the selected protocol.
 10. Emit compute type, protocol, routing reason, and connection failure in telemetry and debug
@@ -366,13 +373,12 @@ on the manifest, `negotiated_protocol_version` on CreateSessionResponse.
 - `ImmutableSessionInfo` gains nullable `negotiatedProtocolVersion`.
 - Response models gain `chunk.columnar_data` (`ColumnarData { repeated ColumnVector columns }`,
 `ColumnVector { bytes null_mask; oneof values }`), `manifest.is_native_metadata_result`, and
-`CreateSessionResponse.negotiated_protocol_version`; `Format` gains `ARROW_BATCH` and
-`COLUMN_BASED_SET`.
+`CreateSessionResponse.negotiated_protocol_version`; `Format` gains `ARROW_BATCH`.
 
 ### API Changes
 
-- `UseThriftClient` (or a new property, Q1) becomes meaningful on cluster URLs; previously it was
-ignored there. No public Java API changes.
+- `UseThriftClient` becomes meaningful on cluster URLs; previously it was ignored there. No
+public Java API changes.
 
 ### Risks
 
@@ -419,8 +425,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 ### Phase 2 — Routing and session lifecycle
 
 - [ ] T4: Replace the `AllPurposeCluster → THRIFT` early return in `getClientTypeFromContext`
-  with explicit `UseThriftClient` > APC flag routing. Keep `UseBoundedSeaApi` out of APC protocol
-  selection (R1, R7; AC1, AC7, AC8, AC19, AC20).
+  with Arrow prerequisite > explicit `UseThriftClient` > APC flag routing. Keep `UseBoundedSeaApi`
+  out of APC protocol selection (R1, R7; AC1, AC7, AC8, AC19, AC20).
 - [ ] T5: Persist `negotiated_protocol_version` from CreateSession into `SessionInfo` (R6).
 - [ ] T6: Add tests that APC CreateSession failures propagate and never construct or switch to a
   Thrift client (R7; AC9).
@@ -430,34 +436,35 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 - [ ] T7: Add tests that APC polling, fetch, cancel, and close use standard `/statements` URLs
   with `backend_compute` and never hit `/status` (R2, R3; AC3).
 - [ ] T8: APC execute request shape: `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, `session_id`,
-  no `statements`, `wait_timeout` unset/`0s` (R4, R10; AC4, AC12).
+  no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
+  result download is disabled (R4, R10; AC4, AC8, AC12).
 - [ ] T9: Gate parameters (≥ 42248) and `parameter_sets` batch inserts (≥ 42250, else
   per-set execution) on negotiated protocol version for APC sessions (R6; AC6, AC17).
-- [ ] T14: Add `ArrowBatchSchemaBuilder` and prepend the built schema to bare record batches for
+- [ ] T10: Add `ArrowBatchSchemaBuilder` and prepend the built schema to bare record batches for
   inline and external-link results (R11; AC13, Q7).
-- [ ] T15: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
+- [ ] T11: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
   `UseBoundedSeaApi`; handle `GetStatementResult` with and without inline data and never read
   chunk/row totals (R12; AC14, AC15).
-- [ ] T16: Wire APC query timeout through `TimeoutHandler` → CancelStatement with
+- [ ] T12: Wire APC query timeout through `TimeoutHandler` → CancelStatement with
   `backend_compute` (R14; AC18).
 
 ### Phase 4 — Metadata and telemetry
 
-- [ ] T10: APC metadata in `DatabricksMetadataQueryClient`: `format=ARROW_STREAM`, sync header,
+- [ ] T13: APC metadata in `DatabricksMetadataQueryClient`: `format=ARROW_STREAM`, sync header,
   multiplex per response between Arrow IPC `attachment` and `columnar_data`, and pick native
   decoders when `is_native_metadata_result=true` (R5; AC5).
-- [ ] T17: Add `ColumnarData`/`ColumnVector` models and the `ColumnarDataResult` reader with
+- [ ] T14: Add `ColumnarData`/`ColumnVector` models and the `ColumnarDataResult` reader with
   null-mask handling (R13; AC16).
-- [ ] T11: Add compute type, protocol, routing reason, and connection failure to telemetry and
+- [ ] T15: Add compute type, protocol, routing reason, and connection failure to telemetry and
   debug logs (R8; AC10).
-- [ ] T12: Document APC routing (APC flag, `UseThriftClient` override) in `docs/` and add a
+- [ ] T16: Document APC routing (APC flag, `UseThriftClient` override) in `docs/` and add a
   `NEXT_CHANGELOG.md` entry.
-- [ ] T18: (universe) Create the APC sub-flag under
+- [ ] T17: (universe) Create the APC sub-flag under
   `databricks.partnerplatform.clientConfigsFeatureFlags` in SAFE, default off, and add the
   connector-service partner override if Q9 requires it (R1; AC1).
 
 ### Validation
 
-- [ ] T13: Run `mvn test` for jdbc-core and an end-to-end run against a dogfood APC with the
+- [ ] T18: Run `mvn test` for jdbc-core and an end-to-end run against a dogfood APC with the
   APC flag on and off and with `UseThriftClient` set to 0 and 1.
 - [ ] T-val: Run acceptance criteria verification
