@@ -185,6 +185,9 @@ an absent protocol version. The parser dispatches to the APC grammar whenever th
 segments are exactly `s|a`; it requires exactly six non-empty segments except that the protocol
 segment may be `-`, and otherwise raises an error carrying
 `DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION` without attempting warehouse parsing.
+The exception message, log text, and telemetry report only structural details such as the segment
+count or invalid segment name; they never include the raw serialized input or its org, cluster,
+session, or protocol values.
 Other `s|...` forms continue through the existing backward-compatible warehouse grammar
 `s|warehouseId|sessionId[|r]`. APC statement ids do not have a separate compound serialization:
 `StatementId.forCurrentSession` associates a raw server statement id with the APC compute target
@@ -403,7 +406,8 @@ the request includes `backend_compute`. Public `IDatabricksResultSet.getStatemen
 the org id or cluster id. GIVEN an input beginning `s|a` with a wrong segment count, an empty
 required segment, or an invalid protocol version WHEN it is parsed THEN parsing fails with
 `DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION` and never falls back to the warehouse
-grammar.
+grammar. The exception message, logs, and telemetry identify only the structural error and contain
+neither the raw input nor any org id, cluster id, or session id from it.
 - AC26: GIVEN an ExecuteStatement request with `SqlExecResultFormat.ARROW_BATCH` WHEN serialized
 THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BATCH` WHEN
 deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
