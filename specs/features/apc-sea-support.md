@@ -107,9 +107,10 @@ the warehouse flag `enableSqlExecForJdbc`, with this precedence: Arrow unavailab
 including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` value wins (`0` → SEA,
 `1` → Thrift); when `UseThriftClient` is unset, explicit
 `TreatMetadataCatalogNameAsPattern=1` → Thrift; otherwise the APC flag decides (ON → SEA, OFF,
-absent, or lookup failure → Thrift). This matches warehouse precedence, including an explicit
-`UseThriftClient=0` overriding the metadata parameter. `enableSqlExecForJdbc` has no effect on APC
-routing.
+absent, or lookup failure → Thrift). The explicit setting's precedence over the metadata parameter
+matches warehouse behavior, but Arrow-first is APC-specific: warehouse routing remains unchanged
+and still lets explicit `UseThriftClient=0` select SEA before its Arrow check.
+`enableSqlExecForJdbc` has no effect on APC routing.
 - R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
 GetResultData/chunk links, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
@@ -117,14 +118,17 @@ GetResultData/chunk links, CancelStatement, CloseStatement, and TerminateSession
 CreateSession, ExecuteStatement, CancelStatement, and TerminateSession encode `backend_compute`
 in the JSON body. GetStatementResult, GetResultData, and CloseStatement have no HTTP body in their
 REST bindings and encode the cluster id as the URL-encoded dotted query field
-`backend_compute.all_purpose_cluster_compute.cluster_id`.
+`backend_compute.all_purpose_cluster_compute.cluster_id`. Query fields are merged with existing
+parameters such as `row_offset` through a query builder; they are not appended as a second `?`
+fragment.
 - R3: For APC over SEA, execution polling and `checkStatementAlive` heartbeats use
 `GetStatementResult`; the driver never calls `GetStatementStatus` or its `/status` endpoint.
 - R4: APC non-metadata execution sends `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
 and a `session_id`, never sends `statements`, and handles LZ4-compressed Arrow batches for both
 inline results and external links. `EnableQueryResultDownload=0` keeps the connection on SEA but
 sets the CreateSession `can_cloud_download=false` session config, requiring inline results even
-though the request disposition remains `INLINE_OR_EXTERNAL_LINKS`.
+though the request disposition remains `INLINE_OR_EXTERNAL_LINKS`. APC compute type—not
+`isBoundedSeaApiEnabled`—selects this format/disposition and enables the session-config behavior.
 - R5: APC metadata operations go through `DatabricksMetadataQueryClient` as SHOW commands with
 `X-Databricks-Metadata-Operation-Type` and `X-Databricks-Sea-Can-Run-Fully-Sync`, request
 `format=ARROW_STREAM`, and multiplex per response between Arrow IPC in `chunk.attachment` (the
@@ -168,7 +172,8 @@ A1: Reuse `UseThriftClient`: with Arrow available, `0` forces SEA and `1` forces
 unavailability is a hard prerequisite and selects Thrift even when `UseThriftClient=0`; otherwise
 an explicit value takes precedence over `TreatMetadataCatalogNameAsPattern=1` and the APC
 client-config flag. When `UseThriftClient` is unset, `TreatMetadataCatalogNameAsPattern=1` forces
-Thrift before consulting the APC flag, matching warehouse behavior.
+Thrift before consulting the APC flag, matching warehouse behavior. The Arrow prerequisite remains
+APC-only; warehouse routing is not reordered.
 - Q2: Should an explicit client setting (`UseThriftClient=0`) still auto-fall back to Thrift on
 unsupported-routing errors, or
 fail loudly so users notice (prototype uses `no_fallback=true`)?
@@ -225,7 +230,8 @@ request includes the APC `backend_compute` using the body/query encoding in R2, 
 `GetStatementResult`, and the driver issues no `GetStatementStatus` or `/status` call.
 - AC4: GIVEN an APC-SEA query whose LZ4-compressed Arrow result is returned inline or through
 multi-chunk external links WHEN the ResultSet is iterated THEN all rows and types match the same
-query executed over Thrift.
+query executed over Thrift, with each payload decompressed before the generated Arrow schema
+message is prepended to the record batches.
 - AC5: GIVEN an APC-SEA session WHEN `DatabaseMetaData.getTables/getColumns/getSchemas/getCatalogs`
 is called THEN the request is a SHOW command with `format=ARROW_STREAM` and
 `X-Databricks-Metadata-Operation-Type` set; WHEN any response contains Arrow IPC in
@@ -260,7 +266,8 @@ containing primitive, decimal, array, map, and struct columns WHEN the ResultSet
 values and `ResultSetMetaData` match the same query over Thrift.
 - AC14: GIVEN an APC result with empty `total_chunk_count`/`total_row_count` spread across
 several chunks WHEN the ResultSet is iterated THEN the driver fetches with increasing
-`row_offset` until `next_chunk_index` is empty and returns every row exactly once.
+`row_offset` until `next_chunk_index` is empty and returns every row exactly once; each fetch URL
+contains both `row_offset` and the dotted APC compute query field exactly once.
 - AC15: GIVEN a completed APC statement WHEN `GetStatementResult` returns a manifest without
 result data, and separately WHEN it returns a manifest with result data THEN both produce the
 full correct ResultSet.
@@ -340,21 +347,25 @@ propagate without fallback.
    JSON body for CreateSession, ExecuteStatement, CancelStatement, and TerminateSession. For
    GetStatementResult, GetResultData, and CloseStatement, append the URL-encoded dotted query
    field `backend_compute.all_purpose_cluster_compute.cluster_id`; do not rely on JSON bodies for
-   GET/DELETE bindings that declare no body. APC never sets `realtimeSession`. Route every
-   `(Warehouse)` cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through the helper.
+   GET/DELETE bindings that declare no body. Use a query builder to merge the compute field with
+   `row_offset` and any other existing parameters rather than concatenating query strings. APC
+   never sets `realtimeSession`. Route every `(Warehouse)` cast in `DatabricksSdkClient`,
+   `SessionId`, and `StatementId` through the helper.
 4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
    no `statements`; preserve existing timeout behavior (`wait_timeout` unset for synchronous
    direct results and `0s` for async or direct results disabled). Execution polling and
    `checkStatementAlive` both use `GET /statements/{id}` with `GetStatementResult`; APC never calls
    `/status`. Accept responses with or without inline result data. Preserve
    `EnableQueryResultDownload=0` by setting CreateSession session config
-   `can_cloud_download=false`.
+   `can_cloud_download=false`. Select the APC format/disposition and set this session config via
+   an explicit APC compute-type check, not `isBoundedSeaApiEnabled`.
 5. APC result decoding: add an `ArrowBatchSchemaBuilder` that converts `manifest.schema`
-   (`type_text`/`type_json`) into an Arrow `Schema`, and prepend it to the bare record batches so
-   the existing Arrow reader (`SeaInlineArrowChunkProvider` for inline, CloudFetch for external
-   links) can consume them. For APC, enter the streaming provider through an explicit compute-type
-   check, never through `isBoundedSeaApiEnabled`; page by `next_chunk_index`/`row_offset` and never
-   read `total_chunk_count`/`total_row_count`.
+   (`type_text`/`type_json`) into an Arrow `Schema`. Decompress each LZ4 payload first, then prepend
+   the generated Arrow schema message to the bare record batches so the existing Arrow reader
+   (`SeaInlineArrowChunkProvider` for inline, CloudFetch for external links) can consume them. For
+   APC, enter the streaming provider through an explicit compute-type check, never through
+   `isBoundedSeaApiEnabled`; page by `next_chunk_index`/`row_offset` and never read
+   `total_chunk_count`/`total_row_count`.
 6. APC metadata: send `format=ARROW_STREAM` plus the sync header; add a `ColumnarDataResult`
    reader for `chunk.columnar_data` (null masks, string/integer/etc. vectors). For every metadata
    response, multiplex between `chunk.attachment` (Arrow IPC, primary path) and
@@ -466,7 +477,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
   Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
-  encodings in R2 (R2, R9; AC2, AC3, AC11).
+  encodings in R2, including merging the compute field with `row_offset` (R2, R9; AC2, AC3, AC11,
+  AC14).
 
 ### Phase 2 — Routing and session lifecycle
 
@@ -485,12 +497,13 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   `backend_compute` and never hit `/status` (R2, R3; AC3).
 - [ ] T8: APC execute request shape: `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, `session_id`,
   no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
-  result download is disabled (R4, R10; AC4, AC8, AC12).
+  result download is disabled. Use an APC compute-type check for format/disposition and session
+  config; do not gate them on `isBoundedSeaApiEnabled` (R4, R10; AC4, AC8, AC12).
 - [ ] T9: Gate parameters (≥ 42248) and `parameter_sets` batch inserts (≥ 42250, else
   per-set execution) on negotiated protocol version for APC sessions; add interpolation
   escaping/injection coverage and parameter-downgrade logging/telemetry (R6; AC6, AC17).
 - [ ] T10: Add `ArrowBatchSchemaBuilder` and prepend the built schema to bare record batches for
-  inline and external-link results (R11; AC13, Q7).
+  inline and external-link results after LZ4 decompression (R4, R11; AC4, AC13, Q7).
 - [ ] T11: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
   `UseBoundedSeaApi`; handle `GetStatementResult` with and without inline data and never read
   chunk/row totals (R12; AC14, AC15).
