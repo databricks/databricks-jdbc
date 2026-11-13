@@ -10,8 +10,12 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.Year;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -134,6 +138,33 @@ class ConverterHelperTest {
         ConverterHelper.convertSqlTypeToSpecificJavaType(
                 LocalDate.class, Types.DATE, current.toString())
             .toString());
+  }
+
+  @Test
+  void testConvertToJavaTimeTypes() throws DatabricksSQLException {
+    // These used to fall through to toString() and return a String.
+    Timestamp timestamp = Timestamp.valueOf("2023-06-15 12:30:00.123456");
+    assertEquals(
+        timestamp.toInstant(),
+        ConverterHelper.convertSqlTypeToSpecificJavaType(
+            Instant.class, Types.TIMESTAMP, timestamp));
+    assertEquals(
+        timestamp.toLocalDateTime(),
+        ConverterHelper.convertSqlTypeToSpecificJavaType(
+            LocalDateTime.class, Types.TIMESTAMP, timestamp));
+    assertEquals(
+        timestamp.toInstant().atOffset(ZoneOffset.UTC),
+        ConverterHelper.convertSqlTypeToSpecificJavaType(
+            OffsetDateTime.class, Types.TIMESTAMP, timestamp));
+    assertEquals(
+        LocalDate.of(1582, 10, 5),
+        ConverterHelper.convertSqlTypeToSpecificJavaType(
+            LocalDate.class, Types.DATE, "1582-10-05"));
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            ConverterHelper.convertSqlTypeToSpecificJavaType(
+                Instant.class, Types.DATE, "2024-01-01"));
   }
 
   @Test

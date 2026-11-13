@@ -19,7 +19,9 @@ import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -39,6 +41,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -387,6 +391,68 @@ public class ConfiguratorUtilsTest {
       } else {
         System.clearProperty("javax.net.ssl.trustStoreType");
       }
+    }
+  }
+
+  @Test
+  void trustSettingsKeyChangesWithEveryTrustInput() {
+    List<Object> baseKey =
+        ConfiguratorUtils.trustSettingsKey(mock(IDatabricksConnectionContext.class));
+    List<Consumer<IDatabricksConnectionContext>> changes =
+        List.of(
+            c -> when(c.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH),
+            c -> when(c.getSSLTrustStore()).thenReturn("null"),
+            c -> when(c.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE),
+            c -> when(c.getSSLTrustStoreProvider()).thenReturn("SUN"),
+            c -> when(c.useSystemTrustStore()).thenReturn(true),
+            c -> when(c.getSSLKeyStore()).thenReturn(DUMMY_KEY_STORE_PATH),
+            c -> when(c.getSSLKeyStoreType()).thenReturn(KEY_STORE_TYPE),
+            c -> when(c.getSSLKeyStoreProvider()).thenReturn("SUN"),
+            c -> when(c.allowSelfSignedCerts()).thenReturn(true),
+            c -> when(c.checkCertificateRevocation()).thenReturn(true),
+            c -> when(c.acceptUndeterminedCertificateRevocation()).thenReturn(true));
+
+    for (Consumer<IDatabricksConnectionContext> change : changes) {
+      IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+      change.accept(context);
+      assertNotEquals(baseKey, ConfiguratorUtils.trustSettingsKey(context));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void trustSettingsKeyTracksSystemTrustStoreProperties(boolean useSystemTrustStore) {
+    String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
+    String originalType = System.getProperty("javax.net.ssl.trustStoreType");
+    String originalProvider = System.getProperty("javax.net.ssl.trustStoreProvider");
+    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    when(context.useSystemTrustStore()).thenReturn(useSystemTrustStore);
+    try {
+      System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
+      System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+      System.clearProperty("javax.net.ssl.trustStoreProvider");
+      List<Object> key = ConfiguratorUtils.trustSettingsKey(context);
+
+      System.setProperty("javax.net.ssl.trustStore", EMPTY_TRUST_STORE_PATH);
+      assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
+      System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
+      System.setProperty("javax.net.ssl.trustStoreType", "JKS");
+      assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
+      System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+      System.setProperty("javax.net.ssl.trustStoreProvider", "SUN");
+      assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
+    } finally {
+      restoreProperty("javax.net.ssl.trustStore", originalTrustStore);
+      restoreProperty("javax.net.ssl.trustStoreType", originalType);
+      restoreProperty("javax.net.ssl.trustStoreProvider", originalProvider);
+    }
+  }
+
+  private static void restoreProperty(String name, String value) {
+    if (value != null) {
+      System.setProperty(name, value);
+    } else {
+      System.clearProperty(name);
     }
   }
 

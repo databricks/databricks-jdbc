@@ -24,6 +24,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -50,19 +51,63 @@ public class DatabricksDriverFeatureFlagsContext {
             t.setDaemon(true);
             return t;
           });
-  private ScheduledFuture<?> scheduledRefreshTask;
+  private volatile ScheduledFuture<?> scheduledRefreshTask;
   private volatile int refreshIntervalSeconds = DEFAULT_TTL_SECONDS;
+  private final Object initLock = new Object();
+  private volatile boolean initialized;
+  private volatile Thread initializingThread;
 
   public DatabricksDriverFeatureFlagsContext(IDatabricksConnectionContext connectionContext) {
+    this(connectionContext, /* fetchNow= */ true);
+  }
+
+  private DatabricksDriverFeatureFlagsContext(
+      IDatabricksConnectionContext connectionContext, boolean fetchNow) {
     this.connectionContext = connectionContext;
     this.featureFlags = CacheBuilder.newBuilder().build();
     this.featureFlagEndpoint =
         String.format(
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
-    // Make an initial blocking call to fetch featureFlags
-    refreshAllFeatureFlags();
-    // Async fetch eventually
-    scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+    if (fetchNow) {
+      ensureInitialized(connectionContext);
+    }
+  }
+
+  /** Creates a context whose initial fetch is deferred until the first caller initializes it. */
+  static DatabricksDriverFeatureFlagsContext createUninitialized(
+      IDatabricksConnectionContext connectionContext) {
+    return new DatabricksDriverFeatureFlagsContext(connectionContext, /* fetchNow= */ false);
+  }
+
+  /**
+   * Performs the initial blocking fetch and schedules periodic refresh, once. Concurrent callers
+   * wait for the first fetch attempt, including any required authentication.
+   *
+   * <p>Re-entrant telemetry lookups during configurator creation or flag fetching see defaults
+   * without completing initialization.
+   */
+  void ensureInitialized(IDatabricksConnectionContext callerContext) {
+    if (initialized || initializingThread == Thread.currentThread()) {
+      return;
+    }
+    if (DatabricksClientConfiguratorManager.getInstance()
+        .isCreatingConfiguratorOnCurrentThread(callerContext)) {
+      return;
+    }
+    synchronized (initLock) {
+      if (initialized) {
+        return;
+      }
+      initializingThread = Thread.currentThread();
+      try {
+        // The stored context may belong to another thread holding its configurator lock.
+        refreshAllFeatureFlags(callerContext);
+        scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+        initialized = true;
+      } finally {
+        initializingThread = null;
+      }
+    }
   }
 
   // Constructor for testing
@@ -75,6 +120,7 @@ public class DatabricksDriverFeatureFlagsContext {
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
     initialFlags.forEach(this.featureFlags::put);
     scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+    this.initialized = true;
   }
 
   private void scheduleOrRescheduleRefresh(int ttlSeconds) {
@@ -86,42 +132,51 @@ public class DatabricksDriverFeatureFlagsContext {
       scheduledRefreshTask.cancel(false);
     }
     // Schedule refresh at a fixed rate.
-    scheduledRefreshTask =
-        scheduler.scheduleAtFixedRate(
-            this::refreshAllFeatureFlags,
-            this.refreshIntervalSeconds,
-            this.refreshIntervalSeconds,
-            TimeUnit.SECONDS);
+    try {
+      scheduledRefreshTask =
+          scheduler.scheduleAtFixedRate(
+              this::refreshAllFeatureFlags,
+              this.refreshIntervalSeconds,
+              this.refreshIntervalSeconds,
+              TimeUnit.SECONDS);
+    } catch (RejectedExecutionException e) {
+      if (!scheduler.isShutdown()) {
+        throw e;
+      }
+    }
   }
 
   private void refreshAllFeatureFlags() {
+    refreshAllFeatureFlags(connectionContext);
+  }
+
+  private void refreshAllFeatureFlags(IDatabricksConnectionContext context) {
     try {
       IDatabricksHttpClient httpClient =
-          DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+          DatabricksHttpClientFactory.getInstance().getClient(context);
       HttpGet request = new HttpGet(featureFlagEndpoint);
 
       // Set custom User-Agent for connector service (includes custom user agent without client
       // type)
-      String userAgent = UserAgentManager.buildUserAgentForConnectorService(connectionContext);
+      String userAgent = UserAgentManager.buildUserAgentForConnectorService(context);
       request.setHeader("User-Agent", userAgent);
 
       DatabricksClientConfiguratorManager.getInstance()
-          .getConfigurator(connectionContext)
+          .getConfigurator(context)
           .getDatabricksConfig()
           .authenticate()
           .forEach(request::addHeader);
-      connectionContext.getCustomHeaders().forEach(request::addHeader);
-      fetchAndSetFlagsFromServer(httpClient, request);
+      context.getCustomHeaders().forEach(request::addHeader);
+      fetchAndSetFlagsFromServer(httpClient, request, context);
     } catch (Exception e) {
       LOGGER.trace(
-          "Error fetching feature flags for context: {}. Error: {}",
-          connectionContext,
-          e.getMessage());
+          "Error fetching feature flags for context: {}. Error: {}", context, e.getMessage());
     }
   }
 
   @VisibleForTesting
-  void fetchAndSetFlagsFromServer(IDatabricksHttpClient httpClient, HttpGet request)
+  void fetchAndSetFlagsFromServer(
+      IDatabricksHttpClient httpClient, HttpGet request, IDatabricksConnectionContext context)
       throws DatabricksHttpException, IOException {
     try (CloseableHttpResponse response = httpClient.execute(request)) {
       if (response.getStatusLine().getStatusCode() == 200) {
@@ -146,7 +201,7 @@ public class DatabricksDriverFeatureFlagsContext {
       } else {
         LOGGER.trace(
             "Failed to fetch feature flags. Context: {}, Status code: {}",
-            connectionContext,
+            context,
             response.getStatusLine().getStatusCode());
       }
     }

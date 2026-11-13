@@ -143,6 +143,14 @@ public enum DatabricksJdbcUrlParams {
           + "\"TIMESTAMP_NTZ\" for TIMESTAMP_NTZ columns. Set to 0 to report "
           + "\"TIMESTAMP\" instead, matching the legacy (v2.x.x) driver behavior.",
       "1"),
+  ENABLE_STRICT_GET_OBJECT_CONVERSION(
+      "EnableStrictGetObjectConversion",
+      "When enabled, ResultSet.getObject(column, Class) on query results throws a SQLException "
+          + "if the type is null or the value cannot be returned as an instance of the type, as "
+          + "the JDBC specification requires. When disabled (default), a value that cannot be "
+          + "converted is returned as a String. DatabaseMetaData result sets always use the "
+          + "default.",
+      "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
@@ -166,7 +174,12 @@ public enum DatabricksJdbcUrlParams {
   TELEMETRY_FLUSH_INTERVAL(
       "TelemetryFlushInterval", "Flush interval in milliseconds", "300000"), // 5 MINUTES
   TELEMETRY_SOCKET_TIMEOUT(
-      "TelemetrySocketTimeout", "Socket timeout in seconds for telemetry HTTP client", "5"),
+      "TelemetrySocketTimeout",
+      "Socket timeout in seconds for telemetry HTTP client. Also caps how long Connection.close()"
+          + " waits for each final telemetry flush (authenticated and unauthenticated telemetry"
+          + " flush separately), including time queued behind other telemetry pushes and"
+          + " retries; 0 means no limit",
+      "5"),
   MAX_CONCURRENT_PRESIGNED_REQUESTS(
       "MaxVolumeOperationConcurrentPresignedRequests",
       "Maximum number of concurrent presigned requests",
