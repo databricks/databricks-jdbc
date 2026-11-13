@@ -44,9 +44,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   `GetStatementStatus` is unsupported. Arrow-disabled customers stay on Thrift (no HIVE for
   non-metadata queries).
   - Metadata: SHOW commands via ExecuteStatement with `X-Databricks-Metadata-Operation-Type`;
-  synchronous calls send `X-Databricks-Sea-Can-Run-Fully-Sync: true`, while asynchronous calls
-  omit that header; `format=ARROW_STREAM` (server rejects `COLUMN_BASED_SET`). Reyder always runs
-  native Thrift metadata RPCs, sets
+  synchronous calls send `X-Databricks-Sea-Can-Run-Fully-Sync: true` when
+  `EnableSeaSyncMetadata=1` (the default), while disabled or asynchronous calls omit that header;
+  `format=ARROW_STREAM` (server rejects `COLUMN_BASED_SET`). Reyder always runs native Thrift
+  metadata RPCs, sets
   `is_native_metadata_result=true`, ignores `X-Databricks-Require-Thrift-Native-Metadata`, and
   returns metadata inline in one of two response representations: Arrow IPC in
   `chunk.attachment` (the primary/majority case), or HIVE-shaped `chunk.columnar_data`
@@ -116,9 +117,9 @@ and still lets explicit `UseThriftClient=0` select SEA before its Arrow check.
 GetResultData, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
 `deleteSession` method and `DeleteSessionRequest` model implement the TerminateSession server RPC.
-CreateSession, ExecuteStatement, CancelStatement, and TerminateSession encode `backend_compute`
-in the JSON body. GetStatementResult, GetResultData, and CloseStatement have no HTTP body in their
-REST bindings and encode the cluster id as the URL-encoded dotted query field
+CreateSession, ExecuteStatement, and CancelStatement encode `backend_compute` in the JSON body.
+GetStatementResult, GetResultData, CloseStatement, and the driver's bodiless TerminateSession
+DELETE encode the cluster id as the URL-encoded dotted query field
 `backend_compute.all_purpose_cluster_compute.cluster_id`. Query fields are merged with existing
 parameters such as `row_offset` through a query builder; they are not appended as a second `?`
 fragment. Only the SEA `GET /statements/{id}/result/chunks/{n}` GetResultData request gets these
@@ -134,16 +135,22 @@ though the request disposition remains `INLINE_OR_EXTERNAL_LINKS`. APC compute t
 `isBoundedSeaApiEnabled`—selects this format/disposition and enables the session-config behavior.
 - R5: APC metadata operations go through `DatabricksMetadataQueryClient` as SHOW commands with
 `X-Databricks-Metadata-Operation-Type`; synchronous calls send
-`X-Databricks-Sea-Can-Run-Fully-Sync: true`, and asynchronous calls omit the sync header. They
-request `format=ARROW_STREAM` and multiplex per response between Arrow IPC in `chunk.attachment`
-(the primary path) and HIVE-shaped `chunk.columnar_data` (the alternate path). Decoder selection
-uses the returned response representation, not the requested format or a cached connection-level
-choice. Both representations use native-Thrift-shaped metadata decoding when
+`X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`; synchronous calls
+with that setting disabled and all asynchronous calls omit the sync header. APC preserves the
+existing `X-Databricks-Require-Thrift-Native-Metadata: true` behavior when
+`isThriftNativeMetadataEnabled()` is true and the operation supports it, although Reyder ignores
+that header because APC metadata is always native. Requests use `format=ARROW_STREAM` and
+multiplex per response between Arrow IPC in `chunk.attachment` (the primary path) and HIVE-shaped
+`chunk.columnar_data` (the alternate path). Decoder selection uses the returned response
+representation, not the requested format or a cached connection-level choice. Both
+representations use native-Thrift-shaped metadata decoding when
 `is_native_metadata_result=true`.
 - R6: The driver records `negotiated_protocol_version` from CreateSession and gates parameterized
 queries (≥ V8) and batch execution (≥ V10) on it for APC sessions. When an APC session below V8
 downgrades to client-side parameter interpolation, the driver records that downgrade in logs and
-telemetry.
+telemetry. A missing protocol version is treated conservatively as below V8: native parameters
+and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
+present but old version.
 - R7: APC uses Thrift only when the pre-connection routing decision selects Thrift (an explicit
 `UseThriftClient=1`, `TreatMetadataCatalogNameAsPattern=1` with no explicit `UseThriftClient`, the
 APC client-config flag is off or unavailable, or Arrow is unavailable). `UseBoundedSeaApi` does
@@ -241,10 +248,12 @@ multi-chunk external links WHEN the ResultSet is iterated THEN all rows and type
 query executed over Thrift, with each payload decompressed before the generated Arrow schema
 message is prepended to the record batches.
 - AC5: GIVEN an APC-SEA session WHEN `DatabaseMetaData.getTables/getColumns/getSchemas/getCatalogs`
-is called synchronously THEN the request is a SHOW command with `format=ARROW_STREAM`,
-`X-Databricks-Metadata-Operation-Type` set, and
-`X-Databricks-Sea-Can-Run-Fully-Sync: true`; GIVEN an asynchronous metadata call THEN the sync
-header is absent. WHEN any response contains Arrow IPC in
+is called synchronously with `EnableSeaSyncMetadata=1` THEN the request is a SHOW command with
+`format=ARROW_STREAM`, `X-Databricks-Metadata-Operation-Type` set, and
+`X-Databricks-Sea-Can-Run-Fully-Sync: true`; GIVEN `EnableSeaSyncMetadata=0` or an asynchronous
+metadata call THEN the sync header is absent. GIVEN `isThriftNativeMetadataEnabled()` and a
+supported operation THEN `X-Databricks-Require-Thrift-Native-Metadata: true` remains present.
+WHEN any response contains Arrow IPC in
 `chunk.attachment` or HIVE-shaped data in `chunk.columnar_data` with
 `is_native_metadata_result=true` THEN the driver selects the matching decoder for that response
 and the ResultSet matches the Thrift metadata result. Both representations must work on the same
@@ -307,6 +316,10 @@ Thrift-only metadata parameter has no effect.
 `executeBatch` runs THEN the driver sends three sequential ExecuteStatement requests without a
 `statements` field and returns update counts in input order; GIVEN the second command fails THEN it
 does not execute the third and throws `BatchUpdateException` with the first command's count.
+- AC23: GIVEN an APC CreateSession response with no `negotiated_protocol_version` WHEN a
+parameterized query or prepared batch is executed THEN the driver treats the capability as below
+V8, uses the tested client-interpolation path, never sends `parameters` or `parameter_sets`, and
+emits telemetry identifying the protocol version as missing.
 
 ## Constraints
 
@@ -359,14 +372,15 @@ propagate without fallback.
    `backend_compute`) and the URL family. Warehouses keep today's behavior
    (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC uses
    the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
-   JSON body for CreateSession, ExecuteStatement, CancelStatement, and TerminateSession. For
-   GetStatementResult, GetResultData, and CloseStatement, append the URL-encoded dotted query
-   field `backend_compute.all_purpose_cluster_compute.cluster_id`; do not rely on JSON bodies for
-   GET/DELETE bindings that declare no body. Use a query builder to merge the compute field with
-   `row_offset` and any other existing parameters rather than concatenating query strings. APC
-   never sets `realtimeSession`. Route every `(Warehouse)` cast in `DatabricksSdkClient`,
-   `SessionId`, and `StatementId` through the helper. Do not pass `SeaComputeTarget` through to
-   CloudFetch: use presigned external-link URLs and headers exactly as returned.
+   JSON body for CreateSession, ExecuteStatement, and CancelStatement. For GetStatementResult,
+   GetResultData, CloseStatement, and the bodiless TerminateSession DELETE, append the URL-encoded
+   dotted query field `backend_compute.all_purpose_cluster_compute.cluster_id`; do not rely on
+   JSON bodies for GET/DELETE bindings that declare no body. Use a query builder to merge the
+   compute field with `row_offset` and any other existing parameters rather than concatenating
+   query strings. APC never sets `realtimeSession`. Route every `(Warehouse)` cast in
+   `DatabricksSdkClient`, `SessionId`, and `StatementId` through the helper. Do not pass
+   `SeaComputeTarget` through to CloudFetch: use presigned external-link URLs and headers exactly
+   as returned.
 4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
    no `statements`; preserve existing timeout behavior (`wait_timeout` unset for synchronous
    direct results and `0s` for async or direct results disabled). Execution polling and
@@ -383,10 +397,12 @@ propagate without fallback.
    `isBoundedSeaApiEnabled`; page by `next_chunk_index`/`row_offset` and never read
    `total_chunk_count`/`total_row_count`.
 6. APC metadata: send `format=ARROW_STREAM`; synchronous metadata sends
-   `X-Databricks-Sea-Can-Run-Fully-Sync: true`, while asynchronous metadata omits that header. Add
-   a `ColumnarDataResult` reader for `chunk.columnar_data` (null masks, string/integer/etc.
-   vectors). For every metadata response, multiplex between `chunk.attachment` (Arrow IPC, primary
-   path) and
+   `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`, while disabled
+   and asynchronous calls omit it. Preserve the existing
+   `X-Databricks-Require-Thrift-Native-Metadata: true` condition even though Reyder ignores it.
+   Add a `ColumnarDataResult` reader for `chunk.columnar_data` (null masks,
+   string/integer/etc. vectors). For every metadata response, multiplex between
+   `chunk.attachment` (Arrow IPC, primary path) and
    `chunk.columnar_data` (alternate path) using the returned payload representation; do not cache
    a decoder choice at connection scope or infer it solely from the requested format or DBR
    version. When `is_native_metadata_result=true`, use the Thrift-native metadata column decoders
@@ -394,8 +410,9 @@ propagate without fallback.
 7. Query timeout for APC reuses `TimeoutHandler` → CancelStatement with `backend_compute`.
 8. Persist `negotiated_protocol_version` in `ImmutableSessionInfo`; expose capability checks:
    parameters at ≥ 42248, `parameter_sets` batch inserts at ≥ 42250, else one execution per
-   parameter set. Keep non-parameterized `Statement` batches on `DatabricksBatchExecutor`, which
-   sends one ExecuteStatement per SQL and never populates `statements`.
+   parameter set. Treat a missing version as below V8 and record a distinct missing-version
+   downgrade signal. Keep non-parameterized `Statement` batches on `DatabricksBatchExecutor`,
+   which sends one ExecuteStatement per SQL and never populates `statements`.
 9. Preserve warehouse SEA error behavior in `DatabricksSession#open`: APC CreateSession failures
    propagate without constructing a Thrift client or changing the selected protocol.
 10. Emit compute type, protocol, routing reason, and connection failure in telemetry and debug
@@ -469,7 +486,9 @@ needed, asking Reyder to populate `arrow_schema`.
 decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_metadata_result`.
 - APC sessions below protocol V8 use client-side parameter interpolation. Reuse the existing
   escaping implementation, cover SQL-injection edge cases in AC6, and emit the downgrade signal
-  required by R6 so operators can identify affected sessions.
+  required by R6 so operators can identify affected sessions. Treat a missing version
+  conservatively as below V8 and distinguish it in telemetry so rollout or deserialization gaps
+  are visible.
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
 mitigated by centralizing in `SeaComputeTarget`, explicit per-binding body/query encoding in R2,
 and AC3 serialized-request coverage of every call.
@@ -500,8 +519,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
   Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
-  encodings in R2, including merging the compute field with `row_offset` (R2, R9; AC2, AC3, AC11,
-  AC14). Assert that external-link URLs and headers remain unchanged.
+  encodings in R2, including TerminateSession and merging the compute field with `row_offset` (R2,
+  R9; AC2, AC3, AC11, AC14). Assert that external-link URLs and headers remain unchanged.
 
 ### Phase 2 — Routing and session lifecycle
 
@@ -524,8 +543,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   config; do not gate them on `isBoundedSeaApiEnabled` (R4, R10; AC4, AC8, AC12).
 - [ ] T9: Gate parameters (≥ 42248) and `parameter_sets` batch inserts (≥ 42250, else
   per-set execution) on negotiated protocol version for APC sessions; add interpolation
-  escaping/injection coverage and parameter-downgrade logging/telemetry. Keep non-parameterized
-  batches sequential with one ExecuteStatement per SQL (R6, R15; AC6, AC17, AC22).
+  escaping/injection coverage and parameter-downgrade logging/telemetry, including the
+  missing-version case. Keep non-parameterized batches sequential with one ExecuteStatement per
+  SQL (R6, R15; AC6, AC17, AC22, AC23).
 - [ ] T10: Add `ArrowBatchSchemaBuilder` and prepend the built schema to bare record batches for
   inline and external-link results after LZ4 decompression (R4, R11; AC4, AC13, Q7).
 - [ ] T11: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
@@ -538,8 +558,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 
 - [ ] T13: APC metadata in `DatabricksMetadataQueryClient`: `format=ARROW_STREAM`, sync header,
   multiplex per response between Arrow IPC `attachment` and `columnar_data`, and pick native
-  decoders when `is_native_metadata_result=true`; assert sync metadata sends the header value
-  `true` and async metadata omits it (R5; AC5).
+  decoders when `is_native_metadata_result=true`; test sync-header enabled, disabled, and async
+  cases plus the preserved require-native header condition (R5; AC5).
 - [ ] T14: Add `ColumnarData`/`ColumnVector` models and the `ColumnarDataResult` reader with
   null-mask handling (R13; AC16).
 - [ ] T15: Add compute type, protocol, routing reason, and connection failure to telemetry and
