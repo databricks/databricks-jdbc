@@ -134,7 +134,10 @@ that heartbeat is unsupported and never schedules `checkStatementAlive` or calls
 and a `session_id`, never sends `statements`, and handles LZ4-compressed Arrow batches for both
 inline results and external links. `EnableQueryResultDownload=0` keeps the connection on SEA but
 sets the CreateSession `can_cloud_download=false` session config, requiring inline results even
-though the request disposition remains `INLINE_OR_EXTERNAL_LINKS`. APC compute type—not
+though the request disposition remains `INLINE_OR_EXTERNAL_LINKS`. The driver follows every inline
+page until the server indicates completion. If the server cannot serve the complete result inline,
+the driver propagates the server error and must not expose a successfully completed, truncated
+ResultSet. APC compute type—not
 `isBoundedSeaApiEnabled`—selects this format/disposition and enables the session-config behavior.
 - R5: APC metadata operations go through `DatabricksMetadataQueryClient` as SHOW commands with
 `X-Databricks-Metadata-Operation-Type`; synchronous calls send
@@ -292,6 +295,9 @@ decision selects Thrift, and the driver logs the routing reason.
 THEN the driver remains on SEA, sets CreateSession session config `can_cloud_download=false`, and
 reads inline Arrow without following external links; setting `UseBoundedSeaApi` to either `0` or
 `1` does not change APC protocol selection or its `next_chunk_index`/`row_offset` paging behavior.
+GIVEN an inline result spans multiple pages THEN the complete result is returned; GIVEN the server
+cannot serve the complete result inline THEN its error is propagated and no partial ResultSet is
+reported as successful.
 - AC9: GIVEN APC-SEA enabled (R1) AND CreateSession returns an "all-purpose clusters are not
 supported" error WHEN a connection is opened THEN the driver propagates a clear connection error,
 does not create a Thrift client, and records the failure in telemetry.
@@ -318,9 +324,11 @@ full correct ResultSet.
 read THEN nulls and values land at the right row positions; GIVEN the next metadata operation on
 the same connection returns Arrow IPC in `attachment` THEN it is decoded through the Arrow path,
 not the previously used `columnar_data` path.
-- AC17: GIVEN an APC-SEA session with `negotiated_protocol_version` ≥ 42250 WHEN `executeBatch`
-runs a parameterized insert THEN the request uses `parameter_sets`; GIVEN < 42250 THEN each
-parameter set is executed separately.
+- AC17: GIVEN an APC-SEA session with `negotiated_protocol_version` ≥ 42250 (V10) WHEN
+`executeBatch` runs a parameterized insert THEN the request uses `parameter_sets`; GIVEN version
+42248–42249 (V8–V9) THEN each set is executed separately using native `parameters`; GIVEN a version
+below 42248 (below V8) or a missing version THEN each set is executed separately using client-side
+parameter interpolation and never sends `parameters` or `parameter_sets`.
 - AC18: GIVEN an APC-SEA statement with `setQueryTimeout(n)` WHEN it runs longer than `n`
 seconds THEN the driver cancels it via CancelStatement with `backend_compute` and raises the
 standard timeout SQLException.
