@@ -65,9 +65,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   - `DatabricksConnectionContext#getClientTypeFromContext` returns `THRIFT` for any
   `AllPurposeCluster` before any other check, so `UseThriftClient=0` is ignored on cluster URLs.
   For warehouses: `UseThriftClient=1/0` is honored; `TreatMetadataCatalogNameAsPattern=1` forces
-  Thrift; Thrift is forced only when CloudFetch is explicitly off (`EnableQueryResultDownload=0`,
-  default `1`) AND bounded SEA inline Arrow is unavailable; AIX/PowerPC without Arrow uses
-  Thrift. With defaults, the deciding gate is the server flag
+  Thrift when `UseThriftClient` is unset; absent either explicit setting, Thrift is also forced
+  when CloudFetch is explicitly off (`EnableQueryResultDownload=0`, default `1`) AND bounded SEA
+  inline Arrow is unavailable; AIX/PowerPC without Arrow uses Thrift. With defaults, the deciding
+  gate is the server flag
   `databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc`, which this spec
   assumes is 100% ON — so default warehouse connections use SEA with bounded inline Arrow.
   - Arrow is always on except on AIX/PowerPC; `EnableArrow=0` is deprecated and ignored elsewhere.
@@ -104,8 +105,11 @@ iteration baseline, not the production implementation described by the requireme
 - R1: APC routing to SEA is controlled by a dedicated APC client-config flag (Q8), separate from
 the warehouse flag `enableSqlExecForJdbc`, with this precedence: Arrow unavailable → Thrift,
 including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` value wins (`0` → SEA,
-`1` → Thrift); when unset, the APC flag decides (ON → SEA, OFF, absent, or lookup failure →
-Thrift). `enableSqlExecForJdbc` has no effect on APC routing.
+`1` → Thrift); when `UseThriftClient` is unset, explicit
+`TreatMetadataCatalogNameAsPattern=1` → Thrift; otherwise the APC flag decides (ON → SEA, OFF,
+absent, or lookup failure → Thrift). This matches warehouse precedence, including an explicit
+`UseThriftClient=0` overriding the metadata parameter. `enableSqlExecForJdbc` has no effect on APC
+routing.
 - R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
 GetResultData/chunk links, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
@@ -133,10 +137,11 @@ queries (≥ V8) and batch execution (≥ V10) on it for APC sessions. When an A
 downgrades to client-side parameter interpolation, the driver records that downgrade in logs and
 telemetry.
 - R7: APC uses Thrift only when the pre-connection routing decision selects Thrift (an explicit
-`UseThriftClient=1`, the APC client-config flag is off or unavailable, or Arrow is unavailable).
-`UseBoundedSeaApi` does not control APC routing. Once SEA is selected, server errors—including
-unsupported regions—propagate to the client exactly as they do for warehouse SEA; the driver
-never switches the connection to Thrift.
+`UseThriftClient=1`, `TreatMetadataCatalogNameAsPattern=1` with no explicit `UseThriftClient`, the
+APC client-config flag is off or unavailable, or Arrow is unavailable). `UseBoundedSeaApi` does
+not control APC routing. Once SEA is selected, server errors—including unsupported
+regions—propagate to the client exactly as they do for warehouse SEA; the driver never switches
+the connection to Thrift.
 - R8: Telemetry and logs identify the compute type (APC vs warehouse) and the chosen protocol for
 each connection, including the routing reason and any connection failure.
 - R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient` is type-safe — no unchecked
@@ -161,7 +166,9 @@ warehouses.
 behavior; `0` → SEA, `1` → Thrift), or a new dedicated property (e.g. `EnableApcSea`)?
 A1: Reuse `UseThriftClient`: with Arrow available, `0` forces SEA and `1` forces Thrift. Arrow
 unavailability is a hard prerequisite and selects Thrift even when `UseThriftClient=0`; otherwise
-an explicit value takes precedence over the APC client-config flag, matching warehouse behavior.
+an explicit value takes precedence over `TreatMetadataCatalogNameAsPattern=1` and the APC
+client-config flag. When `UseThriftClient` is unset, `TreatMetadataCatalogNameAsPattern=1` forces
+Thrift before consulting the APC flag, matching warehouse behavior.
 - Q2: Should an explicit client setting (`UseThriftClient=0`) still auto-fall back to Thrift on
 unsupported-routing errors, or
 fail loudly so users notice (prototype uses `no_fallback=true`)?
@@ -273,12 +280,18 @@ WHEN a connection is opened THEN the driver uses Thrift; GIVEN Arrow available,
 the Arrow prerequisite).
 - AC20: GIVEN a warehouse HTTP path WHEN the APC flag is ON or OFF THEN warehouse routing is
 unchanged and still follows `enableSqlExecForJdbc`.
+- AC21: GIVEN Arrow available and an APC HTTP path with no explicit `UseThriftClient`,
+`TreatMetadataCatalogNameAsPattern=1`, and the APC flag ON WHEN a connection is opened THEN the
+driver selects Thrift and preserves catalog-pattern metadata semantics; GIVEN the same settings
+with explicit `UseThriftClient=0` THEN the explicit override selects SEA and logs that the
+Thrift-only metadata parameter has no effect.
 
 ## Constraints
 
 - APC default protocol is decided by the dedicated APC flag (R1, default off); after the Arrow
-availability prerequisite, an explicit client setting always wins. No change to warehouse
-requests or routing.
+availability prerequisite, an explicit client setting always wins; when it is unset,
+`TreatMetadataCatalogNameAsPattern=1` forces Thrift before the flag is consulted. No change to
+warehouse requests or routing.
 - No new runtime dependencies; reuse the existing SDK client, Arrow, and LZ4 stack.
 - Protocol selection is final before CreateSession; never switch from SEA to Thrift after an error.
 - New error paths use `DatabricksDriverErrorCode` values per the repo telemetry rules.
@@ -306,7 +319,8 @@ propagate without fallback.
    `getClientTypeFromContext` and route APC with this precedence:
    1. Arrow unavailable → Thrift, regardless of client setting or APC flag.
    2. Explicit `UseThriftClient`: `1` → Thrift, `0` → SEA.
-   3. Otherwise the dedicated APC flag (`APC_SQL_EXEC_FLAG_NAME`, Q8): ON → SEA; OFF, absent, or
+   3. Explicit `TreatMetadataCatalogNameAsPattern=1` → Thrift.
+   4. Otherwise the dedicated APC flag (`APC_SQL_EXEC_FLAG_NAME`, Q8): ON → SEA; OFF, absent, or
       lookup failure → Thrift. `SQL_EXEC_FLAG_NAME` and `UseBoundedSeaApi` do not decide APC
       protocol selection.
 
@@ -457,8 +471,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 ### Phase 2 — Routing and session lifecycle
 
 - [ ] T4: Replace the `AllPurposeCluster → THRIFT` early return in `getClientTypeFromContext`
-  with Arrow prerequisite > explicit `UseThriftClient` > APC flag routing. Keep `UseBoundedSeaApi`
-  out of APC protocol selection (R1, R7; AC1, AC7, AC8, AC19, AC20).
+  with Arrow prerequisite > explicit `UseThriftClient` >
+  `TreatMetadataCatalogNameAsPattern=1` > APC flag routing. Keep `UseBoundedSeaApi` out of APC
+  protocol selection (R1, R7; AC1, AC7, AC8, AC19, AC20, AC21).
 - [ ] T5: Persist `negotiated_protocol_version` from CreateSession into `SessionInfo` (R6).
 - [ ] T6: Add tests that APC CreateSession failures propagate and never construct or switch to a
   Thrift client (R7; AC9).
