@@ -162,7 +162,10 @@ parameterized INSERT; V10 capability alone does not enable native batching. When
 below V8 downgrades to client-side parameter interpolation, the driver records that downgrade in
 logs and telemetry. A missing protocol version is treated conservatively as below V8: native
 parameters and `parameter_sets` are disabled, and telemetry distinguishes a missing-version
-downgrade from a present but old version.
+downgrade from a present but old version. Only the value negotiated by the live CreateSession
+response may enable protocol capabilities. A value reconstructed from a serialized `SessionId` is
+untrusted diagnostic context and never enables native parameters or batching; if both exist, the
+live value wins.
 - R7: APC uses Thrift only when the pre-connection routing decision selects Thrift (an explicit
 `UseThriftClient=1`, `TreatMetadataCatalogNameAsPattern=1` with no explicit `UseThriftClient`, the
 APC client-config flag is off or unavailable, or Arrow is unavailable). `UseBoundedSeaApi` does
@@ -191,7 +194,10 @@ from `ImmutableSessionInfo`, and `DatabricksSdkClient` uses it for newly execute
 GetStatementResult, CancelStatement, or CloseStatement. Legacy Thrift compound statement ids still
 parse identically. `StatementId.toString()`, `toSQLExecStatementId()`, public
 `IDatabricksResultSet.getStatementId()`, logs, and telemetry continue to expose only the raw server
-statement id for SEA.
+statement id for SEA. The compound APC session form is intentionally returned as the opaque public
+`getConnectionId()` handle because `Driver.closeConnection(connectionId)` must reconstruct the
+compute target; callers must not parse it. Driver logs and telemetry redact this handle and must not
+emit its org id or cluster id.
 - R10: APC ExecuteStatement preserves the existing SEA timeout behavior: `wait_timeout` is unset
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
 results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
@@ -271,6 +277,13 @@ for `enableSqlExecForJdbc`? Reyder's driver-prefix allowlist only checks the
 A9: Yes. Apply the same partner User-Agent override as `enableSqlExecForJdbc`: connector-service
 returns the APC flag as `false` for partner User-Agents. Partner enablement requires a separate
 explicit rollout decision rather than inheriting the OSS driver ramp.
+- Q10: Can APC execution polling use `GetStatementResult` without repeatedly transferring result
+data while the statement is still running?
+A10: This is a release-blocking server-contract dependency. Before T7/T11 ship, Reyder must confirm
+and an integration test must prove that running-state polling responses do not repeatedly transfer
+result payloads. If the endpoint re-sends payloads, APC SEA cannot ship until the server provides a
+status-only or otherwise bounded polling contract; the driver must not silently accept unbounded
+repeated downloads.
 
 ## Acceptance Criteria
 
@@ -376,10 +389,13 @@ open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
 logs that heartbeat is unsupported for APC.
 - AC25: GIVEN an APC-SEA session with org id, cluster id, session id, and a present or absent
 negotiated protocol version WHEN its `SessionId` is serialized and deserialized THEN client type,
-APC compute target, raw session id, and protocol capability round-trip unchanged; existing
-warehouse and Thrift serialized identifiers still parse identically. Creating an APC SEA
-`SessionId` never dereferences a Thrift session handle. The serialized APC session form matches R9
-exactly, including `-` for a missing protocol version. GIVEN an APC ResultSet WHEN
+APC compute target, raw session id, and diagnostic protocol value round-trip unchanged; the
+deserialized value alone never enables protocol capabilities, and a live CreateSession value
+overrides it. Existing warehouse and Thrift serialized identifiers still parse identically.
+Creating an APC SEA `SessionId` never dereferences a Thrift session handle. The serialized APC
+session form matches R9 exactly, including `-` for a missing protocol version. The opaque
+`getConnectionId()` value reconstructs the target for `Driver.closeConnection`, but logs and
+telemetry redact it and never expose its org or cluster id. GIVEN an APC ResultSet WHEN
 `connection.getStatement(resultSet.getStatementId())` is called and the returned statement is
 cancelled or closed THEN the raw id is associated with the current APC session's compute target and
 the request includes `backend_compute`. Public `IDatabricksResultSet.getStatementId()`,
@@ -392,6 +408,11 @@ grammar.
 THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BATCH` WHEN
 deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
 succeeds as `UNKNOWN` and result decoding raises the standard unsupported-format error.
+- AC27: GIVEN a long-running APC statement requiring multiple execution polls WHEN the driver polls
+with `GetStatementResult` THEN running-state responses do not repeatedly transfer result payloads
+and total polling response bytes remain bounded independently of result size. This must be proven
+against Reyder in an integration test before APC SEA release; failure blocks release rather than
+falling back to an unsupported polling path.
 
 ## Constraints
 
@@ -593,9 +614,9 @@ and AC3 serialized-request coverage of every call.
 serialized-body assertions.
 - Server-side routing disablement causes visible connection failures until the cached client flag
 refreshes; mitigate with flag sequencing and R8 telemetry.
-- Execution polling with `GET /statements/{id}` may fetch first-chunk data repeatedly; confirm
-server returns status-only payloads while running. Do not use this endpoint for post-completion
-heartbeats; APC heartbeat is disabled by R3.
+- Execution polling with `GET /statements/{id}` may fetch first-chunk data repeatedly. Q10/AC27
+make a bounded running-state response a release blocker. Do not use this endpoint for
+post-completion heartbeats; APC heartbeat is disabled by R3.
 - The SEA routing code has changed substantially through #1744, #1746, #1747, and #1749; rebase
 often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fallback paths.
 - APC on the standard `/sessions` URL must not be mistaken for a Real-time session; the
@@ -630,8 +651,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   protocol selection. Preserve catalog-pattern behavior under Thrift; when explicit
   `UseThriftClient=0` selects SEA, ignore the Thrift-only property and log that it has no effect
   (R1, R7, R8; AC1, AC7, AC8, AC19, AC20, AC21).
-- [ ] T5: Persist client type and `negotiated_protocol_version` from CreateSession into
-  `SessionInfo`, including through APC `SessionId` reconstruction (R6, R9; AC23, AC25).
+- [ ] T5: Persist client type and the live `negotiated_protocol_version` from CreateSession into
+  `SessionInfo`; retain a reconstructed APC `SessionId` version only as diagnostic context and
+  never use it to enable capabilities (R6, R9; AC23, AC25).
 - [ ] T6: Add tests that APC CreateSession failures propagate and never construct or switch to a
   Thrift client (R7; AC9).
 
@@ -639,7 +661,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 
 - [ ] T7: Disable result heartbeat registration for APC, with an unsupported-heartbeat log, and
   add tests that execution polling, fetch, cancel, and close use standard `/statements` URLs with
-  `backend_compute` and never hit `/status` (R2, R3; AC3, AC24).
+  `backend_compute` and never hit `/status`. Block completion until the Q10/AC27 bounded-polling
+  contract is proven against Reyder (R2, R3; AC3, AC24, AC27).
 - [ ] T8: APC execute request shape: `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, `session_id`,
   no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
   result download is disabled. Use an APC compute-type check for format/disposition and session
@@ -656,7 +679,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   AC26, Q7).
 - [ ] T11: Route APC through its dedicated `next_chunk_index`/`row_offset` paging independent of
   `UseBoundedSeaApi`; handle `GetStatementResult` with and without inline data and never read
-  chunk/row totals (R12; AC14, AC15).
+  chunk/row totals. Include the Q10 integration test proving running-state polling does not
+  repeatedly transfer result payloads (R12; AC14, AC15, AC27).
 - [ ] T12: Wire APC query timeout through `TimeoutHandler` → CancelStatement with
   `backend_compute` (R14; AC18).
 
