@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,7 +19,9 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -139,13 +142,80 @@ public class ArrowResultChunkStatusTest {
     // Arrow reads through an interruptible channel, which fails with ClosedByInterruptException.
     Thread.currentThread().interrupt();
     try {
+      // A cancellation surfaces as InterruptedIOException, not a reported parsing failure.
       assertThrows(
-          DatabricksParsingException.class,
+          InterruptedIOException.class,
           () -> chunk.downloadData(http, CompressionCodec.LZ4_FRAME, 0.0));
     } finally {
       Thread.interrupted();
     }
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+    assertNull(chunk.errorMessage);
+    assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
+  }
+
+  @Test
+  void socketTimeout_remainsRetryableFailure() {
+    ArrowResultChunk chunk = newChunk();
+    // SocketTimeoutException is an InterruptedIOException but must not be treated as cancellation.
+    InputStream timingOut =
+        new InputStream() {
+          @Override
+          public int read() throws IOException {
+            throw new SocketTimeoutException("Read timed out");
+          }
+        };
+    IDatabricksHttpClient http = httpWithEntity(timingOut, 100);
+
+    DatabricksParsingException e =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.LZ4_FRAME, 0.0));
+    assertInstanceOf(SocketTimeoutException.class, e.getCause());
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
+  @Test
+  void releaseWhileBodyDrainStalls_freesBatches() throws Exception {
+    byte[] payload = lz4(arrowStream(4, 20_000));
+    ArrowResultChunk chunk = newChunk();
+    CountDownLatch closing = new CountDownLatch(1);
+    CountDownLatch released = new CountDownLatch(1);
+    // The final drain blocks until the chunk has been released by another thread.
+    InputStream body =
+        new FilterInputStream(new ByteArrayInputStream(payload)) {
+          @Override
+          public void close() throws IOException {
+            closing.countDown();
+            try {
+              released.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+            }
+            super.close();
+          }
+        };
+    IDatabricksHttpClient http = httpWithEntity(body, payload.length);
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    Thread worker =
+        new Thread(
+            () -> {
+              try {
+                chunk.downloadData(http, CompressionCodec.LZ4_FRAME, 0.0);
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            });
+    worker.start();
+    assertTrue(closing.await(10, TimeUnit.SECONDS));
+
+    assertTrue(chunk.releaseChunk());
+    released.countDown();
+    worker.join(10_000);
+    assertFalse(worker.isAlive());
+
+    assertNull(failure.get());
+    assertEquals(ChunkStatus.CHUNK_RELEASED, chunk.getStatus());
     assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
   }
 
@@ -200,7 +270,8 @@ public class ArrowResultChunkStatusTest {
     worker.join(10_000);
     assertFalse(worker.isAlive());
 
-    assertInstanceOf(DatabricksParsingException.class, failure.get());
+    assertInstanceOf(InterruptedIOException.class, failure.get());
+    assertNull(chunk.errorMessage);
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
     assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
   }

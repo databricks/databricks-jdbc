@@ -13,6 +13,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.SocketException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -99,6 +100,32 @@ public class ChunkDownloadTaskTest {
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> downloadFuture.get());
     assertInstanceOf(DatabricksSQLException.class, executionException.getCause());
+  }
+
+  @Test
+  void interruptedDownload_isCancelledWithoutRetryOrFailureReport() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    doThrow(new InterruptedIOException("Chunk download interrupted"))
+        .when(chunk)
+        .downloadData(httpClient, CompressionCodec.NONE, 0.1);
+
+    Thread.currentThread().interrupt();
+    try {
+      assertDoesNotThrow(() -> chunkDownloadTask.call());
+      assertTrue(Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
+
+    verify(chunk, times(1)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verify(chunk).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
+    // Not a DatabricksSQLException, so no CHUNK_DOWNLOAD_ERROR telemetry is exported.
+    assertInstanceOf(InterruptedIOException.class, executionException.getCause());
   }
 
   @Test

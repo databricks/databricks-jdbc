@@ -106,6 +106,10 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
         purgeArrowData(arrowData.getValueVectors());
         throw new InterruptedIOException("Chunk download interrupted");
       }
+      // Install the batches before draining the body: if the drain stalls and the chunk is
+      // released meanwhile, releaseChunk() must find and free them.
+      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+      setArrowData(arrowData);
       try {
         // Drain the few trailing bytes so the connection is reused. On failure paths
         // response.close() discards the connection instead of draining it.
@@ -116,8 +120,6 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       long contentLength = response.getEntity().getContentLength();
       long size = contentLength > 0 ? contentLength : counted.getByteCount();
       logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
-      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
-      setArrowData(arrowData);
       LOGGER.debug(
           "Chunk download complete: statementId={}, chunkIndex={}, compressedBytes={}, "
               + "httpResponseMs={}, readAndParseMs={}",
@@ -127,6 +129,18 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           downloadTimeMs,
           (System.nanoTime() - startTime) / 1_000_000 - downloadTimeMs);
     } catch (Exception e) {
+      if (Thread.currentThread().isInterrupted()) {
+        // Cancellation (e.g. the result set was closed early), not a failure: skip
+        // handleFailure so no error is logged or exported as telemetry. Decided by the interrupt
+        // flag, not the exception type: SocketTimeoutException is an InterruptedIOException too
+        // and must remain a retryable failure.
+        LOGGER.debug(
+            "Download cancelled for chunk index {} and statement {}",
+            chunkIndex,
+            StatementId.loggableStatementId(statementId));
+        setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        throw cancellation(e);
+      }
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
       if (response != null) {
@@ -156,6 +170,15 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
+  }
+
+  private static InterruptedIOException cancellation(Exception cause) {
+    if (cause instanceof InterruptedIOException) {
+      return (InterruptedIOException) cause;
+    }
+    InterruptedIOException cancelled = new InterruptedIOException("Chunk download interrupted");
+    cancelled.initCause(cause);
+    return cancelled;
   }
 
   private void addHeaders(HttpGet getRequest, Map<String, String> headers) {
