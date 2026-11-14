@@ -183,6 +183,15 @@ public interface IDatabricksClient {
    */
   void resetAccessToken(String newAccessToken);
 
+  /**
+   * Fetches the next block of an inline Arrow result. Implementations may request more rows per
+   * call than {@link #getMoreResults}, because the server bounds inline Arrow responses by size.
+   */
+  default TFetchResultsResp getMoreInlineArrowResults(IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    return getMoreResults(parentStatement);
+  }
+
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
