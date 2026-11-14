@@ -86,13 +86,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnsBuilder.add(columnBuilder.build());
       columnNameIndexBuilder.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
     } else {
-      if (resultManifest.getSchema().getColumnCount() > 0) {
+      if (resultManifest.getSchema().getColumns() != null
+          && !resultManifest.getSchema().getColumns().isEmpty()) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
-          // For TIMESTAMP_NTZ columns, getTypeName() returns null because the SDK
-          // ColumnInfoTypeName enum has no TIMESTAMP_NTZ value. Use typeText to
-          // identify the type and map it to the TIMESTAMP enum so the java.sql type
-          // resolves to Types.TIMESTAMP. By default the "TIMESTAMP_NTZ" typeText is
+          // Map TIMESTAMP_NTZ to the JDBC TIMESTAMP type while preserving its SQL name.
+          // Use typeText so older manifests with a missing type_name also work.
+          // By default the "TIMESTAMP_NTZ" typeText is
           // preserved so getColumnTypeName() reports the actual server type
           // (see GitHub issue #1495); when EnableTimestampNtzTypeName=0 it is
           // normalized to "TIMESTAMP" to match the legacy (v2.x.x) driver.

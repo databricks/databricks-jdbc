@@ -30,6 +30,7 @@ public enum ColumnInfoTypeName {
   STRING,
   STRUCT,
   TIMESTAMP,
+  TIMESTAMP_NTZ,
   USER_DEFINED_TYPE,
   UNION,
   VARIANT;

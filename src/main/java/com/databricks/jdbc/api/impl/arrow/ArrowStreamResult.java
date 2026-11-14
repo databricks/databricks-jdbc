@@ -24,6 +24,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
@@ -65,8 +66,13 @@ public class ArrowStreamResult implements IExecutionResult {
       throws DatabricksSQLException {
     this.session = session;
 
+    boolean apc = resultManifest.getFormat() == SqlExecResultFormat.ARROW_BATCH;
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    if (totalChunkCount != null && totalChunkCount == 0) {
+    if (apc) {
+      this.chunkProvider =
+          new ApcArrowBatchChunkProvider(
+              resultData, resultManifest, statementId, session, httpClient);
+    } else if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
@@ -94,7 +100,7 @@ public class ArrowStreamResult implements IExecutionResult {
       }
     }
     this.columnInfos =
-        resultManifest.getSchema().getColumnCount() == 0
+        !apc && Long.valueOf(0).equals(resultManifest.getSchema().getColumnCount())
             ? new ArrayList<>()
             : new ArrayList<>(resultManifest.getSchema().getColumns());
   }
@@ -262,6 +268,13 @@ public class ArrowStreamResult implements IExecutionResult {
     }
     ColumnInfo columnInfo = columnInfos.get(columnIndex);
     ColumnInfoTypeName requiredType = columnInfo.getTypeName();
+    if (requiredType == ColumnInfoTypeName.TINYINT) {
+      requiredType = ColumnInfoTypeName.BYTE;
+    } else if (requiredType == ColumnInfoTypeName.SMALLINT) {
+      requiredType = ColumnInfoTypeName.SHORT;
+    } else if (requiredType == ColumnInfoTypeName.BIGINT) {
+      requiredType = ColumnInfoTypeName.LONG;
+    }
     String arrowMetadata = chunkIterator.getType(columnIndex);
     if (arrowMetadata == null) {
       arrowMetadata = columnInfo.getTypeText();
