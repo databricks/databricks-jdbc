@@ -2295,6 +2295,33 @@ public class DatabricksSdkClientTest {
     assertFalse(deleteBody.has("warehouse_id"));
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "1"})
+  public void testApcInlineOnlySessionConfigIgnoresBoundedSeaFlag(String bounded) throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "EnableQueryResultDownload=0;UseBoundedSeaApi=" + bounded + ";",
+            new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(new CreateSessionResponse().setSessionId("session"));
+
+    client.createSession(new AllPurposeCluster("org", "cluster"), null, null, null);
+
+    ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(request.capture(), eq(CreateSessionResponse.class));
+    assertEquals(
+        "false",
+        new ObjectMapper()
+            .readTree(request.getValue().getBodyString())
+            .path("session_confs")
+            .path("can_cloud_download")
+            .asText());
+  }
+
   @Test
   public void testApcGetChunkCancelAndCloseRequestTargets() throws Exception {
     IDatabricksConnectionContext context =
@@ -2365,10 +2392,12 @@ public class DatabricksSdkClientTest {
         close.getUri().getRawQuery());
   }
 
-  @Test
-  public void testApcExecutePollUsesJsonTargetAndBodylessGet() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"", "EnableDirectResults=0;"})
+  public void testApcExecutePollUsesJsonTargetAndBodylessGet(String directMode) throws Exception {
     IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "EnableSQLExecHybridResults=0;" + directMode, new Properties());
     DatabricksSdkClient client =
         new DatabricksSdkClient(context, statementExecutionService, apiClient);
     AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
@@ -2404,6 +2433,14 @@ public class DatabricksSdkClientTest {
     assertEquals(STATEMENT_PATH, execute.getValue().getUrl());
     JsonNode executeBody = new ObjectMapper().readTree(execute.getValue().getBodyString());
     assertEquals("session", executeBody.path("session_id").asText());
+    assertEquals("ARROW_BATCH", executeBody.path("format").asText());
+    assertEquals("INLINE_OR_EXTERNAL_LINKS", executeBody.path("disposition").asText());
+    assertFalse(executeBody.has("statements"));
+    if (directMode.isEmpty()) {
+      assertFalse(executeBody.hasNonNull("wait_timeout"));
+    } else {
+      assertEquals("0s", executeBody.path("wait_timeout").asText());
+    }
     assertEquals(
         "cluster",
         executeBody
@@ -2421,6 +2458,46 @@ public class DatabricksSdkClientTest {
         "backend_compute.all_purpose_cluster_compute.cluster_id=cluster",
         poll.getValue().getUri().getRawQuery());
     assertFalse(poll.getValue().getUrl().contains("/status"));
+  }
+
+  @Test
+  public void testApcAsyncExecuteUsesArrowBatchAndZeroWaitWithHybridResultsDisabled()
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "EnableSQLExecHybridResults=0;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("session");
+    when(session.getConnectionContext()).thenReturn(context);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("statement")
+                .setStatus(new StatementStatus().setState(StatementState.RUNNING)));
+
+    client.executeStatementAsync("select 1", cluster, Map.of(), session, null);
+
+    ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(request.capture(), eq(ExecuteStatementResponse.class));
+    JsonNode body = new ObjectMapper().readTree(request.getValue().getBodyString());
+    assertEquals("ARROW_BATCH", body.path("format").asText());
+    assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
+    assertEquals("session", body.path("session_id").asText());
+    assertEquals("0s", body.path("wait_timeout").asText());
+    assertFalse(body.has("statements"));
   }
 
   @Test
