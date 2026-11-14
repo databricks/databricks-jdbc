@@ -32,8 +32,10 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.Disposition;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
@@ -2366,6 +2368,9 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testApcWireRequestsThroughFakeTransport() throws Exception {
+    String presignedUrl = "https://storage.example.com/chunk?sig=a%2Bb%2Fc&part=2";
+    Map<String, String> presignedHeaders =
+        Map.of("x-amz-server-side-encryption-customer-algorithm", "AES256");
     List<Request> sent = new ArrayList<>();
     HttpClient transport =
         request -> {
@@ -2374,14 +2379,29 @@ public class DatabricksSdkClientTest {
             return new Response(request, 200, "OK", Map.of(), "{}");
           }
           sent.add(request);
-          String body =
-              path.equals(SESSION_PATH)
-                  ? "{\"session_id\":\"session\",\"negotiated_protocol_version\":8}"
-                  : path.endsWith("/result/chunks/0")
-                      ? "{}"
-                      : path.endsWith("/cancel") || request.getMethod().equals(Request.DELETE)
-                          ? "{}"
-                          : "{\"status\":{\"state\":\"CANCELED\"}}";
+          String body;
+          if (path.equals(SESSION_PATH)) {
+            body = "{\"session_id\":\"session\",\"negotiated_protocol_version\":8}";
+          } else if (path.endsWith("/result/chunks/2")) {
+            body =
+                new ObjectMapper()
+                    .writeValueAsString(
+                        Map.of(
+                            "external_links",
+                            List.of(
+                                Map.of(
+                                    "external_link", presignedUrl,
+                                    "http_headers", presignedHeaders,
+                                    "chunk_index", 2,
+                                    "row_offset", 7,
+                                    "row_count", 1))));
+          } else if (path.equals(STATEMENT_PATH) && Request.POST.equals(request.getMethod())) {
+            body = "{\"statement_id\":\"statement\",\"status\":{\"state\":\"PENDING\"}}";
+          } else if (path.endsWith("/cancel") || Request.DELETE.equals(request.getMethod())) {
+            body = "{}";
+          } else {
+            body = "{\"status\":{\"state\":\"CANCELED\"}}";
+          }
           return new Response(request, 200, "OK", Map.of(), body);
         };
     ApiClient realApiClient =
@@ -2402,14 +2422,22 @@ public class DatabricksSdkClientTest {
     assertEquals(8L, info.nativeProtocolVersion());
     StatementId id = StatementId.forCurrentSession("statement", info);
     DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
     when(session.getSessionId()).thenReturn("session");
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            client.executeStatement(
+                "select 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
     assertThrows(DatabricksSQLException.class, () -> client.getStatementResult(id, session, null));
-    client.getResultChunksData(id, 0, 0);
+    ChunkLinkFetchResult links = client.getResultChunks(id, 2, 7);
+    client.getResultChunksData(id, 3, 9);
     client.cancelStatement(id);
     client.closeStatement(id);
     client.deleteSession(info);
 
-    assertEquals(6, sent.size());
+    assertEquals(9, sent.size());
     assertEquals(SESSION_PATH, sent.get(0).getUri().getPath());
     assertFalse(new ObjectMapper().readTree(sent.get(0).getBodyString()).has("warehouse_id"));
     assertEquals(
@@ -2420,21 +2448,41 @@ public class DatabricksSdkClientTest {
             .path("all_purpose_cluster_compute")
             .path("cluster_id")
             .asText());
-    for (int i : new int[] {1, 2, 4}) {
-      assertNull(sent.get(i).getBodyString());
-      assertTrue(
-          sent.get(i)
-              .getUri()
-              .getRawQuery()
-              .contains("backend_compute.all_purpose_cluster_compute.cluster_id=cluster"));
-    }
-    assertEquals(
-        "row_offset=0&backend_compute.all_purpose_cluster_compute.cluster_id=cluster",
-        sent.get(2).getUri().getRawQuery());
+    assertEquals(Request.POST, sent.get(1).getMethod());
+    assertEquals(STATEMENT_PATH, sent.get(1).getUri().getPath());
     assertEquals(
         "cluster",
         new ObjectMapper()
-            .readTree(sent.get(3).getBodyString())
+            .readTree(sent.get(1).getBodyString())
+            .path("backend_compute")
+            .path("all_purpose_cluster_compute")
+            .path("cluster_id")
+            .asText());
+    for (int i : new int[] {2, 3, 4, 5, 7}) {
+      assertEquals(i == 7 ? Request.DELETE : Request.GET, sent.get(i).getMethod());
+      assertNull(sent.get(i).getBodyString());
+    }
+    String computeQuery = "backend_compute.all_purpose_cluster_compute.cluster_id=cluster";
+    for (int i : new int[] {2, 3, 7}) {
+      assertEquals(
+          String.format(STATEMENT_PATH_WITH_ID, "statement"), sent.get(i).getUri().getPath());
+      assertEquals(computeQuery, sent.get(i).getUri().getRawQuery());
+    }
+    assertEquals(Request.DELETE, sent.get(7).getMethod());
+    assertFalse(sent.stream().anyMatch(request -> request.getUri().getPath().endsWith("/status")));
+    assertEquals(String.format(RESULT_CHUNK_PATH, "statement", 2), sent.get(4).getUri().getPath());
+    assertEquals("row_offset=7&" + computeQuery, sent.get(4).getUri().getRawQuery());
+    assertEquals(String.format(RESULT_CHUNK_PATH, "statement", 3), sent.get(5).getUri().getPath());
+    assertEquals("row_offset=9&" + computeQuery, sent.get(5).getUri().getRawQuery());
+    assertEquals(1, links.getChunkLinks().size());
+    ExternalLink link = links.getChunkLinks().get(0);
+    assertEquals(presignedUrl, link.getExternalLink());
+    assertEquals(presignedHeaders, link.getHttpHeaders());
+    assertFalse(link.getExternalLink().contains("backend_compute"));
+    assertEquals(
+        "cluster",
+        new ObjectMapper()
+            .readTree(sent.get(6).getBodyString())
             .path("backend_compute")
             .path("all_purpose_cluster_compute")
             .path("cluster_id")
@@ -2442,7 +2490,7 @@ public class DatabricksSdkClientTest {
     assertEquals(
         "cluster",
         new ObjectMapper()
-            .readTree(sent.get(5).getBodyString())
+            .readTree(sent.get(8).getBodyString())
             .path("backend_compute")
             .path("all_purpose_cluster_compute")
             .path("cluster_id")
