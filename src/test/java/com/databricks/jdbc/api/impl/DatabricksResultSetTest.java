@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -15,6 +16,7 @@ import com.databricks.jdbc.api.ExecutionState;
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
@@ -49,6 +51,7 @@ import java.time.*;
 import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
@@ -72,6 +75,19 @@ public class DatabricksResultSetTest {
 
   @Mock DatabricksConnectionContext databricksConnectionContext;
   @Mock Statement mockedStatement;
+
+  @BeforeEach
+  void setUpColumnConverters() {
+    lenient()
+        .when(mockedResultSetMetadata.getColumnConverter(anyInt()))
+        .thenAnswer(
+            invocation -> {
+              int column = invocation.getArgument(0);
+              return ConverterHelper.getConverterForColumnType(
+                  mockedResultSetMetadata.getColumnType(column),
+                  mockedResultSetMetadata.getColumnTypeName(column));
+            });
+  }
 
   @AfterEach
   void tearDown() {
@@ -681,11 +697,18 @@ public class DatabricksResultSetTest {
             new DatabricksGeometry("POINT Z EMPTY", 3857),
             new DatabricksGeography("POINT(1 2)", 4326))) {
       for (String qualifier : List.of("(" + geo.getSRID() + ")", "(ANY)")) {
-        when(mockedExecutionResult.getObject(0)).thenReturn(geo);
-        when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.OTHER);
-        when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn(geo.getType() + qualifier);
-        when(mockedResultSetMetadata.getColumnNameIndex("geo")).thenReturn(1);
-        DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+        DatabricksResultSet resultSet =
+            new DatabricksResultSet(
+                new StatementStatus().setState(StatementState.SUCCEEDED),
+                STATEMENT_ID,
+                List.of("geo"),
+                List.of(geo.getType() + qualifier),
+                new int[] {Types.OTHER},
+                new int[] {0},
+                new int[] {ResultSetMetaData.columnNullable},
+                new Object[][] {{geo}},
+                StatementType.METADATA);
+        assertTrue(resultSet.next());
         assertArrayEquals(geo.getWKB(), resultSet.getBytes(1));
         assertArrayEquals(geo.getWKB(), resultSet.getBytes("geo"));
         assertArrayEquals(geo.getWKB(), resultSet.getObject(1, byte[].class));
@@ -2142,6 +2165,8 @@ public class DatabricksResultSetTest {
 
     DatabricksResultSetMetaData mockMeta = mock(DatabricksResultSetMetaData.class);
     when(mockMeta.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnConverter(1))
+        .thenReturn(ConverterHelper.getConverterForSqlType(Types.BIGINT));
     when(mockMeta.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
 
     IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);

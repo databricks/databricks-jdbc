@@ -2599,16 +2599,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (exactTemporal) {
-      obj = getExactTemporalValue(columnIndex, columnType, obj);
+      obj = getExactTemporalValue(columnIndex, resultSetMetaData.getColumnType(columnIndex), obj);
     }
 
-    // Use metadata-aware converter selection for proper handling of databricks-specific types
-    ObjectConverter converter =
-        ConverterHelper.getConverterForColumnType(columnType, columnTypeName);
-    return convertMethod.apply(converter, obj);
+    return convertMethod.apply(resultSetMetaData.getColumnConverter(columnIndex), obj);
   }
 
   /**
