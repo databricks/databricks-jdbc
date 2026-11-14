@@ -147,7 +147,10 @@ public class SessionId {
   private static DatabricksParsingException invalid(String errorMessage) {
     LOGGER.error(errorMessage);
     return new DatabricksParsingException(
-        errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
+        errorMessage,
+        null,
+        DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION.name(),
+        DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION.getCode());
   }
 
   @Override
