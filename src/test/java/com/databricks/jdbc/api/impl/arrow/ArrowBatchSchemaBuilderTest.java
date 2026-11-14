@@ -121,4 +121,30 @@ class ArrowBatchSchemaBuilderTest {
             .get(0)
             .getType());
   }
+
+  @Test
+  void missingTimestampZoneUsesSessionZoneIncludingNestedFields() throws Exception {
+    ResultSchema schema =
+        new ResultSchema()
+            .setColumns(
+                List.of(
+                    new ColumnInfo().setName("ts").setTypeJson("timestamp"),
+                    new ColumnInfo()
+                        .setName("arr")
+                        .setTypeJson("{\"type\":\"array\",\"elementType\":\"timestamp\"}"),
+                    new ColumnInfo()
+                        .setName("explicit")
+                        .setTypeJson(
+                            "{\"type\":\"timestamp\",\"timezone\":\"America/Los_Angeles\"}")));
+    Schema built = ArrowBatchSchemaBuilder.build(schema, "Asia/Kolkata");
+    assertEquals(
+        "Asia/Kolkata", ((ArrowType.Timestamp) built.getFields().get(0).getType()).getTimezone());
+    assertEquals(
+        "Asia/Kolkata",
+        ((ArrowType.Timestamp) built.getFields().get(1).getChildren().get(0).getType())
+            .getTimezone());
+    assertEquals(
+        "America/Los_Angeles",
+        ((ArrowType.Timestamp) built.getFields().get(2).getType()).getTimezone());
+  }
 }
