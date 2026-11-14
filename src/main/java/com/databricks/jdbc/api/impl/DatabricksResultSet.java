@@ -442,8 +442,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     if (!hasNext) {
       stopHeartbeat();
-      if (executionResult instanceof ArrowStreamResult
-          && (unknownTotalRowsMode || !resultSetMetaData.hasKnownTotalRows())) {
+      if (executionResult instanceof ArrowStreamResult) {
         arrowStreamExhausted = true;
       }
     }
@@ -1030,7 +1029,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isBeforeFirst() throws SQLException {
     checkIfClosed();
-    if (executionResult instanceof ArrowStreamResult && arrowStreamExhausted && rowsReturned == 0) {
+    if (executionResult instanceof ArrowStreamResult && arrowStreamExhausted) {
       return false;
     }
     if (executionResult instanceof ColumnarDataResult && executionResult.getRowCount() == 0) {
@@ -1055,6 +1054,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (truncatedByMaxRows) {
       return true;
     }
+    if (executionResult instanceof ArrowStreamResult && arrowStreamExhausted) {
+      return rowsReturned > 0;
+    }
     if (executionResult instanceof ColumnarDataResult) {
       return executionResult.getRowCount() > 0
           && executionResult.getCurrentRow() >= executionResult.getRowCount();
@@ -1071,6 +1073,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isFirst() throws SQLException {
     checkIfClosed();
+    if (executionResult instanceof ArrowStreamResult && arrowStreamExhausted) {
+      return false;
+    }
     if (executionResult instanceof ColumnarDataResult && executionResult.getRowCount() == 0) {
       return false;
     }
@@ -1160,7 +1165,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public int getRow() throws SQLException {
     checkIfClosed();
     // JDBC spec: getRow() returns 0 when cursor is not on a valid row (after last)
-    if (truncatedByMaxRows) {
+    if (truncatedByMaxRows
+        || (executionResult instanceof ArrowStreamResult && arrowStreamExhausted)) {
       return 0;
     }
     if (executionResult instanceof ColumnarDataResult

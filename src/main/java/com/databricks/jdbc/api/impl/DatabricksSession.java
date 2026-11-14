@@ -28,8 +28,10 @@ import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -73,7 +75,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
-    this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.sessionConfigs = concurrentSessionConfigs(connectionContext);
     this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
@@ -92,10 +94,16 @@ public class DatabricksSession implements IDatabricksSession {
     this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
-    this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.sessionConfigs = concurrentSessionConfigs(connectionContext);
     this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
+  }
+
+  private static Map<String, String> concurrentSessionConfigs(
+      IDatabricksConnectionContext connectionContext) {
+    Map<String, String> initial = connectionContext.getSessionConfigs();
+    return new ConcurrentHashMap<>(initial == null ? Collections.emptyMap() : initial);
   }
 
   @Nullable
