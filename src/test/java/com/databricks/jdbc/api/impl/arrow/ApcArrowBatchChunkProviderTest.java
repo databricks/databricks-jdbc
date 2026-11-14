@@ -57,6 +57,7 @@ import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 
 class ApcArrowBatchChunkProviderTest {
   private static final StatementId ID = new StatementId("statement");
@@ -658,6 +659,82 @@ class ApcArrowBatchChunkProviderTest {
     ArrowResultChunk failedChunk = failed.getChunk();
     failed.close();
     assertThrows(IllegalStateException.class, () -> failedChunk.rootAllocator.buffer(1));
+  }
+
+  @Test
+  void malformedExternalLinkReleasesItsAllocator() throws Exception {
+    RootAllocator allocator = new RootAllocator();
+    try (MockedStatic<ArrowBufferAllocator> mocked = mockStatic(ArrowBufferAllocator.class)) {
+      mocked.when(ArrowBufferAllocator::getBufferAllocator).thenReturn(allocator);
+      ResultData page =
+          new ResultData()
+              .setExternalLinks(
+                  List.of(
+                      link("https://storage.example.test/chunk", 0, 0, 1, null)
+                          .setExpiration("invalid")));
+      assertThrows(
+          RuntimeException.class,
+          () ->
+              new ApcArrowBatchChunkProvider(
+                  page,
+                  manifest(CompressionCodec.NONE),
+                  ID,
+                  session(mock(IDatabricksClient.class), true),
+                  mock(IDatabricksHttpClient.class)));
+      assertThrows(IllegalStateException.class, () -> allocator.buffer(1));
+    } finally {
+      allocator.close();
+    }
+  }
+
+  @Test
+  void interruptedCloseReleasesActiveInlineChunk() throws Exception {
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            new ResultData().setArrowBatches(List.of(batch(7, false))),
+            manifest(CompressionCodec.NONE),
+            ID,
+            session(mock(IDatabricksClient.class), false),
+            mock(IDatabricksHttpClient.class));
+    assertTrue(provider.next());
+    ArrowResultChunk active = provider.getChunk();
+    try {
+      Thread.currentThread().interrupt();
+      provider.close();
+    } finally {
+      Thread.interrupted();
+    }
+    assertEquals(ChunkStatus.CHUNK_RELEASED, active.getStatus());
+    assertThrows(IllegalStateException.class, () -> active.rootAllocator.buffer(1));
+  }
+
+  @Test
+  void interruptedCloseReleasesCompletedExternalChunk() throws Exception {
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(7)));
+    when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+    when(http.execute(any(HttpUriRequest.class), eq(true))).thenReturn(response);
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            new ResultData()
+                .setExternalLinks(
+                    List.of(link("https://storage.example.test/chunk", 0, 0, 1, null))),
+            manifest(CompressionCodec.NONE),
+            ID,
+            session(mock(IDatabricksClient.class), true),
+            http);
+    assertTrue(provider.next());
+    ArrowResultChunk active = provider.getChunk();
+    try {
+      Thread.currentThread().interrupt();
+      provider.close();
+    } finally {
+      Thread.interrupted();
+    }
+    assertEquals(ChunkStatus.CHUNK_RELEASED, active.getStatus());
+    assertThrows(IllegalStateException.class, () -> active.rootAllocator.buffer(1));
   }
 
   @Test
