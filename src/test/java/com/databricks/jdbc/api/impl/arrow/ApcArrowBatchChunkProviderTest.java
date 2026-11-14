@@ -151,11 +151,15 @@ class ApcArrowBatchChunkProviderTest {
     when(client.getResultChunksData(ID, 0, 0))
         .thenReturn(new ResultData().setArrowBatches(List.of(batch(7, false))));
     ResultManifest manifest =
-        manifest(CompressionCodec.NONE).setArrowSchema(new byte[] {1, 2}).setTotalByteCount(999L);
+        manifest(CompressionCodec.NONE)
+            .setArrowSchema(
+                ArrowBatchSchemaBuilder.serialize(manifest(CompressionCodec.NONE).getSchema()))
+            .setTotalByteCount(999L);
     manifest =
         new ObjectMapper()
             .readValue(new ObjectMapper().writeValueAsString(manifest), ResultManifest.class);
-    assertArrayEquals(new byte[] {1, 2}, manifest.getArrowSchema());
+    assertArrayEquals(
+        ArrowBatchSchemaBuilder.serialize(manifest.getSchema()), manifest.getArrowSchema());
     try (ResultCloser result =
         new ResultCloser(
             new ArrowStreamResult(
@@ -166,11 +170,9 @@ class ApcArrowBatchChunkProviderTest {
   }
 
   @Test
-  void emptyInitialResultFetchesFromZero() throws Exception {
+  void terminalEmptyInitialResultDoesNotFetchChunkZero() throws Exception {
     IDatabricksClient client = mock(IDatabricksClient.class);
     IDatabricksSession session = session(client, false);
-    when(client.getResultChunksData(ID, 0, 0))
-        .thenReturn(new ResultData().setArrowBatches(List.of(batch(7, false))));
     try (ResultCloser result =
         new ResultCloser(
             new ArrowStreamResult(
@@ -179,9 +181,24 @@ class ApcArrowBatchChunkProviderTest {
                 ID,
                 session,
                 mock(IDatabricksHttpClient.class)))) {
-      assertEquals(List.of(7), readInts(result.result));
+      assertEquals(List.of(), readInts(result.result));
     }
-    verify(client).getResultChunksData(ID, 0, 0);
+    verify(client, never()).getResultChunksData(any(), anyLong(), anyLong());
+  }
+
+  @Test
+  void invalidPopulatedSchemaUsesDriverParsingErrorCode() {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), false);
+    ResultManifest invalid = manifest(CompressionCodec.NONE).setArrowSchema(new byte[] {1, 2});
+    DatabricksSQLException error =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                new ArrowStreamResult(
+                    invalid, new ResultData(), ID, session, mock(IDatabricksHttpClient.class)));
+    assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), error.getErrorCode());
   }
 
   @Test
