@@ -1,5 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.HTTP_CLUSTER_PATH_PATTERN;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
@@ -192,8 +193,7 @@ public class TelemetryHelper {
     boolean isApcHttpPath =
         connectionContext.getComputeResource() instanceof AllPurposeCluster
             && httpPath != null
-            && (httpPath.contains("/sql/protocolv1/o/")
-                || httpPath.startsWith("sql/protocolv1/o/"));
+            && HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath).find();
     DriverConnectionParameters connectionParameters = new DriverConnectionParameters();
     try {
       connectionParameters
