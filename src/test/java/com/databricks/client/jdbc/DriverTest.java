@@ -136,7 +136,7 @@ class DriverTest {
 
       verify(sdk.constructed().get(0)).deleteSession(any());
       verify(configurators).removeInstance(context);
-      verify(httpClients).closeConnection(context);
+      verify(httpClients).removeClient(context);
     }
   }
 
@@ -176,7 +176,7 @@ class DriverTest {
 
       verify(sdk.constructed().get(0)).deleteSession(any());
       verify(configurators).removeInstance(context);
-      verify(httpClients).closeConnection(context);
+      verify(httpClients).removeClient(context);
     }
   }
 
