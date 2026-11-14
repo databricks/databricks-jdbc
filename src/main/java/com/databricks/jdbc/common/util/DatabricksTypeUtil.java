@@ -161,6 +161,9 @@ public class DatabricksTypeUtil {
         return ColumnInfoTypeName.NULL;
       case DatabricksTypeUtil.MAP:
         return ColumnInfoTypeName.MAP;
+      case "UNION":
+      case "UNIONTYPE":
+        return ColumnInfoTypeName.UNION;
       case DatabricksTypeUtil.INTERVAL:
         return ColumnInfoTypeName.INTERVAL;
       case DatabricksTypeUtil.VARIANT:
@@ -221,6 +224,7 @@ public class DatabricksTypeUtil {
       case ARRAY:
         return Types.ARRAY;
       case VARIANT:
+      case UNION:
       case GEOMETRY:
       case GEOGRAPHY:
       case USER_DEFINED_TYPE:
@@ -263,6 +267,7 @@ public class DatabricksTypeUtil {
       case INTERVAL:
       case VARIANT:
       case USER_DEFINED_TYPE:
+      case UNION:
         return "java.lang.String";
       case TIMESTAMP:
         return "java.sql.Timestamp";

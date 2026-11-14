@@ -10,11 +10,11 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.enums.ExecutionResultFormat;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
-import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -186,7 +186,7 @@ public class TelemetryCollector {
         statement.getStatementId().toSQLExecStatementId(), getResultFormat(executionResultFormat));
   }
 
-  public void setResultFormat(StatementId statementId, Format executionResultFormat) {
+  public void setResultFormat(StatementId statementId, SqlExecResultFormat executionResultFormat) {
     if (statementId == null) {
       return;
     }
@@ -212,12 +212,16 @@ public class TelemetryCollector {
     }
   }
 
-  private ExecutionResultFormat getResultFormat(Format resultFormat) {
+  private ExecutionResultFormat getResultFormat(SqlExecResultFormat resultFormat) {
     switch (resultFormat) {
       case ARROW_STREAM:
         return ExecutionResultFormat.EXTERNAL_LINKS;
       case JSON_ARRAY:
         return ExecutionResultFormat.INLINE_JSON;
+      case ARROW_BATCH:
+        return ExecutionResultFormat.INLINE_ARROW;
+      case COLUMN_BASED_SET:
+        return ExecutionResultFormat.COLUMNAR_INLINE;
       default:
         return ExecutionResultFormat.FORMAT_UNSPECIFIED;
     }

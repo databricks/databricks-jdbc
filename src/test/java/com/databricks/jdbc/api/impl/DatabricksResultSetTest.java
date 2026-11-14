@@ -34,12 +34,12 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.*;
@@ -1892,7 +1892,7 @@ public class DatabricksResultSetTest {
             inlineColumn("n", ColumnInfoTypeName.STRING, "STRING", 3));
     ResultManifest manifest =
         new ResultManifest()
-            .setFormat(Format.JSON_ARRAY)
+            .setFormat(SqlExecResultFormat.JSON_ARRAY)
             .setTotalChunkCount(1L)
             .setTotalRowCount(1L)
             .setSchema(new ResultSchema().setColumns(columns).setColumnCount(4L));

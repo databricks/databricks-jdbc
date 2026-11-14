@@ -17,6 +17,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.sql.SQLException;
@@ -56,6 +57,12 @@ class ExecutionResultFactory {
     TelemetryHelper.setResultFormat(
         session.getConnectionContext(), statementId, manifest.getFormat());
     LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
+    if (data != null
+        && data.getColumnarData() != null
+        && (manifest.getFormat() == SqlExecResultFormat.ARROW_STREAM
+            || manifest.getFormat() == SqlExecResultFormat.COLUMN_BASED_SET)) {
+      return new ColumnarDataResult(manifest, data);
+    }
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
       case ARROW_STREAM:
@@ -63,10 +70,20 @@ class ExecutionResultFactory {
       case JSON_ARRAY:
         // This is used for metadata and update commands
         return new InlineJsonResult(manifest, data, statementId, session);
+      case COLUMN_BASED_SET:
+        throw new DatabricksParsingException(
+            "Missing columnar_data for COLUMN_BASED_SET",
+            null,
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE.getCode());
       default:
         String errorMessage = String.format("Invalid response format %s", manifest.getFormat());
         LOGGER.error(errorMessage);
-        throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
+        throw new DatabricksParsingException(
+            errorMessage,
+            null,
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE.getCode());
     }
   }
 

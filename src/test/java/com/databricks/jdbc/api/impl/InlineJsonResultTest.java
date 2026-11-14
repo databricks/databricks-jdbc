@@ -13,7 +13,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
-import com.databricks.sdk.service.sql.Format;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,7 +47,7 @@ class InlineJsonResultTest {
 
     ResultManifest manifest = new ResultManifest();
     manifest.setSchema(schema);
-    manifest.setFormat(Format.JSON_ARRAY);
+    manifest.setFormat(SqlExecResultFormat.JSON_ARRAY);
     manifest.setTotalChunkCount(1L);
     manifest.setTotalRowCount(1L);
     return manifest;
@@ -284,7 +284,7 @@ class InlineJsonResultTest {
 
     ResultManifest manifest = createManifestWithColumns(columns);
     // Explicitly set format to JSON_ARRAY
-    manifest.setFormat(Format.JSON_ARRAY);
+    manifest.setFormat(SqlExecResultFormat.JSON_ARRAY);
 
     // Setup JSON array data - simulating real SQL Exec API response
     // Format: [["1", "Store A", "POINT(1 2)", "POLYGON(...)", "4.5"], ...]
@@ -343,7 +343,7 @@ class InlineJsonResultTest {
     columns.add(createColumnInfo("region", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY"));
 
     ResultManifest manifest = createManifestWithColumns(columns);
-    manifest.setFormat(Format.JSON_ARRAY);
+    manifest.setFormat(SqlExecResultFormat.JSON_ARRAY);
 
     // JSON array data
     Collection<Collection<String>> jsonArrayData =
@@ -385,7 +385,7 @@ class InlineJsonResultTest {
     columns.add(createColumnInfo("metadata", ColumnInfoTypeName.MAP, "MAP<STRING,STRING>"));
 
     ResultManifest manifest = createManifestWithColumns(columns);
-    manifest.setFormat(Format.JSON_ARRAY);
+    manifest.setFormat(SqlExecResultFormat.JSON_ARRAY);
 
     // JSON array data with geospatial + complex types
     Collection<Collection<String>> jsonArrayData =

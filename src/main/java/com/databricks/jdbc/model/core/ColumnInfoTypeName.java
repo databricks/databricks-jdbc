@@ -31,5 +31,6 @@ public enum ColumnInfoTypeName {
   STRUCT,
   TIMESTAMP,
   USER_DEFINED_TYPE,
+  UNION,
   VARIANT;
 }

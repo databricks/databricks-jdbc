@@ -17,6 +17,18 @@ public class CreateSessionResponse {
   @JsonProperty("session_version")
   private SessionVersion sessionVersion;
 
+  @JsonProperty("negotiated_protocol_version")
+  private Long negotiatedProtocolVersion;
+
+  public Long getNegotiatedProtocolVersion() {
+    return negotiatedProtocolVersion;
+  }
+
+  public CreateSessionResponse setNegotiatedProtocolVersion(Long negotiatedProtocolVersion) {
+    this.negotiatedProtocolVersion = negotiatedProtocolVersion;
+    return this;
+  }
+
   public CreateSessionResponse setSessionId(String sessionId) {
     this.sessionId = sessionId;
     return this;
