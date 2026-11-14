@@ -119,14 +119,15 @@ public class Driver implements IDatabricksDriver {
           String.format("Invalid connection Url {%s}, Can't close connection.", url),
           DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
+    SessionId savedSession = SessionId.deserialize(connectionId);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
     IDatabricksClient databricksClient;
-    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+    if (savedSession.getClientType() == DatabricksClientType.THRIFT) {
       databricksClient = new DatabricksThriftServiceClient(connectionContext);
     } else {
       databricksClient = new DatabricksSdkClient(connectionContext);
     }
-    databricksClient.deleteSession(SessionId.deserialize(connectionId).getSessionInfo());
+    databricksClient.deleteSession(savedSession.getSessionInfo());
   }
 }
