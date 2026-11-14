@@ -2380,7 +2380,8 @@ public class DatabricksSdkClientTest {
           if (path.equals("/oidc/.well-known/oauth-authorization-server")) {
             return new Response(request, 200, "OK", Map.of(), "{}");
           }
-          sent.add(request);
+          // Snapshot the bytes visible to the transport before the SDK log view is redacted.
+          sent.add(new Request(request.getMethod(), request.getUrl(), request.getBodyString()));
           String body;
           if (path.equals(SESSION_PATH)) {
             body = "{\"session_id\":\"session\",\"negotiated_protocol_version\":8}";

@@ -78,12 +78,22 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final String customerUserAgentSegment;
   private volatile ApiClient apiClient;
 
-  private static final class CreateSessionHttpRequest extends Request {
+  private static final class CreateSessionHttpRequest extends RedactingRequest {
     boolean realtimeSession;
 
     CreateSessionHttpRequest(String path, String body) {
       super(Request.POST, path, body);
     }
+  }
+
+  private <T> T execute(Request request, Class<T> responseType) throws IOException {
+    if (!(request instanceof RedactingRequest)
+        && (request.getUrl().contains("backend_compute.all_purpose_cluster_compute.cluster_id=")
+            || (request.getBodyString() != null
+                && request.getBodyString().contains("\"backend_compute\"")))) {
+      request = new RedactingRequest(request);
+    }
+    return apiClient.execute(request, responseType);
   }
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
@@ -138,7 +148,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
           if (!responseCompressionEnabled) {
             request.withHeader("Accept-Encoding", "identity");
           }
-          Response response = delegate.execute(request);
+          if (request instanceof RedactingRequest) {
+            ((RedactingRequest) request).showWireBody();
+          }
+          Response response;
+          try {
+            response = delegate.execute(request);
+          } finally {
+            if (request instanceof RedactingRequest) {
+              ((RedactingRequest) request).hideWireBody();
+            }
+          }
           if (request instanceof CreateSessionHttpRequest) {
             String header = response.getFirstHeader(REALTIME_SESSION_HEADER);
             ((CreateSessionHttpRequest) request).realtimeSession =
@@ -199,7 +219,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       CreateSessionHttpRequest req =
           new CreateSessionHttpRequest(createPath, apiClient.serialize(request));
       req.withHeaders(getHeaders("createSession"));
-      createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
+      createSessionResponse = execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;
     } catch (DatabricksError e) {
       if (e.getStatusCode() == HttpStatus.SC_TOO_MANY_REQUESTS) {
@@ -318,7 +338,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (!target.isApc() && !sessionInfo.realtimeSession()) {
         ApiClient.setQuery(req, request);
       }
-      apiClient.execute(req, Void.class);
+      execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while performing the deleting session operation";
       LOGGER.error(errorMessage, e);
@@ -369,7 +389,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         }
       }
       req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
-      response = apiClient.execute(req, ExecuteStatementResponse.class);
+      response = execute(req, ExecuteStatementResponse.class);
       updateSessionVersion(session, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
@@ -439,7 +459,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             new Request(
                 Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
         req.withHeaders(getHeaders("getStatement"));
-        response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
+        response = wrapGetStatementResponse(execute(req, GetStatementResponse.class));
         updateSessionVersion(session, response.getStatus());
       } catch (IOException e) {
         String errorMessage = "Error while processing the get statement response";
@@ -533,7 +553,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
               statementCollectionPath(session.getSessionInfo()),
               apiClient.serialize(request));
       req.withHeaders(getHeaders("executeStatement", statementType, true));
-      response = apiClient.execute(req, ExecuteStatementResponse.class);
+      response = execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement async request";
       LOGGER.error(errorMessage, e);
@@ -577,7 +597,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     try {
       Request req = new Request(Request.GET, statusPath, (String) null);
       req.withHeaders(getHeaders("getStatementStatus"));
-      StatementStatus status = apiClient.execute(req, StatementStatus.class);
+      StatementStatus status = execute(req, StatementStatus.class);
       StatementState state = status.getState();
       // Terminal states mean the operation is no longer alive
       return state != StatementState.CANCELED
@@ -609,7 +629,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           new Request(
               Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
       req.withHeaders(getHeaders("getStatement"));
-      response = apiClient.execute(req, GetStatementResponse.class);
+      response = execute(req, GetStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the get statement result request";
       LOGGER.error(errorMessage, e);
@@ -649,7 +669,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req =
           new Request(Request.DELETE, path, serializeStatementRequest(typedStatementId, request));
       req.withHeaders(getHeaders("closeStatement"));
-      apiClient.execute(req, Void.class);
+      execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the close statement request";
       LOGGER.error(errorMessage, e);
@@ -677,7 +697,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                   ? apiClient.serialize(request)
                   : serializeStatementRequest(typedStatementId, request));
       req.withHeaders(getHeaders("cancelStatement"));
-      apiClient.execute(req, Void.class);
+      execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the cancel statement request";
       LOGGER.error(errorMessage, e);
@@ -708,7 +728,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req =
           new Request(Request.GET, path, serializeStatementRequest(typedStatementId, request));
       req.withHeaders(getHeaders("getStatementResultN"));
-      ResultData resultData = apiClient.execute(req, ResultData.class);
+      ResultData resultData = execute(req, ResultData.class);
       return buildChunkLinkFetchResult(resultData.getExternalLinks());
     } catch (DatabricksException e) {
       String errorMessage =
@@ -788,7 +808,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req =
           new Request(Request.GET, path, serializeStatementRequest(typedStatementId, request));
       req.withHeaders(getHeaders("getStatementResultN"));
-      return apiClient.execute(req, ResultData.class);
+      return execute(req, ResultData.class);
     } catch (DatabricksException e) {
       String errorMessage =
           String.format(
