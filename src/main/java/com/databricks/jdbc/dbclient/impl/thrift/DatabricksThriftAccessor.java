@@ -235,13 +235,8 @@ final class DatabricksThriftAccessor {
       }
 
       // Get the operation status from direct results if present
-      String sessionDebugInfo =
-          String.format(
-              "Session [%s] with (%s)", session.getSessionId(), session.getComputeResource());
-
       TGetOperationStatusResp statusResp =
-          pollTillOperationFinished(
-              response, parentStatement, session, statementId, sessionDebugInfo, statementType);
+          pollTillOperationFinished(response, parentStatement, session, statementId, statementType);
       boolean isDirectResults = hasResultDataInDirectResults(response);
       if (isDirectResults) {
         // The first response has result data
@@ -263,12 +258,12 @@ final class DatabricksThriftAccessor {
         long fetchLatencyNanos = fetchEndTime - fetchStartTime;
         long fetchLatencyMillis = fetchLatencyNanos / 1_000_000;
         LOGGER.debug(
-            String.format(
-                "Connection [%s] Statement [%s] Session [%s] Thrift fetch latency: %dms",
-                connectionUuid,
-                statementId.toSQLExecStatementId(),
-                sessionDebugInfo,
-                fetchLatencyMillis));
+            "Connection [{}] Statement [{}] Session [Session [{}] with ({})] Thrift fetch latency: {}ms",
+            connectionUuid,
+            statementId.toSQLExecStatementId(),
+            session.getSessionId(),
+            session.getComputeResource(),
+            fetchLatencyMillis);
       }
 
       DatabricksResultSet databricksResultSet =
@@ -310,7 +305,6 @@ final class DatabricksThriftAccessor {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       StatementId statementId,
-      String sessionDebugInfo,
       StatementType statementType)
       throws SQLException, TException {
     int timeoutInSeconds;
@@ -373,12 +367,12 @@ final class DatabricksThriftAccessor {
     long pollingLatencyNanos = pollingEndTime - pollingStartTime;
     long pollingLatencyMillis = pollingLatencyNanos / 1_000_000;
     LOGGER.debug(
-        String.format(
-            "Connection [%s] Statement [%s] Session [%s] Thrift polling latency: %dms",
-            connectionUuid,
-            statementId.toSQLExecStatementId(),
-            sessionDebugInfo,
-            pollingLatencyMillis));
+        "Connection [{}] Statement [{}] Session [Session [{}] with ({})] Thrift polling latency: {}ms",
+        connectionUuid,
+        statementId.toSQLExecStatementId(),
+        session.getSessionId(),
+        session.getComputeResource(),
+        pollingLatencyMillis);
     return statusResp;
   }
 

@@ -77,7 +77,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
       throws DatabricksHttpException {
-    LOGGER.debug("Executing HTTP request {}", RequestSanitizer.sanitizeRequest(request));
+    LOGGER.debug("Executing HTTP request {}", sanitizedForLog(request));
     if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
       // TODO : allow gzip in wiremock
       request.setHeader("Content-Encoding", "gzip");
@@ -181,6 +181,16 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       setFakeServiceRouteInHttpClient(builder);
     }
     return builder.build();
+  }
+
+  /** Defers URI sanitization to toString(), which the logger only calls when the level is on. */
+  private static Object sanitizedForLog(HttpUriRequest request) {
+    return new Object() {
+      @Override
+      public String toString() {
+        return RequestSanitizer.sanitizeRequest(request);
+      }
+    };
   }
 
   private static void throwHttpException(Exception e, HttpUriRequest request)
