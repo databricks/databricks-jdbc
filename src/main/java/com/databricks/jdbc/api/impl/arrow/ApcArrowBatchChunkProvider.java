@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -63,6 +64,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     String timeZone = "UTC";
     Map<String, String> configs = session.getSessionConfigs();
     if (configs != null) {
+      configs = new HashMap<>(configs);
       for (Map.Entry<String, String> config : configs.entrySet()) {
         if ("spark.sql.session.timeZone".equalsIgnoreCase(config.getKey())
             && config.getValue() != null) {
@@ -101,7 +103,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       return false;
     }
     if (current != null) {
-      current.releaseChunk();
+      current.releaseChunkAndAllocator();
       current = null;
     }
     while (pending.isEmpty() && nextChunkIndex != null) {
@@ -148,7 +150,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
                     // Cancellation marks the Future done before the worker actually exits.
                     // If close has already returned, the worker owns final cleanup.
                     if (closed) {
-                      chunk.releaseChunk();
+                      chunk.releaseChunkAndAllocator();
                     }
                   }
                 });
@@ -279,12 +281,12 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       Thread.currentThread().interrupt();
     }
     if (terminated && current != null) {
-      current.releaseChunk();
+      current.releaseChunkAndAllocator();
     }
     // An active worker releases current in its finally block after parsing stops.
     current = null;
     for (ArrowResultChunk chunk : pending) {
-      chunk.releaseChunk();
+      chunk.releaseChunkAndAllocator();
     }
     pending.clear();
   }
