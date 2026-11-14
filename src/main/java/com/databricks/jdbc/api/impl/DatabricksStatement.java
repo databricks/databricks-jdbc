@@ -25,11 +25,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+  private static final Pattern SET_TIME_ZONE =
+      Pattern.compile(
+          "(?is)^\\s*SET\\s+(?:TIME\\s+ZONE\\s+|spark\\.sql\\.session\\.timeZone\\s*=\\s*)"
+              + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+))\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -912,7 +918,25 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully {}", resultSet.toString());
+    String newTimeZone = sessionTimeZoneSetBy(sql);
+    if (newTimeZone != null) {
+      connection.getSession().setSessionConfig("TIMEZONE", newTimeZone);
+      connection.getSession().setSessionConfig("spark.sql.session.timeZone", newTimeZone);
+    }
     return resultSet;
+  }
+
+  static String sessionTimeZoneSetBy(String sql) {
+    Matcher match = SET_TIME_ZONE.matcher(sql);
+    if (!match.matches()) {
+      return null;
+    }
+    for (int i = 1; i <= 3; i++) {
+      if (match.group(i) != null) {
+        return match.group(i);
+      }
+    }
+    return null;
   }
 
   DatabricksResultSet executeInternal(

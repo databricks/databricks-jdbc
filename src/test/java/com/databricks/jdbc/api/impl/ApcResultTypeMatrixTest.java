@@ -318,7 +318,8 @@ class ApcResultTypeMatrixTest {
     ResultManifest manifest = manifest();
     if (populatedArrowSchema) {
       manifest
-          .setArrowSchema(ArrowBatchSchemaBuilder.serialize(manifest.getSchema(), "Asia/Kolkata"))
+          // The optional schema deliberately disagrees with the manifest's session zone.
+          .setArrowSchema(ArrowBatchSchemaBuilder.serialize(manifest.getSchema(), "UTC"))
           .setTotalByteCount(999L);
     }
     ResultData data =
@@ -331,9 +332,7 @@ class ApcResultTypeMatrixTest {
     when(context.isTimestampNtzTypeNameEnabled()).thenReturn(true);
     DatabricksSession session = mock(DatabricksSession.class);
     when(session.getConnectionContext()).thenReturn(context);
-    if (!populatedArrowSchema) {
-      when(session.getSessionConfigs()).thenReturn(Map.of("TIMEZONE", "Asia/Kolkata"));
-    }
+    when(session.getSessionConfigs()).thenReturn(Map.of("TIMEZONE", "Asia/Kolkata"));
     DatabricksResultSet result =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
@@ -462,6 +461,7 @@ class ApcResultTypeMatrixTest {
       assertFalse(result.isAfterLast());
       assertFalse(result.next());
       assertTrue(result.isAfterLast());
+      assertFalse(result.isLast());
     } finally {
       result.close();
       thrift.close();
