@@ -30,7 +30,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   private final IDatabricksHttpClient httpClient;
   private final CompressionCodec compressionCodec;
   private final byte[] schemaMessage;
-  private final ArrayDeque<Object> pending = new ArrayDeque<>();
+  private final ArrayDeque<ArrowResultChunk> pending = new ArrayDeque<>();
   private final ExecutorService downloadExecutor =
       Executors.newSingleThreadExecutor(
           task -> {
@@ -60,7 +60,12 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     if (initialData == null) {
       nextChunkIndex = 0L;
     } else {
-      addPage(initialData);
+      try {
+        addPage(initialData);
+      } catch (DatabricksSQLException | RuntimeException e) {
+        close();
+        throw e;
+      }
     }
   }
 
@@ -97,27 +102,18 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     if (pending.isEmpty()) {
       return false;
     }
-    Object item = pending.removeFirst();
-    if (item instanceof ArrowResultChunk) {
-      current = (ArrowResultChunk) item;
-    } else {
-      ExternalLink link = (ExternalLink) item;
-      current =
-          ArrowResultChunk.builder()
-              .withStatementId(statementId)
-              .withConnectionContext(session.getConnectionContext())
-              .withChunkMetadata(link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
-              .build();
-      current.setChunkLink(link);
+    current = pending.removeFirst();
+    if (current.getChunkLink() != null) {
+      ArrowResultChunk chunk = current;
       StreamingChunkDownloadTask task =
           new StreamingChunkDownloadTask(
-              current,
+              chunk,
               httpClient,
               compressionCodec,
               (index, offset) -> {
                 ExternalLink refreshed =
                     new SeaChunkLinkFetcher(session, statementId).refetchLink(index, offset);
-                current.setChunkLink(refreshed);
+                chunk.setChunkLink(refreshed);
                 return refreshed;
               },
               session.getConnectionContext().getCloudFetchSpeedThreshold());
@@ -182,7 +178,14 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
             || link.getRowOffset() == null) {
           throw invalidPage("APC external link is missing paging metadata");
         }
-        pending.add(link);
+        ArrowResultChunk chunk =
+            ArrowResultChunk.builder()
+                .withStatementId(statementId)
+                .withConnectionContext(session.getConnectionContext())
+                .withChunkMetadata(link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
+                .build();
+        chunk.setChunkLink(link);
+        pending.add(chunk);
         rowCount += link.getRowCount();
       }
       ExternalLink last = ordered.get(ordered.size() - 1);
@@ -211,10 +214,8 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       current.releaseChunk();
       current = null;
     }
-    for (Object item : pending) {
-      if (item instanceof ArrowResultChunk) {
-        ((ArrowResultChunk) item).releaseChunk();
-      }
+    for (ArrowResultChunk chunk : pending) {
+      chunk.releaseChunk();
     }
     pending.clear();
     downloadExecutor.shutdownNow();
