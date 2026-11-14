@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -66,7 +67,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
   private final Condition consumerAdvanced = prefetchLock.newCondition();
   private final AtomicInteger batchesInMemory = new AtomicInteger(0);
 
-  // Prefetch thread
+  // Prefetch thread; null when the initial response already holds the whole result.
   private final Thread prefetchThread;
 
   // ==================== Factory Methods ====================
@@ -181,12 +182,15 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
       LOGGER.debug("Single batch result - all data in initial response");
     }
 
-    // Start prefetch thread
-    this.prefetchThread = new Thread(this::prefetchLoop, PREFETCH_THREAD_NAME);
-    this.prefetchThread.setDaemon(true);
-    this.prefetchThread.start();
-
-    notifyConsumerAdvanced();
+    if (endOfStreamReached) {
+      // Nothing to prefetch; avoids a thread start/join per small result.
+      this.prefetchThread = null;
+    } else {
+      this.prefetchThread = new Thread(this::prefetchLoop, PREFETCH_THREAD_NAME);
+      this.prefetchThread.setDaemon(true);
+      this.prefetchThread.start();
+      notifyConsumerAdvanced();
+    }
   }
 
   // ==================== Public API ====================
@@ -330,6 +334,11 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     return endOfStreamReached;
   }
 
+  @VisibleForTesting
+  boolean hasPrefetchThread() {
+    return prefetchThread != null;
+  }
+
   @Override
   public void close() {
     if (closed) return;
@@ -341,12 +350,14 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     notifyBatchAvailable();
 
     // Interrupt and wait for prefetch thread to terminate before releasing resources
-    prefetchThread.interrupt();
-    try {
-      prefetchThread.join(5000); // Wait up to 5s for clean shutdown
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
+    if (prefetchThread != null) {
+      prefetchThread.interrupt();
+      try {
+        prefetchThread.join(5000); // Wait up to 5s for clean shutdown
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
+      }
     }
 
     // Release all batches using type-safe release action

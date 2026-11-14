@@ -168,6 +168,7 @@ class SeaInlineArrowChunkProviderTest {
       assertFalse(provider.hasNextChunk());
       assertFalse(provider.next());
       assertEquals(2L, provider.getRowCount());
+      assertFalse(provider.hasPrefetchThread());
     }
 
     @Test
@@ -252,6 +253,7 @@ class SeaInlineArrowChunkProviderTest {
       provider =
           new SeaInlineArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
+      assertTrue(provider.hasPrefetchThread());
 
       ColumnInfo colInfo = new ColumnInfo();
       int[] expectedValues = {1, 2, 3, 4, 5, 6};
