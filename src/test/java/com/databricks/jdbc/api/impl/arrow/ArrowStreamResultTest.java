@@ -5,6 +5,8 @@ import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +19,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -241,6 +244,48 @@ public class ArrowStreamResultTest {
     assertTrue(result.hasNext());
     assertDoesNotThrow(result::close);
     assertFalse(result.hasNext());
+  }
+
+  @Test
+  public void testThriftCloudFetchFetchesRemainingLinksAsLinkBatches() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(session.getDatabricksClient()).thenReturn(client);
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+    when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+    TFetchResultsResp firstBatch =
+        new TFetchResultsResp()
+            .setResults(thriftResultLinks(0, 2))
+            .setResultSetMetadata(metadataResp)
+            .setHasMoreRows(true);
+    when(client.getMoreResultLinks(parentStatement))
+        .thenReturn(
+            new TFetchResultsResp().setResults(thriftResultLinks(2, 3)).setHasMoreRows(true))
+        .thenReturn(new TFetchResultsResp().setResults(thriftResultLinks(5, 1)));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(firstBatch, parentStatement, session, mockHttpClient);
+
+    assertEquals(6, result.getChunkCount());
+    assertEquals(6 * rowsInChunk, result.getRowCount());
+    verify(client, times(2)).getMoreResultLinks(parentStatement);
+    verify(client, never()).getMoreResults(any());
+    assertDoesNotThrow(result::close);
+  }
+
+  private TRowSet thriftResultLinks(int firstChunk, int count) {
+    List<TSparkArrowResultLink> links = new ArrayList<>();
+    for (int i = firstChunk; i < firstChunk + count; i++) {
+      links.add(
+          new TSparkArrowResultLink()
+              .setFileLink(CHUNK_URL_PREFIX + i)
+              .setStartRowOffset(i * rowsInChunk)
+              .setRowCount(rowsInChunk)
+              .setExpiryTime(Instant.now().plusSeconds(3600).toEpochMilli()));
+    }
+    return new TRowSet().setResultLinks(links);
   }
 
   @Test

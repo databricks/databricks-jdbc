@@ -13,6 +13,7 @@
 - Reduced typed result getter CPU by resolving each column's converter once when its metadata is built and reusing it across rows.
 - Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
 - Reduced `getConnection()` latency for apps that open connections one at a time or after idle periods: a new connection reuses the driver feature flags fetched in the last 15 minutes (or within the server's TTL, if shorter) for the same host, User-Agent, and custom headers instead of fetching them again.
+- Large CloudFetch results over Thrift start downloading sooner: the driver now asks for up to 1 GiB of result files per `FetchResults` link request instead of ~400 MB, so it needs about 2.7x fewer serial round trips before the first chunk download.
 
 ### Fixed
 

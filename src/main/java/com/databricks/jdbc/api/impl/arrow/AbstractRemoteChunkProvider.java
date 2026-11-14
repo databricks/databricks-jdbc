@@ -276,7 +276,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     ConcurrentMap<Long, T> chunkIndexMap = new ConcurrentHashMap<>();
     populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     while (resultsResp.hasMoreRows) {
-      resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
+      resultsResp = session.getDatabricksClient().getMoreResultLinks(parentStatement);
       populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     }
     TelemetryHelper.recordTotalChunks(session.getConnectionContext(), statementId, chunkCount);

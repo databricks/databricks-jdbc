@@ -186,6 +186,15 @@ public interface IDatabricksClient {
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
+  /**
+   * Fetches the next Thrift response for a result that is known to contain only CloudFetch links,
+   * letting the client request more links per round trip than {@link #getMoreResults} would.
+   */
+  default TFetchResultsResp getMoreResultLinks(IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    return getMoreResults(parentStatement);
+  }
+
   /** Retrieves underlying DatabricksConfig */
   DatabricksConfig getDatabricksConfig();
 }

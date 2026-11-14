@@ -9,6 +9,14 @@ public final class EnvironmentVariables {
   public static final int DEFAULT_ROW_LIMIT_PER_BLOCK =
       2000000; // Setting a limit for resource and cost efficiency
   public static final int DEFAULT_BYTE_LIMIT = 404857600;
+
+  /**
+   * maxBytes for Thrift FetchResults calls that only return CloudFetch links. The server counts the
+   * uncompressed size of the linked files against this limit (and caps it at 1 GiB), so the default
+   * limit yields only ~20 links per round trip.
+   */
+  public static final long CLOUD_FETCH_LINKS_BYTE_LIMIT = 1L << 30;
+
   public static final boolean DEFAULT_ESCAPE_PROCESSING =
       false; // By default, we should not process the sql
 
