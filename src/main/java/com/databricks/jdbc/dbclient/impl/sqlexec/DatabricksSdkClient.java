@@ -444,8 +444,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
     boolean redactApcDetails =
         apc
-            && !ApcParameterCapabilities.supportsNativeParameters(session)
-            && (!parameters.isEmpty() || parentStatement instanceof DatabricksPreparedStatement);
+            && (!parameters.isEmpty()
+                || parameterSets != null
+                || parentStatement instanceof DatabricksPreparedStatement);
     String logSql = apc ? "[REDACTED]" : sql;
     String errorSql = redactApcDetails ? "[REDACTED]" : sql;
     LOGGER.debug(
@@ -488,6 +489,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
       updateSessionVersion(session, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
+      if (redactApcDetails) {
+        // SDK exceptions can include the server response, which may echo bound values.
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
@@ -558,6 +564,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
         updateSessionVersion(session, response.getStatus());
       } catch (IOException e) {
         String errorMessage = "Error while processing the get statement response";
+        if (redactApcDetails) {
+          LOGGER.error(errorMessage);
+          throw new DatabricksSQLException(
+              errorMessage, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+        }
         LOGGER.error(errorMessage, e);
         throw new DatabricksSQLException(
             errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
@@ -631,6 +642,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    boolean redactApcDetails =
+        apc && (!parameters.isEmpty() || parentStatement instanceof DatabricksPreparedStatement);
     String logSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
         "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
@@ -653,6 +666,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       response = execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement async request";
+      if (redactApcDetails) {
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
@@ -660,10 +677,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (statementId == null) {
       LOGGER.error(
           "Empty Statement ID for sql {}, compute {}", logSql, computeLabel(computeResource));
-      boolean redactApcDetails =
-          apc
-              && !parameters.isEmpty()
-              && !ApcParameterCapabilities.supportsNativeParameters(session);
       handleFailedExecution(response, "", redactApcDetails ? "[REDACTED]" : sql, redactApcDetails);
     }
     StatementId typedStatementId =

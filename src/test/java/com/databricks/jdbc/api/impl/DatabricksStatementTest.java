@@ -631,6 +631,38 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  void unexpectedApcExecutionFailureRedactsInterpolatedSqlAndCause() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    DatabricksConnection connection = mock(DatabricksConnection.class);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(connection.getConnectionContext()).thenReturn(context);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(APC_COMPUTE)
+                .clientType(DatabricksClientType.SEA)
+                .liveProtocolVersion(true)
+                .build());
+    DatabricksStatement statement = spy(new DatabricksStatement(connection));
+    String sql = "SELECT 'interpolated-secret'";
+    CompletableFuture<DatabricksResultSet> future = new CompletableFuture<>();
+    future.completeExceptionally(new RuntimeException("failure on interpolated-secret"));
+    doReturn(future).when(statement).getFutureResult(eq(sql), anyMap(), eq(StatementType.QUERY));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException error =
+          assertThrows(
+              DatabricksSQLException.class,
+              () -> statement.executeInternal(sql, new HashMap<>(), StatementType.QUERY, false));
+      assertFalse(error.getMessage().contains("interpolated-secret"));
+      assertNull(error.getCause());
+      assertFalse(logs.getOutput().contains("interpolated-secret"));
+    }
+  }
+
+  @Test
   void testTimeoutDiagnosticsExcludeStatementSecret() throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());

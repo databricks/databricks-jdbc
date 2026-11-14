@@ -190,8 +190,14 @@ class LegacyPreparedStatementBatchExecutor {
             statementExecutor.execute(sqlToExecute, parametersToSend, StatementType.UPDATE, false);
         largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
       } catch (Exception e) {
-        LOGGER.error(
-            "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
+        boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
+        String errorMessage = apc ? "APC batch execution failed: [REDACTED]" : e.getMessage();
+        if (apc) {
+          LOGGER.error("Error executing APC batch update for index {}", sqlQueryIndex);
+        } else {
+          LOGGER.error(
+              "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
+        }
         // Set the current failed statement's count
         largeUpdateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
         // Set all remaining statements as failed
@@ -201,7 +207,7 @@ class LegacyPreparedStatementBatchExecutor {
         // WARNING: Due to lack of transaction support, any successfully executed statements
         // before this failure have already been committed and cannot be rolled back
         throw new DatabricksBatchUpdateException(
-            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
+            errorMessage, DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
     }
     return largeUpdateCount;

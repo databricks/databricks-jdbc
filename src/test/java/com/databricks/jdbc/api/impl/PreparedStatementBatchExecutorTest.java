@@ -2,6 +2,8 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -13,8 +15,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -34,6 +40,7 @@ class PreparedStatementBatchExecutorTest {
   private static final String UPDATE_SQL = "UPDATE target SET name = ? WHERE id = ?";
 
   @Mock private DatabricksConnection connection;
+  @Mock private IDatabricksSession session;
   @Mock private IDatabricksConnectionContext connectionContext;
   @Mock private PreparedStatementBatchExecutor.StatementExecutor statementExecutor;
   @Mock private PreparedStatementBatchExecutor.NativeBatchExecutor nativeBatchExecutor;
@@ -250,6 +257,34 @@ class PreparedStatementBatchExecutorTest {
     assertArrayEquals(
         new long[] {4, Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
         exception.getLargeUpdateCounts());
+  }
+
+  @Test
+  void interpolatedApcBatchUnexpectedFailureRedactsValue() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .clientType(DatabricksClientType.SEA)
+                .liveProtocolVersion(true)
+                .build());
+    when(statementExecutor.execute(anyString(), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenThrow(new RuntimeException("unexpected failure on name-1"));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksBatchUpdateException error =
+          assertThrows(
+              DatabricksBatchUpdateException.class,
+              () -> newExecutor(INSERT_SQL, true).executeBatch(createBatch(1)));
+
+      assertFalse(error.getMessage().contains("name-1"));
+      assertNull(error.getCause());
+      assertArrayEquals(new long[] {Statement.EXECUTE_FAILED}, error.getLargeUpdateCounts());
+      assertFalse(logs.getOutput().contains("name-1"));
+    }
   }
 
   private PreparedStatementBatchExecutor newExecutor(String sql, boolean interpolateParameters) {

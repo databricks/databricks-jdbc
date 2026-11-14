@@ -249,6 +249,7 @@ class ApcParameterFakeServiceTest {
     assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.name(), error.getSQLState());
     assertEquals(
         DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.getCode(), error.getErrorCode());
+    assertTrue(error.getMessage().contains("complex logical type STRUCT"));
     assertTrue(executeBodies().isEmpty());
 
     DatabricksPreparedStatement single = prepared(42248L, "SELECT ?", false);
@@ -283,5 +284,63 @@ class ApcParameterFakeServiceTest {
     assertFalse(error.getMessage().contains(secret));
     assertEquals(1, executeBodies().size());
     assertTrue(executeBodies().get(0).path("statement").asText().contains(secret));
+  }
+
+  @Test
+  void nativeSingleSdkFailureDoesNotExposeServerEchoOrCause() throws Exception {
+    String secret = "native-single-secret";
+    stubFailure("Failed near " + secret, "42000");
+    DatabricksPreparedStatement prepared = prepared(42248L, "SELECT ?", false);
+    prepared.setString(1, secret);
+
+    DatabricksSQLException error =
+        assertThrows(DatabricksSQLException.class, prepared::executeQuery);
+    assertFalse(error.getMessage().contains(secret));
+    assertNull(error.getCause());
+    assertEquals(secret, executeBodies().get(0).path("parameters").get(0).path("value").asText());
+  }
+
+  @Test
+  void nativeBatchFailureRedactsBoundValueAndFailsEverySet() throws Exception {
+    String secret = "native-batch-secret";
+    stubFailure("Failed near " + secret, "42000");
+    DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
+    prepared.setString(1, secret);
+    prepared.addBatch();
+    prepared.setString(1, "second-value");
+    prepared.addBatch();
+
+    BatchUpdateException error =
+        assertThrows(BatchUpdateException.class, prepared::executeLargeBatch);
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        error.getLargeUpdateCounts());
+    assertFalse(error.getMessage().contains(secret));
+    assertNull(error.getCause());
+    assertEquals(1, executeBodies().size());
+    assertEquals(
+        secret,
+        executeBodies()
+            .get(0)
+            .path("parameter_sets")
+            .get(0)
+            .path("parameters")
+            .get(0)
+            .path("value")
+            .asText());
+  }
+
+  private void stubFailure(String message, String sqlState) throws Exception {
+    String response =
+        "{\"statement_id\":\"failed\",\"status\":{\"state\":\"FAILED\","
+            + "\"sql_state\":\""
+            + sqlState
+            + "\",\"error\":{\"message\":\""
+            + message
+            + "\",\"error_code\":\"BAD_SQL\"}}";
+    server.stubFor(
+        post(urlPathEqualTo(PathConstants.STATEMENT_PATH))
+            .atPriority(1)
+            .willReturn(okJson(response)));
   }
 }

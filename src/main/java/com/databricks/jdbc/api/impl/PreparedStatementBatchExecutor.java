@@ -77,13 +77,22 @@ class PreparedStatementBatchExecutor {
       } catch (SQLException e) {
         long[] failed = new long[batchParameterSets.size()];
         Arrays.fill(failed, Statement.EXECUTE_FAILED);
+        boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
         throw new DatabricksBatchUpdateException(
-            e.getMessage(), e.getSQLState(), e.getErrorCode(), failed, e);
+            apc ? "APC native batch execution failed: [REDACTED]" : e.getMessage(),
+            e.getSQLState(),
+            e.getErrorCode(),
+            failed,
+            apc ? null : e);
       } catch (Exception e) {
         long[] failed = new long[batchParameterSets.size()];
         Arrays.fill(failed, Statement.EXECUTE_FAILED);
         throw new DatabricksBatchUpdateException(
-            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, failed);
+            ApcParameterCapabilities.isApcSea(connection.getSession())
+                ? "APC native batch execution failed: [REDACTED]"
+                : e.getMessage(),
+            DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION,
+            failed);
       }
     }
     return legacyExecutor.executeBatch(batchParameterSets);

@@ -924,6 +924,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           throw (SQLException) cause;
         }
       }
+      if (ApcParameterCapabilities.isApcSea(connection.getSession())) {
+        // Unexpected failures may contain interpolated SQL in either the message or cause.
+        String errMsg = "Error occurred during APC statement execution: [REDACTED]";
+        LOGGER.error(errMsg);
+        throw new DatabricksSQLException(
+            errMsg, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+      }
       String errMsg =
           String.format(
               "Error occurred during statement execution: %s. Error : %s", sql, e.getMessage());
