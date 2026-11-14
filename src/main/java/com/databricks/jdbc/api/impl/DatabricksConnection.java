@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
@@ -94,7 +95,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     ImmutableSessionInfo currentSession = session.getSessionInfo();
     if (id.clientType() == com.databricks.jdbc.common.DatabricksClientType.SEA
         && currentSession != null
-        && currentSession.clientType() == com.databricks.jdbc.common.DatabricksClientType.SEA) {
+        && currentSession.clientType() == com.databricks.jdbc.common.DatabricksClientType.SEA
+        && currentSession.computeResource() instanceof AllPurposeCluster) {
       id = StatementId.forCurrentSession(id.toSQLExecStatementId(), currentSession);
     }
     return new DatabricksStatement(this, id);

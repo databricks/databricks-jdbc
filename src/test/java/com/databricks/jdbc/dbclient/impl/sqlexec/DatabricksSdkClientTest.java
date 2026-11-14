@@ -333,7 +333,9 @@ public class DatabricksSdkClientTest {
     client.cancelStatement(owned);
     client.closeStatement(owned);
 
-    StatementId detached = StatementId.deserialize("detached-statement");
+    // Recover through the public connection API to retain the legacy warehouse wire route.
+    StatementId detached =
+        ((DatabricksStatement) connection.getStatement("detached-statement")).getStatementId();
     client.checkStatementAlive(detached);
     client.getStatementResult(detached, connection.getSession(), statement);
     client.getResultChunks(detached, 0, 64);
