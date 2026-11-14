@@ -23,6 +23,7 @@ import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -501,6 +502,56 @@ class ApcArrowBatchChunkProviderTest {
       assertTrue(messages.stream().anyMatch(message -> message.contains("CloudFetch download:")));
       assertTrue(messages.stream().noneMatch(message -> message.contains(secretPath)));
       assertTrue(messages.stream().noneMatch(message -> message.contains("query-secret")));
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(oldLevel);
+    }
+  }
+
+  @Test
+  void responseCloseFailureDoesNotRetryInitializedChunkOrExposePresignedUrl() throws Exception {
+    String url = "https://storage.example.test/private/chunk?sig=secret";
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(4)));
+    when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+    doThrow(new IOException("Failed to close " + url)).when(response).close();
+    when(http.execute(any(HttpUriRequest.class), eq(true))).thenReturn(response);
+
+    Logger logger = Logger.getLogger(ArrowResultChunk.class.getName());
+    Level oldLevel = logger.getLevel();
+    List<String> messages = new ArrayList<>();
+    Handler handler =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            messages.add(record.getMessage());
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    logger.setLevel(Level.ALL);
+    logger.addHandler(handler);
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                manifest(CompressionCodec.NONE),
+                new ResultData().setExternalLinks(List.of(link(url, 0, 0, 1, null))),
+                ID,
+                session,
+                http))) {
+      assertEquals(List.of(4), readInts(result.result));
+      verify(http, times(1)).execute(any(HttpUriRequest.class), eq(true));
+      verify(response).close();
+      assertTrue(messages.stream().anyMatch(message -> message.contains("Could not close")));
+      assertTrue(messages.stream().noneMatch(message -> message.contains("secret")));
+      assertTrue(messages.stream().noneMatch(message -> message.contains("/private/chunk")));
     } finally {
       logger.removeHandler(handler);
       logger.setLevel(oldLevel);
