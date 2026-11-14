@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
@@ -40,6 +41,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final StatementId statementId;
   private IDatabricksConnectionContext ctx;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
+  private final ObjectConverter[] columnConverters;
   private final CaseInsensitiveImmutableMap<Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
@@ -158,6 +160,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     this.columns = columnsBuilder.build();
+    this.columnConverters = resolveColumnConverters(columns);
     this.columnNameIndex = columnNameIndexBuilder.build();
     // Bounded SEA manifests may omit total_row_count; continuation is driven by
     // next_chunk_index instead. Use the existing unknown-row-count sentinel.
@@ -282,6 +285,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     this.columns = columnsBuilder.build();
+    this.columnConverters = resolveColumnConverters(columns);
     this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = rows;
     this.chunkCount = chunkCount;
@@ -338,6 +342,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     }
 
     this.columns = columnsBuilder.build();
+    this.columnConverters = resolveColumnConverters(columns);
     this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
@@ -392,6 +397,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
+    this.columnConverters = resolveColumnConverters(columns);
     this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
@@ -452,6 +458,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
+    this.columnConverters = resolveColumnConverters(columns);
     this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
@@ -530,6 +537,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.truncated = false;
     this.totalRows = -1;
     this.columns = columnsBuilder.build();
+    this.columnConverters = resolveColumnConverters(columns);
     this.columnNameIndex = columnNameIndexBuilder.build();
   }
 
@@ -619,7 +627,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   ObjectConverter getColumnConverter(int column) {
-    return columns.get(getEffectiveIndex(column)).converter();
+    return columnConverters[getEffectiveIndex(column)];
   }
 
   /**
@@ -665,8 +673,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return WrapperUtil.isWrapperFor(iface, this);
   }
 
+  private static ObjectConverter[] resolveColumnConverters(
+      List<ImmutableDatabricksColumn> columns) {
+    ObjectConverter[] converters = new ObjectConverter[columns.size()];
+    for (int i = 0; i < converters.length; i++) {
+      ImmutableDatabricksColumn column = columns.get(i);
+      converters[i] =
+          ConverterHelper.getConverterForColumnType(column.columnType(), column.columnTypeText());
+    }
+    return converters;
+  }
+
   private int getEffectiveIndex(int columnIndex) {
-    if (columnIndex > 0 && columnIndex <= columns.size()) {
+    if (columnIndex > 0 && columnIndex <= columnConverters.length) {
       return columnIndex - 1;
     } else {
       throw new IllegalStateException("Invalid column index: " + columnIndex);

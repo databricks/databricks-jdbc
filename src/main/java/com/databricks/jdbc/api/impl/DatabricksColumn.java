@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.impl.converters.ConverterHelper;
-import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import org.immutables.value.Value;
@@ -17,12 +15,6 @@ public interface DatabricksColumn {
 
   /** Full data type spec, SQL/catalogString text */
   String columnTypeText();
-
-  @Value.Derived
-  @Value.Auxiliary
-  default ObjectConverter converter() {
-    return ConverterHelper.getConverterForColumnType(columnType(), columnTypeText());
-  }
 
   /**
    * Precision is the maximum number of significant digits that can be stored in a column. For
