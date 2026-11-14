@@ -9,7 +9,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.Date;
 
@@ -496,8 +495,8 @@ public class ConverterHelper {
       return converter.toFloat(obj);
     } else if (javaType == Double.class || javaType == double.class) {
       return converter.toDouble(obj);
-    } else if (javaType == LocalDate.class) {
-      return converter.toLocalDate(obj);
+    } else if (JavaTimeConverter.isJavaTimeType(javaType)) {
+      return JavaTimeConverter.convert(javaType, columnSqlType, columnTypeName, obj);
     } else if (javaType == BigInteger.class) {
       return converter.toBigInteger(obj);
     } else if (javaType == Date.class || javaType == java.sql.Date.class) {
@@ -550,13 +549,36 @@ public class ConverterHelper {
    */
   public static ObjectConverter getConverterForColumnType(
       int columnSqlType, String columnTypeName) {
-    if (columnTypeName != null) {
-      String baseTypeName = columnTypeName.split("\\(", 2)[0].trim().toUpperCase(Locale.ROOT);
-      if (baseTypeName.equals(GEOMETRY) || baseTypeName.equals(GEOGRAPHY)) {
-        return GEOSPATIAL_CONVERTER;
-      }
+    if (columnTypeName != null && isGeospatialBaseTypeName(columnTypeName)) {
+      return GEOSPATIAL_CONVERTER;
     }
     return getConverterForSqlType(columnSqlType);
+  }
+
+  /**
+   * Returns whether the type name before any "(" is GEOMETRY or GEOGRAPHY, ignoring case and
+   * surrounding whitespace. This runs for every value a getter reads, so it does not allocate.
+   */
+  static boolean isGeospatialBaseTypeName(String columnTypeName) {
+    int end = columnTypeName.indexOf('(');
+    if (end < 0) {
+      end = columnTypeName.length();
+    }
+    int start = 0;
+    // Same whitespace rule as String.trim()
+    while (start < end && columnTypeName.charAt(start) <= ' ') {
+      start++;
+    }
+    while (end > start && columnTypeName.charAt(end - 1) <= ' ') {
+      end--;
+    }
+    return regionEqualsIgnoreCase(columnTypeName, start, end, GEOMETRY)
+        || regionEqualsIgnoreCase(columnTypeName, start, end, GEOGRAPHY);
+  }
+
+  private static boolean regionEqualsIgnoreCase(String s, int start, int end, String expected) {
+    return end - start == expected.length()
+        && s.regionMatches(true, start, expected, 0, expected.length());
   }
 
   public static boolean isConversionSupported(int fromType, int toType) {
