@@ -36,7 +36,10 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -81,6 +84,37 @@ public class ArrowResultChunkTest {
     assertEquals(presignedHeaders.size(), request.getValue().getAllHeaders().length);
     presignedHeaders.forEach(
         (name, value) -> assertEquals(value, request.getValue().getFirstHeader(name).getValue()));
+  }
+
+  @Test
+  public void testCloseFailurePreservesSanitizedDownloadFailure() throws Exception {
+    String url = "https://storage.example.test/private/chunk?sig=secret";
+    ArrowResultChunk chunk =
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkMetadata(0, 1, 0)
+            .build();
+    chunk.setChunkLink(
+        new ExternalLink().setExternalLink(url).setExpiration("2099-01-01T00:00:00Z"));
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+    when(response.getEntity()).thenThrow(new IllegalStateException("Download failed: " + url));
+    doThrow(new IOException("Close failed: " + url)).when(response).close();
+    when(httpClient.execute(any(HttpUriRequest.class), eq(true))).thenReturn(response);
+
+    DatabricksParsingException failure =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(httpClient, CompressionCodec.NONE, 0.1));
+
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+    assertEquals("IllegalStateException", failure.getCause().getMessage());
+    assertFalse(failure.toString().contains(url));
+    assertFalse(failure.getCause().toString().contains(url));
+    verify(response).close();
+    chunk.releaseChunkAndAllocator();
   }
 
   @Test

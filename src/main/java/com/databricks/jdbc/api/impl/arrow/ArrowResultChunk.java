@@ -139,7 +139,17 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
       if (response != null) {
-        response.close();
+        try {
+          response.close();
+        } catch (Exception e) {
+          // Closing can fail after initializeData has transferred vectors to this chunk. Do not
+          // retry an initialized chunk or replace an earlier failure with a close exception. The
+          // exception may contain the presigned URL, so neither log nor retain it.
+          LOGGER.warn(
+              "Could not close result response for chunk index {} and statement {}",
+              chunkIndex,
+              StatementId.loggableStatementId(statementId));
+        }
       }
     }
   }
