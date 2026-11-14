@@ -457,7 +457,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       }
     } finally {
       // Each cleanup step must run even if an earlier one fails. In particular,
-      // closeConnection() stops the IdleConnectionEvictor owned by this connection.
+      // closeConnection() stops idle-connection eviction for this connection's HTTP clients.
       try {
         TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
       } finally {

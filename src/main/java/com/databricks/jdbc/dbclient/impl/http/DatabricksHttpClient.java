@@ -37,7 +37,6 @@ import org.apache.http.conn.UnsupportedSchemeException;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.IdleConnectionEvictor;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -48,17 +47,17 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
-  private IdleConnectionEvictor idleConnectionEvictor;
+  private IdleConnectionReaper.Registration idleConnectionEviction;
   private CloseableHttpAsyncClient asyncClient;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext, type);
-    idleConnectionEvictor =
-        new IdleConnectionEvictor(
-            connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
-    idleConnectionEvictor.start();
     asyncClient = GlobalAsyncHttpClient.getClient();
+    // Last, so a failure above cannot leave a registration in the shared reaper.
+    idleConnectionEviction =
+        IdleConnectionReaper.register(
+            connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
   }
 
   @VisibleForTesting
@@ -112,8 +111,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   @Override
   public void close() throws IOException {
-    if (idleConnectionEvictor != null) {
-      idleConnectionEvictor.shutdown();
+    if (idleConnectionEviction != null) {
+      idleConnectionEviction.close();
     }
     if (httpClient != null) {
       httpClient.close();
@@ -125,6 +124,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       GlobalAsyncHttpClient.releaseClient();
       asyncClient = null;
     }
+  }
+
+  /** Whether idle pooled connections of this client are still being evicted. */
+  @VisibleForTesting
+  public boolean isIdleConnectionEvictionActive() {
+    return idleConnectionEviction != null && idleConnectionEviction.isActive();
   }
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(
