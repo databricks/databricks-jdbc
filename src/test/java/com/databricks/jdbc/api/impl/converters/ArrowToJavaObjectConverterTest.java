@@ -10,25 +10,33 @@ import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.api.impl.DatabricksStruct;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
 import java.sql.Date;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.*;
 import java.util.*;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class ArrowToJavaObjectConverterTest {
   private final BufferAllocator bufferAllocator;
@@ -680,6 +688,258 @@ public class ArrowToJavaObjectConverterTest {
 
     assertInstanceOf(Timestamp.class, convertedObject);
     assertEquals(getTimestampAdjustedToTimeZone(timestamp, timeZone), convertedObject);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "-1455491, -2015-01-01", // DATE '-2015-01-01' (2016 BC)
+    "-141437, 1582-10-05", // inside the Julian/Gregorian cutover gap
+    "0, 1970-01-01",
+    "19598, 2023-08-29"
+  })
+  public void testConvertToJavaTime_DateIsExact(int epochDay, String expected) throws SQLException {
+    try (DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator)) {
+      dateDayVector.allocateNew(1);
+      dateDayVector.set(0, epochDay);
+      dateDayVector.setValueCount(1);
+
+      assertTrue(ArrowToJavaObjectConverter.isJavaTimeVector(dateDayVector));
+      assertEquals(
+          LocalDate.parse(expected),
+          ArrowToJavaObjectConverter.convertToJavaTime(dateDayVector, 0));
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    // TO_TIMESTAMP('2016 bc', 'yyyy G')
+    "-125754422400000000, UTC, -2015-01-01T00:00Z",
+    // TIMESTAMP '1000-01-01 00:00:00 UTC'
+    "-30610224000000000, UTC, 1000-01-01T00:00Z",
+    "1704054601234567, Asia/Tokyo, 2024-01-01T05:30:01.234567+09:00",
+    "-1, +5:30, 1970-01-01T05:29:59.999999+05:30"
+  })
+  public void testConvertToJavaTime_TimestampIsExactInSessionZone(
+      long epochMicros, String timeZone, String expected) throws SQLException {
+    try (TimeStampMicroTZVector timeStampMicroTZVector =
+        new TimeStampMicroTZVector("timeStampMicroTzVector", this.bufferAllocator, timeZone)) {
+      timeStampMicroTZVector.allocateNew(1);
+      timeStampMicroTZVector.set(0, epochMicros);
+      timeStampMicroTZVector.setValueCount(1);
+
+      assertTrue(ArrowToJavaObjectConverter.isJavaTimeVector(timeStampMicroTZVector));
+      assertEquals(
+          OffsetDateTime.parse(expected),
+          ArrowToJavaObjectConverter.convertToJavaTime(timeStampMicroTZVector, 0));
+    }
+  }
+
+  @Test
+  public void testConvertToJavaTime_TimestampNtzIsExact() throws SQLException {
+    try (TimeStampMicroVector timestampMicroVector =
+        new TimeStampMicroVector("timestampMicroVector", this.bufferAllocator)) {
+      timestampMicroVector.allocateNew(1);
+      timestampMicroVector.set(0, -125754422400000001L);
+      timestampMicroVector.setValueCount(1);
+
+      assertTrue(ArrowToJavaObjectConverter.isJavaTimeVector(timestampMicroVector));
+      assertEquals(
+          LocalDateTime.parse("-2016-12-31T23:59:59.999999"),
+          ArrowToJavaObjectConverter.convertToJavaTime(timestampMicroVector, 0));
+    }
+  }
+
+  @Test
+  public void testConvertToJavaTime_NullValue() throws SQLException {
+    try (DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator)) {
+      dateDayVector.allocateNew(1);
+      dateDayVector.setNull(0);
+      dateDayVector.setValueCount(1);
+
+      assertNull(ArrowToJavaObjectConverter.convertToJavaTime(dateDayVector, 0));
+    }
+  }
+
+  @Test
+  public void testConvertToJavaTime_UnsupportedVector() {
+    try (IntVector intVector = new IntVector("intVector", this.bufferAllocator)) {
+      intVector.allocateNew(1);
+      intVector.set(0, 19598);
+      intVector.setValueCount(1);
+
+      assertFalse(ArrowToJavaObjectConverter.isJavaTimeVector(intVector));
+      DatabricksSQLException exception =
+          assertThrows(
+              DatabricksSQLException.class,
+              () -> ArrowToJavaObjectConverter.convertToJavaTime(intVector, 0));
+      assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
+    }
+  }
+
+  @Test
+  public void testConvert_LegacyDateAndTimestampUnchanged() throws SQLException {
+    // The java.sql values keep their existing hybrid-calendar behaviour; only the java.time path
+    // is exact.
+    try (DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator);
+        TimeStampMicroTZVector timeStampMicroTZVector =
+            new TimeStampMicroTZVector("timeStampMicroTzVector", this.bufferAllocator, "UTC")) {
+      dateDayVector.allocateNew(1);
+      dateDayVector.set(0, -141437); // 1582-10-05
+      dateDayVector.setValueCount(1);
+      assertEquals(
+          Date.valueOf(LocalDate.of(1582, 10, 5)),
+          convert(dateDayVector, 0, ColumnInfoTypeName.DATE, "DATE", new ColumnInfo()));
+
+      timeStampMicroTZVector.allocateNew(1);
+      timeStampMicroTZVector.set(0, -30610224000000000L); // 1000-01-01T00:00:00Z
+      timeStampMicroTZVector.setValueCount(1);
+      assertEquals(
+          Timestamp.valueOf(LocalDateTime.of(1000, 1, 1, 0, 0)),
+          convert(
+              timeStampMicroTZVector,
+              0,
+              ColumnInfoTypeName.TIMESTAMP,
+              "TIMESTAMP",
+              new ColumnInfo()));
+    }
+  }
+
+  /** 2023-01-01T03:00:00Z, which is 2022-12-31T19:00 in America/Los_Angeles. */
+  private static final long NEW_YEAR_UTC_MICROS = 1672542000000000L;
+
+  private static final String LOS_ANGELES = "America/Los_Angeles";
+
+  @Test
+  public void testConvert_NestedTimestampJavaTimeUsesArrowFieldTimeZone() throws SQLException {
+    try (ListVector listVector = timestampListVector(LOS_ANGELES, NEW_YEAR_UTC_MICROS);
+        StructVector structVector = timestampStructVector(LOS_ANGELES, NEW_YEAR_UTC_MICROS);
+        TimeStampMicroTZVector scalarVector =
+            new TimeStampMicroTZVector("scalar", this.bufferAllocator, LOS_ANGELES)) {
+      scalarVector.allocateNew(1);
+      scalarVector.set(0, NEW_YEAR_UTC_MICROS);
+      scalarVector.setValueCount(1);
+      Object scalar = ArrowToJavaObjectConverter.convertToJavaTime(scalarVector, 0);
+
+      DatabricksArray array =
+          (DatabricksArray)
+              convert(
+                  listVector, 0, ColumnInfoTypeName.ARRAY, "ARRAY<TIMESTAMP>", new ColumnInfo());
+      DatabricksStruct struct =
+          (DatabricksStruct)
+              convert(
+                  structVector,
+                  0,
+                  ColumnInfoTypeName.STRUCT,
+                  "STRUCT<ts:TIMESTAMP>",
+                  new ColumnInfo());
+
+      // LocalDate and LocalDateTime are session-local, as for a top-level TIMESTAMP column.
+      for (Class<?> type :
+          List.of(LocalDate.class, LocalDateTime.class, Instant.class, OffsetDateTime.class)) {
+        Object expected = JavaTimeConverter.convert(type, Types.TIMESTAMP, "TIMESTAMP", scalar);
+        Map<String, Class<?>> typeMap = Map.of("TIMESTAMP", type);
+        assertEquals(expected, ((Object[]) array.getArray(typeMap))[0], type.getSimpleName());
+        assertEquals(expected, struct.getAttributes(typeMap)[0], type.getSimpleName());
+        try (ResultSet resultSet = array.getResultSet()) {
+          assertTrue(resultSet.next());
+          assertEquals(expected, resultSet.getObject(2, type), type.getSimpleName());
+        }
+      }
+      assertEquals(
+          LocalDate.of(2022, 12, 31),
+          struct.getAttributes(Map.of("TIMESTAMP", LocalDate.class))[0]);
+      assertEquals(
+          Instant.parse("2023-01-01T03:00:00Z"),
+          ((Object[]) array.getArray(Map.of("TIMESTAMP", Instant.class)))[0]);
+
+      // The java.sql values and the numeric getters are unchanged.
+      Timestamp legacy = Timestamp.valueOf(LocalDateTime.of(2023, 1, 1, 3, 0));
+      assertEquals(legacy, ((Object[]) array.getArray())[0]);
+      assertEquals(legacy, struct.getAttributes()[0]);
+      try (ResultSet resultSet = array.getResultSet()) {
+        assertTrue(resultSet.next());
+        assertEquals(legacy.getTime(), resultSet.getLong(2));
+      }
+    }
+  }
+
+  @Test
+  public void testConvert_NestedTimestampNumericGettersIgnoreArrowFieldTimeZone()
+      throws SQLException {
+    long micros = -30610224000000000L; // 1000-01-01T00:00:00Z, before the Gregorian cutover
+    try (ListVector losAngeles = timestampListVector(LOS_ANGELES, micros);
+        ListVector utc = timestampListVector("UTC", micros)) {
+      DatabricksArray losAngelesArray =
+          (DatabricksArray)
+              convert(
+                  losAngeles, 0, ColumnInfoTypeName.ARRAY, "ARRAY<TIMESTAMP>", new ColumnInfo());
+      DatabricksArray utcArray =
+          (DatabricksArray)
+              convert(utc, 0, ColumnInfoTypeName.ARRAY, "ARRAY<TIMESTAMP>", new ColumnInfo());
+      try (ResultSet losAngelesResultSet = losAngelesArray.getResultSet();
+          ResultSet utcResultSet = utcArray.getResultSet()) {
+        assertTrue(losAngelesResultSet.next());
+        assertTrue(utcResultSet.next());
+        // getLong keeps the meaning of the java.sql value, which holds the UTC fields.
+        assertEquals(utcResultSet.getLong(2), losAngelesResultSet.getLong(2));
+        assertEquals(
+            utcResultSet.getObject(2, Instant.class),
+            losAngelesResultSet.getObject(2, Instant.class));
+        assertEquals(LocalDate.of(999, 12, 31), losAngelesResultSet.getObject(2, LocalDate.class));
+        assertEquals(LocalDate.of(1000, 1, 1), utcResultSet.getObject(2, LocalDate.class));
+      }
+    }
+  }
+
+  @Test
+  public void testNestedTimestampZone() {
+    try (ListVector withZone = timestampListVector(LOS_ANGELES, NEW_YEAR_UTC_MICROS);
+        ListVector ntz = ListVector.empty("ntz", this.bufferAllocator)) {
+      ntz.addOrGetVector(
+          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, /* timezone= */ null)));
+
+      assertEquals(
+          ZoneId.of(LOS_ANGELES),
+          ArrowToJavaObjectConverter.nestedTimestampZone(withZone, "ARRAY<TIMESTAMP>"));
+      assertNull(ArrowToJavaObjectConverter.nestedTimestampZone(ntz, "ARRAY<TIMESTAMP_NTZ>"));
+      // The field tree is not read when the type has no TIMESTAMP.
+      assertNull(ArrowToJavaObjectConverter.nestedTimestampZone(withZone, "ARRAY<DATE>"));
+    }
+  }
+
+  /** An ARRAY<TIMESTAMP> vector holding one array with one value, in the session zone. */
+  private ListVector timestampListVector(String timeZone, long epochMicros) {
+    ListVector listVector = ListVector.empty("arr", this.bufferAllocator);
+    TimeStampMicroTZVector values =
+        (TimeStampMicroTZVector)
+            listVector
+                .addOrGetVector(
+                    FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZone)))
+                .getVector();
+    listVector.allocateNew();
+    int start = listVector.startNewValue(0);
+    values.setSafe(start, epochMicros);
+    listVector.endValue(0, 1);
+    listVector.setValueCount(1);
+    return listVector;
+  }
+
+  /** A STRUCT<ts:TIMESTAMP> vector holding one struct, in the session zone. */
+  private StructVector timestampStructVector(String timeZone, long epochMicros) {
+    StructVector structVector = StructVector.empty("struct", this.bufferAllocator);
+    TimeStampMicroTZVector ts =
+        structVector.addOrGet(
+            "ts",
+            FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZone)),
+            TimeStampMicroTZVector.class);
+    structVector.allocateNew();
+    structVector.setIndexDefined(0);
+    ts.setSafe(0, epochMicros);
+    ts.setValueCount(1);
+    structVector.setValueCount(1);
+    return structVector;
   }
 
   private static Timestamp getTimestampAdjustedToTimeZone(long timestampMicro, String timeZone) {

@@ -695,7 +695,10 @@ public class DatabricksArrayTest {
         () -> databricksArray.getResultSet(1, -1, Map.of("STRING", String.class)));
   }
 
-  /** Type maps do not change the standard mappings for Databricks array elements. */
+  /**
+   * Type maps without a {@code java.time} mapping for a DATE/TIMESTAMP element type do not change
+   * the standard mappings for Databricks array elements.
+   */
   @Test
   public void getResultSet_WithTypeMap_ShouldUseDefaultMapping() throws SQLException {
     metadataParserMock
