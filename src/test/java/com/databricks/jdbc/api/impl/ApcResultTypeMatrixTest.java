@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.impl.arrow.ArrowBatchSchemaBuilder;
 import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -33,7 +32,15 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.IntervalUnit;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.Test;
 
 /** APC bare batches with the complete manifest type matrix, read through JDBC. */
@@ -95,8 +102,10 @@ class ApcResultTypeMatrixTest {
             .setTypeJson(json));
   }
 
-  private static byte[] bareBatch(ResultManifest manifest) throws Exception {
-    Schema schema = ArrowBatchSchemaBuilder.build(manifest.getSchema());
+  private static byte[] bareBatch() throws Exception {
+    // Pin the physical Arrow fixture independently from ArrowBatchSchemaBuilder. The APC decoder
+    // must reconstruct a schema that can read these bare batches from manifest type_json.
+    Schema schema = pinnedPhysicalSchema();
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (RootAllocator allocator = new RootAllocator();
         VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
@@ -142,8 +151,54 @@ class ApcResultTypeMatrixTest {
       writer.end();
     }
     byte[] stream = out.toByteArray();
-    return Arrays.copyOfRange(
-        stream, ArrowBatchSchemaBuilder.serialize(manifest.getSchema()).length, stream.length - 8);
+    return Arrays.copyOfRange(stream, SchemaUtility.serialize(schema).length, stream.length - 8);
+  }
+
+  private static Schema pinnedPhysicalSchema() {
+    ArrowType.Int i8 = new ArrowType.Int(8, true);
+    ArrowType.Int i16 = new ArrowType.Int(16, true);
+    ArrowType.Int i32 = new ArrowType.Int(32, true);
+    ArrowType.Int i64 = new ArrowType.Int(64, true);
+    List<Field> geoChildren =
+        List.of(
+            new Field("srid", FieldType.notNullable(i32), null),
+            new Field("wkb", FieldType.notNullable(ArrowType.Binary.INSTANCE), null));
+    Field mapEntries =
+        new Field(
+            "entries",
+            FieldType.notNullable(ArrowType.Struct.INSTANCE),
+            List.of(
+                new Field("key", FieldType.notNullable(ArrowType.Utf8.INSTANCE), null),
+                new Field("value", FieldType.nullable(i32), null)));
+    return new Schema(
+        List.of(
+            field("b", ArrowType.Bool.INSTANCE),
+            field("tiny", i8),
+            field("small", i16),
+            field("i", i32),
+            field("big", i64),
+            field("f", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+            field("d", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
+            field("s", ArrowType.Utf8.INSTANCE),
+            field("bin", ArrowType.Binary.INSTANCE),
+            field("dt", new ArrowType.Date(DateUnit.DAY)),
+            field("dec", new ArrowType.Decimal(18, 2, 128)),
+            field("ts", new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC")),
+            field("ntz", new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)),
+            field("ym", new ArrowType.Interval(IntervalUnit.YEAR_MONTH)),
+            field("ds", new ArrowType.Interval(IntervalUnit.DAY_TIME)),
+            new Field("geo", FieldType.nullable(ArrowType.Struct.INSTANCE), geoChildren),
+            new Field("geom", FieldType.nullable(ArrowType.Struct.INSTANCE), geoChildren),
+            field("v", ArrowType.Utf8.INSTANCE),
+            new Field(
+                "arr", FieldType.nullable(ArrowType.List.INSTANCE), List.of(field("element", i32))),
+            new Field("map", FieldType.nullable(new ArrowType.Map(false)), List.of(mapEntries)),
+            new Field(
+                "st", FieldType.nullable(ArrowType.Struct.INSTANCE), List.of(field("x", i32)))));
+  }
+
+  private static Field field(String name, ArrowType type) {
+    return new Field(name, FieldType.nullable(type), null);
   }
 
   private static void setGeo(StructVector vector) throws Exception {
@@ -157,8 +212,7 @@ class ApcResultTypeMatrixTest {
     ResultManifest manifest = manifest();
     ResultData data =
         new ResultData()
-            .setArrowBatches(
-                List.of(new ArrowBatch().setBatch(bareBatch(manifest)).setRowCount(1L)));
+            .setArrowBatches(List.of(new ArrowBatch().setBatch(bareBatch()).setRowCount(1L)));
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(context.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(context.isComplexDatatypeSupportEnabled()).thenReturn(true);

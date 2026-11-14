@@ -19,6 +19,7 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -117,6 +118,9 @@ class ApcArrowBatchChunkProviderTest {
     lenient().when(session.getConnectionContext().isBoundedSeaApiEnabled()).thenReturn(bounded);
     ResultData first = new ResultData().setArrowBatches(List.of(batch(10, true), batch(20, true)));
     first.setNextChunkIndex(3L);
+    first =
+        new ObjectMapper()
+            .readValue(new ObjectMapper().writeValueAsString(first), ResultData.class);
     ResultData second = new ResultData().setArrowBatches(List.of(batch(30, true)));
     when(client.getResultChunksData(ID, 3, 2)).thenReturn(second);
     try (ResultCloser result =
@@ -142,6 +146,10 @@ class ApcArrowBatchChunkProviderTest {
         .thenReturn(new ResultData().setArrowBatches(List.of(batch(7, false))));
     ResultManifest manifest =
         manifest(CompressionCodec.NONE).setArrowSchema(new byte[] {1, 2}).setTotalByteCount(999L);
+    manifest =
+        new ObjectMapper()
+            .readValue(new ObjectMapper().writeValueAsString(manifest), ResultManifest.class);
+    assertArrayEquals(new byte[] {1, 2}, manifest.getArrowSchema());
     try (ResultCloser result =
         new ResultCloser(
             new ArrowStreamResult(
