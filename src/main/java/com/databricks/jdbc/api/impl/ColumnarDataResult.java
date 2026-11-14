@@ -11,7 +11,7 @@ import java.util.List;
 
 /** Reads one inline SEA columnar chunk without copying its values into rows. */
 public class ColumnarDataResult implements IExecutionResult {
-  private final List<ColumnVector> columns;
+  private List<ColumnVector> columns;
   private final int rowCount;
   private long currentRow = -1;
   private boolean closed;
@@ -86,6 +86,9 @@ public class ColumnarDataResult implements IExecutionResult {
       currentRow++;
       return true;
     }
+    if (!closed) {
+      currentRow = rowCount;
+    }
     return false;
   }
 
@@ -97,6 +100,7 @@ public class ColumnarDataResult implements IExecutionResult {
   @Override
   public void close() {
     closed = true;
+    columns = Collections.emptyList();
   }
 
   @Override
