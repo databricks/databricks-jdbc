@@ -216,6 +216,7 @@ public class DatabricksTypeUtil {
       case NULL:
         return Types.VARCHAR;
       case TIMESTAMP:
+      case TIMESTAMP_NTZ:
         return Types.TIMESTAMP;
       case DATE:
         return Types.DATE;
@@ -270,6 +271,7 @@ public class DatabricksTypeUtil {
       case UNION:
         return "java.lang.String";
       case TIMESTAMP:
+      case TIMESTAMP_NTZ:
         return "java.sql.Timestamp";
       case DATE:
         return "java.sql.Date";
@@ -336,6 +338,7 @@ public class DatabricksTypeUtil {
       case BOOLEAN:
         return 1; // 0 or 1
       case TIMESTAMP:
+      case TIMESTAMP_NTZ:
         return 29; // as per
         // https://docs.oracle.com/en/java/javase/21/docs/api/java.sql/java/sql/Timestamp.html#toString()
       case DATE:
