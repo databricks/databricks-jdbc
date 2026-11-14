@@ -6,17 +6,22 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.impl.arrow.ArrowBatchSchemaBuilder;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.LogCapture;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
@@ -30,6 +35,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +50,10 @@ public class DatabricksStatementTest {
   private static final StatementId STATEMENT_ID = new StatementId("statement_id");
   private static final String SESSION_ID = "session_id";
   private static final IDatabricksComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
+  private static final AllPurposeCluster APC_COMPUTE = new AllPurposeCluster("org", "cluster");
+  private static final String APC_URL =
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;"
+          + "transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/protocolv1/o/org/cluster;";
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   @Mock DatabricksSdkClient client;
@@ -52,13 +62,14 @@ public class DatabricksStatementTest {
   @Test
   public void successfulSetTimeZoneUpdatesArrowSessionConfig() throws Exception {
     IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(context, client);
+    connection.getSession().setSessionConfig("timezone", "UTC");
     DatabricksStatement statement = new DatabricksStatement(connection);
     String sql = "/* session setting */ SET TIME ZONE 'Asia/Tokyo'";
     when(client.executeStatement(
             eq(sql),
-            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(APC_COMPUTE),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
@@ -68,21 +79,24 @@ public class DatabricksStatementTest {
 
     statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
 
-    assertEquals("Asia/Tokyo", connection.getSession().getSessionConfigs().get("TIMEZONE"));
+    assertEquals("Asia/Tokyo", connection.getClientInfo("timezone"));
+    assertEquals("Asia/Tokyo", connection.getClientInfo().getProperty("timezone"));
+    assertFalse(connection.getSession().getSessionConfigs().containsKey("TIMEZONE"));
     assertEquals(
         "Asia/Tokyo",
-        connection.getSession().getSessionConfigs().get("spark.sql.session.timeZone"));
+        connection.getSession().getSessionConfigs().get("spark.sql.session.timezone"));
     assertEquals(
         "America/Los_Angeles",
         DatabricksStatement.sessionTimeZoneSetBy(
             "SET spark.sql.session.timeZone=America/Los_Angeles"));
     assertNull(DatabricksStatement.sessionTimeZoneSetBy("SELECT 'SET TIME ZONE UTC'"));
+    assertEquals("UTC", DatabricksStatement.sessionTimeZoneSetBy("SET TIMEZONE = UTC"));
   }
 
   @Test
   public void setTimeZoneLocalReadsTheEffectiveServerZone() throws Exception {
     IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
     DatabricksStatement statement = new DatabricksStatement(connection);
     Statement zoneStatement = mock(Statement.class);
@@ -94,7 +108,7 @@ public class DatabricksStatementTest {
     String sql = "SET TIME ZONE LOCAL";
     when(client.executeStatement(
             eq(sql),
-            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(APC_COMPUTE),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
@@ -104,10 +118,10 @@ public class DatabricksStatementTest {
 
     statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
 
-    String timeZone = connection.getSession().getSessionConfigs().get("TIMEZONE");
+    String timeZone = connection.getSession().getSessionConfigs().get("timezone");
     assertEquals("America/Los_Angeles", timeZone);
     assertEquals(
-        timeZone, connection.getSession().getSessionConfigs().get("spark.sql.session.timeZone"));
+        timeZone, connection.getSession().getSessionConfigs().get("spark.sql.session.timezone"));
     verify(zoneStatement).executeQuery("SELECT current_timezone()");
     verify(zoneResult).close();
   }
@@ -115,7 +129,7 @@ public class DatabricksStatementTest {
   @Test
   public void setTimeZoneLocalWithoutServerZoneUsesDriverErrorCode() throws Exception {
     IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
     DatabricksStatement statement = new DatabricksStatement(connection);
     Statement zoneStatement = mock(Statement.class);
@@ -125,7 +139,7 @@ public class DatabricksStatementTest {
     String sql = "SET TIME ZONE LOCAL";
     when(client.executeStatement(
             eq(sql),
-            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(APC_COMPUTE),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
@@ -139,13 +153,124 @@ public class DatabricksStatementTest {
             () -> statement.executeInternal(sql, new HashMap<>(), StatementType.SQL));
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
-    assertNull(connection.getSession().getSessionConfigs().get("TIMEZONE"));
+    assertNull(connection.getSession().getSessionConfigs().get("timezone"));
+  }
+
+  @Test
+  public void directSetTimezoneRefreshesCachedZone() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(context, client);
+    connection.getSession().setSessionConfig("timezone", "UTC");
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String sql = "SET TIMEZONE = 'Asia/Tokyo'";
+    when(client.executeStatement(
+            eq(sql),
+            eq(APC_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    assertEquals("Asia/Tokyo", connection.getClientInfo("timezone"));
+    assertEquals("Asia/Tokyo", connection.getClientInfo().getProperty("timezone"));
+  }
+
+  @Test
+  public void intervalSetTimeZoneUsesEffectiveZoneForArrowTimestamp() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    DatabricksConnection connection = spy(new DatabricksConnection(context, client));
+    connection.getSession().setSessionConfig("timezone", "UTC");
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    Statement zoneStatement = mock(Statement.class);
+    ResultSet zoneResult = mock(ResultSet.class);
+    doReturn(zoneStatement).when(connection).createStatement();
+    when(zoneStatement.executeQuery("SELECT current_timezone()")).thenReturn(zoneResult);
+    when(zoneResult.next()).thenReturn(true);
+    when(zoneResult.getString(1)).thenReturn("+08:00");
+    String sql = "SET TIME ZONE INTERVAL '08:00' HOUR TO MINUTE";
+    when(client.executeStatement(
+            eq(sql),
+            eq(APC_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    String timeZone = connection.getClientInfo("timezone");
+    assertEquals("+08:00", timeZone);
+    assertEquals(
+        "+08:00",
+        ((ArrowType.Timestamp)
+                ArrowBatchSchemaBuilder.build(
+                        new ResultSchema()
+                            .setColumns(
+                                List.of(new ColumnInfo().setName("ts").setTypeText("timestamp"))),
+                        timeZone)
+                    .getFields()
+                    .get(0)
+                    .getType())
+            .getTimezone());
+  }
+
+  @Test
+  public void warehouseSetTimeZoneLocalDoesNotFetchEffectiveZone() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = spy(new DatabricksConnection(context, client));
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String sql = "SET TIME ZONE LOCAL";
+    when(client.executeStatement(
+            eq(sql),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    verify(connection, never()).createStatement();
+  }
+
+  @Test
+  public void thriftApcSetTimeZoneLocalDoesNotFetchEffectiveZone() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    IDatabricksClient thriftClient = mock(IDatabricksClient.class);
+    DatabricksConnection connection = spy(new DatabricksConnection(context, thriftClient));
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String sql = "SET TIME ZONE LOCAL";
+    when(thriftClient.executeStatement(
+            eq(sql),
+            eq(APC_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    verify(connection, never()).createStatement();
   }
 
   @Test
   public void asyncSetTimeZoneUpdatesCacheOnlyAfterSuccessfulPoll() throws Exception {
     IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(context, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
     String sql = "-- leading comment\nSET TIME ZONE 'Asia/Tokyo'";
@@ -157,7 +282,7 @@ public class DatabricksStatementTest {
         .thenReturn(new StatementStatus().setState(StatementState.SUCCEEDED));
     when(client.executeStatementAsync(
             eq(sql),
-            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(APC_COMPUTE),
             eq(new HashMap<>()),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -166,13 +291,13 @@ public class DatabricksStatementTest {
         .thenReturn(completed);
 
     statement.executeAsync(sql);
-    assertNull(connection.getSession().getSessionConfigs().get("TIMEZONE"));
+    assertNull(connection.getSession().getSessionConfigs().get("timezone"));
     statement.setStatementId(STATEMENT_ID);
     assertSame(completed, statement.getExecutionResult());
-    assertEquals("Asia/Tokyo", connection.getSession().getSessionConfigs().get("TIMEZONE"));
+    assertEquals("Asia/Tokyo", connection.getSession().getSessionConfigs().get("timezone"));
     assertEquals(
         "Asia/Tokyo",
-        connection.getSession().getSessionConfigs().get("spark.sql.session.timeZone"));
+        connection.getSession().getSessionConfigs().get("spark.sql.session.timezone"));
   }
 
   @Test
