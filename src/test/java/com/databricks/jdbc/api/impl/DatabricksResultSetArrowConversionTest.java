@@ -1,8 +1,15 @@
 package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -46,6 +53,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Pins getter results for Arrow-backed SEA result sets, including nulls. */
@@ -58,6 +66,35 @@ class DatabricksResultSetArrowConversionTest {
   private static final long TS_MICROS = 1_700_000_000_123_456L;
 
   @Mock IDatabricksSession session;
+
+  @Test
+  void testTypedGettersReuseConvertersAcrossRows() throws Exception {
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, new Properties()));
+
+    try (MockedStatic<ConverterHelper> converters =
+            mockStatic(ConverterHelper.class, CALLS_REAL_METHODS);
+        DatabricksResultSet rs = newResultSet()) {
+      converters.verify(() -> ConverterHelper.getConverterForColumnType(anyInt(), any()), times(8));
+      converters.clearInvocations();
+
+      int rows = 0;
+      while (rs.next()) {
+        rs.getBoolean(1);
+        rs.getString(1);
+        rs.getInt(2);
+        rs.getLong(3);
+        rs.getDouble(4);
+        rs.getFloat(5);
+        rs.getString(6);
+        rs.getTimestamp(7);
+        rs.getBigDecimal(8);
+        rows++;
+      }
+      assertEquals(3, rows);
+      converters.verify(() -> ConverterHelper.getConverterForColumnType(anyInt(), any()), never());
+    }
+  }
 
   @Test
   void testPrimitiveAndCommonTypesThroughArrowStream() throws Exception {
