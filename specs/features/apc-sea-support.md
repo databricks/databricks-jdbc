@@ -103,6 +103,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   builds `GET /statements/{id}/status` inline for result heartbeats. The constant
   `STATEMENT_STATUS_PATH_WITH_ID` is unused, but the unsupported status RPC is still called when
   heartbeats are enabled.
+  - `DatabricksSdkClient.serializeStatementRequest` serializes SDK request objects for standard
+  statement URLs, including polling and explicit result fetches, chunk fetches, and
+  CloseStatement. APC uses those standard URLs, but the SEA REST bindings for
+  GetStatementResult, GetResultData, and CloseStatement declare no request body.
   - Bounded SEA inline Arrow (#1734, `SeaInlineArrowChunkProvider`, LZ4 in
   `DecompressionUtil`) and CloudFetch external links are the existing SEA result paths.
   - `DatabricksSdkClient` already sends `X-Databricks-Metadata-Operation-Type` for SEA metadata
@@ -184,7 +188,12 @@ returned, without adding the compute field or otherwise modifying them. The driv
 models are `CreateSessionRequest`, `ExecuteStatementRequest`, `CancelStatementRequest`, and
 `DeleteSessionRequest`. `GetStatementRequest` and `GetStatementResultChunkNRequest` come from
 the SDK, so APC GET targeting is built on the request URL rather than by changing the SDK classes.
-CloseStatement DELETE is also targeted in the URL.
+CloseStatement DELETE is also targeted in the URL. For APC, GetStatementResult GET (both execution
+polling and explicit result fetch), GetResultData GET (both chunk-fetch paths), and CloseStatement
+DELETE have a null request body: do not serialize the SDK request object or send `{}` or an empty
+JSON body. This overrides the current `DatabricksSdkClient.serializeStatementRequest` behavior on
+standard statement URLs only for these APC bindings. Preserve warehouse request bodies, including
+the standard and Real-time URL variants.
 TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding, which
 declares `body: "*"`: send `backend_compute` in the `DeleteSessionRequest` JSON body. Preserve
 the existing warehouse DELETE serialization and verify the outgoing APC DELETE body with a
@@ -425,7 +434,11 @@ equal to the URL's cluster id and contains no `warehouse_id`.
 closed, and separately when the session is terminated, THEN every corresponding SEA request
 includes the APC
 `backend_compute` using the body/query encoding in R2 and the driver issues no
-`GetStatementStatus` or `/status` call. A fake-service fixture asserts the TerminateSession
+`GetStatementStatus` or `/status` call. Captured fake-service requests assert a null body for
+every APC GetStatementResult GET (execution poll and explicit result fetch), GetResultData GET
+(external-link and inline chunk fetch), and CloseStatement DELETE, while the cluster query field
+is present exactly once. Warehouse fixtures retain their existing bodies for the same bindings.
+A fake-service fixture asserts the TerminateSession
 DELETE body contains `backend_compute`; dogfood verifies server target extraction after the
 external binding fix is deployed. GIVEN `getConnectionId()` from that open session and an APC
 flag change from ON to OFF, WHEN public `Driver.closeConnection(url, info, connectionId)` is
@@ -726,7 +739,9 @@ propagate without fallback.
    the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
    JSON body for CreateSession, ExecuteStatement, and CancelStatement. For GetStatementResult,
    GetResultData and CloseStatement, append the URL-encoded dotted query field
-   `backend_compute.all_purpose_cluster_compute.cluster_id`; use a JSON body for the
+   `backend_compute.all_purpose_cluster_compute.cluster_id` and pass a null body at every APC GET
+   and CloseStatement call site, bypassing standard-URL request serialization for those bindings;
+   use a JSON body for the
    TerminateSession DELETE binding's declared `body: "*"`. Assert the outgoing DELETE body in a
    fake-service request test; verify server target extraction in dogfood
    after the external binding fix is deployed. Use a query builder to merge the
@@ -956,6 +971,9 @@ decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_met
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
 mitigated by centralizing in `SeaComputeTarget`, explicit per-binding body/query encoding in R2,
 and AC3 serialized-request coverage of every call.
+- Standard statement URLs currently trigger request-body serialization for GET and
+  CloseStatement, despite their bodiless REST bindings. APC must pass a null body at every such
+  call site; AC3 asserts the captured body and AC11 guards warehouse serialization.
 - Applying APC query parameters to a presigned external-link URL breaks its signature and can leak
   the cluster id to storage. Keep compute targeting confined to SEA requests and assert unchanged
   CloudFetch URLs and headers in AC14.
@@ -1001,13 +1019,16 @@ gate keeps the new SEA code unreachable through public APC connections. Those ea
 - [ ] T2: Add optional `backend_compute` to driver-owned CreateSession, ExecuteStatement, and
   CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession's declared
   DELETE body. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
-  SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to GET and
+  SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to APC GET and
   CloseStatement DELETE bindings (R2).
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
   Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
   encodings in R2, including TerminateSession's JSON body and merging the compute field with
-  `row_offset` (R2, R9; AC2, AC3, AC11, AC14). Assert that external-link URLs and headers remain
+  `row_offset` (R2, R9; AC2, AC3, AC11, AC14). Pass a null body for APC execution polls, explicit
+  result GETs, both GetResultData chunk-fetch paths, and CloseStatement DELETE even though the
+  current serializer supplies bodies on standard URLs; assert null captured bodies and unchanged
+  warehouse bodies for those call sites. Assert that external-link URLs and headers remain
   unchanged. Add
   backward-compatible APC SEA `SessionId`/`StatementId` serialization and round-trip tests,
   including malformed APC session segments and redacted structural-only diagnostics,
