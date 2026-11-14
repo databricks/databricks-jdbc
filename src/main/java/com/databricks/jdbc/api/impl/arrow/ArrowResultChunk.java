@@ -21,6 +21,7 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Map;
 import org.apache.commons.io.input.CloseShieldInputStream;
@@ -48,8 +49,14 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       // Data is already available
       try {
         initializeData(builder.inputStream);
-      } catch (DatabricksSQLException | IOException e) {
-        handleFailure(e, ChunkStatus.PROCESSING_FAILED);
+      } catch (DatabricksSQLException | IOException | RuntimeException e) {
+        try {
+          handleFailure(e, ChunkStatus.PROCESSING_FAILED);
+        } finally {
+          // A failed inline chunk never reaches a provider, so its allocator has no later
+          // cleanup owner. ArrowStreamReader already purges partial vectors on parse failure.
+          rootAllocator.close();
+        }
       }
     }
   }
@@ -77,8 +84,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     CloseableHttpResponse response = null;
     long startTime = System.nanoTime();
     try {
-      URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
-      HttpGet getRequest = new HttpGet(uriBuilder.build());
+      HttpGet getRequest;
+      try {
+        URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
+        getRequest = new HttpGet(uriBuilder.build());
+      } catch (URISyntaxException | IllegalArgumentException e) {
+        throw new IOException("Invalid external result URL");
+      }
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
@@ -163,13 +175,17 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
   @Override
   protected void handleFailure(Exception exception, ChunkStatus failedStatus)
       throws DatabricksParsingException {
+    // HTTP client exceptions can embed the presigned URL. Keep both the public exception chain
+    // and driver logs free of the bearer path and query.
+    Exception safeCause =
+        chunkLink == null ? exception : new IOException(exception.getClass().getSimpleName());
     errorMessage =
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
-            this.chunkIndex, StatementId.loggableStatementId(this.statementId), exception);
+            this.chunkIndex, StatementId.loggableStatementId(this.statementId), safeCause);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
-    throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
+    throw new DatabricksParsingException(errorMessage, safeCause, failedStatus.toString());
   }
 
   private static InterruptedIOException cancellation(Exception cause) {

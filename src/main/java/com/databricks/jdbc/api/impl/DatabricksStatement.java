@@ -36,6 +36,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       Pattern.compile("\\)\\s*(\\w+)", Pattern.UNICODE_CHARACTER_CLASS);
   private static final Pattern DML_PATTERN =
       Pattern.compile("INSERT|UPDATE|DELETE|MERGE", Pattern.CASE_INSENSITIVE);
+  private static final Pattern SET_TIME_ZONE =
+      Pattern.compile(
+          "(?is)^\\s*SET\\s+(?:TIME\\s+ZONE\\s+|spark\\.sql\\.session\\.timeZone\\s*=\\s*)"
+              + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+))\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -958,7 +962,25 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully {}", resultSet.toString());
+    String newTimeZone = sessionTimeZoneSetBy(sql);
+    if (newTimeZone != null) {
+      connection.getSession().setSessionConfig("TIMEZONE", newTimeZone);
+      connection.getSession().setSessionConfig("spark.sql.session.timeZone", newTimeZone);
+    }
     return resultSet;
+  }
+
+  static String sessionTimeZoneSetBy(String sql) {
+    Matcher match = SET_TIME_ZONE.matcher(sql);
+    if (!match.matches()) {
+      return null;
+    }
+    for (int i = 1; i <= 3; i++) {
+      if (match.group(i) != null) {
+        return match.group(i);
+      }
+    }
+    return null;
   }
 
   DatabricksResultSet executeInternal(

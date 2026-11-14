@@ -1097,6 +1097,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isLast() throws SQLException {
     checkIfClosed();
+    if (truncatedByMaxRows
+        || (executionResult instanceof ArrowStreamResult && arrowStreamExhausted)) {
+      return false;
+    }
     if (executionResult instanceof ColumnarDataResult) {
       long currentRow = executionResult.getCurrentRow();
       if (currentRow < 0 || currentRow >= executionResult.getRowCount()) {
