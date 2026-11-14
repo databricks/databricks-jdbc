@@ -7,7 +7,6 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 
 public class DateConverter implements ObjectConverter {
   @Override
@@ -23,10 +22,10 @@ public class DateConverter implements ObjectConverter {
     }
   }
 
+  /** Returns the epoch day. Exact for {@link LocalDate} and ISO text, see {@link #toLocalDate}. */
   @Override
   public long toLong(Object object) throws DatabricksSQLException {
-    LocalDate localStartDate = LocalDate.ofEpochDay(0);
-    return ChronoUnit.DAYS.between(localStartDate, toDate(object).toLocalDate());
+    return toLocalDate(object).toEpochDay();
   }
 
   @Override
@@ -49,8 +48,22 @@ public class DateConverter implements ObjectConverter {
     return BigInteger.valueOf(toLong(object));
   }
 
+  /**
+   * Converts to a {@link LocalDate}. A {@link LocalDate} (the exact value read from Arrow) and ISO
+   * text are read without going through {@link Date}, which shifts pre-1582 dates and drops the BC
+   * era.
+   */
   @Override
   public LocalDate toLocalDate(Object object) throws DatabricksSQLException {
+    if (object instanceof LocalDate) {
+      return (LocalDate) object;
+    }
+    if (object instanceof String) {
+      LocalDate date = JavaTimeConverter.parseDateText((String) object);
+      if (date != null) {
+        return date;
+      }
+    }
     return toDate(object).toLocalDate();
   }
 

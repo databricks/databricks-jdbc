@@ -589,6 +589,31 @@ public class StreamingInlineArrowResultTest {
     }
   }
 
+  @Test
+  void testGetTemporalObjectReadsExactValuesFromArrow() throws SQLException {
+    TFetchResultsResp response = createFetchResultsResp(TemporalArrowTestData.create(), 2, false);
+    response
+        .getResultSetMetadata()
+        .setSchema(
+            createTableSchema(
+                TTypeId.DATE_TYPE,
+                TTypeId.TIMESTAMP_TYPE,
+                TTypeId.TIMESTAMP_TYPE,
+                TTypeId.INT_TYPE));
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+    try {
+      DatabricksSQLException beforeFirstRow =
+          assertThrows(DatabricksSQLException.class, () -> result.getTemporalObject(0));
+      assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), beforeFirstRow.getSQLState());
+
+      TemporalArrowTestData.assertRows(result);
+    } finally {
+      result.close();
+    }
+  }
+
   // ==================== Helper Methods ====================
 
   private TFetchResultsResp createEmptyArrowResponse(boolean hasMoreRows) {

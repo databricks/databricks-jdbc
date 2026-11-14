@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -20,10 +21,12 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,6 +38,13 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String elementType;
+  // Sources of the exact java.time values of DATE/TIMESTAMP elements (JSON leaves, converted on
+  // demand, or java.time values), parallel to elements; null when unknown.
+  private final Object[] temporalElements;
+  // Session time zone of nested Arrow TIMESTAMP values, for java.time results; null if unknown.
+  private final ZoneId timestampZone;
+  // Set once an element fell back to its java.sql value, so the warning is logged once.
+  private boolean warnedInexact;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -43,10 +53,34 @@ public class DatabricksArray implements Array {
    * @param metadata the metadata describing the type of array elements
    */
   public DatabricksArray(List<Object> elements, String metadata) {
+    this(elements, metadata, null, null);
+  }
+
+  /**
+   * Constructs a DatabricksArray that also keeps the exact {@code java.time} values of DATE and
+   * TIMESTAMP elements. {@link #getArray()} still returns {@code java.sql} values; the exact values
+   * are returned by {@link #getArray(Map)} with a {@code java.time} mapping and by {@code
+   * getResultSet().getObject(2, java.time class)}.
+   *
+   * @param elements the elements of the array as a list
+   * @param metadata the metadata describing the type of array elements
+   * @param temporalElements sources of the exact values parallel to {@code elements} (JSON leaves,
+   *     converted only when requested, or {@code java.time} values), may be null; null entries fall
+   *     back to the {@code java.sql} element
+   * @param timestampZone the session time zone of nested Arrow TIMESTAMP values, in which their
+   *     {@code java.time} values are reported, or null if unknown
+   */
+  DatabricksArray(
+      List<Object> elements, String metadata, List<Object> temporalElements, ZoneId timestampZone) {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.elementType = elementType;
+    this.temporalElements =
+        temporalElements != null && temporalElements.size() == elements.size()
+            ? temporalElements.toArray()
+            : null;
+    this.timestampZone = timestampZone;
   }
 
   /**
@@ -148,7 +182,8 @@ public class DatabricksArray implements Array {
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
         case DatabricksTypeUtil.DATE:
-          return Date.valueOf(value.toString());
+          // Keep a parsed Date: rebuilding it from toString() drops the BC era.
+          return value instanceof Date ? value : Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
@@ -191,10 +226,44 @@ public class DatabricksArray implements Array {
     return this.elements;
   }
 
+  /**
+   * Returns the elements. If {@code map} maps the element type (DATE, TIMESTAMP or TIMESTAMP_NTZ)
+   * to a {@code java.time} class, for example {@code Map.of("DATE", LocalDate.class)}, the elements
+   * are returned as that class, built from the exact values instead of the {@code java.sql} ones.
+   * Other mappings are ignored.
+   */
   @Override
   public Object getArray(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting array with type map");
-    return this.getArray();
+    if (JavaTimeConverter.getJavaTimeMapping(map, this.elementType) == null) {
+      return this.getArray();
+    }
+    return this.getArray(1, this.elements.length, map);
+  }
+
+  /**
+   * The exact {@code java.time} value of the element at 0-based {@code i}, or null if unknown. A
+   * JSON leaf is parsed on the first call and replaced by its result, so later reads neither parse
+   * it again nor repeat the warning for a value that has no exact form.
+   *
+   * <p>The cache is not synchronized. If threads share this array, a leaf may be parsed twice or
+   * the warning logged twice, but every read returns the same value: each parse gives the same
+   * result and the cached values are immutable.
+   */
+  private Object exactElement(int i) {
+    if (this.temporalElements == null || i < 0 || i >= this.temporalElements.length) {
+      return null;
+    }
+    Object source = this.temporalElements[i];
+    Object exact = ComplexDataTypeParser.toExactTemporal(source, this.elementType);
+    if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
+      if (exact == null && !this.warnedInexact) {
+        this.warnedInexact = true;
+        ComplexDataTypeParser.warnInexactNestedValue(this.elementType);
+      }
+      this.temporalElements[i] = exact;
+    }
+    return exact;
   }
 
   @Override
@@ -203,10 +272,23 @@ public class DatabricksArray implements Array {
     return java.util.Arrays.copyOfRange(this.elements, (int) index - 1, (int) index - 1 + count);
   }
 
+  /** Returns a slice of the elements, applying {@code map} as {@link #getArray(Map)} does. */
   @Override
   public Object getArray(long index, int count, Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting subarray with type map from index {} with count {}", index, count);
-    return this.getArray(index, count);
+    Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(map, this.elementType);
+    Object[] slice = (Object[]) this.getArray(index, count);
+    if (javaTimeType == null) {
+      return slice;
+    }
+    Object[] converted = new Object[slice.length];
+    for (int i = 0; i < slice.length; i++) {
+      Object exact = exactElement((int) index - 1 + i);
+      Object value =
+          exact != null ? ComplexDataTypeParser.inTimestampZone(exact, timestampZone) : slice[i];
+      converted[i] = JavaTimeConverter.convertNested(javaTimeType, this.elementType, value);
+    }
+    return converted;
   }
 
   @Override
@@ -220,30 +302,37 @@ public class DatabricksArray implements Array {
     return getResultSet(1, this.elements.length);
   }
 
+  /**
+   * Returns the elements as a result set. A {@code java.time} mapping for the element type, as in
+   * {@link #getArray(Map)}, makes {@code getObject(2)} return that class; other mappings are
+   * ignored.
+   */
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting result set with type map for array");
-    return getResultSet();
+    return getResultSet(1, this.elements.length, map);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
     LOGGER.debug("Getting result set from index {} with count {}", index, count);
-    return buildResultSet(index, count);
+    return buildResultSet(index, count, null);
   }
 
+  /** Returns a slice of the elements, applying {@code map} as {@link #getResultSet(Map)} does. */
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
     LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
-    return getResultSet(index, count);
+    return buildResultSet(index, count, map);
   }
 
   /**
    * Builds a result set with one row per element in the requested window. Per the {@link
    * Array#getResultSet()} contract, column 1 is the 1-based element index and column 2 the value.
    */
-  private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
+  private java.sql.ResultSet buildResultSet(long index, int count, Map<String, Class<?>> map)
+      throws SQLException {
     if (index < 1) {
       throw new DatabricksSQLException(
           "Array index must be >= 1 but was " + index,
@@ -292,11 +381,21 @@ public class DatabricksArray implements Array {
             .build());
 
     List<List<Object>> rows = new ArrayList<>();
+    // Exact DATE/TIMESTAMP values for getObject(2, java.time class) and the numeric getters,
+    // converted only when a cell is read.
+    List<List<Object>> temporalRows = this.temporalElements == null ? null : new ArrayList<>();
     for (int i = start; i < end; i++) {
       List<Object> row = new ArrayList<>();
       row.add((long) (i + 1));
       row.add(this.elements[i]);
       rows.add(row);
+      if (temporalRows != null) {
+        int elementIndex = i;
+        List<Object> temporalRow = new ArrayList<>();
+        temporalRow.add(null);
+        temporalRow.add((Supplier<Object>) () -> exactElement(elementIndex));
+        temporalRows.add(temporalRow);
+      }
     }
 
     return new DatabricksResultSet(
@@ -304,6 +403,9 @@ public class DatabricksArray implements Array {
         new StatementId("array-result-set"),
         columnMetadataList,
         rows,
+        temporalRows,
+        map,
+        timestampZone,
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled.
         /* complexDatatypeSupport= */ true);

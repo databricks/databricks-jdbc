@@ -392,4 +392,30 @@ public class LazyThriftInlineArrowResultTest {
 
     assertEquals(rowCount, result.getRowCount());
   }
+
+  @Test
+  void testGetTemporalObjectReadsExactValuesFromArrow() throws SQLException {
+    TFetchResultsResp initialResponse =
+        createFetchResultsResp(TemporalArrowTestData.create(), 2, false);
+    initialResponse
+        .getResultSetMetadata()
+        .setSchema(
+            createTableSchema(
+                TTypeId.DATE_TYPE,
+                TTypeId.TIMESTAMP_TYPE,
+                TTypeId.TIMESTAMP_TYPE,
+                TTypeId.INT_TYPE));
+
+    when(statement.getStatementId()).thenReturn(STATEMENT_ID);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    LazyThriftInlineArrowResult result =
+        new LazyThriftInlineArrowResult(initialResponse, statement, session);
+
+    DatabricksSQLException beforeFirstRow =
+        assertThrows(DatabricksSQLException.class, () -> result.getTemporalObject(0));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), beforeFirstRow.getSQLState());
+
+    TemporalArrowTestData.assertRows(result);
+  }
 }

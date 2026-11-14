@@ -54,6 +54,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
   private final boolean enableArrow;
+  // Read once: result sets check these for every value they return.
+  private final boolean complexDatatypeSupportEnabled;
+  private final boolean geoSpatialSupportEnabled;
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -71,6 +74,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
     this.enableArrow = resolveEnableArrow();
+    this.complexDatatypeSupportEnabled = resolveComplexDatatypeSupportEnabled();
+    this.geoSpatialSupportEnabled = resolveGeoSpatialSupportEnabled();
     this.clientTypeSupplier =
         new Supplier<>() {
           private DatabricksClientType cType;
@@ -96,6 +101,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.computeResource = null;
     this.connectionUuid = UUID.randomUUID().toString();
     this.enableArrow = resolveEnableArrow();
+    this.complexDatatypeSupportEnabled = resolveComplexDatatypeSupportEnabled();
+    this.geoSpatialSupportEnabled = resolveGeoSpatialSupportEnabled();
   }
 
   /**
@@ -1117,17 +1124,30 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isComplexDatatypeSupportEnabled() {
+    return complexDatatypeSupportEnabled;
+  }
+
+  private boolean resolveComplexDatatypeSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
   }
 
   @Override
   public boolean isGeoSpatialSupportEnabled() {
+    return geoSpatialSupportEnabled;
+  }
+
+  private boolean resolveGeoSpatialSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
   }
 
   @Override
   public boolean isTimestampNtzTypeNameEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TIMESTAMP_NTZ_TYPE_NAME).equals("1");
+  }
+
+  @Override
+  public boolean isStrictGetObjectConversionEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_STRICT_GET_OBJECT_CONVERSION).equals("1");
   }
 
   @Override
