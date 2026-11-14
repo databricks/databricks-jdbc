@@ -101,6 +101,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // per-row overhead in next(). The connection-to-collector mapping is stable
   // for the lifetime of a result set.
   private final TelemetryCollector cachedTelemetryCollector;
+  private boolean iterationTelemetryStarted = false;
 
   // Client-side maxRows enforcement. This central check in next() is the single
   // enforcement point using the full long precision from getLargeMaxRows().
@@ -417,7 +418,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (hasNext && !countingUpdateRows) {
       rowsReturned++;
     }
-    if (cachedTelemetryCollector != null) {
+    // Iteration telemetry only uses the first call (start time) and end of stream (latency), so
+    // skip the per-row calls in between.
+    if (cachedTelemetryCollector != null && (!hasNext || !iterationTelemetryStarted)) {
+      iterationTelemetryStarted = true;
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
     }
@@ -2595,16 +2599,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (exactTemporal) {
-      obj = getExactTemporalValue(columnIndex, columnType, obj);
+      obj = getExactTemporalValue(columnIndex, resultSetMetaData.getColumnType(columnIndex), obj);
     }
 
-    // Use metadata-aware converter selection for proper handling of databricks-specific types
-    ObjectConverter converter =
-        ConverterHelper.getConverterForColumnType(columnType, columnTypeName);
-    return convertMethod.apply(converter, obj);
+    return convertMethod.apply(resultSetMetaData.getColumnConverter(columnIndex), obj);
   }
 
   /**

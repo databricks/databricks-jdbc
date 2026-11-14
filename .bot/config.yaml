@@ -25,13 +25,15 @@ max_replies_per_thread: 5
 # the real safeguard. Reviewers MUST scrutinize any agent diff reaching pom.xml /
 # jdbc-core/pom.xml / .github/ / the assembly modules, and note that a dependency
 # change also requires a NEXT_CHANGELOG.md entry + NOTICE update.
+# Deny .bot/ so an agent cannot change its own allowlist or instructions.
 denied_subpaths:
   - .github
   - .bot
   - src/main/java/org/apache/arrow
 
 # Filled from the tracking ISSUE the maintainer labelled. (pr_body_template has no
-# engine default, so it stays required here.)
+# engine default, so it stays required here.) Omit files_changed: follow-up
+# pushes cannot refresh that inventory, so it would go stale.
 pr_body_template: |-
   ## Summary
 
@@ -41,9 +43,6 @@ pr_body_template: |-
 
   ## Root cause & plan
   {plan}
-
-  ## Files changed
-  {files_changed}
 
   ## Test plan
   {test_plan}

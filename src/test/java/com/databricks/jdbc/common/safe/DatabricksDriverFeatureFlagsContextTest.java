@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -48,9 +49,41 @@ class DatabricksDriverFeatureFlagsContextTest {
 
   @BeforeEach
   void setUp() {
+    DatabricksDriverFeatureFlagsContext.clearSnapshots();
     // Mock the host for OAuth to return a test host
     when(connectionContextMock.getHostForOAuth()).thenReturn("test-host");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, new HashMap<>());
+  }
+
+  @Test
+  void snapshotKeyCoversEndpointUserAgentAndCustomHeaders() {
+    Map<String, String> headers = new LinkedHashMap<>();
+    headers.put("a", "1");
+    headers.put("x-databricks-org-id", "111");
+    Map<String, String> reordered = new LinkedHashMap<>();
+    reordered.put("x-databricks-org-id", "111");
+    reordered.put("a", "1");
+    String key =
+        DatabricksDriverFeatureFlagsContext.snapshotKey(FEATURE_FLAGS_ENDPOINT, "UA", headers);
+
+    assertEquals(
+        key,
+        DatabricksDriverFeatureFlagsContext.snapshotKey(FEATURE_FLAGS_ENDPOINT, "UA", reordered));
+    assertNotEquals(
+        key,
+        DatabricksDriverFeatureFlagsContext.snapshotKey(
+            "https://other-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.4.5",
+            "UA",
+            headers));
+    assertNotEquals(
+        key,
+        DatabricksDriverFeatureFlagsContext.snapshotKey(
+            FEATURE_FLAGS_ENDPOINT, "UA PowerBI/1.0", headers));
+    assertNotEquals(
+        key,
+        DatabricksDriverFeatureFlagsContext.snapshotKey(
+            FEATURE_FLAGS_ENDPOINT, "UA", Map.of("a", "1", "x-databricks-org-id", "222")));
+    assertFalse(key.contains("111"));
   }
 
   private String createFeatureFlagsJson(String flagName, String flagValue, int ttlSeconds)

@@ -9,19 +9,34 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FrameInputStream;
+import net.jpountz.lz4.LZ4SafeDecompressor;
+import net.jpountz.xxhash.XXHash32;
+import net.jpountz.xxhash.XXHashFactory;
 import org.apache.commons.io.IOUtils;
 
 public class DecompressionUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
 
+  /**
+   * LZ4FrameInputStream(InputStream) looks these up per stream through synchronized factory methods
+   * that retry the native library on every call when it can't load (as in the shaded jar). Both
+   * instances are stateless and thread-safe. Held lazily so that only LZ4 paths load lz4-java.
+   */
+  private static final class Lz4 {
+    static final LZ4SafeDecompressor DECOMPRESSOR = LZ4Factory.fastestInstance().safeDecompressor();
+    static final XXHash32 XXHASH_32 = XXHashFactory.fastestInstance().hash32();
+  }
+
   private static byte[] decompressLZ4Frame(byte[] compressedInput, String context)
       throws DatabricksSQLException {
     LOGGER.debug("Decompressing using LZ4 Frame algorithm. Context: {}", context);
     try {
       return IOUtils.toByteArray(
-          new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput)));
+          new LZ4FrameInputStream(
+              new ByteArrayInputStream(compressedInput), Lz4.DECOMPRESSOR, Lz4.XXHASH_32));
     } catch (IOException e) {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
@@ -54,23 +69,21 @@ public class DecompressionUtil {
   }
 
   /**
-   * Returns a stream that decompresses {@code compressedInput} lazily as it is read, so the full
-   * decompressed payload is never materialized alongside the compressed bytes. Only LZ4_FRAME is
-   * wrapped in a decompressing decorator; a {@code null}/NONE codec returns the raw bytes as-is.
+   * Returns a stream that decompresses {@code compressedStream} lazily as it is read, without
+   * buffering either the compressed or the decompressed payload. Only LZ4_FRAME is wrapped in a
+   * decompressing decorator; a {@code null}/NONE codec returns {@code compressedStream} as-is.
    *
-   * <p>Any {@link IOException} from constructing the LZ4 decoder propagates to the caller ({@code
-   * ArrowResultChunk.downloadData}), which handles it as a chunk-processing failure — the same
-   * terminal path as any other decompression error.
+   * <p>Any {@link IOException} from the LZ4 decoder propagates to the caller ({@code
+   * ArrowResultChunk.downloadData}), which handles it as a retryable download failure.
    */
   public static InputStream decompressToInputStream(
-      byte[] compressedInput, CompressionCodec compressionCodec, String context)
+      InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException {
     if (compressionCodec == CompressionCodec.LZ4_FRAME) {
       LOGGER.debug("Streaming LZ4 Frame decompression. Context: {}", context);
-      return new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput));
+      return new LZ4FrameInputStream(compressedStream);
     }
-    // null / NONE codec: no decompression needed.
-    return new ByteArrayInputStream(compressedInput);
+    return compressedStream;
   }
 
   /**
@@ -91,7 +104,8 @@ public class DecompressionUtil {
         return new ByteArrayInputStream(compressedInput);
       case LZ4_FRAME:
         try {
-          return new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput));
+          return new LZ4FrameInputStream(
+              new ByteArrayInputStream(compressedInput), Lz4.DECOMPRESSOR, Lz4.XXHASH_32);
         } catch (IOException e) {
           String errorMessage =
               String.format("Unable to create LZ4 Frame decompression stream %s", context);
