@@ -15,6 +15,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
@@ -70,6 +71,21 @@ public interface IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       MetadataOperationType metadataOperationType)
       throws SQLException;
+
+  /** Whether this client can send APC parameter_sets in one ExecuteStatement request. */
+  default boolean supportsNativeBatchExecution() {
+    return false;
+  }
+
+  /** Executes an ordered prepared INSERT batch using APC parameter_sets. */
+  default long[] executeNativeBatch(
+      String sql,
+      List<BatchParameterSet> parameterSets,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    throw new java.sql.SQLFeatureNotSupportedException("Native batch execution is not supported");
+  }
 
   /**
    * Executes a statement in Databricks server asynchronously

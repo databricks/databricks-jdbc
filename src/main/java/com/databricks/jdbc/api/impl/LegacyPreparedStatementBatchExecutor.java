@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.InsertStatementParser;
+import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -48,7 +49,7 @@ class LegacyPreparedStatementBatchExecutor {
     }
 
     // Try to optimize INSERT statements with multi-row batching
-    if (canUseBatchedInsert()) {
+    if (!ApcParameterCapabilities.isApcSea(connection.getSession()) && canUseBatchedInsert()) {
       return executeBatchedInsert(batchParameterSets);
     } else {
       // Fall back to individual execution for non-INSERT or incompatible statements
@@ -178,9 +179,17 @@ class LegacyPreparedStatementBatchExecutor {
     for (int sqlQueryIndex = 0; sqlQueryIndex < batchParameterSets.size(); sqlQueryIndex++) {
       BatchParameterSet batchParameterSet = batchParameterSets.get(sqlQueryIndex);
       try {
+        boolean apcInterpolation =
+            ApcParameterCapabilities.isApcSea(connection.getSession())
+                && !ApcParameterCapabilities.supportsNativeParameters(connection.getSession());
+        String sqlToExecute =
+            apcInterpolation
+                ? SQLInterpolator.interpolateSQL(sql, batchParameterSet.getParameterBindings())
+                : sql;
+        Map<Integer, ImmutableSqlParameter> parameters =
+            apcInterpolation ? new HashMap<>() : batchParameterSet.getParameterBindings();
         DatabricksResultSet resultSet =
-            statementExecutor.execute(
-                sql, batchParameterSet.getParameterBindings(), StatementType.UPDATE, false);
+            statementExecutor.execute(sqlToExecute, parameters, StatementType.UPDATE, false);
         largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
       } catch (Exception e) {
         LOGGER.error(

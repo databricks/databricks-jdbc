@@ -3,7 +3,10 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.InsertStatementParser;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -40,8 +43,7 @@ class PreparedStatementBatchExecutor {
   interface NativeBatchExecutor {
     boolean isSupported();
 
-    long[] execute(String sql, List<BatchParameterSet> parameterSets)
-        throws DatabricksBatchUpdateException;
+    long[] execute(String sql, List<BatchParameterSet> parameterSets) throws SQLException;
   }
 
   PreparedStatementBatchExecutor(
@@ -69,7 +71,14 @@ class PreparedStatementBatchExecutor {
   long[] executeBatch(List<BatchParameterSet> batchParameterSets)
       throws DatabricksBatchUpdateException {
     if (canUseNativeBatching(batchParameterSets)) {
-      return nativeExecutor.execute(sql, batchParameterSets);
+      try {
+        return nativeExecutor.execute(sql, batchParameterSets);
+      } catch (Exception e) {
+        long[] failed = new long[batchParameterSets.size()];
+        Arrays.fill(failed, Statement.EXECUTE_FAILED);
+        throw new DatabricksBatchUpdateException(
+            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, failed);
+      }
     }
     return legacyExecutor.executeBatch(batchParameterSets);
   }
@@ -78,6 +87,8 @@ class PreparedStatementBatchExecutor {
     return !batchParameterSets.isEmpty()
         && connection.getConnectionContext().isNativeBatchingEnabled()
         && InsertStatementParser.isParametrizedInsert(sql)
+        && (!ApcParameterCapabilities.isApcSea(connection.getSession())
+            || ApcParameterCapabilities.supportsNativeBatch(connection.getSession()))
         && nativeExecutor.isSupported();
   }
 }

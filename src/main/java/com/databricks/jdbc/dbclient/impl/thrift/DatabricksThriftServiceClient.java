@@ -46,6 +46,17 @@ import org.apache.thrift.TException;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
 
+  @Override
+  public long[] executeNativeBatch(
+      String sql,
+      List<com.databricks.jdbc.api.impl.BatchParameterSet> parameterSets,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    throw new java.sql.SQLFeatureNotSupportedException(
+        "APC parameter_sets are not supported by the Thrift client");
+  }
+
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftServiceClient.class);
   private final DatabricksThriftAccessor thriftAccessor;

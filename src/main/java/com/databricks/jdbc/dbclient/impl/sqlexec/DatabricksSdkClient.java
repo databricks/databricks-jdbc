@@ -17,6 +17,7 @@ import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
@@ -40,6 +41,7 @@ import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
@@ -359,6 +361,69 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       MetadataOperationType metadataOperationType)
       throws SQLException {
+    return executeStatementInternal(
+        sql,
+        computeResource,
+        parameters,
+        statementType,
+        session,
+        parentStatement,
+        metadataOperationType,
+        null);
+  }
+
+  @Override
+  public boolean supportsNativeBatchExecution() {
+    return true;
+  }
+
+  @Override
+  public long[] executeNativeBatch(
+      String sql,
+      List<BatchParameterSet> parameterSets,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    if (!ApcParameterCapabilities.supportsNativeBatch(session)) {
+      throw new java.sql.SQLFeatureNotSupportedException(
+          "APC parameter_sets require a live V10 session");
+    }
+    for (BatchParameterSet set : parameterSets) {
+      ApcParameterCapabilities.rejectComplexBindings(set.getParameterBindings());
+    }
+    List<StatementParameterSet> wireSets =
+        parameterSets.stream()
+            .map(
+                set ->
+                    new StatementParameterSet(
+                        set.getParameters().stream()
+                            .map(this::mapToParameterListItem)
+                            .collect(Collectors.toList())))
+            .collect(Collectors.toList());
+    executeStatementInternal(
+        sql,
+        session.getComputeResource(),
+        Collections.emptyMap(),
+        StatementType.UPDATE,
+        session,
+        parentStatement,
+        null,
+        wireSets);
+    long[] counts = new long[parameterSets.size()];
+    Arrays.fill(counts, java.sql.Statement.SUCCESS_NO_INFO);
+    return counts;
+  }
+
+  private DatabricksResultSet executeStatementInternal(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      MetadataOperationType metadataOperationType,
+      List<StatementParameterSet> parameterSets)
+      throws SQLException {
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
         sql,
@@ -375,6 +440,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementRequest request =
         getRequest(
             statementType, sql, computeResource, session, parameters, parentStatement, false);
+    if (parameterSets != null) {
+      request.setParameterSets(parameterSets);
+    }
     ExecuteStatementResponse response;
     try {
       Request req =
@@ -924,6 +992,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean boundedSeaInline =
         arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    if (apc && !parameters.isEmpty()) {
+      if (ApcParameterCapabilities.supportsNativeParameters(session)) {
+        ApcParameterCapabilities.rejectComplexBindings(parameters);
+      } else {
+        String reason = ApcParameterCapabilities.downgradeReason(session);
+        LOGGER.warn("APC parameter downgrade: {}", reason);
+        TelemetryHelper.exportFailureLog(
+            connectionContext, "APC_PARAMETER_DOWNGRADE", reason, TelemetryLogLevel.WARN);
+        sql = SQLInterpolator.interpolateSQL(sql, parameters);
+        parameters = Collections.emptyMap();
+      }
+    }
     Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition;
     if (cloudFetch) {
@@ -951,8 +1031,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setDisposition(apc ? Disposition.INLINE_OR_EXTERNAL_LINKS : disposition)
             .setFormat(
                 apc ? SqlExecResultFormat.ARROW_BATCH : SqlExecResultFormat.fromSdkFormat(format))
-            .setResultCompression(compressionCodec)
-            .setParameters(parameterListItems);
+            .setResultCompression(compressionCodec);
+    if (!apc || !parameterListItems.isEmpty()) {
+      request.setParameters(parameterListItems);
+    }
     SeaComputeTarget target = SeaComputeTarget.of(computeResource);
     if (target.isApc() || !session.getSessionInfo().realtimeSession()) {
       request.setSessionId(session.getSessionId());

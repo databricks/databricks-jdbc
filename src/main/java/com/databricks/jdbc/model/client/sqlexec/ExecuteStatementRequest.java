@@ -10,6 +10,7 @@ import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -48,7 +49,12 @@ public class ExecuteStatementRequest {
   private String waitTimeout;
 
   @JsonProperty("parameters")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private Collection<StatementParameterListItem> parameters;
+
+  @JsonProperty("parameter_sets")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private List<StatementParameterSet> parameterSets;
 
   @JsonProperty("result_compression")
   private CompressionCodec resultCompression;
@@ -90,6 +96,10 @@ public class ExecuteStatementRequest {
 
   public Collection<StatementParameterListItem> getParameters() {
     return parameters;
+  }
+
+  public List<StatementParameterSet> getParameterSets() {
+    return parameterSets;
   }
 
   public CompressionCodec getResultCompression() {
@@ -161,6 +171,11 @@ public class ExecuteStatementRequest {
     return this;
   }
 
+  public ExecuteStatementRequest setParameterSets(List<StatementParameterSet> parameterSets) {
+    this.parameterSets = parameterSets;
+    return this;
+  }
+
   public ExecuteStatementRequest setSessionVersion(SessionVersion sessionVersion) {
     this.sessionVersion = sessionVersion;
     return this;
@@ -173,6 +188,7 @@ public class ExecuteStatementRequest {
         .add("format", format)
         .add("onWaitTimeout", onWaitTimeout)
         .add("parameters", parameters)
+        .add("parameterSets", parameterSets)
         .add("statement", statement)
         .add("sessionId", sessionId)
         .add("sessionVersion", sessionVersion)
@@ -189,6 +205,7 @@ public class ExecuteStatementRequest {
         format,
         onWaitTimeout,
         parameters,
+        parameterSets,
         rowLimit,
         sessionVersion,
         statement,
@@ -207,6 +224,7 @@ public class ExecuteStatementRequest {
         && Objects.equals(format, that.format)
         && Objects.equals(onWaitTimeout, that.onWaitTimeout)
         && Objects.equals(parameters, that.parameters)
+        && Objects.equals(parameterSets, that.parameterSets)
         && Objects.equals(rowLimit, that.rowLimit)
         && Objects.equals(statement, that.statement)
         && Objects.equals(waitTimeout, that.waitTimeout)

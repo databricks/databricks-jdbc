@@ -8,11 +8,13 @@ import static com.databricks.jdbc.common.util.SQLInterpolator.surroundPlaceholde
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -114,6 +116,22 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       return new long[0];
     }
 
+    if (ApcParameterCapabilities.supportsNativeParameters(connection.getSession())) {
+      for (BatchParameterSet parameterSet : batchParameterSets) {
+        try {
+          ApcParameterCapabilities.rejectComplexBindings(parameterSet.getParameterBindings());
+        } catch (DatabricksSQLException e) {
+          long[] failed = new long[batchParameterSets.size()];
+          Arrays.fill(failed, Statement.EXECUTE_FAILED);
+          throw new DatabricksBatchUpdateException(
+              e.getMessage(), e.getSQLState(), e.getErrorCode(), failed, e);
+        }
+      }
+    } else if (ApcParameterCapabilities.isApcSea(connection.getSession())
+        && batchParameterSets.stream().anyMatch(set -> !set.isEmpty())) {
+      recordParameterDowngrade();
+    }
+
     // Delegate batch execution to the dedicated batch executor
     PreparedStatementBatchExecutor batchExecutor =
         new PreparedStatementBatchExecutor(
@@ -121,7 +139,27 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             connection,
             interpolateParameters,
             (sqlToExecute, params, statementType, closeStatement) ->
-                executeInternal(sqlToExecute, params, statementType, closeStatement));
+                executeInternal(sqlToExecute, params, statementType, closeStatement),
+            new PreparedStatementBatchExecutor.NativeBatchExecutor() {
+              @Override
+              public boolean isSupported() {
+                return ApcParameterCapabilities.isApcSea(connection.getSession())
+                    && connection.getSession().getDatabricksClient().supportsNativeBatchExecution();
+              }
+
+              @Override
+              public long[] execute(String batchSql, List<BatchParameterSet> parameterSets)
+                  throws SQLException {
+                return connection
+                    .getSession()
+                    .getDatabricksClient()
+                    .executeNativeBatch(
+                        batchSql,
+                        parameterSets,
+                        connection.getSession(),
+                        DatabricksPreparedStatement.this);
+              }
+            });
 
     long[] updateCounts = batchExecutor.executeBatch(batchParameterSets);
 
@@ -865,16 +903,34 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)
       throws SQLException {
+    boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
+    boolean nativeParameters =
+        ApcParameterCapabilities.supportsNativeParameters(connection.getSession());
+    boolean interpolate = apc ? !nativeParameters : interpolateParameters;
+    if (nativeParameters) {
+      ApcParameterCapabilities.rejectComplexBindings(
+          databricksParameterMetaData.getParameterBindings());
+    } else if (apc && !databricksParameterMetaData.getParameterBindings().isEmpty()) {
+      recordParameterDowngrade();
+    }
     String interpolatedSql =
-        this.interpolateParameters
+        interpolate
             ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
 
     Map<Integer, ImmutableSqlParameter> paramMap =
-        this.interpolateParameters
-            ? new HashMap<>()
-            : this.databricksParameterMetaData.getParameterBindings();
+        interpolate ? new HashMap<>() : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
+  }
+
+  private void recordParameterDowngrade() {
+    String reason = ApcParameterCapabilities.downgradeReason(connection.getSession());
+    LOGGER.warn("APC parameter downgrade: {}", reason);
+    TelemetryHelper.exportFailureLog(
+        connection.getConnectionContext(),
+        "APC_PARAMETER_DOWNGRADE",
+        reason,
+        TelemetryLogLevel.WARN);
   }
 
   /**
@@ -889,7 +945,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     String describeQuerySQL = "DESCRIBE QUERY " + surroundPlaceholdersWithQuotes(sql);
     try (DatabricksPreparedStatement preparedStatement =
             new DatabricksPreparedStatement(
-                connection, describeQuerySQL, interpolateParameters, databricksParameterMetaData);
+                connection,
+                describeQuerySQL,
+                false,
+                new DatabricksParameterMetaData(describeQuerySQL));
         ResultSet metadataResultSet = preparedStatement.executeQuery(); ) {
       ArrayList<String> columnNames = new ArrayList<>();
       ArrayList<String> columnDataTypes = new ArrayList<>();
