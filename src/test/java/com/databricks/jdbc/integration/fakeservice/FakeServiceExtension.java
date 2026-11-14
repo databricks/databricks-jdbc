@@ -7,6 +7,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.WAREHOUSE_
 import static com.github.tomakehurst.wiremock.common.AbstractFileSource.byFileExtension;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
+import com.databricks.jdbc.dbclient.impl.common.DiscoveryResponseCacheTestUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
@@ -190,6 +191,8 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   protected void onBeforeEach(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context)
       throws Exception {
     super.onBeforeEach(wireMockRuntimeInfo, context);
+    // Each test's stubs are recorded and replayed on their own, including its discovery requests.
+    DiscoveryResponseCacheTestUtil.clear();
 
     if (fakeServiceMode == FakeServiceMode.REPLAY) {
       loadStubMappings(wireMockRuntimeInfo, context);

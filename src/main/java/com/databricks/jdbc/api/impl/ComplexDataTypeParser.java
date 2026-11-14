@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -22,13 +23,18 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,13 +47,27 @@ public class ComplexDataTypeParser {
   private static final TimestampConverter TIMESTAMP_CONVERTER = new TimestampConverter();
   private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
   private final boolean geoSpatialSupportEnabled;
+  private final ZoneId timestampZone;
 
   public ComplexDataTypeParser() {
     this(true);
   }
 
   public ComplexDataTypeParser(boolean geoSpatialSupportEnabled) {
+    this(geoSpatialSupportEnabled, null);
+  }
+
+  /**
+   * Creates a parser for values serialized from Arrow.
+   *
+   * @param geoSpatialSupportEnabled whether geospatial values are returned as geospatial objects
+   * @param timestampZone the time zone of the nested Arrow TIMESTAMP fields, which is the session
+   *     time zone, or null if unknown. The {@code java.time} values of nested TIMESTAMP values are
+   *     reported in it (see {@link #inTimestampZone}); {@code java.sql} values are unchanged.
+   */
+  public ComplexDataTypeParser(boolean geoSpatialSupportEnabled, ZoneId timestampZone) {
     this.geoSpatialSupportEnabled = geoSpatialSupportEnabled;
+    this.timestampZone = timestampZone;
   }
 
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
@@ -94,11 +114,18 @@ public class ComplexDataTypeParser {
     LOGGER.debug("Parsing array with metadata: {}", arrayMetadata);
     String elementType = MetadataParser.parseArrayMetadata(arrayMetadata);
     List<Object> list = new ArrayList<>();
+    // Keep the JSON leaves of DATE/TIMESTAMP elements; their exact java.time values are built
+    // only if requested (see toExactTemporal).
+    List<Object> temporalList =
+        JavaTimeConverter.isTemporalTypeName(elementType) ? new ArrayList<>() : null;
     for (JsonNode elementNode : node) {
       Object converted = convertValueNode(elementNode, elementType);
       list.add(converted);
+      if (temporalList != null) {
+        temporalList.add(elementNode);
+      }
     }
-    return new DatabricksArray(list, arrayMetadata);
+    return new DatabricksArray(list, arrayMetadata, temporalList, timestampZone);
   }
 
   public DatabricksMap<String, Object> parseToMap(JsonNode node, String mapMetadata)
@@ -126,6 +153,8 @@ public class ComplexDataTypeParser {
     LOGGER.debug("Parsing struct with metadata: {}", structMetadata);
     Map<String, String> fieldTypeMap = MetadataParser.parseStructMetadata(structMetadata);
     Map<String, Object> structMap = new LinkedHashMap<>();
+    // JSON leaves of DATE/TIMESTAMP fields, created only for structs that have one.
+    Map<String, Object> temporalMap = null;
     Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
     while (fields.hasNext()) {
       Map.Entry<String, JsonNode> entry = fields.next();
@@ -134,8 +163,128 @@ public class ComplexDataTypeParser {
       String fieldType = fieldTypeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
       Object convertedValue = convertValueNode(fieldNode, fieldType);
       structMap.put(fieldName, convertedValue);
+      if (!fieldNode.isNull() && JavaTimeConverter.isTemporalTypeName(fieldType)) {
+        if (temporalMap == null) {
+          temporalMap = new HashMap<>();
+        }
+        temporalMap.put(fieldName, fieldNode);
+      }
     }
-    return new DatabricksStruct(structMap, structMetadata);
+    return new DatabricksStruct(structMap, structMetadata, temporalMap, timestampZone);
+  }
+
+  /**
+   * Returns the exact {@code java.time} value of a nested DATE, TIMESTAMP or TIMESTAMP_NTZ leaf
+   * kept by {@link #parseToArray} or {@link #parseToStruct}. A JSON leaf is converted now, so the
+   * cost is paid only when a {@code java.time} value is requested; other values are returned as is.
+   *
+   * <p>A leaf in a form only the {@code java.sql} parser accepts (not ISO text, epoch days or
+   * microseconds, or TIMESTAMP_NTZ components) has no exact value. The caller then uses the {@code
+   * java.sql} value, which is exact after the 1582 Gregorian cutover, and logs {@link
+   * #warnInexactNestedValue} once.
+   *
+   * @param source a JSON leaf, a {@code java.time} value, or null
+   * @param expectedType the leaf's type name, e.g. {@code DATE}
+   * @return the exact value, or null if there is none and the {@code java.sql} value should be used
+   */
+  static Object toExactTemporal(Object source, String expectedType) {
+    return source instanceof JsonNode
+        ? convertTemporalNode((JsonNode) source, expectedType)
+        : source;
+  }
+
+  /**
+   * Returns an exact TIMESTAMP value in {@code timestampZone}, so that its {@code LocalDate} and
+   * {@code LocalDateTime} are the session-local ones, as for a top-level TIMESTAMP column. The
+   * instant is unchanged. Other values, or a null zone, return {@code exact} as is.
+   *
+   * <p>Only Arrow results have a zone, and Arrow serializes nested TIMESTAMP values as epoch
+   * microseconds, which {@link #toExactTemporal} reads at UTC; text keeps its rendered offset.
+   */
+  static Object inTimestampZone(Object exact, ZoneId timestampZone) {
+    return timestampZone != null && exact instanceof OffsetDateTime
+        ? ((OffsetDateTime) exact).atZoneSameInstant(timestampZone).toOffsetDateTime()
+        : exact;
+  }
+
+  /** Returns true if {@code source} is a non-null leaf that {@link #toExactTemporal} parses. */
+  static boolean isUnparsedLeaf(Object source) {
+    return source instanceof JsonNode && !((JsonNode) source).isNull();
+  }
+
+  /** Logs that a nested value fell back to its {@code java.sql} value, without the value. */
+  static void warnInexactNestedValue(String expectedType) {
+    LOGGER.warn(
+        "Could not read a nested {} value exactly; using its java.sql value, which is shifted for"
+            + " dates before 1582-10-15",
+        expectedType);
+  }
+
+  /**
+   * Returns the exact {@code java.time} value of a nested DATE, TIMESTAMP or TIMESTAMP_NTZ leaf, or
+   * null if it cannot be read exactly; callers then fall back to the {@code java.sql} value.
+   *
+   * <p>Arrow serializes these as epoch days, epoch microseconds, or TIMESTAMP_NTZ components, which
+   * {@link #convertPrimitive} turns into {@code java.sql} values that cannot represent BC or
+   * pre-1582 values. TIMESTAMP epoch microseconds are read at UTC, matching the {@code
+   * java.sql.Timestamp} built from them; {@link #inTimestampZone} moves them to the session time
+   * zone for {@code java.time} results. Text keeps its rendered fields and offset, as at the top
+   * level.
+   */
+  private static Temporal convertTemporalNode(JsonNode node, String expectedType) {
+    if (node == null || node.isNull()) {
+      return null;
+    }
+    String baseType = expectedType.trim().toUpperCase(Locale.ROOT);
+    boolean isTimestampNtz = baseType.equals(DatabricksTypeUtil.TIMESTAMP_NTZ);
+    try {
+      if (node.isArray()) {
+        return isTimestampNtz && node.size() >= 5 ? timestampNtzFromComponents(node) : null;
+      }
+      if (node.isIntegralNumber()) {
+        return fromEpochNumber(node.longValue(), baseType);
+      }
+      String text = node.asText().trim();
+      if (baseType.equals(DatabricksTypeUtil.DATE)) {
+        LocalDate date = JavaTimeConverter.parseDateText(text);
+        return date != null ? date : fromEpochNumber(Long.parseLong(text), baseType);
+      }
+      Temporal temporal = JavaTimeConverter.toTemporal(Types.TIMESTAMP, baseType, text);
+      return temporal != null ? temporal : fromEpochNumber(Long.parseLong(text), baseType);
+    } catch (NumberFormatException | DateTimeException e) {
+      return null;
+    }
+  }
+
+  /** Epoch days (DATE) or epoch microseconds (TIMESTAMP, TIMESTAMP_NTZ) as {@code java.time}. */
+  private static Temporal fromEpochNumber(long number, String baseType) {
+    if (baseType.equals(DatabricksTypeUtil.DATE)) {
+      return LocalDate.ofEpochDay(number);
+    }
+    Instant instant =
+        Instant.ofEpochSecond(
+            Math.floorDiv(number, 1_000_000L), Math.floorMod(number, 1_000_000L) * 1_000);
+    return baseType.equals(DatabricksTypeUtil.TIMESTAMP_NTZ)
+        ? LocalDateTime.ofInstant(instant, ZoneOffset.UTC)
+        : instant.atOffset(ZoneOffset.UTC);
+  }
+
+  /**
+   * Reads a TIMESTAMP_NTZ that Arrow serializes as a JSON array of components [year, month, day,
+   * hour, minute, second, nanosecond]. Trailing zero components are omitted, so a value with zero
+   * seconds and nanoseconds has five elements.
+   */
+  private static LocalDateTime timestampNtzFromComponents(JsonNode arrayNode) {
+    int second = arrayNode.size() > 5 ? arrayNode.get(5).asInt() : 0;
+    int nano = arrayNode.size() > 6 && arrayNode.get(6) != null ? arrayNode.get(6).asInt(0) : 0;
+    return LocalDateTime.of(
+        arrayNode.get(0).asInt(),
+        arrayNode.get(1).asInt(),
+        arrayNode.get(2).asInt(),
+        arrayNode.get(3).asInt(),
+        arrayNode.get(4).asInt(),
+        second,
+        nano);
   }
 
   private Object convertValueNode(JsonNode node, String expectedType)
@@ -171,6 +320,7 @@ public class ComplexDataTypeParser {
     }
     // Arrow serializes TIMESTAMP_NTZ inside nested types as a JSON array of components:
     // [year, month, day, hour, minute, second] (and optionally nanoseconds as a 7th element).
+    // Trailing zero seconds are omitted, so a value at :00 seconds has five elements.
     // e.g., [{"event_ts_ntz":[2023,10,5,15,20,30]}]
     // We must handle this before calling node.asText(), which returns "" for array nodes.
     if (node.isArray() && expectedType.equalsIgnoreCase(DatabricksTypeUtil.TIMESTAMP_NTZ)) {
@@ -331,25 +481,17 @@ public class ComplexDataTypeParser {
 
   /**
    * Converts a TIMESTAMP_NTZ value serialized as a JSON array of components
-   * [year,month,day,hour,minute,second] into a {@link Timestamp}.
+   * [year,month,day,hour,minute(,second(,nanosecond))] into a {@link Timestamp}.
    */
   private Timestamp convertTimestampNtzArray(JsonNode arrayNode) throws DatabricksParsingException {
-    if (arrayNode == null || !arrayNode.isArray() || arrayNode.size() < 6) {
+    if (arrayNode == null || !arrayNode.isArray() || arrayNode.size() < 5) {
       throw new DatabricksParsingException(
-          "Invalid TIMESTAMP_NTZ array representation: expected at least 6 elements "
-              + "[year,month,day,hour,minute,second], but got: "
+          "Invalid TIMESTAMP_NTZ array representation: expected at least 5 elements "
+              + "[year,month,day,hour,minute], but got: "
               + arrayNode,
           DatabricksDriverErrorCode.JSON_PARSING_ERROR);
     }
-    int year = arrayNode.get(0).asInt();
-    int month = arrayNode.get(1).asInt();
-    int day = arrayNode.get(2).asInt();
-    int hour = arrayNode.get(3).asInt();
-    int minute = arrayNode.get(4).asInt();
-    int second = arrayNode.get(5).asInt();
-    int nano = arrayNode.size() > 6 && arrayNode.get(6) != null ? arrayNode.get(6).asInt(0) : 0;
-    LocalDateTime ldt = LocalDateTime.of(year, month, day, hour, minute, second, nano);
-    return Timestamp.valueOf(ldt);
+    return Timestamp.valueOf(timestampNtzFromComponents(arrayNode));
   }
 
   private Timestamp parseTimestamp(String text) {
