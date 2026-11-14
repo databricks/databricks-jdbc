@@ -52,9 +52,13 @@ import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.service.sql.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
@@ -352,6 +356,7 @@ public class DatabricksSdkClientTest {
             sent.stream()
                 .map(Request::getRequestLine)
                 .collect(java.util.stream.Collectors.joining("\n")));
+    assertWarehouseWireFixture(sent, realtime, boundedSea);
     assertWireRequest(
         sent.get(0), Request.POST, String.format(WAREHOUSE_SESSION_PATH, WAREHOUSE_ID), Map.of());
     ObjectMapper mapper = new ObjectMapper();
@@ -445,6 +450,74 @@ public class DatabricksSdkClientTest {
         String expected = index >= 4 ? "{\"statementId\":\"" + id + "\"}" : "{}";
         assertEquals(mapper.readTree(expected), mapper.readTree(body));
       }
+    }
+  }
+
+  private static void assertWarehouseWireFixture(
+      List<Request> requests, boolean realtime, boolean boundedSea) throws IOException {
+    String fixture =
+        "wire/warehouse-"
+            + (realtime ? "realtime" : "standard")
+            + (boundedSea ? "-bounded" : "")
+            + ".txt";
+    InputStream stream =
+        DatabricksSdkClientTest.class.getClassLoader().getResourceAsStream(fixture);
+    assertNotNull(stream, fixture);
+    List<String> expected;
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+      expected =
+          reader
+              .lines()
+              .filter(line -> !line.startsWith("#"))
+              .collect(java.util.stream.Collectors.toList());
+    }
+    assertEquals(requests.size(), expected.size(), fixture);
+    Map<String, String> baselineHeaders =
+        Map.of(
+            "Authorization", "Bearer test-token",
+            "User-Agent",
+                "DatabricksJDBCDriverOSS/<driver-version> databricks-sdk-java/0.118.0"
+                    + " jvm/<runtime> os/<platform> Java/THttpClient auth/pat",
+            "Accept", "application/json",
+            "Content-Type", "application/json");
+    for (int index = 0; index < requests.size(); index++) {
+      String[] fields = expected.get(index).split("\t", -1);
+      assertEquals(3, fields.length, fixture + " line " + index);
+      Request request = requests.get(index);
+      assertEquals(fields[0], request.getMethod(), fixture + " method " + index);
+      assertEquals(fields[1], request.getUrl(), fixture + " URL " + index);
+      assertEquals(
+          fields[2].equals("<null>") ? null : fields[2],
+          request.getBodyString(),
+          fixture + " body " + index);
+      Map<String, String> headers = new HashMap<>(request.getHeaders());
+      String userAgent = headers.get("User-Agent");
+      assertNotNull(userAgent, fixture + " User-Agent " + index);
+      // The SDK accumulates User-Agent entries from unrelated tests in the same JVM. The first
+      // four segments, the Thrift client marker, and auth mode are the stable pre-APC fixture.
+      String[] segments = userAgent.split(" ");
+      assertTrue(segments.length >= 6, fixture + " User-Agent " + index);
+      assertTrue(
+          Arrays.asList(segments).contains("Java/THttpClient"), fixture + " client " + index);
+      assertEquals("auth/pat", segments[segments.length - 1], fixture + " auth " + index);
+      headers.put(
+          "User-Agent",
+          String.join(
+                  " ",
+                  segments[0],
+                  segments[1],
+                  segments[2],
+                  segments[3],
+                  "Java/THttpClient",
+                  segments[segments.length - 1])
+              .replaceAll(
+                  "DatabricksJDBCDriverOSS/[^ ]+", "DatabricksJDBCDriverOSS/<driver-version>")
+              .replaceAll("jvm/[^ ]+", "jvm/<runtime>")
+              .replaceAll("os/[^ ]+", "os/<platform>"));
+      assertEquals(baselineHeaders, headers, fixture + " headers " + index);
+      assertEquals(
+          requests.get(0).getHeaders(), request.getHeaders(), fixture + " header " + index);
     }
   }
 

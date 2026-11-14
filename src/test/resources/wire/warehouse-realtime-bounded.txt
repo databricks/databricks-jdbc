@@ -1,0 +1,18 @@
+# Captured from f8530cbe^ before APC request targeting; method, full URL, exact body.
+POST	https://example.com/api/2.0/sql/warehouses/99999999/sessions	{"schema":"default","execution_mode":"FAST"}
+POST	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements	{"statement":"SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?","row_limit":100,"disposition":"INLINE_OR_EXTERNAL_LINKS","format":"ARROW_STREAM","on_wait_timeout":"CONTINUE","parameters":[{"type":"LONG","value":"100","ordinal":1},{"type":"SHORT","value":"10","ordinal":2},{"type":"TINYINT","value":"15","ordinal":3},{"type":"STRING","value":"value","ordinal":4}],"result_compression":"LZ4_FRAME","session_version":{"version_id":10}}
+GET	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement	<null>
+POST	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements	{"statement":"SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?","row_limit":100,"disposition":"INLINE_OR_EXTERNAL_LINKS","format":"ARROW_STREAM","wait_timeout":"0s","parameters":[{"type":"LONG","value":"100","ordinal":1},{"type":"SHORT","value":"10","ordinal":2},{"type":"TINYINT","value":"15","ordinal":3},{"type":"STRING","value":"value","ordinal":4}],"result_compression":"LZ4_FRAME","session_version":{"version_id":12}}
+GET	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement/status	<null>
+GET	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement	<null>
+GET	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement/result/chunks/0?row_offset=64	<null>
+GET	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement/result/chunks/0?row_offset=32	<null>
+POST	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement/cancel	<null>
+DELETE	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id/statements/owned-statement	<null>
+GET	https://example.com/api/2.0/sql/statements/detached-statement/status	<null>
+GET	https://example.com/api/2.0/sql/statements/detached-statement	{}
+GET	https://example.com/api/2.0/sql/statements/detached-statement/result/chunks/0?row_offset=64	{}
+GET	https://example.com/api/2.0/sql/statements/detached-statement/result/chunks/0?row_offset=32	{}
+POST	https://example.com/api/2.0/sql/statements/detached-statement/cancel	{"statementId":"detached-statement"}
+DELETE	https://example.com/api/2.0/sql/statements/detached-statement	{"statementId":"detached-statement"}
+DELETE	https://example.com/api/2.0/sql/warehouses/99999999/sessions/session_id	<null>
