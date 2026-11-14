@@ -1,12 +1,14 @@
 package com.databricks.jdbc.model.core;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 /** One physical column of a SEA columnar result. Exactly one values arm is populated. */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ColumnVector {
   /** Protobuf repeated-value wrapper used by each values arm. */
   public static class Values<T> {
