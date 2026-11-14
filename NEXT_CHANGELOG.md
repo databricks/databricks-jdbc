@@ -25,6 +25,7 @@
 - Reduced connection setup time by caching successful host-metadata and OIDC discovery JSON documents for up to an hour, with a JVM-wide limit of 1,024 entries. Responses redirected to another origin or path, or whose bodies cannot be parsed as discovery documents, are excluded.
 - Reduced heap usage when reading large CloudFetch results: chunks are now streamed from the HTTP response through decompression into Arrow instead of first being buffered on-heap. When Arrow uses off-heap memory, this cuts peak heap by about 40% and GC pause time by about half, so large results fit in smaller heaps.
 - Fixed CloudFetch rows being silently skipped when a chunk failed to parse and its retried download then succeeded: the chunk stayed in a failed state and its rows were not returned.
+- Reduced lock contention when many threads run statements concurrently: the User-Agent string is no longer rebuilt under a JVM-wide SDK lock on every request and telemetry event. With the thin jar, changes an application makes to the SDK `UserAgent` at runtime now reach driver requests at the next connection open.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
