@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -8,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +25,19 @@ public class DatabricksStruct implements Struct {
   // Field names to preserve ordering and allow mapping back in toString().
   private final List<String> fieldNames;
 
+  // Field types, parallel to fieldNames.
+  private final List<String> fieldTypes;
+
+  // Sources of the exact java.time values of DATE/TIMESTAMP fields (JSON leaves, converted on
+  // demand, or java.time values), parallel to attributes; null when there are none.
+  private final Object[] temporalAttributes;
+
+  // Session time zone of nested Arrow TIMESTAMP values, for java.time results; null if unknown.
+  private final ZoneId timestampZone;
+
+  // Set once an attribute fell back to its java.sql value, so the warning is logged once.
+  private boolean warnedInexact;
+
   /**
    * Constructs a DatabricksStruct with the specified attributes and metadata.
    *
@@ -30,14 +45,46 @@ public class DatabricksStruct implements Struct {
    * @param metadata the metadata describing types of struct fields
    */
   public DatabricksStruct(Map<String, Object> attributes, String metadata) {
+    this(attributes, metadata, null, null);
+  }
+
+  /**
+   * Constructs a DatabricksStruct that also keeps the exact {@code java.time} values of DATE and
+   * TIMESTAMP fields. {@link #getAttributes()} still returns {@code java.sql} values; the exact
+   * values are returned by {@link #getAttributes(Map)} with a {@code java.time} mapping.
+   *
+   * @param attributes the attributes of the struct as a map
+   * @param metadata the metadata describing types of struct fields
+   * @param temporalAttributes sources of the exact values by field name (JSON leaves, converted
+   *     only when requested, or {@code java.time} values), may be null; missing fields fall back to
+   *     the {@code java.sql} attribute
+   * @param timestampZone the session time zone of nested Arrow TIMESTAMP values, in which their
+   *     {@code java.time} values are reported, or null if unknown
+   */
+  DatabricksStruct(
+      Map<String, Object> attributes,
+      String metadata,
+      Map<String, Object> temporalAttributes,
+      ZoneId timestampZone) {
+    this.timestampZone = timestampZone;
     // Parse the metadata into a map: fieldName -> fieldType
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);
 
     // Capture field names (in the same order they appear in typeMap).
     this.fieldNames = new ArrayList<>(typeMap.keySet());
+    this.fieldTypes = new ArrayList<>(typeMap.values());
 
     // Convert attributes to the appropriate array of Objects.
     this.attributes = convertAttributes(attributes, typeMap);
+
+    if (temporalAttributes == null || temporalAttributes.isEmpty()) {
+      this.temporalAttributes = null;
+    } else {
+      this.temporalAttributes = new Object[fieldNames.size()];
+      for (int i = 0; i < fieldNames.size(); i++) {
+        this.temporalAttributes[i] = temporalAttributes.get(fieldNames.get(i));
+      }
+    }
 
     // Store the entire type definition for getSQLTypeName().
     this.typeName = metadata;
@@ -128,7 +175,8 @@ public class DatabricksStruct implements Struct {
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
         case DatabricksTypeUtil.DATE:
-          return Date.valueOf(value.toString());
+          // Keep a parsed Date: rebuilding it from toString() drops the BC era.
+          return value instanceof Date ? value : Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
@@ -173,13 +221,60 @@ public class DatabricksStruct implements Struct {
   /**
    * Retrieves the attributes of this Struct as an array, using the specified type map.
    *
+   * <p>If {@code map} maps a field's type (DATE, TIMESTAMP or TIMESTAMP_NTZ) to a {@code java.time}
+   * class, for example {@code Map.of("TIMESTAMP", Instant.class)}, that field is returned as the
+   * class, built from the exact value instead of the {@code java.sql} one. Other mappings are
+   * ignored.
+   *
    * @param map a Map object that contains the mapping of SQL types to Java classes
    * @return an array containing the attributes of the Struct
-   * @throws SQLException if a database access error occurs
+   * @throws SQLException if a database access error occurs or a mapped conversion is not supported
    */
   @Override
   public Object[] getAttributes(Map<String, Class<?>> map) throws SQLException {
-    return this.getAttributes();
+    Object[] converted = null;
+    for (int i = 0; i < attributes.length; i++) {
+      String fieldType = fieldTypes.get(i);
+      Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(map, fieldType);
+      if (javaTimeType == null) {
+        continue;
+      }
+      if (converted == null) {
+        converted = attributes.clone();
+      }
+      Object exact = exactAttribute(i, fieldType);
+      Object value =
+          exact != null
+              ? ComplexDataTypeParser.inTimestampZone(exact, timestampZone)
+              : attributes[i];
+      converted[i] = JavaTimeConverter.convertNested(javaTimeType, fieldType, value);
+    }
+    return converted != null ? converted : this.getAttributes();
+  }
+
+  /**
+   * The exact {@code java.time} value of the attribute at {@code i}, or null if unknown. A JSON
+   * leaf is parsed on the first call and replaced by its result, so later reads neither parse it
+   * again nor repeat the warning for a value that has no exact form.
+   *
+   * <p>The cache is not synchronized. If threads share this struct, a leaf may be parsed twice or
+   * the warning logged twice, but every read returns the same value: each parse gives the same
+   * result and the cached values are immutable.
+   */
+  private Object exactAttribute(int i, String fieldType) {
+    if (temporalAttributes == null) {
+      return null;
+    }
+    Object source = temporalAttributes[i];
+    Object exact = ComplexDataTypeParser.toExactTemporal(source, fieldType);
+    if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
+      if (exact == null && !warnedInexact) {
+        warnedInexact = true;
+        ComplexDataTypeParser.warnInexactNestedValue(fieldType);
+      }
+      temporalAttributes[i] = exact;
+    }
+    return exact;
   }
 
   /** Returns a JSON-like string with field names. */
