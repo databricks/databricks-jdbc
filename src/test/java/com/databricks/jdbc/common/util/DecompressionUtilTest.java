@@ -3,14 +3,21 @@ package com.databricks.jdbc.common.util;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Random;
+import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FrameOutputStream;
+import net.jpountz.xxhash.XXHashFactory;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 public class DecompressionUtilTest {
   private static final String CONTEXT = "testContext";
@@ -37,6 +44,96 @@ public class DecompressionUtilTest {
     assertNotNull(resultStream, "The decompressed stream should not be null.");
     assertTrue(
         IOUtils.contentEquals(resultStream, new ByteArrayInputStream(INITIAL_STRING.getBytes())));
+  }
+
+  private static byte[] checksummedFrame(byte[] data) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 =
+        new LZ4FrameOutputStream(
+            out,
+            LZ4FrameOutputStream.BLOCKSIZE.SIZE_64KB,
+            data.length,
+            LZ4FrameOutputStream.FLG.Bits.BLOCK_INDEPENDENCE,
+            LZ4FrameOutputStream.FLG.Bits.BLOCK_CHECKSUM,
+            LZ4FrameOutputStream.FLG.Bits.CONTENT_CHECKSUM,
+            LZ4FrameOutputStream.FLG.Bits.CONTENT_SIZE)) {
+      lz4.write(data);
+    }
+    return out.toByteArray();
+  }
+
+  @Test
+  public void testDecompressChecksummedMultiBlockFrames() throws Exception {
+    byte[] first = new byte[200_000];
+    new Random(7).nextBytes(first);
+    byte[] second = "second frame".getBytes(StandardCharsets.UTF_8);
+    ByteArrayOutputStream concatenated = new ByteArrayOutputStream();
+    concatenated.write(checksummedFrame(first));
+    concatenated.write(checksummedFrame(second));
+    byte[] compressed = concatenated.toByteArray();
+    ByteArrayOutputStream expected = new ByteArrayOutputStream();
+    expected.write(first);
+    expected.write(second);
+
+    assertArrayEquals(
+        expected.toByteArray(),
+        DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+    assertArrayEquals(
+        expected.toByteArray(),
+        IOUtils.toByteArray(
+            DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT)));
+
+    // Flip a byte of the trailing content checksum.
+    byte[] corrupted = checksummedFrame(second);
+    corrupted[corrupted.length - 1] ^= 0x1;
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> DecompressionUtil.decompress(corrupted, CompressionCodec.LZ4_FRAME, CONTEXT));
+    // The lazy path reports the mismatch when the stream is read.
+    assertThrows(
+        IOException.class,
+        () ->
+            IOUtils.toByteArray(
+                DecompressionUtil.decompressLazy(corrupted, CompressionCodec.LZ4_FRAME, CONTEXT)));
+  }
+
+  @Test
+  public void testInlineDecompressionDoesNotLookUpLz4FactoryPerStream() throws Exception {
+    byte[] compressed = checksummedFrame("data".getBytes(StandardCharsets.UTF_8));
+    // Initialize DecompressionUtil's shared instances before counting lookups.
+    DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+    try (MockedStatic<LZ4Factory> factory =
+        Mockito.mockStatic(LZ4Factory.class, Mockito.CALLS_REAL_METHODS)) {
+      DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+      IOUtils.toByteArray(
+          DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+      factory.verify(LZ4Factory::fastestInstance, Mockito.never());
+    }
+  }
+
+  @Test
+  public void testInlineDecompressionDoesNotLookUpXxHashFactoryPerStream() throws Exception {
+    // Without CONTENT_CHECKSUM, LZ4FrameInputStream.readHeader() needs no XXHashFactory lookup, so
+    // any lookup would come from building a per-stream header checksum.
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 =
+        new LZ4FrameOutputStream(
+            out,
+            LZ4FrameOutputStream.BLOCKSIZE.SIZE_64KB,
+            LZ4FrameOutputStream.FLG.Bits.BLOCK_INDEPENDENCE)) {
+      lz4.write("data".getBytes(StandardCharsets.UTF_8));
+    }
+    byte[] compressed = out.toByteArray();
+    DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+    try (MockedStatic<XXHashFactory> factory =
+        Mockito.mockStatic(XXHashFactory.class, Mockito.CALLS_REAL_METHODS)) {
+      assertArrayEquals(
+          "data".getBytes(StandardCharsets.UTF_8),
+          DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+      IOUtils.toByteArray(
+          DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+      factory.verify(XXHashFactory::fastestInstance, Mockito.never());
+    }
   }
 
   @Test
