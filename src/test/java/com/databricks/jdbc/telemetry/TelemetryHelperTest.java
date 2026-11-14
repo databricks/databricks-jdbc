@@ -93,12 +93,13 @@ public class TelemetryHelperTest {
     }
   }
 
-  @Test
-  void malformedApcIdFailureTelemetryRedactsConnectionPath() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"/sql/protocolv1/o/", "/custom/o/"})
+  void malformedApcIdFailureTelemetryRedactsConnectionPath(String pathPrefix) throws Exception {
     String org = "sensitive-org-984";
     String cluster = "sensitive-cluster-735";
     when(connectionContext.getHostUrl()).thenReturn("https://example.com");
-    when(connectionContext.getHttpPath()).thenReturn("/sql/protocolv1/o/" + org + "/" + cluster);
+    when(connectionContext.getHttpPath()).thenReturn(pathPrefix + org + "/" + cluster);
     when(connectionContext.getComputeResource()).thenReturn(new AllPurposeCluster(org, cluster));
     when(connectionContext.getSessionConfigs()).thenReturn(Map.of());
     TelemetryHelper.removeConnectionParameters("test-uuid");
