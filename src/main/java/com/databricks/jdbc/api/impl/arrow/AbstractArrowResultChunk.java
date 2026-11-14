@@ -310,11 +310,22 @@ public abstract class AbstractArrowResultChunk {
    */
   protected void initializeData(InputStream inputStream)
       throws DatabricksSQLException, IOException {
+    setArrowData(readArrowData(inputStream));
+  }
+
+  /** Parses an Arrow IPC stream into record batches without changing the chunk status. */
+  ArrowData readArrowData(InputStream inputStream) throws IOException {
     LOGGER.debug(
         "Parsing data for chunk index {} and statement {}",
         chunkIndex,
         StatementId.loggableStatementId(statementId));
-    ArrowData arrowData = getRecordBatchList(inputStream, rootAllocator, statementId, chunkIndex);
+    return getRecordBatchList(inputStream, rootAllocator, statementId, chunkIndex);
+  }
+
+  /**
+   * Installs parsed record batches and marks the chunk {@link ChunkStatus#PROCESSING_SUCCEEDED}.
+   */
+  void setArrowData(ArrowData arrowData) {
     recordBatchList = arrowData.getValueVectors();
     arrowMetadata = arrowData.getMetadata();
     LOGGER.debug(
@@ -373,7 +384,7 @@ public abstract class AbstractArrowResultChunk {
           StatementId.loggableStatementId(statementId),
           e.getMessage());
       purgeArrowData(recordBatchList);
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
       LOGGER.error(
           "Error while reading arrow data, purging the local list and rethrowing the exception.");
       purgeArrowData(recordBatchList);
@@ -421,7 +432,7 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /** Releases all Arrow-related resources and clears the record batch list. */
-  private void purgeArrowData(List<List<ValueVector>> recordBatchList) {
+  void purgeArrowData(List<List<ValueVector>> recordBatchList) {
     recordBatchList.forEach(vectors -> vectors.forEach(ValueVector::close));
     recordBatchList.clear();
   }
