@@ -1029,6 +1029,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isBeforeFirst() throws SQLException {
     checkIfClosed();
+    if (executionResult instanceof ArrowStreamResult && arrowStreamExhausted && rowsReturned == 0) {
+      return false;
+    }
     if (executionResult instanceof ColumnarDataResult && executionResult.getRowCount() == 0) {
       return false;
     }
@@ -1059,7 +1062,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     // is true only AFTER the last row, not while the cursor is still positioned ON it.
     if (executionResult instanceof ArrowStreamResult
         && (unknownTotalRowsMode || !resultSetMetaData.hasKnownTotalRows())) {
-      return arrowStreamExhausted;
+      return arrowStreamExhausted && rowsReturned > 0;
     }
     return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
   }

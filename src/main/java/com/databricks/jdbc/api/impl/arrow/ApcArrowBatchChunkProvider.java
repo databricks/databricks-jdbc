@@ -19,12 +19,14 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.arrow.vector.util.SchemaUtility;
 
 /** Pages APC Arrow batches using server continuation markers, without manifest chunk totals. */
 final class ApcArrowBatchChunkProvider implements ChunkProvider {
@@ -59,11 +61,27 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     this.statementId = statementId;
     this.httpClient = httpClient;
     this.compressionCodec = manifest.getResultCompression();
-    this.schemaMessage = ArrowBatchSchemaBuilder.serialize(manifest.getSchema());
-    if (initialData == null
-        || ((initialData.getArrowBatches() == null || initialData.getArrowBatches().isEmpty())
-            && (initialData.getExternalLinks() == null || initialData.getExternalLinks().isEmpty())
-            && initialData.getNextChunkIndex() == null)) {
+    byte[] suppliedSchema = manifest.getArrowSchema();
+    if (suppliedSchema != null && suppliedSchema.length > 0) {
+      try {
+        SchemaUtility.deserialize(suppliedSchema, null);
+      } catch (IOException | RuntimeException e) {
+        throw invalidPage("Invalid APC arrow_schema");
+      }
+      this.schemaMessage = suppliedSchema;
+    } else {
+      String timeZone = "UTC";
+      Map<String, String> configs = session.getSessionConfigs();
+      if (configs != null) {
+        for (Map.Entry<String, String> config : configs.entrySet()) {
+          if ("TIMEZONE".equalsIgnoreCase(config.getKey()) && config.getValue() != null) {
+            timeZone = config.getValue();
+          }
+        }
+      }
+      this.schemaMessage = ArrowBatchSchemaBuilder.serialize(manifest.getSchema(), timeZone);
+    }
+    if (initialData == null) {
       nextChunkIndex = 0L;
     } else {
       try {

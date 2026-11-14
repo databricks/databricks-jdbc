@@ -32,14 +32,24 @@ public final class ArrowBatchSchemaBuilder {
   private ArrowBatchSchemaBuilder() {}
 
   public static byte[] serialize(ResultSchema resultSchema) throws DatabricksParsingException {
+    return serialize(resultSchema, "UTC");
+  }
+
+  public static byte[] serialize(ResultSchema resultSchema, String sessionTimeZone)
+      throws DatabricksParsingException {
     try {
-      return SchemaUtility.serialize(build(resultSchema));
+      return SchemaUtility.serialize(build(resultSchema, sessionTimeZone));
     } catch (IOException e) {
       throw invalidSchema("Unable to serialize APC Arrow schema", e);
     }
   }
 
   public static Schema build(ResultSchema resultSchema) throws DatabricksParsingException {
+    return build(resultSchema, "UTC");
+  }
+
+  public static Schema build(ResultSchema resultSchema, String sessionTimeZone)
+      throws DatabricksParsingException {
     if (resultSchema == null || resultSchema.getColumns() == null) {
       throw invalidSchema("APC result manifest has no schema", null);
     }
@@ -50,7 +60,7 @@ public final class ArrowBatchSchemaBuilder {
       }
       JsonNode type = parseType(column.getTypeJson(), column.getTypeText());
       String sqlType = column.getTypeText() != null ? column.getTypeText() : typeName(type);
-      fields.add(field(column.getName(), type, true, sqlType));
+      fields.add(field(column.getName(), type, true, sqlType, sessionTimeZone));
     }
     return new Schema(fields);
   }
@@ -75,7 +85,8 @@ public final class ArrowBatchSchemaBuilder {
     return type.isTextual() ? type.asText() : type.path("type").asText();
   }
 
-  private static Field field(String name, JsonNode type, boolean nullable, String sqlType)
+  private static Field field(
+      String name, JsonNode type, boolean nullable, String sqlType, String sessionTimeZone)
       throws DatabricksParsingException {
     String nameLower = typeName(type).toLowerCase(java.util.Locale.ROOT);
     List<Field> children = Collections.emptyList();
@@ -144,7 +155,9 @@ public final class ArrowBatchSchemaBuilder {
           arrowType =
               new ArrowType.Timestamp(
                   TimeUnit.MICROSECOND,
-                  type.path("timezone").isTextual() ? type.path("timezone").asText() : "UTC");
+                  type.path("timezone").isTextual()
+                      ? type.path("timezone").asText()
+                      : sessionTimeZone);
           break;
         case "timestamp_ntz":
           arrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
@@ -157,17 +170,25 @@ public final class ArrowBatchSchemaBuilder {
                       "element",
                       type.path("elementType"),
                       type.path("containsNull").asBoolean(true),
-                      typeName(type.path("elementType"))));
+                      typeName(type.path("elementType")),
+                      sessionTimeZone));
           break;
         case "map":
           arrowType = new ArrowType.Map(false);
-          Field key = field("key", type.path("keyType"), false, typeName(type.path("keyType")));
+          Field key =
+              field(
+                  "key",
+                  type.path("keyType"),
+                  false,
+                  typeName(type.path("keyType")),
+                  sessionTimeZone);
           Field value =
               field(
                   "value",
                   type.path("valueType"),
                   type.path("valueContainsNull").asBoolean(true),
-                  typeName(type.path("valueType")));
+                  typeName(type.path("valueType")),
+                  sessionTimeZone);
           children =
               Collections.singletonList(
                   new Field(
@@ -184,7 +205,8 @@ public final class ArrowBatchSchemaBuilder {
                     child.path("name").asText(),
                     child.path("type"),
                     child.path("nullable").asBoolean(true),
-                    typeName(child.path("type"))));
+                    typeName(child.path("type")),
+                    sessionTimeZone));
           }
           children = structFields;
           break;

@@ -21,6 +21,7 @@ import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.google.common.collect.ImmutableList;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -118,6 +119,18 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             columnTypeName = DatabricksTypeUtil.recoverStringType(columnInfo.getTypeText());
           }
 
+          // Thrift uses these logical aliases for the same SQL integer types. Preserve its
+          // ResultSetMetaData class and display-size behavior for APC results as well.
+          if (resultManifest.getFormat() == SqlExecResultFormat.ARROW_BATCH) {
+            if (columnTypeName == ColumnInfoTypeName.TINYINT) {
+              columnTypeName = ColumnInfoTypeName.BYTE;
+            } else if (columnTypeName == ColumnInfoTypeName.SMALLINT) {
+              columnTypeName = ColumnInfoTypeName.SHORT;
+            } else if (columnTypeName == ColumnInfoTypeName.BIGINT) {
+              columnTypeName = ColumnInfoTypeName.LONG;
+            }
+          }
+
           // Check if we need to convert geospatial types to string when geospatial support is
           // disabled
           String typeText = columnInfo.getTypeText();
@@ -141,6 +154,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
           int precision = precisionAndScale[0];
           int scale = precisionAndScale[1];
+          if (resultManifest.getFormat() == SqlExecResultFormat.ARROW_BATCH
+              && columnTypeName == ColumnInfoTypeName.VARIANT) {
+            // Thrift exposes VARIANT through a STRING primitive with logical Arrow metadata.
+            precision = 0;
+          }
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
               .columnName(columnInfo.getName())
@@ -149,7 +167,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnTypeText(finalTypeText)
               .typePrecision(precision)
               .typeScale(scale)
-              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
+              .displaySize(
+                  resultManifest.getFormat() == SqlExecResultFormat.ARROW_BATCH
+                          && columnTypeName == ColumnInfoTypeName.VARIANT
+                      ? 0
+                      : DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
               .isSearchable(true) // set all columns to be searchable in execute query result set
               .schemaName(
                   null) // set schema and table name to null, as server do not return these fields.
