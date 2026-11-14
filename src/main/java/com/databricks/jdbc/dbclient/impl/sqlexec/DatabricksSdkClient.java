@@ -201,8 +201,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (schema != null) {
       request.setSchema(schema);
     }
-    // Bounded SEA inline Arrow: tell server not to use cloud storage for results
-    if (connectionContext.isBoundedSeaApiEnabled() && !connectionContext.isCloudFetchEnabled()) {
+    // Inline-only SEA results must not be served from cloud storage.
+    if ((target.isApc() || connectionContext.isBoundedSeaApiEnabled())
+        && !connectionContext.isCloudFetchEnabled()) {
       if (sessionConf == null) {
         sessionConf = new java.util.HashMap<>();
       } else {
@@ -978,6 +979,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean cloudFetch = arrowEnabled && connectionContext.isCloudFetchEnabled();
     boolean boundedSeaInline =
         arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
+    boolean apc = SeaComputeTarget.of(computeResource).isApc();
     Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition;
     if (cloudFetch) {
@@ -993,7 +995,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     long maxRows =
         (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
-    if (format.equals(Format.JSON_ARRAY)) {
+    if (!apc && format.equals(Format.JSON_ARRAY)) {
       LOGGER.debug("Results are inline JSON, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }
@@ -1002,8 +1004,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
             .setStatement(sql)
-            .setDisposition(disposition)
-            .setFormat(SqlExecResultFormat.fromSdkFormat(format))
+            .setDisposition(apc ? Disposition.INLINE_OR_EXTERNAL_LINKS : disposition)
+            .setFormat(
+                apc ? SqlExecResultFormat.ARROW_BATCH : SqlExecResultFormat.fromSdkFormat(format))
             .setResultCompression(compressionCodec)
             .setParameters(parameterListItems);
     SeaComputeTarget target = SeaComputeTarget.of(computeResource);
