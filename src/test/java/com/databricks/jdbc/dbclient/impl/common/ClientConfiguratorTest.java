@@ -56,6 +56,88 @@ public class ClientConfiguratorTest {
   @Mock private IDatabricksConnectionContext mockContext;
   private ClientConfigurator configurator;
 
+  @Test
+  void configuredSdkTransportSendsApcTerminateDeleteBody() throws Exception {
+    AtomicReference<String> method = new AtomicReference<>();
+    AtomicReference<String> wireBody = new AtomicReference<>();
+    AtomicReference<String> warehouseWireBody = new AtomicReference<>();
+    AtomicReference<Throwable> serverFailure = new AtomicReference<>();
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          method.set(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+          exchange.sendResponseHeaders(404, -1);
+          exchange.close();
+        });
+    server.createContext(
+        "/api/2.0/sql/sessions/session",
+        exchange -> {
+          try {
+            method.set(exchange.getRequestMethod());
+            wireBody.set(
+                new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            exchange.sendResponseHeaders(204, -1);
+          } catch (Throwable failure) {
+            serverFailure.set(failure);
+          } finally {
+            exchange.close();
+          }
+        });
+    server.createContext(
+        "/api/2.0/sql/warehouses/wh/sessions/session",
+        exchange -> {
+          warehouseWireBody.set(
+              new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+          exchange.sendResponseHeaders(204, -1);
+          exchange.close();
+        });
+    server.start();
+    String host = "http://localhost:" + server.getAddress().getPort();
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn(host);
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    try {
+      configurator = new ClientConfigurator(mockContext);
+      String body =
+          "{\"session_id\":\"session\",\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\"cluster\"}}}";
+      Request request = new Request(Request.DELETE, host + "/api/2.0/sql/sessions/session", body);
+      int status;
+      try {
+        status =
+            configurator.getDatabricksConfig().getHttpClient().execute(request).getStatusCode();
+      } catch (IOException e) {
+        assertNull(serverFailure.get(), () -> String.valueOf(serverFailure.get()));
+        assertNotNull(method.get(), "Local HTTP server did not receive any request");
+        assertNotNull(wireBody.get(), "Local HTTP server did not receive a body");
+        throw e;
+      }
+      assertEquals(null, serverFailure.get());
+      assertEquals(204, status);
+      assertEquals("DELETE", method.get());
+      assertEquals(body, wireBody.get());
+      String warehouseBody = "{\"session_id\":\"session\",\"warehouse_id\":\"wh\"}";
+      Request warehouseDelete =
+          new Request(
+              Request.DELETE, host + "/api/2.0/sql/warehouses/wh/sessions/session", warehouseBody);
+      assertEquals(
+          204,
+          configurator
+              .getDatabricksConfig()
+              .getHttpClient()
+              .execute(warehouseDelete)
+              .getStatusCode());
+      assertEquals("", warehouseWireBody.get());
+    } finally {
+      if (configurator != null) {
+        configurator.close();
+      }
+      server.stop(0);
+    }
+  }
+
   // Local test servers reuse ephemeral ports, so cached discovery responses must not leak.
   @BeforeEach
   @AfterEach

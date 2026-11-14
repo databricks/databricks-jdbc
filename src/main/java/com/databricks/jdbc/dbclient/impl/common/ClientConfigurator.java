@@ -50,6 +50,7 @@ public class ClientConfigurator implements Closeable {
   private final IDatabricksConnectionContext connectionContext;
   private DatabricksConfig databricksConfig;
   private PoolingHttpClientConnectionManager sdkConnectionManager;
+  private ProxyConfig sdkProxyConfig;
 
   public ClientConfigurator(IDatabricksConnectionContext connectionContext)
       throws DatabricksSSLException, DatabricksValidationException {
@@ -62,7 +63,12 @@ public class ClientConfigurator implements Closeable {
     setupConnectionManager(httpClientBuilder);
     this.databricksConfig.setHttpClient(
         DiscoveryResponseCache.wrap(
-            withIdleConnectionExpiry(httpClientBuilder.build()),
+            withIdleConnectionExpiry(
+                new DeleteBodyHttpClient(
+                    httpClientBuilder.build(),
+                    sdkConnectionManager,
+                    sdkProxyConfig,
+                    connectionContext.getSocketTimeout())),
             ConfiguratorUtils.trustSettingsKey(connectionContext)));
     setupDiscoveryEndpoint();
     setupAuthConfig();
@@ -171,6 +177,7 @@ public class ClientConfigurator implements Closeable {
                   connectionContext.getNonProxyHosts()));
     }
     httpClientBuilder.withProxyConfig(proxyConfig);
+    this.sdkProxyConfig = proxyConfig;
   }
 
   public WorkspaceClient getWorkspaceClient() {
