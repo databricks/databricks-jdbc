@@ -21,7 +21,7 @@ public class RequestSanitizerTest {
     String sanitizedUri = RequestSanitizer.sanitizeRequest(request);
 
     String expectedUri =
-        "https://example.com/api?X-Amz-Security-Token=REDACTED&X-Amz-Signature=REDACTED&X-Amz-Credential=REDACTED";
+        "https://example.com/REDACTED?X-Amz-Security-Token=REDACTED&X-Amz-Signature=REDACTED&X-Amz-Credential=REDACTED";
     assertEquals(expectedUri, sanitizedUri);
   }
 
@@ -33,7 +33,7 @@ public class RequestSanitizerTest {
 
     // sig (the SAS credential) is redacted; non-secret metadata is preserved.
     String expectedUri =
-        "https://acct.blob.core.windows.net/c/chunk.arrow?sv=2021-08-06&se=2026-06-18T00:00Z&sr=b&sp=r&sig=REDACTED";
+        "https://acct.blob.core.windows.net/REDACTED?sv=2021-08-06&se=2026-06-18T00:00Z&sr=b&sp=r&sig=REDACTED";
     assertEquals(expectedUri, sanitizedUri);
   }
 
@@ -44,7 +44,7 @@ public class RequestSanitizerTest {
     String sanitizedUri = RequestSanitizer.sanitizeRequest(new HttpGet(originalUri));
 
     String expectedUri =
-        "https://storage.googleapis.com/bucket/chunk.arrow?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=REDACTED&X-Goog-Signature=REDACTED";
+        "https://storage.googleapis.com/REDACTED?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=REDACTED&X-Goog-Signature=REDACTED";
     assertEquals(expectedUri, sanitizedUri);
   }
 
@@ -56,7 +56,7 @@ public class RequestSanitizerTest {
     String sanitizedUri = RequestSanitizer.sanitizeRequest(new HttpGet(originalUri));
 
     String expectedUri =
-        "https://storage.googleapis.com/bucket/chunk.arrow?x-goog-credential=REDACTED&x-goog-signature=REDACTED";
+        "https://storage.googleapis.com/REDACTED?x-goog-credential=REDACTED&x-goog-signature=REDACTED";
     assertEquals(expectedUri, sanitizedUri);
   }
 
@@ -67,7 +67,7 @@ public class RequestSanitizerTest {
 
     String sanitizedUri = RequestSanitizer.sanitizeRequest(request);
 
-    assertEquals(originalUri, sanitizedUri);
+    assertEquals("https://example.com/REDACTED?param1=value1&param2=value2", sanitizedUri);
   }
 
   @Test
@@ -79,7 +79,7 @@ public class RequestSanitizerTest {
     String sanitizedUri = RequestSanitizer.sanitizeRequest(request);
 
     String expectedUri =
-        "https://example.com/api?param1=value1&X-Amz-Security-Token=REDACTED&param2=value2&X-Amz-Signature=REDACTED";
+        "https://example.com/REDACTED?param1=value1&X-Amz-Security-Token=REDACTED&param2=value2&X-Amz-Signature=REDACTED";
     assertEquals(expectedUri, sanitizedUri);
   }
 
@@ -90,7 +90,7 @@ public class RequestSanitizerTest {
 
     String sanitizedUri = RequestSanitizer.sanitizeRequest(request);
 
-    assertEquals(originalUri, sanitizedUri);
+    assertEquals("https://example.com/REDACTED", sanitizedUri);
   }
 
   @Test

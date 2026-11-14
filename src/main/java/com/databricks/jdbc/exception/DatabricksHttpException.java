@@ -14,6 +14,11 @@ public class DatabricksHttpException extends DatabricksSQLException {
     super(message, null, internalCode.toString());
   }
 
+  public DatabricksHttpException(
+      String message, String sqlState, DatabricksDriverErrorCode internalCode) {
+    super(message, sqlState, internalCode);
+  }
+
   public DatabricksHttpException(String message, String sqlState) {
     super(message, null, sqlState);
   }

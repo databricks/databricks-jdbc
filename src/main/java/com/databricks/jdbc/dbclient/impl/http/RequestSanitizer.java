@@ -30,13 +30,15 @@ public class RequestSanitizer {
       URI sanitizedUri =
           new URI(
               uri.getScheme(),
-              uri.getAuthority(),
-              uri.getPath(),
+              null,
+              uri.getHost(),
+              uri.getPort(),
+              "/REDACTED",
               sanitizedQuery,
-              uri.getFragment());
+              null);
       return sanitizedUri.toString();
     } catch (URISyntaxException e) {
-      return "Error sanitizing URI: " + e.getMessage();
+      return "Error sanitizing URI: REDACTED";
     }
   }
 
