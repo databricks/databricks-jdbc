@@ -57,6 +57,7 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
@@ -712,8 +713,10 @@ class ApcArrowBatchChunkProviderTest {
     assertThrows(IllegalStateException.class, () -> failedChunk.rootAllocator.buffer(1));
   }
 
-  @Test
-  void malformedExternalLinkReleasesItsAllocator() throws Exception {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = "invalid")
+  void malformedExternalLinkReleasesItsAllocator(String expiration) throws Exception {
     RootAllocator allocator = new RootAllocator();
     try (MockedStatic<ArrowBufferAllocator> mocked = mockStatic(ArrowBufferAllocator.class)) {
       mocked.when(ArrowBufferAllocator::getBufferAllocator).thenReturn(allocator);
@@ -722,20 +725,65 @@ class ApcArrowBatchChunkProviderTest {
               .setExternalLinks(
                   List.of(
                       link("https://storage.example.test/chunk", 0, 0, 1, null)
-                          .setExpiration("invalid")));
-      assertThrows(
-          RuntimeException.class,
-          () ->
-              new ApcArrowBatchChunkProvider(
-                  page,
-                  manifest(CompressionCodec.NONE),
-                  ID,
-                  session(mock(IDatabricksClient.class), true),
-                  mock(IDatabricksHttpClient.class)));
+                          .setExpiration(expiration)));
+      DatabricksSQLException error =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  new ApcArrowBatchChunkProvider(
+                      page,
+                      manifest(CompressionCodec.NONE),
+                      ID,
+                      session(mock(IDatabricksClient.class), true),
+                      mock(IDatabricksHttpClient.class)));
+      assertEquals(
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), error.getErrorCode());
       assertThrows(IllegalStateException.class, () -> allocator.buffer(1));
     } finally {
       allocator.close();
     }
+  }
+
+  @Test
+  void malformedContinuationLinkRaisesDriverErrorAndReleasesItsAllocator() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    ResultData initial = new ResultData().setArrowBatches(List.of(batch(10, false)));
+    initial.setNextChunkIndex(1L);
+    when(client.getResultChunksData(ID, 1, 1))
+        .thenReturn(
+            new ResultData()
+                .setExternalLinks(
+                    List.of(
+                        link("https://storage.example.test/chunk", 1, 1, 1, null)
+                            .setExpiration("invalid"))));
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                manifest(CompressionCodec.NONE),
+                initial,
+                ID,
+                session(client, true),
+                mock(IDatabricksHttpClient.class)))) {
+      assertTrue(result.result.next());
+      assertEquals(10, result.result.getObject(0));
+      RootAllocator allocator = new RootAllocator();
+      try (MockedStatic<ArrowBufferAllocator> mocked = mockStatic(ArrowBufferAllocator.class)) {
+        mocked.when(ArrowBufferAllocator::getBufferAllocator).thenReturn(allocator);
+        DatabricksSQLException error =
+            assertThrows(DatabricksSQLException.class, result.result::next);
+        assertEquals(
+            DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+        assertEquals(
+            DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), error.getErrorCode());
+        assertThrows(IllegalStateException.class, () -> allocator.buffer(1));
+      } finally {
+        allocator.close();
+      }
+      assertEquals(1, result.result.getRowCount());
+    }
+    verify(client).getResultChunksData(ID, 1, 1);
   }
 
   @Test
