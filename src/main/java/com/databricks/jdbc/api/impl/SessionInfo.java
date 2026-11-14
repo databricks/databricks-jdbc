@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import javax.annotation.Nullable;
@@ -12,6 +13,26 @@ public interface SessionInfo {
 
   IDatabricksComputeResource computeResource();
 
+  @Value.Default
+  default DatabricksClientType clientType() {
+    return sessionHandle() == null ? DatabricksClientType.SEA : DatabricksClientType.THRIFT;
+  }
+
+  @Nullable
+  Long negotiatedProtocolVersion();
+
+  /** A saved identifier's version is diagnostic and cannot grant protocol capabilities. */
+  @Value.Default
+  default boolean liveProtocolVersion() {
+    return false;
+  }
+
+  /** Returns a version only when it came from this connection's CreateSession response. */
+  @Nullable
+  default Long nativeProtocolVersion() {
+    return liveProtocolVersion() ? negotiatedProtocolVersion() : null;
+  }
+
   @Nullable
   Long sessionVersionId();
 
@@ -21,5 +42,5 @@ public interface SessionInfo {
   }
 
   @Nullable
-  TSessionHandle sessionHandle(); // This field is set only for all-purpose cluster compute
+  TSessionHandle sessionHandle(); // Set for Thrift sessions on either compute type.
 }
