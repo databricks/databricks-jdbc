@@ -14,8 +14,9 @@ import java.sql.SQLException;
  * Default implementation of ThriftBatchFetcher that uses the session's Databricks client to fetch
  * batches.
  *
- * <p>This implementation delegates to {@code session.getDatabricksClient().getMoreResults()} which
- * uses Thrift's FETCH_NEXT orientation to retrieve sequential batches.
+ * <p>This implementation delegates to {@code session.getDatabricksClient().getMoreResults()}, or to
+ * {@code getMoreInlineArrowResults()} for inline Arrow results, both of which use Thrift's
+ * FETCH_NEXT orientation to retrieve sequential batches.
  */
 public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
 
