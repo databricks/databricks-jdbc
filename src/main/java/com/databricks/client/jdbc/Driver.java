@@ -136,7 +136,8 @@ public class Driver implements IDatabricksDriver {
       try {
         DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
       } finally {
-        DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
+        // This one-shot context is no longer reachable; do not retain closed-client tombstones.
+        DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
       }
     }
   }

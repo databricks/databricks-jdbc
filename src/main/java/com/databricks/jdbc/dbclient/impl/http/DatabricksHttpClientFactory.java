@@ -67,7 +67,7 @@ public class DatabricksHttpClientFactory {
     }
   }
 
-  @VisibleForTesting
+  /** Closes and removes clients for a one-shot context that will never be reused. */
   public void removeClient(IDatabricksConnectionContext context) {
     for (HttpClientType type : HttpClientType.values()) {
       removeClient(context, type);
