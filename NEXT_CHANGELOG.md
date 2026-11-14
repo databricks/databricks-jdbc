@@ -25,6 +25,7 @@
 - Reduced connection setup time by caching successful host-metadata and OIDC discovery JSON documents for up to an hour, with a JVM-wide limit of 1,024 entries. Responses redirected to another origin or path, or whose bodies cannot be parsed as discovery documents, are excluded.
 - Reduced heap usage when reading large CloudFetch results: chunks are now streamed from the HTTP response through decompression into Arrow instead of first being buffered on-heap. When Arrow uses off-heap memory, this cuts peak heap by about 40% and GC pause time by about half, so large results fit in smaller heaps.
 - Fixed CloudFetch rows being silently skipped when a chunk failed to parse and its retried download then succeeded: the chunk stayed in a failed state and its rows were not returned.
+- Fixed many concurrent CloudFetch queries in one JVM failing with `OutOfMemoryError` ("Failed to ready chunk"): the number of chunks being downloaded at once is now bounded for each workspace host, scaled to the maximum heap (one download per 128 MiB, at least 16), instead of growing by 16 per query. A JVM that queries several workspaces gets this bound once per host. Single-query download parallelism is unchanged: a query with a larger `cloudFetchThreadPoolSize` raises its host's bound to that size, up to 256, while it is open. A user-set `ChunkReadyTimeoutSeconds` now includes time spent waiting for a download slot.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

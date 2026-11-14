@@ -76,6 +76,8 @@ public class StreamingChunkProvider implements ChunkProvider {
   private final StatementId statementId;
   private final double cloudFetchSpeedThreshold;
   private final IDatabricksConnectionContext connectionContext;
+  private final ChunkDownloadLimiter downloadLimiter;
+  private final ChunkDownloadLimiter.PoolRegistration poolRegistration;
 
   // Chunk storage
   private final ConcurrentMap<Long, ArrowResultChunk> chunks = new ConcurrentHashMap<>();
@@ -166,6 +168,9 @@ public class StreamingChunkProvider implements ChunkProvider {
     this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
     this.cloudFetchSpeedThreshold = cloudFetchSpeedThreshold;
     this.connectionContext = connectionContext;
+    this.downloadLimiter =
+        ChunkDownloadLimiter.forHost(
+            connectionContext == null ? null : connectionContext.getHost());
 
     LOGGER.info(
         "Creating StreamingChunkProvider for statement {}: maxChunksInMemory={}, linkPrefetchWindow={}",
@@ -187,6 +192,9 @@ public class StreamingChunkProvider implements ChunkProvider {
     // Trigger initial downloads and prefetch
     triggerDownloads();
     notifyConsumerAdvanced();
+
+    // Last, so a constructor that throws leaves no registration that close() would never undo.
+    this.poolRegistration = downloadLimiter.registerPool(maxChunksInMemory);
   }
 
   // ==================== ChunkProvider Interface ====================
@@ -325,6 +333,7 @@ public class StreamingChunkProvider implements ChunkProvider {
         Thread.currentThread().interrupt();
       }
     }
+    poolRegistration.close();
 
     // Release all chunks
     for (ArrowResultChunk chunk : chunks.values()) {
@@ -725,7 +734,12 @@ public class StreamingChunkProvider implements ChunkProvider {
 
     StreamingChunkDownloadTask task =
         new StreamingChunkDownloadTask(
-            chunk, httpClient, compressionCodec, this::getRefreshedLink, cloudFetchSpeedThreshold);
+            chunk,
+            httpClient,
+            compressionCodec,
+            this::getRefreshedLink,
+            cloudFetchSpeedThreshold,
+            downloadLimiter);
 
     downloadExecutor.submit(task);
   }

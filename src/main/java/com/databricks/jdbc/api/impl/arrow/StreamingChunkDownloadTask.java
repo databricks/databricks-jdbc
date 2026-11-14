@@ -31,6 +31,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
   private final CompressionCodec compressionCodec;
   private final LinkRefresher linkRefresher;
   private final double cloudFetchSpeedThreshold;
+  private final ChunkDownloadLimiter downloadLimiter;
 
   // Capture caller's thread context for telemetry/logging on the download thread
   private final IDatabricksConnectionContext connectionContext;
@@ -42,11 +43,28 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
       CompressionCodec compressionCodec,
       LinkRefresher linkRefresher,
       double cloudFetchSpeedThreshold) {
+    this(
+        chunk,
+        httpClient,
+        compressionCodec,
+        linkRefresher,
+        cloudFetchSpeedThreshold,
+        ChunkDownloadLimiter.forHost(null));
+  }
+
+  StreamingChunkDownloadTask(
+      ArrowResultChunk chunk,
+      IDatabricksHttpClient httpClient,
+      CompressionCodec compressionCodec,
+      LinkRefresher linkRefresher,
+      double cloudFetchSpeedThreshold,
+      ChunkDownloadLimiter downloadLimiter) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.linkRefresher = linkRefresher;
     this.cloudFetchSpeedThreshold = cloudFetchSpeedThreshold;
+    this.downloadLimiter = downloadLimiter;
     this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
     this.statementId = DatabricksThreadContextHolder.getStatementId();
   }
@@ -55,6 +73,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
   public Void call() throws DatabricksSQLException {
     int retries = 0;
     boolean downloadSuccessful = false;
+    boolean refreshedAfterWait = false;
     boolean cancelled = false;
     Throwable uncaughtException = null;
 
@@ -75,7 +94,30 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           }
 
           // Perform the download
-          chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
+          long permitWaitStart = System.nanoTime();
+          boolean waited = downloadLimiter.acquire();
+          if (waited) {
+            LOGGER.debug(
+                "Waited {} ms for a download permit: chunkIndex={}",
+                (System.nanoTime() - permitWaitStart) / 1_000_000,
+                chunk.getChunkIndex());
+          }
+          boolean linkExpired = false;
+          try {
+            // A batch refresh by another task updates this chunk's link in place, so only a link
+            // that still needs the refresh RPC is expired here.
+            // Once per task, so a refresh that keeps returning a near-expiry link ends in retries.
+            linkExpired = waited && !refreshedAfterWait && chunk.isChunkLinkInvalid();
+            if (!linkExpired) {
+              chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
+            }
+          } finally {
+            downloadLimiter.release();
+          }
+          if (linkExpired) {
+            refreshedAfterWait = true;
+            continue; // refreshes at the top of the loop, without holding a permit
+          }
           downloadSuccessful = true;
 
           long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;
@@ -85,6 +127,11 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
               taskTotalMs,
               retries);
 
+        } catch (InterruptedException ie) {
+          // Interrupted waiting for a download permit, e.g. by close(): a cancel too.
+          Thread.currentThread().interrupt();
+          cancelled = true;
+          break;
         } catch (IOException | SQLException e) {
           if (Thread.currentThread().isInterrupted()) {
             // Cancelled (e.g. result set closed early): stop without retrying or reporting.

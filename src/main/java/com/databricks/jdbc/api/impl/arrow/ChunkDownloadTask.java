@@ -11,6 +11,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /** Task class to manage download for a single chunk. */
@@ -44,6 +45,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   public Void call() throws DatabricksSQLException, ExecutionException, InterruptedException {
     int retries = 0;
     boolean downloadSuccessful = false;
+    boolean refreshedAfterWait = false;
     boolean cancelled = false;
 
     // Sets context in the newly spawned thread
@@ -70,10 +72,48 @@ class ChunkDownloadTask implements DatabricksCallableTask {
             chunk.setChunkLink(link);
           }
 
-          chunk.downloadData(
-              httpClient,
-              chunkDownloader.getCompressionCodec(),
-              connectionContext != null ? connectionContext.getCloudFetchSpeedThreshold() : 0.1);
+          ChunkDownloadLimiter limiter = chunkDownloader.getDownloadLimiter();
+          if (limiter == null) {
+            limiter = ChunkDownloadLimiter.forHost(null);
+          }
+          long permitWaitStart = System.nanoTime();
+          boolean waited = limiter.acquire();
+          if (waited) {
+            LOGGER.debug(
+                "Waited {} ms for a download permit: statementId={}, chunkIndex={}",
+                (System.nanoTime() - permitWaitStart) / 1_000_000,
+                statementId,
+                chunk.getChunkIndex());
+          }
+          boolean refreshPending = false;
+          try {
+            if (waited && !refreshedAfterWait && chunk.isChunkLinkInvalid()) {
+              // Expired while waiting. Use a refreshed link that is already there without waiting
+              // for a permit again, but do not hold the permit while a link fetch is in flight.
+              // Once per task, so a link that stays invalid ends in the bounded retries.
+              refreshedAfterWait = true;
+              CompletableFuture<ExternalLink> link =
+                  linkDownloadService.getLinkForChunk(chunk.getChunkIndex());
+              if (link.isDone()) {
+                chunk.setChunkLink(link.get());
+              } else {
+                refreshPending = true;
+              }
+            }
+            if (!refreshPending) {
+              chunk.downloadData(
+                  httpClient,
+                  chunkDownloader.getCompressionCodec(),
+                  connectionContext != null
+                      ? connectionContext.getCloudFetchSpeedThreshold()
+                      : 0.1);
+            }
+          } finally {
+            limiter.release();
+          }
+          if (refreshPending) {
+            continue; // waits for the link at the top of the loop
+          }
           downloadSuccessful = true;
           long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;
           LOGGER.debug(
@@ -82,6 +122,11 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               chunk.getChunkIndex(),
               taskTotalMs,
               retries);
+        } catch (InterruptedException e) {
+          // Interrupted waiting for a link or a download permit, e.g. by close(): a cancel too.
+          Thread.currentThread().interrupt();
+          cancelled = true;
+          break;
         } catch (IOException | DatabricksSQLException e) {
           if (Thread.currentThread().isInterrupted()) {
             // Cancelled (e.g. result set closed early): stop without retrying or reporting.
