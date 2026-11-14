@@ -95,11 +95,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
 
       long size = response.getEntity().getContentLength();
-      logDownloadMetrics(
-          downloadTimeMs,
-          size > 0 ? size : compressed.length,
-          chunkLink.getExternalLink(),
-          speedThreshold);
+      logDownloadMetrics(downloadTimeMs, size > 0 ? size : compressed.length, speedThreshold);
 
       // Decompress and parse. The decompression is streamed straight into the Arrow reader so the
       // full decompressed payload is never materialized on-heap alongside the compressed bytes.
@@ -170,16 +166,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     }
   }
 
-  private void logDownloadMetrics(
-      long downloadTimeMs, long contentLength, String url, double speedThreshold) {
+  private void logDownloadMetrics(long downloadTimeMs, long contentLength, double speedThreshold) {
     if (downloadTimeMs > 0 && contentLength > 0) {
       double speedMBps = (contentLength / 1024.0 / 1024.0) / (downloadTimeMs / 1000.0);
-      String baseUrl = url.split("\\?")[0];
-
       LOGGER.debug(
           String.format(
-              "CloudFetch download: %.4f MB/s, %d bytes in %dms from %s",
-              speedMBps, contentLength, downloadTimeMs, baseUrl));
+              "CloudFetch download: %.4f MB/s, %d bytes in %dms",
+              speedMBps, contentLength, downloadTimeMs));
 
       if (speedMBps < speedThreshold) {
         LOGGER.warn(

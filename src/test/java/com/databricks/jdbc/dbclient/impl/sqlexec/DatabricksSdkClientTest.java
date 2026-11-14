@@ -2393,8 +2393,9 @@ public class DatabricksSdkClientTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"", "EnableDirectResults=0;"})
-  public void testApcExecutePollUsesJsonTargetAndBodylessGet(String directMode) throws Exception {
+  @CsvSource({"'', false", "'', true", "'EnableDirectResults=0;', false"})
+  public void testApcExecutePollUsesJsonTargetAndBodylessGet(String directMode, boolean realtime)
+      throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(
             JDBC_URL + "EnableSQLExecHybridResults=0;" + directMode, new Properties());
@@ -2406,6 +2407,7 @@ public class DatabricksSdkClientTest {
             .clientType(DatabricksClientType.SEA)
             .sessionId("session")
             .computeResource(cluster)
+            .realtimeSession(realtime)
             .build();
     DatabricksSession session = mock(DatabricksSession.class);
     when(session.getSessionInfo()).thenReturn(info);
