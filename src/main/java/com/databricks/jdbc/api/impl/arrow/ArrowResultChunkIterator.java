@@ -100,6 +100,25 @@ public class ArrowResultChunkIterator {
         geoSpatialSupportEnabled);
   }
 
+  /**
+   * Returns true if the value at columnIndex can be read with {@link
+   * #getJavaTimeObjectAtCurrentRow}.
+   */
+  boolean hasJavaTimeVector(int columnIndex) {
+    return ArrowToJavaObjectConverter.isJavaTimeVector(
+        this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex));
+  }
+
+  /**
+   * Returns the DATE or TIMESTAMP value in the current row at the specified columnIndex, read
+   * straight from the vector. See {@link ArrowToJavaObjectConverter#convertToJavaTime}.
+   */
+  Object getJavaTimeObjectAtCurrentRow(int columnIndex) throws DatabricksSQLException {
+    ValueVector columnVector =
+        this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
+    return ArrowToJavaObjectConverter.convertToJavaTime(columnVector, this.rowCursorInRecordBatch);
+  }
+
   String getType(int columnIndex) {
     return this.resultChunk.getArrowMetadata().get(columnIndex);
   }

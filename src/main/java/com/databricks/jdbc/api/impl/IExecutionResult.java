@@ -16,6 +16,24 @@ public interface IExecutionResult {
   Object getObject(int columnIndex) throws DatabricksSQLException;
 
   /**
+   * Get the object for given column index in a form that converts to {@code java.time} types
+   * without loss. Here index starts with 0.
+   *
+   * <p>For DATE and TIMESTAMP columns, Arrow results read the epoch days and microseconds straight
+   * from the vector and return a {@link java.time.LocalDate} (DATE), {@link
+   * java.time.LocalDateTime} (TIMESTAMP_NTZ) or {@link java.time.OffsetDateTime} in the session
+   * time zone (TIMESTAMP). In every other case this returns the same value as {@link
+   * #getObject(int)}, which for text-based results is the server's text for the value.
+   *
+   * @param columnIndex index of column starting with 0
+   * @return object at given index, or null for SQL NULL
+   * @throws DatabricksSQLException if there is any error in getting object
+   */
+  default Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
+    return getObject(columnIndex);
+  }
+
+  /**
    * Gets the current row position, starting with 0.
    *
    * @return the current row position
