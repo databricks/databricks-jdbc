@@ -4,6 +4,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 
@@ -21,6 +22,9 @@ public class ResultManifest {
 
   @JsonProperty("schema")
   private ResultSchema schema;
+
+  @JsonProperty("arrow_schema")
+  private byte[] arrowSchema;
 
   @JsonProperty("total_byte_count")
   private Long totalByteCount;
@@ -79,6 +83,15 @@ public class ResultManifest {
 
   public ResultSchema getSchema() {
     return this.schema;
+  }
+
+  public byte[] getArrowSchema() {
+    return arrowSchema;
+  }
+
+  public ResultManifest setArrowSchema(byte[] arrowSchema) {
+    this.arrowSchema = arrowSchema;
+    return this;
   }
 
   public ResultManifest setTotalByteCount(Long totalByteCount) {
@@ -141,6 +154,7 @@ public class ResultManifest {
     } else if (o != null && this.getClass() == o.getClass()) {
       ResultManifest that = (ResultManifest) o;
       return Objects.equals(this.chunks, that.chunks)
+          && Arrays.equals(this.arrowSchema, that.arrowSchema)
           && Objects.equals(this.format, that.format)
           && Objects.equals(this.schema, that.schema)
           && Objects.equals(this.totalByteCount, that.totalByteCount)
@@ -157,6 +171,7 @@ public class ResultManifest {
   public int hashCode() {
     return Objects.hash(
         this.chunks,
+        Arrays.hashCode(this.arrowSchema),
         this.format,
         this.schema,
         this.totalByteCount,
@@ -170,6 +185,7 @@ public class ResultManifest {
   public String toString() {
     return (new ToStringer(ResultManifest.class))
         .add("chunks", this.chunks)
+        .add("arrowSchemaLength", this.arrowSchema == null ? null : this.arrowSchema.length)
         .add("format", this.format)
         .add("schema", this.schema)
         .add("totalByteCount", this.totalByteCount)
