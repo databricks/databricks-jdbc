@@ -16,11 +16,11 @@ import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
-import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -51,6 +51,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
+  private String pendingAsyncTimeZoneSql;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
@@ -711,12 +712,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
     IDatabricksClient client = connection.getSession().getDatabricksClient();
     DatabricksThreadContextHolder.setStatementType(StatementType.SQL);
-    return client.executeStatementAsync(
-        sql,
-        connection.getSession().getComputeResource(),
-        Collections.emptyMap(),
-        connection.getSession(),
-        this);
+    DatabricksResultSet result =
+        client.executeStatementAsync(
+            sql,
+            connection.getSession().getComputeResource(),
+            Collections.emptyMap(),
+            connection.getSession(),
+            this);
+    pendingAsyncTimeZoneSql = sessionTimeZoneSetBy(sql) == null ? null : sql;
+    updateAsyncTimeZoneIfSucceeded(result);
+    return result;
   }
 
   @Override
@@ -746,10 +751,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
-    return connection
-        .getSession()
-        .getDatabricksClient()
-        .getStatementResult(statementId, connection.getSession(), this);
+    DatabricksResultSet result =
+        connection
+            .getSession()
+            .getDatabricksClient()
+            .getStatementResult(statementId, connection.getSession(), this);
+    updateAsyncTimeZoneIfSucceeded(result);
+    return result;
   }
 
   @Override
@@ -919,26 +927,55 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully {}", resultSet.toString());
-    String newTimeZone = sessionTimeZoneSetBy(sql);
-    if (newTimeZone != null) {
-      connection.getSession().setSessionConfig("TIMEZONE", newTimeZone);
-      connection.getSession().setSessionConfig("spark.sql.session.timeZone", newTimeZone);
-    }
+    updateSessionTimeZone(sql);
     return resultSet;
   }
 
   static String sessionTimeZoneSetBy(String sql) {
-    Matcher match = SET_TIME_ZONE.matcher(sql);
+    Matcher match = SET_TIME_ZONE.matcher(SqlCommentParser.stripCommentsAndWhitespaces(sql));
     if (!match.matches()) {
       return null;
     }
     for (int i = 1; i <= 3; i++) {
       if (match.group(i) != null) {
         String zone = match.group(i);
-        return i == 3 && "LOCAL".equalsIgnoreCase(zone) ? ZoneId.systemDefault().getId() : zone;
+        return zone;
       }
     }
     return null;
+  }
+
+  private void updateAsyncTimeZoneIfSucceeded(DatabricksResultSet result) throws SQLException {
+    if (pendingAsyncTimeZoneSql == null
+        || result == null
+        || result.getStatementStatus() == null
+        || result.getStatementStatus().getState() != StatementState.SUCCEEDED) {
+      return;
+    }
+    String sql = pendingAsyncTimeZoneSql;
+    updateSessionTimeZone(sql);
+    pendingAsyncTimeZoneSql = null;
+  }
+
+  private void updateSessionTimeZone(String sql) throws SQLException {
+    String zone = sessionTimeZoneSetBy(sql);
+    if (zone == null) {
+      return;
+    }
+    if ("LOCAL".equalsIgnoreCase(zone)) {
+      try (Statement zoneStatement = connection.createStatement();
+          ResultSet zoneResult = zoneStatement.executeQuery("SELECT current_timezone()")) {
+        if (!zoneResult.next()) {
+          throw new DatabricksSQLException(
+              "Unable to read effective session time zone",
+              DatabricksDriverErrorCode.INVALID_STATE.name(),
+              DatabricksDriverErrorCode.INVALID_STATE);
+        }
+        zone = zoneResult.getString(1);
+      }
+    }
+    connection.getSession().setSessionConfig("TIMEZONE", zone);
+    connection.getSession().setSessionConfig("spark.sql.session.timeZone", zone);
   }
 
   DatabricksResultSet executeInternal(
@@ -1071,6 +1108,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
    * statementId so a failed execution doesn't leave stale state.
    */
   private void resetForNewExecution() {
+    pendingAsyncTimeZoneSql = null;
     noMoreResults = false;
     updateCount = -1;
 
