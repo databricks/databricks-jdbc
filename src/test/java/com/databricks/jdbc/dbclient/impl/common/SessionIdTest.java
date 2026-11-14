@@ -149,6 +149,7 @@ public class SessionIdTest {
       DatabricksParsingException error =
           assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(input));
       assertEquals("SESSION_ID_PARSING_EXCEPTION", error.getSQLState());
+      assertEquals(1029, error.getErrorCode());
       assertFalse(error.getMessage().contains(input));
       assertFalse(error.getMessage().contains("org"));
       assertFalse(error.getMessage().contains("cluster"));
