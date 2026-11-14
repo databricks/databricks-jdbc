@@ -58,6 +58,7 @@ public class DatabricksConnectionCloseTest {
   private final Queue<String> telemetryBodies = new ConcurrentLinkedQueue<>();
   private int sharedClientIterations;
   private HttpServer server;
+  private ExecutorService serverExecutor;
   private String url;
   private IDatabricksClient client;
 
@@ -66,7 +67,8 @@ public class DatabricksConnectionCloseTest {
     TelemetryClientFactory.getInstance().reset();
     server = HttpServer.create(new InetSocketAddress(HOST, 0), 0);
     server.createContext("/", this::handle);
-    server.setExecutor(Executors.newCachedThreadPool());
+    serverExecutor = Executors.newCachedThreadPool();
+    server.setExecutor(serverExecutor);
     server.start();
     url =
         String.format(
@@ -87,6 +89,7 @@ public class DatabricksConnectionCloseTest {
   void tearDown() {
     TelemetryClientFactory.getInstance().reset();
     server.stop(0);
+    serverExecutor.shutdownNow();
   }
 
   @Test
