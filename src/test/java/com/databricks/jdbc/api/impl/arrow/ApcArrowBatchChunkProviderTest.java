@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -25,6 +26,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -157,6 +163,134 @@ class ApcArrowBatchChunkProviderTest {
       assertEquals(List.of(7), readInts(result.result));
     }
     verify(client).getResultChunksData(ID, 0, 0);
+  }
+
+  @Test
+  void emptyInitialResultFetchesFromZero() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    IDatabricksSession session = session(client, false);
+    when(client.getResultChunksData(ID, 0, 0))
+        .thenReturn(new ResultData().setArrowBatches(List.of(batch(7, false))));
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                manifest(CompressionCodec.NONE),
+                new ResultData(),
+                ID,
+                session,
+                mock(IDatabricksHttpClient.class)))) {
+      assertEquals(List.of(7), readInts(result.result));
+    }
+    verify(client).getResultChunksData(ID, 0, 0);
+  }
+
+  @Test
+  void emptyArrowPageContinuesToNextPage() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    IDatabricksSession session = session(client, false);
+    ResultData empty =
+        new ResultData()
+            .setArrowBatches(List.of(new ArrowBatch().setBatch(new byte[0]).setRowCount(0L)));
+    empty.setNextChunkIndex(1L);
+    when(client.getResultChunksData(ID, 1, 0))
+        .thenReturn(new ResultData().setArrowBatches(List.of(batch(7, false))));
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                manifest(CompressionCodec.NONE),
+                empty,
+                ID,
+                session,
+                mock(IDatabricksHttpClient.class)))) {
+      assertEquals(List.of(7), readInts(result.result));
+    }
+    verify(client).getResultChunksData(ID, 1, 0);
+  }
+
+  @Test
+  void stalledExternalDownloadRespectsChunkReadyTimeout() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    when(session.getConnectionContext().getChunkReadyTimeoutSeconds()).thenReturn(1);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              try {
+                TimeUnit.SECONDS.sleep(30);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new java.io.IOException("download interrupted", e);
+              }
+              throw new java.io.IOException("download stalled");
+            });
+    ResultData initial =
+        new ResultData()
+            .setExternalLinks(
+                List.of(
+                    link("https://storage.example.test/private/chunk?sig=secret", 0, 0, 1, null)));
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(manifest(CompressionCodec.NONE), initial, ID, session, http))) {
+      DatabricksSQLException error =
+          assertThrows(DatabricksSQLException.class, result.result::next);
+      assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.getCode(), error.getErrorCode());
+    }
+  }
+
+  @Test
+  void downloadMetricsDoNotLogPresignedPath() throws Exception {
+    String secretPath = "org-secret/cluster-secret/path-token";
+    String url = "https://storage.example.test/" + secretPath + "?sig=query-secret";
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              HttpUriRequest request = invocation.getArgument(0);
+              assertEquals(url, request.getURI().toString());
+              TimeUnit.MILLISECONDS.sleep(10);
+              CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+              when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(4)));
+              when(response.getStatusLine())
+                  .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+              return response;
+            });
+    Logger logger = Logger.getLogger(ArrowResultChunk.class.getName());
+    Level oldLevel = logger.getLevel();
+    List<String> messages = new ArrayList<>();
+    Handler handler =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            messages.add(record.getMessage());
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    handler.setLevel(Level.FINE);
+    logger.setLevel(Level.FINE);
+    logger.addHandler(handler);
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                manifest(CompressionCodec.NONE),
+                new ResultData().setExternalLinks(List.of(link(url, 0, 0, 1, null))),
+                ID,
+                session,
+                http))) {
+      assertEquals(List.of(4), readInts(result.result));
+      assertTrue(messages.stream().anyMatch(message -> message.contains("CloudFetch download:")));
+      assertTrue(messages.stream().noneMatch(message -> message.contains(secretPath)));
+      assertTrue(messages.stream().noneMatch(message -> message.contains("query-secret")));
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(oldLevel);
+    }
   }
 
   @Test

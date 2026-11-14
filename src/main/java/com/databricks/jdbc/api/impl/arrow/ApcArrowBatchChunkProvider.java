@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Pages APC Arrow batches using server continuation markers, without manifest chunk totals. */
 final class ApcArrowBatchChunkProvider implements ChunkProvider {
@@ -57,7 +60,10 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     this.httpClient = httpClient;
     this.compressionCodec = manifest.getResultCompression();
     this.schemaMessage = ArrowBatchSchemaBuilder.serialize(manifest.getSchema());
-    if (initialData == null) {
+    if (initialData == null
+        || ((initialData.getArrowBatches() == null || initialData.getArrowBatches().isEmpty())
+            && (initialData.getExternalLinks() == null || initialData.getExternalLinks().isEmpty())
+            && initialData.getNextChunkIndex() == null)) {
       nextChunkIndex = 0L;
     } else {
       try {
@@ -118,7 +124,22 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
               },
               session.getConnectionContext().getCloudFetchSpeedThreshold());
       try {
-        downloadExecutor.submit(task).get();
+        Future<Void> download = downloadExecutor.submit(task);
+        int timeoutSeconds = session.getConnectionContext().getChunkReadyTimeoutSeconds();
+        try {
+          if (timeoutSeconds <= 0) {
+            download.get();
+          } else {
+            download.get(timeoutSeconds, TimeUnit.SECONDS);
+          }
+        } catch (TimeoutException e) {
+          download.cancel(true);
+          throw new DatabricksSQLException(
+              "Timed out waiting for APC result chunk",
+              DatabricksDriverErrorCode.CHUNK_READY_ERROR.name(),
+              DatabricksDriverErrorCode.CHUNK_READY_ERROR.getCode(),
+              e);
+        }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new DatabricksSQLException(
@@ -147,7 +168,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       try {
         stream.write(schemaMessage);
         for (ArrowBatch batch : batches) {
-          if (batch.getBatch() == null || batch.getRowCount() == null) {
+          if (batch.getBatch() == null || batch.getRowCount() == null || batch.getRowCount() < 0) {
             throw invalidPage("APC Arrow batch is missing bytes or row_count");
           }
           stream.write(
@@ -160,11 +181,13 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
         throw new DatabricksParsingException(
             "Unable to assemble APC Arrow batches", e, code.name(), code.getCode());
       }
-      pending.add(
-          ArrowResultChunk.builder()
-              .withStatementId(statementId)
-              .withInputStream(new ByteArrayInputStream(stream.toByteArray()), inlineRows)
-              .build());
+      if (inlineRows > 0) {
+        pending.add(
+            ArrowResultChunk.builder()
+                .withStatementId(statementId)
+                .withInputStream(new ByteArrayInputStream(stream.toByteArray()), inlineRows)
+                .build());
+      }
       rowCount += inlineRows;
     }
     if (links != null && !links.isEmpty()) {
@@ -175,17 +198,20 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       for (ExternalLink link : ordered) {
         if (link.getChunkIndex() == null
             || link.getRowCount() == null
+            || link.getRowCount() < 0
             || link.getRowOffset() == null) {
           throw invalidPage("APC external link is missing paging metadata");
         }
-        ArrowResultChunk chunk =
-            ArrowResultChunk.builder()
-                .withStatementId(statementId)
-                .withConnectionContext(session.getConnectionContext())
-                .withChunkMetadata(link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
-                .build();
-        chunk.setChunkLink(link);
-        pending.add(chunk);
+        if (link.getRowCount() > 0) {
+          ArrowResultChunk chunk =
+              ArrowResultChunk.builder()
+                  .withStatementId(statementId)
+                  .withConnectionContext(session.getConnectionContext())
+                  .withChunkMetadata(link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
+                  .build();
+          chunk.setChunkLink(link);
+          pending.add(chunk);
+        }
         rowCount += link.getRowCount();
       }
       ExternalLink last = ordered.get(ordered.size() - 1);

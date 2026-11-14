@@ -119,7 +119,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       }
       long contentLength = response.getEntity().getContentLength();
       long size = contentLength > 0 ? contentLength : counted.getByteCount();
-      logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
+      logDownloadMetrics(downloadTimeMs, size, speedThreshold);
       LOGGER.debug(
           "Chunk download complete: statementId={}, chunkIndex={}, compressedBytes={}, "
               + "httpResponseMs={}, readAndParseMs={}",
@@ -192,16 +192,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     }
   }
 
-  private void logDownloadMetrics(
-      long downloadTimeMs, long contentLength, String url, double speedThreshold) {
+  private void logDownloadMetrics(long downloadTimeMs, long contentLength, double speedThreshold) {
     if (downloadTimeMs > 0 && contentLength > 0) {
       double speedMBps = (contentLength / 1024.0 / 1024.0) / (downloadTimeMs / 1000.0);
-      String baseUrl = url.split("\\?")[0];
-
       LOGGER.debug(
           String.format(
-              "CloudFetch download: %.4f MB/s, %d bytes in %dms from %s",
-              speedMBps, contentLength, downloadTimeMs, baseUrl));
+              "CloudFetch download: %.4f MB/s, %d bytes in %dms",
+              speedMBps, contentLength, downloadTimeMs));
 
       if (speedMBps < speedThreshold) {
         LOGGER.warn(
