@@ -71,8 +71,7 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   fall back to Thrift.
   - Rollout (M15): opt-in first, then default APC to Reyder. This spec implements that with a
   dedicated APC client-config flag and a client override (R1, Q8).
-- Driver today (as of `origin/main` @ `1e6fe871`; #1805 changed only this spec
-  relative to `9d825b0c`):
+- Driver today (as of `origin/main` @ `1e6fe871`):
   - `AllPurposeCluster` (`common/AllPurposeCluster.java`) holds `orgId` + `clusterId`, parsed
   from `/o/<org>/<cluster>` HTTP paths (including `sql/protocolv1/o/<org>/<cluster>`);
   the legacy `cliservice` path maps to placeholder `default` ids.
@@ -112,8 +111,13 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   metadata; `ResultData` does not yet have `columnar_data`, and `ColumnInfo` has `type_text` but
   not `type_json`.
   `DatabricksMetadataQueryClient` currently calls only synchronous `executeStatement`;
+  sessions expose it through `IDatabricksMetadataClient`, which has no async method.
   `IDatabricksClient.executeStatementAsync` has no `MetadataOperationType` argument, and
   `DatabricksSdkClient.executeStatementAsync` fixes the statement type to `SQL`.
+  `DatabricksSdkClient.getStatementResult` also builds the completed ResultSet with
+  `StatementType.SQL`, so async metadata needs a typed completion call as well as a typed submit.
+  `ExecutionResultFactory` and `DatabricksResultSet` currently select only `ARROW_STREAM` and
+  `JSON_ARRAY` SEA decoders.
   - `PreparedStatementBatchExecutor` requires `EnableNativeBatching=1` (default `0`), a parsed
   parameterized INSERT, and a supported `NativeBatchExecutor` for native batching.
   `DatabricksPreparedStatement` currently supplies no native executor, so it uses the legacy
@@ -197,9 +201,19 @@ ResultSet. APC compute type—not
 `X-Databricks-Metadata-Operation-Type`; synchronous calls send
 `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`; synchronous calls
 with that setting disabled and all asynchronous calls omit the sync header. Add a callable
-asynchronous metadata path through `DatabricksMetadataQueryClient` and
-an `IDatabricksClient.executeStatementAsync` overload that carries `MetadataOperationType` and
-`StatementType.METADATA` through the SDK request and header builders. APC SHOW requests keep
+asynchronous metadata path through `IDatabricksSession.getDatabricksMetadataClient()` and
+`IDatabricksMetadataClient`: `executeMetadataAsync(MetadataAsyncRequest, IDatabricksSession)`
+returns a `MetadataAsyncHandle`, and `getMetadataExecutionResult(MetadataAsyncHandle,
+IDatabricksSession)` returns the completed JDBC metadata ResultSet. The request carries the
+operation and existing JDBC arguments, from which the query client builds the SHOW SQL and
+conversion inputs. The handle retains the typed `StatementId`, metadata operation, and those
+inputs per operation. Completion polls `IDatabricksClient.getStatementResult` to a terminal state
+under the existing metadata timeout, propagates failure or cancellation, and applies the
+same `MetadataResultSetBuilder` conversion as the synchronous operation. Add an
+`IDatabricksClient.executeStatementAsync` overload that carries `MetadataOperationType` and
+`StatementType.METADATA` through the SDK request and header builders, plus a typed
+`getStatementResult` overload so the completed ResultSet remains `StatementType.METADATA`.
+Keep the existing SQL async submit and completion calls unchanged. APC SHOW requests keep
 `disposition=INLINE_OR_EXTERNAL_LINKS` even when `EnableSQLExecHybridResults=0`. APC preserves the
 existing `X-Databricks-Require-Thrift-Native-Metadata: true` behavior when
 `isThriftNativeMetadataEnabled()` is true and the operation supports it, although Reyder ignores
@@ -406,10 +420,18 @@ is called synchronously with `EnableSeaSyncMetadata=1` THEN the request is a SHO
 `format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
 `X-Databricks-Metadata-Operation-Type` set, and
 `X-Databricks-Sea-Can-Run-Fully-Sync: true`; GIVEN `EnableSeaSyncMetadata=0` or an asynchronous
-metadata call through the metadata client THEN the sync header is absent while the async request
+metadata call through `session.getDatabricksMetadataClient()` THEN the sync header is absent while
+the async request
 retains the operation-type header, `ARROW_STREAM` format, and
 `INLINE_OR_EXTERNAL_LINKS` disposition. A fake-service assertion covers both sync and async
-metadata with `EnableSQLExecHybridResults=0`. GIVEN `isThriftNativeMetadataEnabled()` and a
+metadata with `EnableSQLExecHybridResults=0`: call
+`session.getDatabricksMetadataClient().executeMetadataAsync(MetadataAsyncRequest.forCatalogs(),
+session)`, receive its pending handle, and call `getMetadataExecutionResult(handle, session)`
+through that interface after PENDING/RUNNING and terminal `GetStatementResult` responses.
+Assert the returned JDBC metadata columns and rows match the synchronous operation for both Arrow
+IPC and `columnar_data` responses. The
+completed ResultSet must retain `StatementType.METADATA`; a test verifies metadata update-count
+semantics rather than the SQL statement path. GIVEN `isThriftNativeMetadataEnabled()` and a
 supported operation THEN `X-Databricks-Require-Thrift-Native-Metadata: true` remains present.
 WHEN any response contains Arrow IPC in
 `chunk.attachment` or HIVE-shaped data in `chunk.columnar_data` with
@@ -564,7 +586,11 @@ THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BA
 deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
 succeeds as `UNKNOWN` and result decoding raises the standard unsupported-format error. GIVEN an
 `ARROW_STREAM` metadata request followed by a `COLUMN_BASED_SET` response THEN the enum retains
-that wire value and metadata decodes from `columnar_data`.
+that wire value and metadata decodes from `columnar_data`. GIVEN pre-change warehouse fixtures
+with `JSON_ARRAY` and `ARROW_STREAM` manifests WHEN each is deserialized and passed through
+`ExecutionResultFactory` and `DatabricksResultSet` THEN the enum round-trips the exact original
+wire name, `JSON_ARRAY` selects `InlineJsonResult`, `ARROW_STREAM` selects `ArrowStreamResult`,
+and rows and metadata match the pre-change fixtures.
 - AC27: GIVEN an APC query with a large result and at least three RUNNING
 `GetStatementResult` polls WHEN request and response payloads are captured in an integration run
 THEN those RUNNING responses contain no attachment, Arrow batches, columnar data, or external
@@ -684,7 +710,16 @@ propagate without fallback.
    `MetadataOperationType`; pass that signal into `DatabricksSdkClient.getRequest` and header
    selection. Add an `IDatabricksClient.executeStatementAsync` overload in both implementations
    with the operation/type signal, preserving the existing SQL async call. Add a callable async
-   metadata path in `DatabricksMetadataQueryClient` that preserves the operation header without the sync header.
+   metadata path on `IDatabricksMetadataClient`, implemented by
+   `DatabricksMetadataQueryClient` and reached from the session. Use
+   `executeMetadataAsync(MetadataAsyncRequest, IDatabricksSession)` and
+   `getMetadataExecutionResult(MetadataAsyncHandle, IDatabricksSession)`; the request carries the
+   metadata operation and existing JDBC arguments. Return a per-operation handle with the typed
+   `StatementId`, operation type, and conversion inputs; poll to terminal under the metadata
+   timeout, then complete it through a typed
+   `IDatabricksClient.getStatementResult` call and the same `MetadataResultSetBuilder` mapping
+   used by the synchronous operation. The async request preserves the operation header without
+   the sync header; the completed result retains `StatementType.METADATA`.
    Keep `disposition=INLINE_OR_EXTERNAL_LINKS` for APC SHOW even with
    `EnableSQLExecHybridResults=0`. Internal catalog/schema SELECTs have `StatementType.METADATA`
    but no operation signal; send `ARROW_BATCH` and omit metadata headers for them. Synchronous
@@ -745,7 +780,10 @@ family, disposition/format selection.
 - `src/main/java/com/databricks/jdbc/dbclient/IDatabricksClient.java` and
   `dbclient/impl/thrift/DatabricksThriftServiceClient.java` — callable native-batch interface
   through the session proxy and explicit Thrift unsupported behavior; async metadata
-  operation/type signal through both client implementations.
+  operation/type signal and typed metadata completion through both client implementations.
+- `src/main/java/com/databricks/jdbc/dbclient/IDatabricksMetadataClient.java` and
+  `dbclient/impl/sqlexec/DatabricksEmptyMetadataClient.java` — session-reachable async
+  metadata submit/completion contract and an explicit unsupported empty-client behavior.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/PathConstants.java` — reuse standard session/statement
 paths for APC (no new constants expected).
 - `src/main/java/com/databricks/jdbc/dbclient/impl/common/SessionId.java` and
@@ -872,7 +910,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   `DatabricksResultSetArrowConversionTest`, `DatabricksResultSetTest`,
   `ExecutionResultFactoryTest`, `InlineJsonResultTest`, and
   `DatabricksResultSetMetaDataTest` in this first independently compilable PR. Preserve warehouse
-  format values; T10 adds the APC result decoder (R16; AC26).
+  format values. In this PR, round-trip `JSON_ARRAY` and `ARROW_STREAM` manifest fixtures and
+  assert their pre-change `InlineJsonResult` and `ArrowStreamResult` decoders and rows still work;
+  T10 adds the APC result decoder (R16; AC26).
 - [ ] T2: Add optional `backend_compute` to driver-owned CreateSession, ExecuteStatement, and
   CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession's declared
   DELETE body. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
@@ -962,17 +1002,33 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 - [ ] T13: APC metadata through `DatabricksMetadataQueryClient` and the SDK execute/result path:
   pass `MetadataOperationType` into `DatabricksSdkClient.getRequest` and select
   `format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`, and metadata headers only for
-  APC SHOW operations, even with `EnableSQLExecHybridResults=0`. Add a callable asynchronous
-  metadata path in `DatabricksMetadataQueryClient`; extend
-  `IDatabricksClient.executeStatementAsync` with an overload in both client implementations to
-  carry `MetadataOperationType` and `StatementType.METADATA` into the request and header builders.
-  Preserve the existing SQL async call. Test sync and async fake-service requests: the async path retains the operation header and
-  APC format/disposition but omits the sync header. Internal `getCurrentCatalog`/`getCurrentCatalogAndSchema` SELECTs keep `ARROW_BATCH` with no metadata
+  APC SHOW operations, even with `EnableSQLExecHybridResults=0`. Add async submit and completion
+  methods `executeMetadataAsync(MetadataAsyncRequest, IDatabricksSession)` and
+  `getMetadataExecutionResult(MetadataAsyncHandle, IDatabricksSession)` on
+  `IDatabricksMetadataClient`, so a caller obtains the metadata client from
+  `IDatabricksSession.getDatabricksMetadataClient()`, submits a SHOW operation, and receives an
+  internal per-operation handle retaining its typed `StatementId`, `MetadataOperationType`, and
+  conversion inputs. The request carries the metadata operation and existing JDBC arguments;
+  the query client builds the SHOW SQL and converter from those inputs for every supported SHOW
+  metadata operation. Implement both methods in `DatabricksMetadataQueryClient`; completion
+  polls PENDING/RUNNING to terminal under the existing metadata timeout, propagates failure or
+  cancellation, calls a typed `IDatabricksClient.getStatementResult` overload, and applies the same
+  `MetadataResultSetBuilder` operation-specific conversion as synchronous metadata. Add explicit
+  unsupported behavior in `DatabricksEmptyMetadataClient` and the Thrift metadata client.
+  Extend `IDatabricksClient.executeStatementAsync` with an overload in both client implementations to
+  carry `MetadataOperationType` and `StatementType.METADATA` into the request and header builders;
+  add a typed result-fetch overload in both implementations so the SDK does not construct the
+  completed metadata ResultSet with its current hard-coded `StatementType.SQL`. Preserve existing
+  SQL async calls and completion. Test sync and async fake-service requests: the async path retains
+  the operation header and APC format/disposition but omits the sync header. Internal
+  `getCurrentCatalog`/`getCurrentCatalogAndSchema` SELECTs keep `ARROW_BATCH` with no metadata
   headers despite `StatementType.METADATA`; assert warehouse requests stay unchanged. For SHOW
   responses, multiplex per response between Arrow IPC `attachment` and
   `columnar_data` (including response `format=COLUMN_BASED_SET`), and pick native
   decoders when `is_native_metadata_result=true`; test sync-header enabled, disabled, and async
-  cases plus the preserved require-native header condition (R5; AC5).
+  cases plus the preserved require-native header condition. Assert a session-reachable async
+  submit returns a pending handle and typed completion returns converted metadata with correct
+  metadata update-count semantics for Arrow IPC and `columnar_data` (R5; AC5).
 - [ ] T14: Add `ColumnarData`/`ColumnVector` models and the `ColumnarDataResult` reader with
   all eight R13 oneof variants and null-mask handling; test physical-to-logical conversion,
   empty vectors, placeholder values, and mask bits across a byte boundary. Test an absent mask,
@@ -994,17 +1050,19 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 ### Validation
 
 - [ ] T18: Run `mvn test -pl jdbc-core -am` and local fake-service integration checks on a
-  branch containing T1–T16, including T9. After package review and the external SC fixes are
-  deployed to a test region, run end-to-end against a dogfood APC with the APC flag on and off
+  branch containing T1–T16, including T9. After package review, run all dogfood checks that
+  do not depend on the external SC fixes against an APC with the APC flag on and off
   and `UseThriftClient` set to 0 and 1. The flag-on dogfood case requires T17's flag creation
   and an externally prepared test-region assignment; verify that T17's Universe package is
   approved before starting the flag-on dogfood run. Assignment and ramp are outside this plan.
   The JDBC and Universe PR stacks have separate roots because a stacked PR can only branch from
   a parent in the same repository; this cross-repository validation gate is checked at T18.
   Record cluster runtime, region, protocol observed, and
-  result for each configuration without credentials. Require the deployed metadata fix for
-  dogfood AC5, inline-only fix for dogfood AC8, and TerminateSession binding fix for dogfood AC3;
-  unit and fake-service checks for these ACs run before deployment. Include the AC27 bounded
+  result for each configuration without credentials. Run dogfood AC5 after its metadata fix is
+  deployed, dogfood AC8 after its inline-only fix is deployed, and the TerminateSession portion
+  of dogfood AC3 after its binding fix is deployed. Run unaffected portions of AC3 and AC8 with
+  the other dogfood checks. Unit and fake-service checks for these ACs run before deployment.
+  Include the AC27 bounded
   polling run in the pre-release dogfood gate. Implementation package approval does not wait for
   deployment; validation package completion and release readiness do (R1–R16; AC1–AC28).
 - [ ] T-val: Record a pass/fail evidence link for each AC1–AC28 (unit, fake-service, dogfood,
