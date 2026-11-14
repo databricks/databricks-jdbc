@@ -52,6 +52,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -380,6 +383,64 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(1)).thenReturn(new BigDecimal("123.423123"));
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(2);
     assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal("columnLabel"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "123.4500, 2, 123.45",
+    "123.4500, 6, 123.450000",
+    "-123.4500, 2, -123.45",
+    "123.0000, 0, 123",
+    "0.0000, 2, 0.00",
+    "123.4500, 4, 123.4500",
+    "123.4567, 2, 123.46",
+    "-123.4550, 2, -123.46"
+  })
+  void testGetBigDecimalByLabelUsesRequestedScale(String input, int scale, String expected)
+      throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DECIMAL);
+    when(mockedResultSetMetadata.getScale(1)).thenReturn(4);
+    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    for (Object value : new Object[] {new BigDecimal(input), input}) {
+      when(mockedExecutionResult.getObject(0)).thenReturn(value);
+      assertEquals(new BigDecimal(input), resultSet.getBigDecimal(1));
+      assertEquals(new BigDecimal(input), resultSet.getBigDecimal("decimalColumn"));
+      assertEquals(new BigDecimal(expected), resultSet.getBigDecimal(1, scale));
+      assertEquals(new BigDecimal(expected), resultSet.getBigDecimal("decimalColumn", scale));
+      assertFalse(resultSet.wasNull());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {Types.FLOAT, Types.DOUBLE})
+  void testGetBigDecimalByLabelPreservesFloatingPointPrecision(int columnType) throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(columnType);
+    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
+    Number value;
+    BigDecimal expected;
+    if (columnType == Types.FLOAT) {
+      value = 123.423123f;
+      expected = new BigDecimal("123.42313");
+    } else {
+      value = 123.423123d;
+      expected = new BigDecimal("123.423123");
+    }
+    when(mockedExecutionResult.getObject(0)).thenReturn(value);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertEquals(expected, resultSet.getBigDecimal(1, 2));
+    assertEquals(expected, resultSet.getBigDecimal("decimalColumn", 2));
+  }
+
+  @Test
+  void testGetBigDecimalByLabelWithScaleReturnsNull() throws SQLException {
+    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertNull(resultSet.getBigDecimal(1, 2));
+    assertTrue(resultSet.wasNull());
+    assertNull(resultSet.getBigDecimal("decimalColumn", 2));
+    assertTrue(resultSet.wasNull());
   }
 
   @Test
