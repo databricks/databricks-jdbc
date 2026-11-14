@@ -13,6 +13,7 @@
 - Reduced typed result getter CPU by resolving each column's converter once when its metadata is built and reusing it across rows.
 - Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
 - Reduced `getConnection()` latency for apps that open connections one at a time or after idle periods: a new connection reuses the driver feature flags fetched in the last 15 minutes (or within the server's TTL, if shorter) for the same host, User-Agent, and custom headers instead of fetching them again.
+- Large Thrift CloudFetch results on SQL warehouses can start downloading while the remaining result links are still being fetched, as SEA results already do. A server-side flag turns this on; setting `EnableStreamingChunkProvider` to `1` or `0` still forces either behavior.
 
 ### Fixed
 
@@ -25,6 +26,7 @@
 - Reduced connection setup time by caching successful host-metadata and OIDC discovery JSON documents for up to an hour, with a JVM-wide limit of 1,024 entries. Responses redirected to another origin or path, or whose bodies cannot be parsed as discovery documents, are excluded.
 - Reduced heap usage when reading large CloudFetch results: chunks are now streamed from the HTTP response through decompression into Arrow instead of first being buffered on-heap. When Arrow uses off-heap memory, this cuts peak heap by about 40% and GC pause time by about half, so large results fit in smaller heaps.
 - Fixed CloudFetch rows being silently skipped when a chunk failed to parse and its retried download then succeeded: the chunk stayed in a failed state and its rows were not returned.
+- With `EnableStreamingChunkProvider=1`, Thrift CloudFetch results no longer report the first batch of result links as the total row count, which could make `ResultSet.isLast()`, `isAfterLast()` and `hasUpdateCount()` return wrong values.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

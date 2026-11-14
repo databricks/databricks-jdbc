@@ -241,7 +241,8 @@ public enum DatabricksJdbcUrlParams {
       "EnableTokenFederation", "Enable token federation for authentication", "1"),
   ENABLE_STREAMING_CHUNK_PROVIDER(
       "EnableStreamingChunkProvider",
-      "Enable streaming chunk provider for result fetching (experimental)",
+      "Enable streaming chunk provider for result fetching (experimental). When unset, Thrift "
+          + "CloudFetch results on SQL warehouses follow a server-side flag",
       "0"),
   ENABLE_INLINE_STREAMING(
       "EnableInlineStreaming",

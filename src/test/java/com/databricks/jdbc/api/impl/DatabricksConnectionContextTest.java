@@ -1712,6 +1712,61 @@ class DatabricksConnectionContextTest {
     assertFalse(disabledCtx.isThriftNativeMetadataEnabled());
   }
 
+  @Test
+  public void testThriftStreamingChunkProvider_followsServerFlagOnWarehouse()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    // Flag contexts are shared per host, so check both values on one context in turn.
+    setFeatureFlagsContext(
+        ctx, Map.of(DatabricksConnectionContext.THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME, "true"));
+    assertTrue(ctx.isThriftStreamingChunkProviderEnabled());
+    // The SEA-side setting keeps its own default.
+    assertFalse(ctx.isStreamingChunkProviderEnabled());
+
+    setFeatureFlagsContext(
+        ctx,
+        Map.of(DatabricksConnectionContext.THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME, "false"));
+    assertFalse(ctx.isThriftStreamingChunkProviderEnabled());
+  }
+
+  @Test
+  public void testThriftStreamingChunkProvider_serverFlagIgnoredOnCluster()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    setFeatureFlagsContext(
+        ctx, Map.of(DatabricksConnectionContext.THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME, "true"));
+
+    assertFalse(ctx.isThriftStreamingChunkProviderEnabled());
+  }
+
+  @Test
+  public void testThriftStreamingChunkProvider_explicitParamOverridesServerFlag()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext forcedOn =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_CLUSTER_URL + ";EnableStreamingChunkProvider=1", properties);
+    DatabricksConnectionContext forcedOff =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";EnableStreamingChunkProvider=0", properties);
+    // Each check runs with the server flag set against the explicit value.
+    setFeatureFlagsContext(
+        forcedOn,
+        Map.of(DatabricksConnectionContext.THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME, "false"));
+    assertTrue(forcedOn.isThriftStreamingChunkProviderEnabled());
+
+    setFeatureFlagsContext(
+        forcedOff,
+        Map.of(DatabricksConnectionContext.THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME, "true"));
+    assertFalse(forcedOff.isThriftStreamingChunkProviderEnabled());
+  }
+
   // ---------------------------------------------------------------------------
   // Geospatial flag independence from complex datatype flag
   // ---------------------------------------------------------------------------

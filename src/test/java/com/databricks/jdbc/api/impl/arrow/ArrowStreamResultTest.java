@@ -17,6 +17,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -861,6 +862,46 @@ public class ArrowStreamResultTest {
     assertTrue(result.hasNext(), "Result should have data");
     assertTrue(result.next());
     assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testThriftChunkProviderFollowsServerFlag() throws Exception {
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+    when(fetchResultsResp.getResults())
+        .thenReturn(
+            new TRowSet()
+                .setResultLinks(
+                    List.of(
+                        new TSparkArrowResultLink()
+                            .setFileLink(CHUNK_URL_PREFIX + 0)
+                            .setStartRowOffset(0)
+                            .setRowCount(rowsInChunk)
+                            .setExpiryTime(Instant.now().plusSeconds(3600).toEpochMilli()))));
+    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
+    when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    assertInstanceOf(StreamingChunkProvider.class, thriftResultWithServerFlag("true"));
+    assertInstanceOf(RemoteChunkProvider.class, thriftResultWithServerFlag("false"));
+  }
+
+  private ChunkProvider thriftResultWithServerFlag(String flagValue) throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext,
+        Map.of(
+            "databricks.partnerplatform.clientConfigsFeatureFlags."
+                + "enableStreamingChunkProviderForThriftJdbc",
+            flagValue));
+    try {
+      when(session.getConnectionContext()).thenReturn(connectionContext);
+      ArrowStreamResult result =
+          new ArrowStreamResult(fetchResultsResp, parentStatement, session, mockHttpClient);
+      result.close();
+      return result.getChunkProvider();
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
+    }
   }
 
   private Object[][] createTestData(Schema schema, int rows) {
