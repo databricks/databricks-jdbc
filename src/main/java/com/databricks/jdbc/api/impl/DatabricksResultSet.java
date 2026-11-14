@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -36,9 +37,11 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Primitives;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
@@ -73,10 +76,20 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private SQLWarning warnings = null;
   private boolean wasNull;
   private boolean silenceNonTerminalExceptions = false;
+  // Off by default: callers may rely on getObject(int, Class) returning a String for classes the
+  // driver cannot convert to (EnableStrictGetObjectConversion). Only the session constructors
+  // (query results) read the property; metadata and in-memory result sets keep the default.
+  private boolean strictGetObjectConversion = false;
 
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
   private boolean complexDatatypeSupport = false;
+  // Type map for getObject(int) on in-memory array result sets (Array.getResultSet(Map)); only
+  // java.time mappings for DATE/TIMESTAMP columns are applied.
+  private Map<String, Class<?>> typeMap = null;
+  // Session time zone of the nested Arrow TIMESTAMP values in an in-memory array result set, in
+  // which java.time results are reported; null otherwise.
+  private ZoneId timestampZone = null;
   private boolean geoSpatialSupport = false;
   private boolean boundedSeaApiEnabled = false;
   // Set when next() exhausts an Arrow stream whose manifest row count cannot be relied on.
@@ -88,6 +101,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // per-row overhead in next(). The connection-to-collector mapping is stable
   // for the lifetime of a result set.
   private final TelemetryCollector cachedTelemetryCollector;
+  private boolean iterationTelemetryStarted = false;
 
   // Client-side maxRows enforcement. This central check in next() is the single
   // enforcement point using the full long precision from getLargeMaxRows().
@@ -138,6 +152,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
     this.boundedSeaApiEnabled = session.getConnectionContext().isBoundedSeaApiEnabled();
+    this.strictGetObjectConversion =
+        session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -210,6 +226,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
+    this.strictGetObjectConversion =
+        session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -302,10 +320,39 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<List<Object>> rows,
       StatementType statementType,
       boolean complexDatatypeSupport) {
+    this(
+        statementStatus,
+        statementId,
+        columnMetadataList,
+        rows,
+        /* temporalRows= */ null,
+        /* typeMap= */ null,
+        /* timestampZone= */ null,
+        statementType,
+        complexDatatypeSupport);
+  }
+
+  // As above. temporalRows holds exact java.time values for DATE/TIMESTAMP cells, read by
+  // getObject(col, java.time class) and the numeric getters. typeMap's java.time mappings are
+  // applied by getObject(int). timestampZone is the session time zone of nested Arrow TIMESTAMP
+  // values: java.time results are reported in it, while the numeric getters keep reading the
+  // exact values as is, matching the java.sql values. All three may be null.
+  DatabricksResultSet(
+      StatementStatus statementStatus,
+      StatementId statementId,
+      List<ColumnMetadata> columnMetadataList,
+      List<List<Object>> rows,
+      List<List<Object>> temporalRows,
+      Map<String, Class<?>> typeMap,
+      ZoneId timestampZone,
+      StatementType statementType,
+      boolean complexDatatypeSupport) {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.complexDatatypeSupport = complexDatatypeSupport;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.typeMap = typeMap;
+    this.timestampZone = timestampZone;
+    this.executionResult = ExecutionResultFactory.getResultSet(rows, temporalRows);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
     this.statementType = statementType;
@@ -371,7 +418,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (hasNext && !countingUpdateRows) {
       rowsReturned++;
     }
-    if (cachedTelemetryCollector != null) {
+    // Iteration telemetry only uses the first call (start time) and end of stream (latency), so
+    // skip the per-row calls in between.
+    if (cachedTelemetryCollector != null && (!hasNext || !iterationTelemetryStarted)) {
+      iterationTelemetryStarted = true;
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
     }
@@ -650,17 +700,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public short getShort(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toShort, () -> (short) 0);
+    return getConvertedObject(columnIndex, ObjectConverter::toShort, () -> (short) 0, true);
   }
 
   @Override
   public int getInt(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toInt, () -> 0);
+    return getConvertedObject(columnIndex, ObjectConverter::toInt, () -> 0, true);
   }
 
   @Override
   public long getLong(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
+    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L, true);
   }
 
   @Override
@@ -845,6 +895,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (typeMap != null) {
+      // Only in-memory array result sets have a type map; skip the lookup for everything else.
+      Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(typeMap, columnTypeName);
+      if (javaTimeType != null) {
+        return getJavaTimeObject(columnIndex, javaTimeType);
+      }
+    }
     // Geospatial types: handle independently of complex datatype flag
     if (isGeospatialType(columnTypeName)) {
       return handleGeospatialType(obj, columnTypeName);
@@ -1547,9 +1604,22 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return (parentStatement != null) ? parentStatement.getStatement() : null;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>On a DATE, TIMESTAMP or string column, a {@code java.time} mapping (e.g. {@code
+   * Map.of("DATE", LocalDate.class)}) returns the value as {@link #getObject(int, Class)} does, and
+   * an unsupported one throws {@code UNSUPPORTED_OPERATION}, the same as the type maps of nested
+   * arrays and structs. For other mappings and columns, a failed conversion returns null and adds a
+   * warning.
+   */
   @Override
   public Object getObject(int columnIndex, Map<String, Class<?>> map) throws SQLException {
     checkIfClosed();
+    Class<?> javaTimeType = getMappedJavaTimeType(columnIndex, map);
+    if (javaTimeType != null) {
+      return getJavaTimeObject(columnIndex, javaTimeType);
+    }
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
       return null;
@@ -1559,6 +1629,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Class<?> returnObjectType = map.get(columnTypeText);
     if (returnObjectType != null) {
       try {
+        if (isIntegralType(returnObjectType)) {
+          // Match getLong()/getInt(): epoch days and milliseconds come from the exact value.
+          obj = getExactTemporalValue(columnIndex, columnSqlType, obj);
+        }
         return ConverterHelper.convertSqlTypeToSpecificJavaType(
             returnObjectType, columnSqlType, obj);
       } catch (Exception e) {
@@ -2255,12 +2329,46 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
+    if (!strictGetObjectConversion) {
+      return getObjectWithoutTypeCheck(columnIndex, type);
+    }
+    // JDBC: return an instance of type or throw. The default path instead returns a String for
+    // classes the converters do not handle (e.g. UUID), and a Timestamp for Calendar.
     checkIfClosed();
+    if (type == null) {
+      throw unsupportedGetObjectConversion("getObject(int, Class) requires a non-null type");
+    }
+    Object value = getObjectWithoutTypeCheck(columnIndex, type);
+    if (value != null && !Primitives.wrap(type).isInstance(value)) {
+      throw unsupportedGetObjectConversion(
+          String.format(
+              "Cannot convert a %s column to %s",
+              resultSetMetaData.getColumnTypeName(columnIndex), type.getName()));
+    }
+    return (T) value;
+  }
+
+  private static DatabricksSQLException unsupportedGetObjectConversion(String message) {
+    return new DatabricksSQLException(
+        message,
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  private <T> T getObjectWithoutTypeCheck(int columnIndex, Class<T> type) throws SQLException {
+    checkIfClosed();
+    if (JavaTimeConverter.isJavaTimeType(type)) {
+      return type.cast(getJavaTimeObject(columnIndex, type));
+    }
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
       return null;
     }
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
+    if (isIntegralType(type)) {
+      // Match getLong()/getInt(): epoch days and milliseconds come from the exact value.
+      obj = getExactTemporalValue(columnIndex, columnSqlType, obj);
+    }
     try {
       return (T)
           ConverterHelper.convertSqlTypeToSpecificJavaType(
@@ -2377,15 +2485,78 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
+    checkColumnIndex(columnIndex);
+    Object object = executionResult.getObject(columnIndex - 1);
+    this.wasNull = object == null;
+    return object;
+  }
+
+  /**
+   * Returns the value of a DATE or TIMESTAMP column as a {@code java.time} type. The value is built
+   * from the source value instead of from {@code java.sql.Date}/{@code java.sql.Timestamp}, so BC
+   * and pre-1582 values are exact for Arrow results. Unsupported combinations, such as an {@link
+   * Instant} from a TIMESTAMP_NTZ column, throw an {@code UNSUPPORTED_OPERATION} error.
+   */
+  private Object getJavaTimeObject(int columnIndex, Class<?> type) throws SQLException {
+    Object object = getTemporalObjectInternal(columnIndex);
+    if (object == null) {
+      return null;
+    }
+    return JavaTimeConverter.convert(
+        type,
+        resultSetMetaData.getColumnType(columnIndex),
+        getTemporalTypeName(columnIndex),
+        ComplexDataTypeParser.inTimestampZone(object, timestampZone));
+  }
+
+  private Object getTemporalObjectInternal(int columnIndex) throws SQLException {
+    checkColumnIndex(columnIndex);
+    Object object = executionResult.getTemporalObject(columnIndex - 1);
+    this.wasNull = object == null;
+    return object;
+  }
+
+  /**
+   * Returns the {@code java.time} class that {@code map} assigns to the column's type name, matched
+   * case-insensitively as for nested values, for DATE, TIMESTAMP and string columns. A
+   * TIMESTAMP_NTZ column reported as TIMESTAMP ({@code EnableTimestampNtzTypeName=0}) also matches
+   * the key {@code TIMESTAMP_NTZ}. Returns null otherwise, including for an invalid column index
+   * (which the caller reports), so other columns keep the overload's null-with-warning behavior.
+   */
+  private Class<?> getMappedJavaTimeType(int columnIndex, Map<String, Class<?>> map)
+      throws SQLException {
+    if (map == null
+        || columnIndex <= 0
+        || columnIndex > resultSetMetaData.getColumnCount()
+        || !JavaTimeConverter.isSupportedColumnType(resultSetMetaData.getColumnType(columnIndex))) {
+      return null;
+    }
+    Class<?> mapped =
+        JavaTimeConverter.findJavaTimeMapping(
+            map, resultSetMetaData.getColumnTypeName(columnIndex));
+    if (mapped == null && resultSetMetaData.isTimestampNtz(columnIndex)) {
+      mapped = JavaTimeConverter.findJavaTimeMapping(map, TIMESTAMP_NTZ);
+    }
+    return mapped;
+  }
+
+  private static boolean isIntegralType(Class<?> type) {
+    return type == Long.class
+        || type == long.class
+        || type == Integer.class
+        || type == int.class
+        || type == Short.class
+        || type == short.class
+        || type == BigInteger.class;
+  }
+
+  private void checkColumnIndex(int columnIndex) throws DatabricksSQLException {
     if (columnIndex <= 0) {
       throw new DatabricksSQLException(
           "Invalid column index",
           DatabricksDriverErrorCode.INVALID_STATE,
           silenceNonTerminalExceptions);
     }
-    Object object = executionResult.getObject(columnIndex - 1);
-    this.wasNull = object == null;
-    return object;
   }
 
   private int getColumnNameIndex(String columnName) {
@@ -2408,18 +2579,64 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private <T> T getConvertedObject(
       int columnIndex, ConverterFunction<T> convertMethod, Supplier<T> defaultValue)
       throws SQLException {
+    return getConvertedObject(columnIndex, convertMethod, defaultValue, false);
+  }
+
+  /**
+   * Converts the value at columnIndex with convertMethod. When {@code exactTemporal} is true, DATE
+   * and TIMESTAMP values are read with {@link IExecutionResult#getTemporalObject} instead of as
+   * {@code java.sql.Date}/{@code java.sql.Timestamp}, so numeric conversions (epoch days and
+   * milliseconds) are exact for BC and pre-1582 values.
+   */
+  private <T> T getConvertedObject(
+      int columnIndex,
+      ConverterFunction<T> convertMethod,
+      Supplier<T> defaultValue,
+      boolean exactTemporal)
+      throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
       return defaultValue.get();
     }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (exactTemporal) {
+      obj = getExactTemporalValue(columnIndex, resultSetMetaData.getColumnType(columnIndex), obj);
+    }
 
-    // Use metadata-aware converter selection for proper handling of databricks-specific types
-    ObjectConverter converter =
-        ConverterHelper.getConverterForColumnType(columnType, columnTypeName);
-    return convertMethod.apply(converter, obj);
+    return convertMethod.apply(resultSetMetaData.getColumnConverter(columnIndex), obj);
+  }
+
+  /**
+   * Returns the value to use for epoch days and milliseconds. A {@code java.sql.Date} or {@code
+   * java.sql.Timestamp} is exact after the 1582 Gregorian cutover and is returned as is; before it,
+   * the exact value from {@link IExecutionResult#getTemporalObject} is returned instead.
+   */
+  private Object getExactTemporalValue(int columnIndex, int columnSqlType, Object legacyValue)
+      throws SQLException {
+    if ((columnSqlType != Types.DATE && columnSqlType != Types.TIMESTAMP)
+        || !(legacyValue instanceof java.util.Date)
+        || !JavaTimeConverter.mayBeCalendarShifted((java.util.Date) legacyValue)) {
+      return legacyValue;
+    }
+    Object exact = executionResult.getTemporalObject(columnIndex - 1);
+    if (exact instanceof OffsetDateTime
+        && legacyValue instanceof Timestamp
+        && ((Timestamp) legacyValue).toInstant().equals(((OffsetDateTime) exact).toInstant())) {
+      // The java.sql value already holds the exact instant, e.g. text ending in 'Z', which
+      // java.sql reads as an instant; keep it so the meaning stays the same.
+      return legacyValue;
+    }
+    return exact != null ? exact : legacyValue;
+  }
+
+  /**
+   * Returns the column type name for {@link JavaTimeConverter}: TIMESTAMP_NTZ for TIMESTAMP_NTZ
+   * columns even when the metadata reports them as TIMESTAMP (EnableTimestampNtzTypeName=0).
+   */
+  private String getTemporalTypeName(int columnIndex) throws SQLException {
+    return resultSetMetaData.isTimestampNtz(columnIndex)
+        ? TIMESTAMP_NTZ
+        : resultSetMetaData.getColumnTypeName(columnIndex);
   }
 
   private BigDecimal applyScaleToBigDecimal(BigDecimal bigDecimal, int columnIndex, int scale)

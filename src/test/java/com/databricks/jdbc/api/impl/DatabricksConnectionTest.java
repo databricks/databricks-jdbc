@@ -16,6 +16,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
+import com.databricks.jdbc.common.safe.FeatureFlagTestUtil;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -454,6 +455,7 @@ public class DatabricksConnectionTest {
             new StringEntity(
                 "{\"flags\":[{\"name\":\"" + sqlExecFlag + "\",\"value\":\"true\"}]}",
                 StandardCharsets.UTF_8));
+    FeatureFlagTestUtil.clearFeatureFlagSnapshots();
     try (MockedStatic<DatabricksHttpClientFactory> factory =
         mockStatic(DatabricksHttpClientFactory.class)) {
       factory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpFactory);
@@ -463,6 +465,9 @@ public class DatabricksConnectionTest {
         assertTrue(freshContext.isThriftNativeMetadataEnabled());
         verify(httpClient).execute(any(HttpGet.class));
       }
+    } finally {
+      // The fetch above is remembered process-wide; keep it out of later tests.
+      FeatureFlagTestUtil.clearFeatureFlagSnapshots();
     }
   }
 
