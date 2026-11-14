@@ -138,10 +138,18 @@ public class DatabricksThriftUtilTest {
         new TRowSet().setResultLinks(Collections.singletonList(sampleResultLink));
     resultChunkRowSet.setResultLinksIsSet(true);
 
+    // An empty list of result links with inline Arrow batches counts the batch rows
+    TSparkArrowBatch sampleArrowBatch = new TSparkArrowBatch().setRowCount(7);
+    TRowSet emptyLinksArrowRowSet =
+        new TRowSet()
+            .setResultLinks(Collections.emptyList())
+            .setArrowBatches(Collections.singletonList(sampleArrowBatch));
+
     return Stream.of(
         Arguments.of(new TRowSet(), 0),
         Arguments.of(new TRowSet().setColumns(Collections.emptyList()), 0),
         Arguments.of(resultChunkRowSet, 10),
+        Arguments.of(emptyLinksArrowRowSet, 7),
         Arguments.of(BOOL_ROW_SET, BOOL_ROW_SET_VALUES.size()),
         Arguments.of(BYTE_ROW_SET, BYTE_ROW_SET_VALUES.size()),
         Arguments.of(DOUBLE_ROW_SET, DOUBLE_ROW_SET_VALUES.size()),
