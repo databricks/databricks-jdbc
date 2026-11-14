@@ -16,6 +16,7 @@ import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.net.ssl.*;
@@ -66,6 +67,8 @@ public class ConfiguratorUtils {
   private static final String JAVA_TRUST_STORE_PASSWORD_PROPERTY =
       "javax.net.ssl.trustStorePassword";
   private static final String JAVA_TRUST_STORE_TYPE_PROPERTY = "javax.net.ssl.trustStoreType";
+  private static final String JAVA_TRUST_STORE_PROVIDER_PROPERTY =
+      "javax.net.ssl.trustStoreProvider";
 
   private static boolean isJDBCTestEnv() {
     return Boolean.parseBoolean(System.getenv(IS_JDBC_TEST_ENV));
@@ -108,6 +111,30 @@ public class ConfiguratorUtils {
     Registry<ConnectionSocketFactory> socketFactoryRegistry =
         createConnectionSocketFactoryRegistry(connectionContext);
     return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+  }
+
+  /**
+   * Identifies the settings {@link #getBaseConnectionManager} feeds into the TLS context: which
+   * servers to trust and which client certificate to present. Keep it in sync with that method.
+   */
+  static List<Object> trustSettingsKey(IDatabricksConnectionContext connectionContext) {
+    return Collections.unmodifiableList(
+        Arrays.asList(
+            connectionContext.getSSLTrustStore(),
+            connectionContext.getSSLTrustStoreType(),
+            connectionContext.getSSLTrustStoreProvider(),
+            connectionContext.useSystemTrustStore(),
+            // Read again on every connection: by the driver under UseSystemTrustStore, otherwise by
+            // the JSSE default trust manager that each new SSLContext initializes.
+            System.getProperty(JAVA_TRUST_STORE_PATH_PROPERTY),
+            System.getProperty(JAVA_TRUST_STORE_TYPE_PROPERTY),
+            System.getProperty(JAVA_TRUST_STORE_PROVIDER_PROPERTY),
+            connectionContext.getSSLKeyStore(),
+            connectionContext.getSSLKeyStoreType(),
+            connectionContext.getSSLKeyStoreProvider(),
+            connectionContext.allowSelfSignedCerts(),
+            connectionContext.checkCertificateRevocation(),
+            connectionContext.acceptUndeterminedCertificateRevocation()));
   }
 
   /**
