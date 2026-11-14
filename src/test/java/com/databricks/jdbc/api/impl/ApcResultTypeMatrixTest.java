@@ -3,11 +3,13 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.arrow.ArrowBatchSchemaBuilder;
 import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -20,12 +22,16 @@ import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.Array;
 import java.sql.Date;
+import java.sql.ResultSetMetaData;
+import java.sql.Struct;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.ListVector;
@@ -42,6 +48,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** APC bare batches with the complete manifest type matrix, read through JDBC. */
 class ApcResultTypeMatrixTest {
@@ -207,9 +215,112 @@ class ApcResultTypeMatrixTest {
     ((VarBinaryVector) vector.getChild("wkb")).setSafe(0, WKTConverter.toWKB("POINT(1 2)"));
   }
 
-  @Test
-  void completeMatrixKeepsValuesAndJdbcMetadata() throws Exception {
+  private static TFetchResultsResp pinnedThriftArrowFixture() throws Exception {
+    String[] sqlNames = {
+      "BOOLEAN",
+      "TINYINT",
+      "SMALLINT",
+      "INT",
+      "BIGINT",
+      "FLOAT",
+      "DOUBLE",
+      "STRING",
+      "BINARY",
+      "DATE",
+      "DECIMAL(18,2)",
+      "TIMESTAMP",
+      "TIMESTAMP_NTZ",
+      "INTERVAL YEAR TO MONTH",
+      "INTERVAL DAY TO SECOND",
+      "GEOGRAPHY(4326)",
+      "GEOMETRY(4326)",
+      "VARIANT",
+      "ARRAY<INT>",
+      "MAP<STRING,INT>",
+      "STRUCT<x:INT>"
+    };
+    TTypeId[] types = {
+      TTypeId.BOOLEAN_TYPE,
+      TTypeId.TINYINT_TYPE,
+      TTypeId.SMALLINT_TYPE,
+      TTypeId.INT_TYPE,
+      TTypeId.BIGINT_TYPE,
+      TTypeId.FLOAT_TYPE,
+      TTypeId.DOUBLE_TYPE,
+      TTypeId.STRING_TYPE,
+      TTypeId.BINARY_TYPE,
+      TTypeId.DATE_TYPE,
+      TTypeId.DECIMAL_TYPE,
+      TTypeId.TIMESTAMP_TYPE,
+      TTypeId.TIMESTAMP_TYPE,
+      TTypeId.INTERVAL_YEAR_MONTH_TYPE,
+      TTypeId.INTERVAL_DAY_TIME_TYPE,
+      TTypeId.STRING_TYPE,
+      TTypeId.STRING_TYPE,
+      TTypeId.STRING_TYPE,
+      TTypeId.ARRAY_TYPE,
+      TTypeId.MAP_TYPE,
+      TTypeId.STRUCT_TYPE
+    };
+    List<TColumnDesc> columns = new ArrayList<>();
+    List<Field> fields = new ArrayList<>();
+    List<Field> physicalFields = pinnedPhysicalSchema().getFields();
+    for (int i = 0; i < types.length; i++) {
+      TPrimitiveTypeEntry primitive = new TPrimitiveTypeEntry().setType(types[i]);
+      if (types[i] == TTypeId.DECIMAL_TYPE) {
+        primitive.setTypeQualifiers(
+            new TTypeQualifiers(
+                Map.of(
+                    TCLIServiceConstants.PRECISION,
+                    TTypeQualifierValue.i32Value(18),
+                    TCLIServiceConstants.SCALE,
+                    TTypeQualifierValue.i32Value(2))));
+      }
+      TTypeEntry entry = new TTypeEntry();
+      entry.setPrimitiveEntry(primitive);
+      columns.add(
+          new TColumnDesc()
+              .setColumnName(physicalFields.get(i).getName())
+              .setPosition(i)
+              .setTypeDesc(new TTypeDesc().setTypes(List.of(entry))));
+      Field physical = physicalFields.get(i);
+      ArrowType type = physical.getType();
+      if (i == 11) {
+        type = new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Asia/Kolkata");
+      }
+      fields.add(
+          new Field(
+              physical.getName(),
+              new FieldType(true, type, null, Map.of("Spark:DataType:SqlName", sqlNames[i])),
+              physical.getChildren()));
+    }
+    byte[] schema = SchemaUtility.serialize(new Schema(fields));
+    // This is a Thrift ARROW_BASED_SET response: the wire schema and batch are independent of
+    // the APC manifest and its schema builder, while the logical SQL names match the query.
+    byte[] batch = bareBatch();
+    TGetResultSetMetadataResp metadata =
+        new TGetResultSetMetadataResp()
+            .setResultFormat(TSparkRowSetType.ARROW_BASED_SET)
+            .setSchema(new TTableSchema().setColumns(columns))
+            .setArrowSchema(schema);
+    TRowSet rows =
+        new TRowSet()
+            .setArrowBatches(List.of(new TSparkArrowBatch().setRowCount(1).setBatch(batch)));
+    TFetchResultsResp fixture =
+        new TFetchResultsResp().setResultSetMetadata(metadata).setResults(rows);
+    fixture.hasMoreRows = false;
+    return fixture;
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void completeMatrixKeepsValuesAndJdbcMetadata(boolean populatedArrowSchema) throws Exception {
     ResultManifest manifest = manifest();
+    if (populatedArrowSchema) {
+      manifest
+          .setArrowSchema(ArrowBatchSchemaBuilder.serialize(manifest.getSchema(), "Asia/Kolkata"))
+          .setTotalByteCount(999L);
+    }
     ResultData data =
         new ResultData()
             .setArrowBatches(List.of(new ArrowBatch().setBatch(bareBatch()).setRowCount(1L)));
@@ -220,6 +331,9 @@ class ApcResultTypeMatrixTest {
     when(context.isTimestampNtzTypeNameEnabled()).thenReturn(true);
     DatabricksSession session = mock(DatabricksSession.class);
     when(session.getConnectionContext()).thenReturn(context);
+    if (!populatedArrowSchema) {
+      when(session.getSessionConfigs()).thenReturn(Map.of("TIMEZONE", "Asia/Kolkata"));
+    }
     DatabricksResultSet result =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
@@ -229,8 +343,17 @@ class ApcResultTypeMatrixTest {
             StatementType.QUERY,
             session,
             null);
+    DatabricksResultSet thrift =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            new StatementId("thrift-statement"),
+            pinnedThriftArrowFixture(),
+            StatementType.QUERY,
+            null,
+            session);
     try {
       assertTrue(result.next());
+      assertTrue(thrift.next());
       assertEquals(21, result.getMetaData().getColumnCount());
       int[] thriftJdbcTypes = {
         Types.BOOLEAN,
@@ -272,7 +395,7 @@ class ApcResultTypeMatrixTest {
       assertArrayEquals(new byte[] {1, 2}, (byte[]) result.getObject(9));
       assertEquals(Date.valueOf("1970-01-01"), result.getObject(10));
       assertEquals(new BigDecimal("12.34"), result.getObject(11));
-      assertEquals(Timestamp.valueOf("1970-01-01 00:00:00"), result.getObject(12));
+      assertEquals(Timestamp.valueOf("1970-01-01 05:30:00"), result.getObject(12));
       assertEquals(Timestamp.valueOf("1970-01-01 00:00:00"), result.getObject(13));
       assertEquals("1-2", result.getObject(14));
       assertEquals("1 00:00:01.000000000", result.getObject(15));
@@ -286,6 +409,54 @@ class ApcResultTypeMatrixTest {
           new Object[] {9}, ((DatabricksStruct) result.getObject(21)).getAttributes());
       for (int column = 1; column <= 21; column++) {
         assertNotNull(result.getObject(column), columns[column - 1].getName());
+        Object apcValue = result.getObject(column);
+        Object thriftValue = thrift.getObject(column);
+        if (apcValue instanceof byte[]) {
+          assertArrayEquals((byte[]) thriftValue, (byte[]) apcValue);
+        } else if (apcValue instanceof Array) {
+          assertArrayEquals(
+              (Object[]) ((Array) thriftValue).getArray(),
+              (Object[]) ((Array) apcValue).getArray());
+        } else if (apcValue instanceof Struct) {
+          assertArrayEquals(
+              ((Struct) thriftValue).getAttributes(), ((Struct) apcValue).getAttributes());
+        } else if (apcValue instanceof Map) {
+          assertEquals(Map.copyOf((Map<?, ?>) thriftValue), Map.copyOf((Map<?, ?>) apcValue));
+        } else if (apcValue instanceof DatabricksGeography) {
+          assertEquals(
+              ((DatabricksGeography) thriftValue).getWKT(),
+              ((DatabricksGeography) apcValue).getWKT());
+        } else if (apcValue instanceof DatabricksGeometry) {
+          assertEquals(
+              ((DatabricksGeometry) thriftValue).getWKT(),
+              ((DatabricksGeometry) apcValue).getWKT());
+        } else {
+          assertEquals(thriftValue, apcValue, columns[column - 1].getName());
+        }
+        ResultSetMetaData apcMetadata = result.getMetaData();
+        ResultSetMetaData thriftMetadata = thrift.getMetaData();
+        assertEquals(thriftMetadata.getColumnName(column), apcMetadata.getColumnName(column));
+        assertEquals(thriftMetadata.getColumnType(column), apcMetadata.getColumnType(column));
+        assertEquals(
+            thriftMetadata.getColumnTypeName(column), apcMetadata.getColumnTypeName(column));
+        assertEquals(
+            thriftMetadata.getColumnClassName(column), apcMetadata.getColumnClassName(column));
+        assertEquals(
+            thriftMetadata.getPrecision(column),
+            apcMetadata.getPrecision(column),
+            columns[column - 1].getName());
+        assertEquals(
+            thriftMetadata.getScale(column),
+            apcMetadata.getScale(column),
+            columns[column - 1].getName());
+        assertEquals(
+            thriftMetadata.getColumnDisplaySize(column),
+            apcMetadata.getColumnDisplaySize(column),
+            columns[column - 1].getName());
+        assertEquals(
+            thriftMetadata.isSigned(column),
+            apcMetadata.isSigned(column),
+            columns[column - 1].getName());
       }
       assertTrue(result.isLast());
       assertFalse(result.isAfterLast());
@@ -293,6 +464,33 @@ class ApcResultTypeMatrixTest {
       assertTrue(result.isAfterLast());
     } finally {
       result.close();
+      thrift.close();
     }
+  }
+
+  @Test
+  void terminalEmptyResultHasNoCursorPositionAndDoesNotFetch() throws Exception {
+    DatabricksSession session = mock(DatabricksSession.class);
+    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    when(session.getConnectionContext()).thenReturn(context);
+    DatabricksResultSet result =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            new StatementId("statement"),
+            new ResultData(),
+            manifest(),
+            StatementType.QUERY,
+            session,
+            null);
+    try {
+      assertFalse(result.next());
+      assertFalse(result.isBeforeFirst());
+      assertFalse(result.isAfterLast());
+      assertFalse(result.isFirst());
+      assertFalse(result.isLast());
+    } finally {
+      result.close();
+    }
+    verify(session, never()).getDatabricksClient();
   }
 }
