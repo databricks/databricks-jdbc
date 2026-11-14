@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.impl.arrow.ArrowBatchSchemaBuilder;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
@@ -26,6 +27,7 @@ import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
+import java.lang.reflect.Proxy;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.Collections;
@@ -59,10 +61,16 @@ public class DatabricksStatementTest {
   @Mock DatabricksSdkClient client;
   @Mock DatabricksResultSet resultSet;
 
-  @Test
-  public void successfulSetTimeZoneUpdatesArrowSessionConfig() throws Exception {
+  private static IDatabricksConnectionContext apcSeaContext() throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(APC_URL, new Properties());
+    context.setClientType(DatabricksClientType.SEA);
+    return context;
+  }
+
+  @Test
+  public void successfulSetTimeZoneUpdatesArrowSessionConfig() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = new DatabricksConnection(context, client);
     connection.getSession().setSessionConfig("timezone", "UTC");
     DatabricksStatement statement = new DatabricksStatement(connection);
@@ -95,8 +103,7 @@ public class DatabricksStatementTest {
 
   @Test
   public void setTimeZoneLocalReadsTheEffectiveServerZone() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
     DatabricksStatement statement = new DatabricksStatement(connection);
     Statement zoneStatement = mock(Statement.class);
@@ -128,8 +135,7 @@ public class DatabricksStatementTest {
 
   @Test
   public void setTimeZoneLocalWithoutServerZoneUsesDriverErrorCode() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
     DatabricksStatement statement = new DatabricksStatement(connection);
     Statement zoneStatement = mock(Statement.class);
@@ -158,8 +164,7 @@ public class DatabricksStatementTest {
 
   @Test
   public void directSetTimezoneRefreshesCachedZone() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = new DatabricksConnection(context, client);
     connection.getSession().setSessionConfig("timezone", "UTC");
     DatabricksStatement statement = new DatabricksStatement(connection);
@@ -181,9 +186,51 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void proxiedApcClientRefreshesTimeZoneAfterSet() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    IDatabricksClient proxiedClient =
+        (IDatabricksClient)
+            Proxy.newProxyInstance(
+                IDatabricksClient.class.getClassLoader(),
+                new Class<?>[] {IDatabricksClient.class},
+                (proxy, method, args) -> method.invoke(client, args));
+    DatabricksConnection connection = new DatabricksConnection(context, proxiedClient);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String sql = "SET TIME ZONE 'Asia/Tokyo'";
+    when(client.executeStatement(
+            eq(sql),
+            eq(APC_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    assertEquals("Asia/Tokyo", connection.getSession().getSessionConfigs().get("timezone"));
+    assertEquals(
+        "Asia/Tokyo",
+        ((ArrowType.Timestamp)
+                ArrowBatchSchemaBuilder.build(
+                        new ResultSchema()
+                            .setColumns(
+                                List.of(
+                                    new ColumnInfo()
+                                        .setName("ts")
+                                        .setTypeText("TIMESTAMP")
+                                        .setTypeJson("\"timestamp\""))),
+                        connection.getClientInfo("timezone"))
+                    .getFields()
+                    .get(0)
+                    .getType())
+            .getTimezone());
+  }
+
+  @Test
   public void intervalSetTimeZoneUsesEffectiveZoneForArrowTimestamp() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
     connection.getSession().setSessionConfig("timezone", "UTC");
     DatabricksStatement statement = new DatabricksStatement(connection);
@@ -269,8 +316,7 @@ public class DatabricksStatementTest {
 
   @Test
   public void asyncSetTimeZoneUpdatesCacheOnlyAfterSuccessfulPoll() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(APC_URL, new Properties());
+    IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = new DatabricksConnection(context, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
     String sql = "-- leading comment\nSET TIME ZONE 'Asia/Tokyo'";

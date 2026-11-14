@@ -30,6 +30,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
@@ -75,7 +76,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
-    this.sessionConfigs = concurrentSessionConfigs(connectionContext);
+    this.sessionConfigs = safeSessionConfigs(connectionContext);
     this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
@@ -94,16 +95,21 @@ public class DatabricksSession implements IDatabricksSession {
     this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
-    this.sessionConfigs = concurrentSessionConfigs(connectionContext);
+    this.sessionConfigs = safeSessionConfigs(connectionContext);
     this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
 
-  private static Map<String, String> concurrentSessionConfigs(
+  private static Map<String, String> safeSessionConfigs(
       IDatabricksConnectionContext connectionContext) {
     Map<String, String> initial = connectionContext.getSessionConfigs();
-    return new ConcurrentHashMap<>(initial == null ? Collections.emptyMap() : initial);
+    if (connectionContext.isAllPurposeCluster()) {
+      return new ConcurrentHashMap<>(initial == null ? Collections.emptyMap() : initial);
+    }
+    // Preserve the original map's iteration order in CreateSession's serialized body.
+    return Collections.synchronizedMap(
+        initial == null ? new HashMap<>() : new LinkedHashMap<>(initial));
   }
 
   @Nullable

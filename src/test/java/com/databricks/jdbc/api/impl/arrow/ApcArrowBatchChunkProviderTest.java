@@ -741,6 +741,7 @@ class ApcArrowBatchChunkProviderTest {
   void concurrentSessionTimeZoneUpdatesCannotInvalidateProviderConstruction() throws Exception {
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(context.getSessionConfigs()).thenReturn(Map.of("TIMEZONE", "UTC"));
+    when(context.isAllPurposeCluster()).thenReturn(true);
     DatabricksSession session = new DatabricksSession(context, mock(IDatabricksClient.class));
     assertInstanceOf(ConcurrentHashMap.class, session.getSessionConfigs());
     Thread writer =
@@ -856,6 +857,64 @@ class ApcArrowBatchChunkProviderTest {
       resume.countDown();
       provider.close();
     }
+  }
+
+  @Test
+  void timedOutLinkIsTerminalAndCloseReleasesNextLinkWhileWorkerIsActive() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    when(session.getConnectionContext().getChunkReadyTimeoutSeconds()).thenReturn(1);
+    CountDownLatch started = new CountDownLatch(1);
+    CountDownLatch finish = new CountDownLatch(1);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              while (true) {
+                try {
+                  finish.await();
+                  break;
+                } catch (InterruptedException ignored) {
+                  // The HTTP call can outlive Future.cancel(true).
+                }
+              }
+              throw new java.io.IOException("late download failure");
+            });
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            new ResultData()
+                .setExternalLinks(
+                    List.of(
+                        link("https://storage.example.test/first", 0, 0, 1, 1),
+                        link("https://storage.example.test/second", 1, 1, 1, null))),
+            manifest(CompressionCodec.NONE),
+            ID,
+            session,
+            http);
+    Field pendingField = ApcArrowBatchChunkProvider.class.getDeclaredField("pending");
+    pendingField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    List<ArrowResultChunk> chunks =
+        new ArrayList<>((ArrayDeque<ArrowResultChunk>) pendingField.get(provider));
+    try {
+      DatabricksSQLException timeout = assertThrows(DatabricksSQLException.class, provider::next);
+      assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.name(), timeout.getSQLState());
+      assertTrue(started.await(1, TimeUnit.SECONDS));
+      assertTrue(provider.hasNextChunk());
+      assertSame(timeout, assertThrows(DatabricksSQLException.class, provider::next));
+      assertSame(chunks.get(0), provider.getChunk());
+      provider.close();
+      assertEquals(ChunkStatus.CHUNK_RELEASED, chunks.get(1).getStatus());
+      assertThrows(IllegalStateException.class, () -> chunks.get(1).rootAllocator.buffer(1));
+      verify(http, times(1)).execute(any(HttpUriRequest.class), eq(true));
+    } finally {
+      finish.countDown();
+      provider.close();
+    }
+    for (int i = 0; i < 100 && chunks.get(0).getStatus() != ChunkStatus.CHUNK_RELEASED; i++) {
+      TimeUnit.MILLISECONDS.sleep(100);
+    }
+    assertEquals(ChunkStatus.CHUNK_RELEASED, chunks.get(0).getStatus());
   }
 
   @Test

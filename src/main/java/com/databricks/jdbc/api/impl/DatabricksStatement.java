@@ -8,11 +8,11 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.batch.DatabricksBatchExecutor;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -967,7 +967,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     }
     boolean apcSea =
         connection.getConnectionContext().isAllPurposeCluster()
-            && connection.getSession().getDatabricksClient() instanceof DatabricksSdkClient;
+            && connection.getConnectionContext().getClientType() == DatabricksClientType.SEA;
     if (!apcSea) {
       return;
     }
