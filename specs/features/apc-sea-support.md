@@ -51,7 +51,7 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   `GetStatementResult` may or may not include result data alongside the manifest.
   `GetStatementStatus` is unsupported. Arrow-disabled customers stay on Thrift (no HIVE for
   non-metadata queries).
-  - Metadata contract: SHOW commands via ExecuteStatement
+  - Metadata contract: supported SHOW commands via ExecuteStatement
   with `X-Databricks-Metadata-Operation-Type`;
   synchronous calls send `X-Databricks-Sea-Can-Run-Fully-Sync: true` when
   `EnableSeaSyncMetadata=1` (the default), while disabled or asynchronous calls omit that header;
@@ -132,9 +132,16 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   a client from a fresh URL/flag decision before deserializing that id. It must use the saved
   session type when a flag changes between open and close.
   - `DatabricksSession.getCurrentCatalog()` and `getCurrentCatalogAndSchema()` execute SELECTs
-  with `StatementType.METADATA` but no `MetadataOperationType`; SHOW queries from
-  `DatabricksMetadataQueryClient` have both. `DatabricksSdkClient.getRequest` currently receives
-  only the statement type, so APC metadata format selection needs the operation signal too.
+  with `StatementType.METADATA` but no `MetadataOperationType`. Seven
+  `DatabricksMetadataQueryClient` operations build SHOW commands; `listProcedures` and
+  `listProcedureColumns` instead build parameterized `information_schema` SELECTs through
+  `CommandConstants` while passing `GET_PROCEDURES` and `GET_PROCEDURE_COLUMNS`. Both enum values
+  have `isThriftNativeSupported=false`. `DatabricksSdkClient.getRequest` currently receives only
+  the statement type, so APC metadata format selection must distinguish SHOW from these SELECTs,
+  not merely test whether the operation type is non-null.
+  - `DatabricksPreparedStatement.setObject(index, value, Types.ARRAY/Types.STRUCT)` accepts
+  those JDBC types even though `setArray` is unsupported; the current SEA parameter mapper
+  serializes a bound value's type name and string value without a complex-type check.
   - `DatabricksSdkClient` logs `computeResource.toString()` during execution, and
   `AllPurposeCluster.toString()` and `DatabricksSession.toString()` include org and cluster ids.
   APC SEA diagnostics must avoid those raw identifiers.
@@ -197,17 +204,20 @@ page until the server indicates completion. If the server cannot serve the compl
 the driver propagates the server error and must not expose a successfully completed, truncated
 ResultSet. APC compute type—not
 `isBoundedSeaApiEnabled`—selects this format/disposition and enables the session-config behavior.
-- R5: APC metadata operations go through `DatabricksMetadataQueryClient` as SHOW commands with
-`X-Databricks-Metadata-Operation-Type`; synchronous calls send
+- R5: The seven APC metadata operations built as SHOW commands by
+`DatabricksMetadataQueryClient` (`GET_CATALOGS`, `GET_SCHEMAS`, `GET_TABLES`, `GET_COLUMNS`,
+`GET_FUNCTIONS`, `GET_PRIMARY_KEYS`, and `GET_CROSS_REFERENCE`) send
+`X-Databricks-Metadata-Operation-Type`; synchronous SHOW calls send
 `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`; synchronous calls
 with that setting disabled and all asynchronous calls omit the sync header. Add a callable
 asynchronous metadata path through `IDatabricksSession.getDatabricksMetadataClient()` and
 `IDatabricksMetadataClient`: `executeMetadataAsync(MetadataAsyncRequest, IDatabricksSession)`
 returns a `MetadataAsyncHandle`, and `getMetadataExecutionResult(MetadataAsyncHandle,
 IDatabricksSession)` returns the completed JDBC metadata ResultSet. The request carries the
-operation and existing JDBC arguments, from which the query client builds the SHOW SQL and
-conversion inputs. The handle retains the typed `StatementId`, metadata operation, and those
-inputs per operation. Completion polls `IDatabricksClient.getStatementResult` to a terminal state
+supported SHOW operation and existing JDBC arguments, from which the query client builds the SHOW
+SQL and conversion inputs. The handle retains the typed `StatementId`, metadata operation, JDBC
+metadata method (needed because `GET_CROSS_REFERENCE` serves imported keys and cross references),
+and those inputs per operation. Completion polls `IDatabricksClient.getStatementResult` to a terminal state
 under the existing metadata timeout, propagates failure or cancellation, and applies the
 same `MetadataResultSetBuilder` conversion as the synchronous operation. Add an
 `IDatabricksClient.executeStatementAsync` overload that carries `MetadataOperationType` and
@@ -224,12 +234,26 @@ multiplex per response between Arrow IPC in `chunk.attachment` (the primary path
 representation, not the requested format or a cached connection-level choice. Both
 representations use native-Thrift-shaped metadata decoding when
 `is_native_metadata_result=true`.
-`StatementType.METADATA` alone does not identify a SHOW operation: internal catalog/schema
-SELECTs have no `MetadataOperationType` and keep the APC non-metadata `ARROW_BATCH` format without
-the sync metadata header. Pass the operation signal to request-format and header selection; do
-not change warehouse request behavior.
+`StatementType.METADATA` and a non-null `MetadataOperationType` do not alone identify a SHOW
+operation: internal catalog/schema SELECTs have no operation type, while `listProcedures` and
+`listProcedureColumns` pass `GET_PROCEDURES` and `GET_PROCEDURE_COLUMNS` for parameterized SELECTs.
+For APC, all four SELECT paths use `ARROW_BATCH` and `INLINE_OR_EXTERNAL_LINKS`, omit both
+metadata headers (`X-Databricks-Metadata-Operation-Type` and
+`X-Databricks-Sea-Can-Run-Fully-Sync`), and decode as ordinary query results before their existing
+JDBC metadata conversion. Only the seven explicit SHOW operations use `ARROW_STREAM`, the SHOW
+headers, and native-metadata decoding. The async metadata API supports those seven SHOW
+operations; it rejects either procedure SELECT operation with a clear unsupported-operation
+error. Pass an explicit SHOW/SELECT signal to request-format and header selection; do not change
+warehouse request behavior.
 - R6: The driver records `negotiated_protocol_version` from CreateSession and gates native
-parameters at ≥ 42248 (V8). It sends `parameter_sets` only for a parameterized INSERT at
+parameters at ≥ 42248 (V8). For APC sessions at V8 or newer, native `parameters` and
+`parameter_sets` accept only scalar bindings: reject ARRAY, MAP, STRUCT, and other complex logical
+parameter types with a clear unsupported-parameter SQLException before sending any
+ExecuteStatement request, regardless of whether the value came from `setObject` or a prepared
+batch. A batch with any such binding is rejected before its first set is sent; below V8, the
+existing interpolation path applies. The error uses a driver-owned error code and its emitted
+name/numeric code are tested and classified in the telemetry taxonomy per repository rules.
+It sends `parameter_sets` only for a parameterized INSERT at
 ≥ 42250 (V10) when `EnableNativeBatching=1` and an APC-capable `NativeBatchExecutor` is selected;
 the version alone never enables native batching. The native ExecuteStatement JSON contains
 `"parameter_sets":[{"parameters":[...]}]`, one nested `parameters` array per ordered input set,
@@ -414,7 +438,11 @@ message is prepended to inline bare record batches. External-link payloads remai
 IPC streams and are passed through the existing CloudFetch stream reader without a new schema.
 An inline `chunk.arrow_batches` containing two or
 more batches yields every row in batch order, with the sum of batch `row_count` values equal to
-the number of rows read.
+the number of rows read. GIVEN ordinary APC synchronous and asynchronous executions with
+`EnableSQLExecHybridResults=0` WHEN a fake service captures each ExecuteStatement request THEN
+both contain `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, and the current
+`session_id`, and neither contains `statements`; the hybrid-results setting does not change those
+fields.
 - AC5: GIVEN an APC-SEA session WHEN `DatabaseMetaData.getTables/getColumns/getSchemas/getCatalogs`
 is called synchronously with `EnableSeaSyncMetadata=1` THEN the request is a SHOW command with
 `format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
@@ -443,7 +471,37 @@ columnar reader. Unit and fake-service checks run before dogfood; dogfood needs 
 metadata server fix deployed in the test region. GIVEN internal catalog/schema SELECTs on that
 APC connection with `StatementType.METADATA` and no `MetadataOperationType` THEN their requests
 use `ARROW_BATCH`, omit both metadata operation and sync metadata headers, and decode through the
-non-metadata result path. Warehouse metadata request fixtures remain unchanged.
+non-metadata result path. GIVEN `getProcedures` and `getProcedureColumns` on APC WHEN the fake
+service captures their requests THEN both execute the parameterized `information_schema` SELECT
+from `CommandConstants`, use `ARROW_BATCH` and `INLINE_OR_EXTERNAL_LINKS`, omit both metadata
+headers despite their non-null `MetadataOperationType`, and pass the ordinary query result to
+their existing JDBC metadata converters rather than the SHOW/native metadata decoder. An async
+metadata request for either procedure SELECT operation fails with an unsupported-operation error
+before a SEA request is sent. Warehouse metadata request fixtures remain unchanged.
+GIVEN each supported SHOW operation (`GET_CATALOGS`, `GET_SCHEMAS`, `GET_TABLES`, `GET_COLUMNS`,
+`GET_FUNCTIONS`, `GET_PRIMARY_KEYS`, `GET_CROSS_REFERENCE`) with its operation-specific JDBC
+arguments WHEN submitted through the session-reachable async metadata API THEN a captured
+request uses that operation's SHOW SQL, operation header, `ARROW_STREAM`, and
+`INLINE_OR_EXTERNAL_LINKS` without the sync header; its handle retains the typed statement id,
+operation, and converter inputs. After PENDING/RUNNING and terminal completion, typed result
+fetch retains `StatementType.METADATA` and the converted columns and rows match the synchronous
+operation for the same arguments. Exercise Arrow IPC and `columnar_data` across this matrix,
+including alternating representations on one connection and the native column layout for every
+operation; verify failure, cancellation, and metadata timeout propagation.
+
+For the async part of AC5, use nonempty inputs that reach the server and assert the following
+conversion matrix against each synchronous method's columns and rows:
+
+| Operation | Async request inputs | JDBC metadata conversion |
+| --- | --- | --- |
+| `GET_CATALOGS` | none, with multiple-catalog support enabled | `listCatalogs` |
+| `GET_SCHEMAS` | catalog, schema pattern | `listSchemas` |
+| `GET_TABLES` | catalog, schema/table patterns, nonempty table types | `listTables` |
+| `GET_COLUMNS` | catalog, schema/table/column patterns | `listColumns` |
+| `GET_FUNCTIONS` | catalog, schema/function patterns | `listFunctions` |
+| `GET_PRIMARY_KEYS` | catalog, schema, table | `listPrimaryKeys` |
+| `GET_CROSS_REFERENCE` | catalog/schema/table for imported keys; parent and foreign catalog/schema/table for cross references | `listImportedKeys` and `listCrossReferences`, preserving the distinct conversion inputs |
+
 - AC6: GIVEN an APC-SEA session with `negotiated_protocol_version` below V8 WHEN a
 parameterized PreparedStatement is executed THEN the driver uses the non-native
 (client-interpolated) path instead of sending SEA parameters and emits a parameter-downgrade log
@@ -478,7 +536,8 @@ poll, fetch, cancel, close, and TerminateSession run THEN serialized request bod
 headers match pre-change fixtures, including warehouse `realtimeSession` behavior.
 - AC12: GIVEN an APC-SEA session WHEN a statement is executed with and without direct results
 THEN `wait_timeout` is unset and `0s` respectively, Reyder accepts both request shapes, and
-`statements` is never sent.
+`statements` is never sent. GIVEN an asynchronous APC execution with direct results enabled WHEN
+the request is captured THEN `wait_timeout` is `0s`, not an omitted or nonzero duration.
 - AC13: GIVEN an APC `ARROW_BATCH` response with empty `arrow_schema` and a `manifest.schema`
 containing primitive, decimal, array, map, struct, interval, geography, geometry, timestamp,
 timestamp_ntz, and variant columns WHEN the ResultSet is read THEN values and
@@ -601,6 +660,13 @@ all rows once. Record the poll count and payload-byte measurements as a release 
 sub-flag of `databricks.partnerplatform.clientConfigsFeatureFlags` and its default is OFF.
 Configuration evidence records the exact name, parent batch flag, and default value; no flag
 assignment or connector-service change is required for this criterion.
+- AC29: GIVEN an APC session at V8 or newer and a prepared single execution or native
+`parameter_sets` batch containing an ARRAY, MAP, STRUCT, or other complex logical binding WHEN
+execution is attempted THEN a clear unsupported-parameter SQLException with its driver-owned
+error name and numeric code is raised before any ExecuteStatement request. A captured fake-service
+request log stays empty, including when a complex value appears after scalar sets in a batch;
+scalar bindings still use native parameters under the R6 capability gates. Cover at least
+`setObject(index, value, Types.ARRAY)` and `Types.STRUCT`.
 
 ## Constraints
 
@@ -611,7 +677,10 @@ warehouse requests or routing.
 - No new runtime dependencies; reuse the existing SDK client, Arrow, and LZ4 stack.
 - Protocol selection is final before CreateSession; never switch from SEA to Thrift after an error.
 - New error paths use `DatabricksDriverErrorCode` values per the repo telemetry rules.
-- Commits signed off (`git commit -s`) and `NEXT_CHANGELOG.md` updated.
+- Commits signed off (`git commit -s`). The final APC-enabling JDBC package owns `docs/` and
+  `NEXT_CHANGELOG.md`; earlier packages preserve current public behavior while APC still routes
+  to Thrift and use `NO_CHANGELOG=true` in their PR bodies. The enabling PR adds the user-visible
+  changelog entry.
 - Java 11 compatible; formatted with `mvn spotless:apply`.
 
 ## Out of Scope
@@ -706,9 +775,13 @@ propagate without fallback.
    request serialization, manifest deserialization, result-factory/result-set switches, and telemetry mappings. T1
    changes both model types and their existing caller/telemetry conversions in one compilable PR;
    T10 adds the APC decoder branch.
-6. Send `format=ARROW_STREAM` for APC SHOW metadata identified by a non-null
-   `MetadataOperationType`; pass that signal into `DatabricksSdkClient.getRequest` and header
-   selection. Add an `IDatabricksClient.executeStatementAsync` overload in both implementations
+6. Send `format=ARROW_STREAM` only for the seven APC SHOW operations enumerated in R5; pass an
+   explicit SHOW/SELECT signal into `DatabricksSdkClient.getRequest` and header selection.
+   `GET_PROCEDURES` and `GET_PROCEDURE_COLUMNS` carry operation types but execute parameterized
+   `information_schema` SELECTs through `CommandConstants`: use `ARROW_BATCH`,
+   `INLINE_OR_EXTERNAL_LINKS`, no metadata headers, and ordinary result decoding before their
+   existing metadata conversion. Internal catalog/schema SELECTs follow the same APC request and
+   decoder path. Add an `IDatabricksClient.executeStatementAsync` overload in both implementations
    with the operation/type signal, preserving the existing SQL async call. Add a callable async
    metadata path on `IDatabricksMetadataClient`, implemented by
    `DatabricksMetadataQueryClient` and reached from the session. Use
@@ -718,11 +791,12 @@ propagate without fallback.
    `StatementId`, operation type, and conversion inputs; poll to terminal under the metadata
    timeout, then complete it through a typed
    `IDatabricksClient.getStatementResult` call and the same `MetadataResultSetBuilder` mapping
-   used by the synchronous operation. The async request preserves the operation header without
-   the sync header; the completed result retains `StatementType.METADATA`.
+   used by the synchronous operation for all seven SHOW operations. Reject the two procedure
+   SELECT operations from this async API before request submission. The async request preserves
+   the operation header without the sync header; the completed result retains
+   `StatementType.METADATA`.
    Keep `disposition=INLINE_OR_EXTERNAL_LINKS` for APC SHOW even with
-   `EnableSQLExecHybridResults=0`. Internal catalog/schema SELECTs have `StatementType.METADATA`
-   but no operation signal; send `ARROW_BATCH` and omit metadata headers for them. Synchronous
+   `EnableSQLExecHybridResults=0`. Synchronous
    SHOW metadata sends `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`, while disabled
    and asynchronous calls omit it. Preserve the existing
    `X-Databricks-Require-Thrift-Native-Metadata: true` condition even though Reyder ignores it.
@@ -870,6 +944,12 @@ decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_met
   in AC17 remains true. The native executor is currently unwired and must be added explicitly.
   Native `parameter_sets` yields only one aggregate affected-row count, so report
   `SUCCESS_NO_INFO` per set instead of fabricating individual counts.
+   For V8+ APC sessions, reject any ARRAY, MAP, STRUCT, or other complex logical binding before
+   native serialization of a single execution or any batch set; validate the whole batch before
+   its first request.
+   Reuse a matching driver-owned error code or add a unique one, test its emitted name and number,
+   and record its driver/server/user classification in the telemetry dashboard and automation
+   taxonomy with a PR link or an explicit maintainer follow-up.
 - Closing an APC SEA connection after the flag turns off can select Thrift from a fresh URL and
   fail to terminate the SEA session; AC3 covers saved-session client selection through the public
   close API.
@@ -896,6 +976,11 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 ---
 
 ## Tasks
+
+The package stack lands T4, T6, T15, and T16 in its final APC-enabling PR, after the wire,
+targeting, execution, batching, and metadata packages. Until that PR, the unchanged APC routing
+gate keeps the new SEA code unreachable through public APC connections. Those earlier PRs use
+`NO_CHANGELOG=true`; the enabling PR is the sole owner of `NEXT_CHANGELOG.md` and `docs/`.
 
 ### Phase 1 — Wire models and compute targeting
 
@@ -960,7 +1045,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 - [ ] T8: APC execute request shape: `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, `session_id`,
   no `statements`, `wait_timeout` unset/`0s`, and CreateSession `can_cloud_download=false` when
   result download is disabled. Use an APC compute-type check for format/disposition and session
-  config; do not gate them on `isBoundedSeaApiEnabled` (R4, R10; AC4, AC8, AC12).
+  config; do not gate them on `isBoundedSeaApiEnabled`. Capture ordinary sync and async requests
+  with `EnableSQLExecHybridResults=0`; assert all three fields and the async `0s` timeout
+  (R4, R10; AC4, AC8, AC12).
 - [ ] T9: Gate APC native parameters at ≥ 42248 and `parameter_sets` for parameterized INSERTs
   at ≥ 42250 with `EnableNativeBatching=1` and a supported `NativeBatchExecutor`; wire that
   executor into `DatabricksPreparedStatement` through a callable `IDatabricksClient` method
@@ -980,7 +1067,11 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   change alone leaves that individual path sending raw bindings. Add captured-request escaping,
   injection, update-count, and parameter-downgrade logging/telemetry tests, including a missing
   version. Keep non-parameterized batches sequential with one ExecuteStatement per SQL (R6,
-  R15; AC6, AC17, AC22, AC23).
+  R15; AC6, AC17, AC22, AC23, AC29). On V8+ APC sessions, reject complex logical bindings before
+  native single-query serialization or any batch request, including ARRAY/STRUCT accepted via `setObject`; captured
+  fake-service tests assert no request and the emitted unsupported-parameter error name/code.
+  Record the error classification in the telemetry dashboard and automation taxonomy, or link an
+  explicit maintainer request in the PR, and complete the telemetry-error PR section.
 - [ ] T10: Add `ArrowBatchSchemaBuilder` and prepend the built schema to inline bare record
   batches after LZ4 decompression. Keep external-link payloads as complete Arrow IPC streams and
   use the existing CloudFetch reader without schema prepending. Add `ArrowBatch` and repeated
@@ -1000,9 +1091,12 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 ### Phase 4 — Metadata and telemetry
 
 - [ ] T13: APC metadata through `DatabricksMetadataQueryClient` and the SDK execute/result path:
-  pass `MetadataOperationType` into `DatabricksSdkClient.getRequest` and select
+  pass an explicit SHOW/SELECT signal into `DatabricksSdkClient.getRequest` and select
   `format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`, and metadata headers only for
-  APC SHOW operations, even with `EnableSQLExecHybridResults=0`. Add async submit and completion
+  the seven R5 APC SHOW operations, even with `EnableSQLExecHybridResults=0`. The two
+  procedure operations carry non-null operation types but run parameterized SELECTs; use
+  `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, no metadata headers, and ordinary result decoding
+  before their existing JDBC metadata conversion. Add async submit and completion
   methods `executeMetadataAsync(MetadataAsyncRequest, IDatabricksSession)` and
   `getMetadataExecutionResult(MetadataAsyncHandle, IDatabricksSession)` on
   `IDatabricksMetadataClient`, so a caller obtains the metadata client from
@@ -1010,7 +1104,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   internal per-operation handle retaining its typed `StatementId`, `MetadataOperationType`, and
   conversion inputs. The request carries the metadata operation and existing JDBC arguments;
   the query client builds the SHOW SQL and converter from those inputs for every supported SHOW
-  metadata operation. Implement both methods in `DatabricksMetadataQueryClient`; completion
+  metadata operation. Reject procedure SELECT operations from the async API before sending a
+  request. Implement both methods in `DatabricksMetadataQueryClient`; completion
   polls PENDING/RUNNING to terminal under the existing metadata timeout, propagates failure or
   cancellation, calls a typed `IDatabricksClient.getStatementResult` overload, and applies the same
   `MetadataResultSetBuilder` operation-specific conversion as synchronous metadata. Add explicit
@@ -1022,13 +1117,16 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   SQL async calls and completion. Test sync and async fake-service requests: the async path retains
   the operation header and APC format/disposition but omits the sync header. Internal
   `getCurrentCatalog`/`getCurrentCatalogAndSchema` SELECTs keep `ARROW_BATCH` with no metadata
-  headers despite `StatementType.METADATA`; assert warehouse requests stay unchanged. For SHOW
+  headers despite `StatementType.METADATA`; assert both procedure SELECT operations do the same
+  despite their non-null operation types, and warehouse requests stay unchanged. For SHOW
   responses, multiplex per response between Arrow IPC `attachment` and
   `columnar_data` (including response `format=COLUMN_BASED_SET`), and pick native
   decoders when `is_native_metadata_result=true`; test sync-header enabled, disabled, and async
   cases plus the preserved require-native header condition. Assert a session-reachable async
   submit returns a pending handle and typed completion returns converted metadata with correct
-  metadata update-count semantics for Arrow IPC and `columnar_data` (R5; AC5).
+  metadata update-count semantics for Arrow IPC and `columnar_data`. Cover all seven SHOW
+  operations with operation-specific arguments, headers, typed completion, conversion, failure,
+  cancellation, and timeout fixtures (R5; AC5).
 - [ ] T14: Add `ColumnarData`/`ColumnVector` models and the `ColumnarDataResult` reader with
   all eight R13 oneof variants and null-mask handling; test physical-to-logical conversion,
   empty vectors, placeholder values, and mask bits across a byte boundary. Test an absent mask,
@@ -1041,8 +1139,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   `DatabricksSession.toString()`, and failure diagnostics for raw APC org/cluster ids and compound
   identifiers; replace them with redacted compute labels and add captured-log and telemetry
   assertions (R8; AC10, AC25).
-- [ ] T16: Document APC routing (APC flag, `UseThriftClient` override) in `docs/` and add a
-  `NEXT_CHANGELOG.md` entry.
+- [ ] T16: In the final APC-enabling JDBC PR, document APC routing (APC flag,
+  `UseThriftClient` override) in `docs/` and add the user-visible `NEXT_CHANGELOG.md` entry.
 - [ ] T17: (universe, SAFE flag creation only) Create the APC sub-flag under
   `databricks.partnerplatform.clientConfigsFeatureFlags`, default off; verify its name, parent
   batch flag, and default. Do not change connector-service or assign/ramp the flag (R1; AC28, Q8).
@@ -1064,8 +1162,8 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   the other dogfood checks. Unit and fake-service checks for these ACs run before deployment.
   Include the AC27 bounded
   polling run in the pre-release dogfood gate. Implementation package approval does not wait for
-  deployment; validation package completion and release readiness do (R1–R16; AC1–AC28).
-- [ ] T-val: Record a pass/fail evidence link for each AC1–AC28 (unit, fake-service, dogfood,
+  deployment; validation package completion and release readiness do (R1–R16; AC1–AC29).
+- [ ] T-val: Record a pass/fail evidence link for each AC1–AC29 (unit, fake-service, dogfood,
   or SAFE configuration as appropriate), plus exact build/test commands and failures. Mark
   externally gated dogfood checks pending until the corresponding SC fix is deployed; retain their local test evidence.
   Verify warehouse request serialization, AC13 type matrix, and AC27 polling before calling the
