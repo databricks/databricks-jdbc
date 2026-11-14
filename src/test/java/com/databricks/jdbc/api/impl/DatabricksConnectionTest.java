@@ -5,12 +5,15 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
@@ -483,6 +486,46 @@ public class DatabricksConnectionTest {
 
       verify(databricksClient, never()).closeStatement(any());
       verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
+    }
+  }
+
+  @Test
+  void testRecoveredApcStatementUsesCurrentComputeTarget() throws SQLException {
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    IDatabricksConnectionContext apcContext =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;"
+                + "transportMode=http;ssl=1;AuthMech=3;"
+                + "httpPath=/sql/protocolv1/o/org/cluster;UserAgentEntry=MyApp",
+            new Properties());
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(cluster)
+            .negotiatedProtocolVersion(8L)
+            .liveProtocolVersion(true)
+            .build();
+    when(databricksClient.createSession(
+            eq(cluster), nullable(String.class), nullable(String.class), any()))
+        .thenReturn(info);
+    try (DatabricksConnection apcConnection =
+        new DatabricksConnection(apcContext, databricksClient)) {
+      apcConnection.open();
+      assertEquals("s|a|org|cluster|session|8", apcConnection.getConnectionId());
+      assertFalse(apcConnection.getSession().toString().contains("org"));
+      assertFalse(apcConnection.getSession().toString().contains("{cluster}"));
+      DatabricksStatement recovered = (DatabricksStatement) apcConnection.getStatement("statement");
+      assertEquals("statement", recovered.getStatementId().toString());
+      assertEquals(cluster, recovered.getStatementId().computeResource());
+      when(databricksClient.getStatementResult(
+              eq(recovered.getStatementId()), eq(apcConnection.getSession()), eq(recovered)))
+          .thenReturn(resultSet);
+      assertSame(resultSet, recovered.getExecutionResult());
+      recovered.cancel();
+      recovered.close();
+      verify(databricksClient).cancelStatement(recovered.getStatementId());
+      verify(databricksClient).closeStatement(recovered.getStatementId());
     }
   }
 

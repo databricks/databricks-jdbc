@@ -97,6 +97,9 @@ public class DatabricksThriftServiceClientTest {
     ImmutableSessionInfo actualResponse =
         client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP);
     assertEquals(actualResponse.sessionHandle(), SESSION_HANDLE);
+    assertEquals(
+        com.databricks.jdbc.common.DatabricksClientType.THRIFT, actualResponse.clientType());
+    assertNull(actualResponse.nativeProtocolVersion());
   }
 
   @ParameterizedTest

@@ -3,8 +3,10 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.dbclient.impl.sqlexec.SeaComputeTarget;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -22,9 +24,10 @@ public class StatementId {
   final String secret;
   private final String sessionId;
   private final String warehouseId;
+  private final AllPurposeCluster apc;
 
   StatementId(DatabricksClientType clientType, String guid, String secret) {
-    this(clientType, guid, secret, null, null);
+    this(clientType, guid, secret, null, null, null);
   }
 
   private StatementId(
@@ -32,12 +35,14 @@ public class StatementId {
       String guid,
       String secret,
       String sessionId,
-      String warehouseId) {
+      String warehouseId,
+      AllPurposeCluster apc) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
     this.sessionId = sessionId;
     this.warehouseId = warehouseId;
+    this.apc = apc;
   }
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
@@ -47,6 +52,16 @@ public class StatementId {
 
   public static StatementId forCurrentSession(
       String statementId, ImmutableSessionInfo sessionInfo) {
+    SeaComputeTarget target = SeaComputeTarget.of(sessionInfo.computeResource());
+    if (target.isApc()) {
+      return new StatementId(
+          DatabricksClientType.SEA,
+          statementId,
+          null,
+          sessionInfo.sessionId(),
+          null,
+          (AllPurposeCluster) sessionInfo.computeResource());
+    }
     if (!sessionInfo.realtimeSession()) {
       return new StatementId(statementId);
     }
@@ -55,7 +70,8 @@ public class StatementId {
         statementId,
         null,
         sessionInfo.sessionId(),
-        ((Warehouse) sessionInfo.computeResource()).getWarehouseId());
+        target.warehouseId(),
+        null);
   }
 
   public String sessionId() {
@@ -64,6 +80,22 @@ public class StatementId {
 
   public String warehouseId() {
     return warehouseId;
+  }
+
+  public IDatabricksComputeResource computeResource() {
+    return apc;
+  }
+
+  public DatabricksClientType clientType() {
+    return clientType;
+  }
+
+  /** Internal routing form; public statement IDs remain the raw server ID. */
+  String serialize() {
+    if (apc != null) {
+      return String.format("s|a|%s|%s|%s", apc.getOrgId(), apc.getClusterId(), guid);
+    }
+    return toString();
   }
 
   /** Constructs a StatementId identifier for a given Thrift Server operation handle */
@@ -76,15 +108,29 @@ public class StatementId {
 
   /** Deserializes a StatementId from a serialized string */
   public static StatementId deserialize(String serializedStatementId) {
-    String[] idParts = serializedStatementId.split("\\|");
+    String[] idParts = serializedStatementId.split("\\|", -1);
+    if (idParts.length == 5 && "s".equals(idParts[0]) && "a".equals(idParts[1])) {
+      for (String part : idParts) {
+        if (part.isEmpty()) {
+          throw new DatabricksDriverException(
+              "Invalid statement-Id structure", INPUT_VALIDATION_ERROR);
+        }
+      }
+      return new StatementId(
+          DatabricksClientType.SEA,
+          idParts[4],
+          null,
+          null,
+          null,
+          new AllPurposeCluster(idParts[2], idParts[3]));
+    }
     if (idParts.length == 1) {
       return new StatementId(DatabricksClientType.SEA, serializedStatementId, null);
     } else if (idParts.length == 2) {
       return new StatementId(DatabricksClientType.THRIFT, idParts[0], idParts[1]);
     } else {
-      LOGGER.error("Invalid statement-Id {}", serializedStatementId);
-      throw new DatabricksDriverException(
-          "Invalid statement-Id " + serializedStatementId, INPUT_VALIDATION_ERROR);
+      LOGGER.error("Invalid statement-Id structure");
+      throw new DatabricksDriverException("Invalid statement-Id structure", INPUT_VALIDATION_ERROR);
     }
   }
 

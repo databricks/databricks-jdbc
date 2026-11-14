@@ -128,6 +128,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     DatabricksThreadContextHolder.setSessionId(sessionId);
     LOGGER.debug("Session created with ID {}", sessionId);
     return ImmutableSessionInfo.builder()
+        .clientType(com.databricks.jdbc.common.DatabricksClientType.THRIFT)
         .sessionId(sessionId)
         .sessionHandle(response.sessionHandle)
         .computeResource(cluster)
