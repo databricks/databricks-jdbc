@@ -129,8 +129,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   INSERT. `supportManyParameters=1` currently selects interpolation at statement construction.
   `LegacyPreparedStatementBatchExecutor.executeIndividualStatements` passes raw SQL and bindings
   directly to its statement executor; only its multi-row branch interpolates today.
-  - `DatabricksSession#open` has warehouse Thrift→SEA recovery for Reyden KP001 errors; APC
-  routing must remain fixed after the initial choice, including on that error path.
+  - `DatabricksSession#open` has Reyden KP001 Thrift→SEA recovery intended for warehouses, but
+  its failure handler checks only the default Thrift path, not the compute type; an APC Thrift
+  choice can therefore switch to SEA. Scope this recovery to warehouses so APC routing remains
+  fixed after the initial choice.
   - `DatabricksConnection.getConnectionId()` publicly returns `SessionId.toString()`.
   `com.databricks.client.jdbc.Driver.closeConnection(url, info, connectionId)` currently chooses
   a client from a fresh URL/flag decision before deserializing that id. It must use the saved
@@ -142,7 +144,10 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   `CommandConstants` while passing `GET_PROCEDURES` and `GET_PROCEDURE_COLUMNS`. Both enum values
   have `isThriftNativeSupported=false`. `DatabricksSdkClient.getRequest` currently receives only
   the statement type, so APC metadata format selection must distinguish SHOW from these SELECTs,
-  not merely test whether the operation type is non-null.
+  not merely test whether the operation type is non-null. Both procedure methods pass their
+  parameter maps directly to `IDatabricksClient.executeStatement`, bypassing prepared-statement
+  interpolation. `DatabricksSdkClient.getRequest` sets `parameters` even for an empty map, so an
+  empty list is serialized rather than the field being absent.
   - `DatabricksPreparedStatement.setObject(index, value, Types.ARRAY/Types.STRUCT)` accepts
   those JDBC types even though `setArray` is unsupported; the current SEA parameter mapper
   serializes a bound value's type name and string value without a complex-type check.
@@ -252,8 +257,11 @@ metadata headers (`X-Databricks-Metadata-Operation-Type` and
 JDBC metadata conversion. Only the seven explicit SHOW operations use `ARROW_STREAM`, the SHOW
 headers, and native-metadata decoding. The async metadata API supports those seven SHOW
 operations; it rejects either procedure SELECT operation with a clear unsupported-operation
-error. Pass an explicit SHOW/SELECT signal to request-format and header selection; do not change
-warehouse request behavior.
+error. Below V8, or when the negotiated version is missing, interpolate bound values in both
+procedure SELECTs with `SQLInterpolator` before calling `executeStatement` and omit native
+parameters. At V8 or newer, preserve their native scalar parameter path. Pass an explicit
+SHOW/SELECT signal to request-format and header selection; do not change warehouse request
+behavior.
 - R6: The driver records `negotiated_protocol_version` from CreateSession and gates native
 parameters at ≥ 42248 (V8). For APC sessions at V8 or newer, native `parameters` and
 `parameter_sets` accept only scalar bindings: reject ARRAY, MAP, STRUCT, and other complex logical
@@ -271,7 +279,10 @@ native batching off, or without that executor, execute each parameter set separa
 combining sets through `EnableBatchedInserts`. V8–V9 use native `parameters` per execution; below V8 uses the existing
 interpolation and escaping path even when `supportManyParameters` is unset. For prepared-batch
 fallback below V8, interpolate each set's SQL separately and send an empty parameter map to
-`executeInternal`; setting the interpolation flag alone does not affect
+`executeInternal`. For APC, the SEA request builder omits the `parameters` property entirely
+whenever the resulting map is empty, including interpolated single executions and procedure
+SELECTs; `"parameters":[]` does not satisfy this rule. Preserve warehouse serialization for an
+empty map. Setting the interpolation flag alone does not affect
 `LegacyPreparedStatementBatchExecutor.executeIndividualStatements`. When an APC session
 below V8 downgrades to client-side parameter interpolation, the driver records that downgrade
 in logs and telemetry. A missing protocol version is treated conservatively as below V8:
@@ -293,7 +304,9 @@ regions—propagate to the client exactly as they do for warehouse SEA; the driv
 the connection to Thrift. The warehouse-only Reyden KP001 Thrift→SEA recovery must not change
 an APC routing decision either.
 - R8: Telemetry and logs identify the compute type (APC vs warehouse) and the chosen protocol for
-each connection, including the routing reason and any connection failure. APC SEA diagnostics,
+each connection attempt, including its routing reason and success or failure outcome. Emit a
+routing event even when APC SEA CreateSession, APC Thrift OpenSession, warehouse SEA CreateSession,
+or warehouse Thrift OpenSession fails. APC SEA diagnostics,
 including existing execute logs and session stringification, must not print org/cluster ids or
 compound session/statement ids; use a redacted compute-type label instead.
 - R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient`, `SessionId`, and
@@ -456,14 +469,17 @@ the number of rows read. GIVEN ordinary APC synchronous and asynchronous executi
 both contain `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, and the current
 `session_id`, and neither contains `statements`; the hybrid-results setting does not change those
 fields.
-- AC5: GIVEN an APC-SEA session WHEN `DatabaseMetaData.getTables/getColumns/getSchemas/getCatalogs`
-is called synchronously with `EnableSeaSyncMetadata=1` THEN the request is a SHOW command with
-`format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
-`X-Databricks-Metadata-Operation-Type` set, and
-`X-Databricks-Sea-Can-Run-Fully-Sync: true`; GIVEN `EnableSeaSyncMetadata=0` or an asynchronous
+- AC5: GIVEN an APC-SEA session WHEN each of `getCatalogs`, `getSchemas`, `getTables`,
+`getColumns`, `getFunctions`, `getPrimaryKeys`, and both imported-key and cross-reference calls
+backed by `GET_CROSS_REFERENCE` is called synchronously with inputs that reach the server, THEN
+a captured request for every operation uses its SHOW SQL, `format=ARROW_STREAM`,
+`disposition=INLINE_OR_EXTERNAL_LINKS`, the matching
+`X-Databricks-Metadata-Operation-Type`, and, with `EnableSeaSyncMetadata=1`,
+`X-Databricks-Sea-Can-Run-Fully-Sync: true`. Repeat every synchronous request with
+`EnableSeaSyncMetadata=0` and assert the sync header is absent while its SHOW SQL, operation
+header, format, and disposition remain the same. GIVEN an asynchronous
 metadata call through `session.getDatabricksMetadataClient()` THEN the sync header is absent while
-the async request
-retains the operation-type header, `ARROW_STREAM` format, and
+the async request retains the operation-type header, `ARROW_STREAM` format, and
 `INLINE_OR_EXTERNAL_LINKS` disposition. A fake-service assertion covers both sync and async
 metadata with `EnableSQLExecHybridResults=0`: call
 `session.getDatabricksMetadataClient().executeMetadataAsync(MetadataAsyncRequest.forCatalogs(),
@@ -488,8 +504,12 @@ non-metadata result path. GIVEN `getProcedures` and `getProcedureColumns` on APC
 service captures their requests THEN both execute the parameterized `information_schema` SELECT
 from `CommandConstants`, use `ARROW_BATCH` and `INLINE_OR_EXTERNAL_LINKS`, omit both metadata
 headers despite their non-null `MetadataOperationType`, and pass the ordinary query result to
-their existing JDBC metadata converters rather than the SHOW/native metadata decoder. An async
-metadata request for either procedure SELECT operation fails with an unsupported-operation error
+their existing JDBC metadata converters rather than the SHOW/native metadata decoder. At V8 or
+newer, captured requests retain native scalar `parameters`; below V8 and with a missing version,
+each request has safely interpolated SQL and no `parameters` property. Verify quoted and
+backslash-containing patterns and a pattern containing SQL delimiters against the existing
+interpolator's escaping behavior. An async metadata request for either procedure SELECT operation
+fails with an unsupported-operation error
 before a SEA request is sent. Warehouse metadata request fixtures remain unchanged.
 GIVEN each supported SHOW operation (`GET_CATALOGS`, `GET_SCHEMAS`, `GET_TABLES`, `GET_COLUMNS`,
 `GET_FUNCTIONS`, `GET_PRIMARY_KEYS`, `GET_CROSS_REFERENCE`) with its operation-specific JDBC
@@ -517,10 +537,12 @@ conversion matrix against each synchronous method's columns and rows:
 
 - AC6: GIVEN an APC-SEA session with `negotiated_protocol_version` below V8 WHEN a
 parameterized PreparedStatement is executed THEN the driver uses the non-native
-(client-interpolated) path instead of sending SEA parameters and emits a parameter-downgrade log
-and telemetry signal; escaping and injection tests with quotes, comments, delimiters, and
-backslashes produce the same values as the existing client-interpolated path without executing
-injected SQL.
+(client-interpolated) path, omits the `parameters` property rather than sending `[]`, and emits a
+parameter-downgrade log and telemetry signal; escaping and injection tests with quotes, comments,
+delimiters, and backslashes produce the same values as the existing client-interpolated path
+without executing injected SQL. The same below-V8 and missing-version behavior applies to both
+parameterized procedure metadata SELECTs, which call `IDatabricksClient.executeStatement`
+directly.
 - AC7: GIVEN `UseThriftClient=0` and the APC flag ON on AIX/PowerPC with Arrow unavailable WHEN a
 connection is opened THEN the Arrow prerequisite takes precedence, the pre-connection routing
 decision selects Thrift, and the driver logs the routing reason.
@@ -538,10 +560,12 @@ supported" error WHEN a connection is opened THEN the driver propagates a clear 
 does not create a Thrift client, and records the failure in telemetry.
 GIVEN APC was routed to Thrift and OpenSession returns KP001 THEN the warehouse-only recovery
 does not switch it to SEA, regardless of whether the APC flag was off or Arrow was unavailable.
-- AC10: GIVEN APC or warehouse connections selected by each supported routing reason WHEN
-connection telemetry is emitted THEN its event records compute type, selected protocol, and
-routing reason; GIVEN an APC SEA CreateSession failure THEN it records failure without emitting
-credentials or a compound statement id. Captured APC SEA logs and telemetry from synchronous and
+- AC10: GIVEN telemetry enabled and APC or warehouse connections selected by each supported
+routing reason WHEN each connection attempt succeeds or fails THEN exactly one routing event is
+emitted for that attempt with compute type, selected protocol, routing reason, and success or
+failure outcome. Captured failure events cover APC SEA CreateSession, APC Thrift OpenSession,
+warehouse SEA CreateSession, and warehouse Thrift OpenSession; none contains credentials or a
+compound statement id. Captured APC SEA logs and telemetry from synchronous and
 asynchronous execute, session stringification, and connection failure contain no raw org id,
 cluster id, or compound session/statement id while retaining compute type and routing reason.
 - AC11: GIVEN standard and Real-time SQL warehouse connections WHEN CreateSession, execute,
@@ -600,7 +624,8 @@ does not claim a partial success. GIVEN V10 with `EnableNativeBatching=0` or no 
 executor, or version 42248–42249 (V8–V9), THEN it sends one execution per set with native
 `parameters` and no `parameter_sets`. GIVEN a version below 42248 (below V8) or a missing
 version THEN it sends one execution per set with client-side interpolation and neither
-`parameters` nor `parameter_sets`; a captured batch request verifies that each set's bound values
+`parameters` nor `parameter_sets` property, including no empty arrays; a captured batch request
+verifies that each set's bound values
 were escaped into its own SQL text and no native bindings were sent.
 For every non-native case, `EnableBatchedInserts=1` does not combine sets into a multi-row INSERT;
 update counts preserve input order and a failure stops subsequent sets.
@@ -625,7 +650,8 @@ does not execute the third and throws `BatchUpdateException` with the first comm
 - AC23: GIVEN an APC CreateSession response with no `negotiated_protocol_version` WHEN a
 parameterized query or prepared batch is executed THEN the driver treats the capability as below
 V8, uses the tested client-interpolation path even with `supportManyParameters=0`, never sends
-`parameters` or `parameter_sets`, and emits telemetry identifying the protocol version as missing.
+`parameters` or `parameter_sets` properties, including empty arrays, and emits telemetry
+identifying the protocol version as missing.
 For a prepared batch, each set takes the interpolation path before
 `LegacyPreparedStatementBatchExecutor.executeIndividualStatements` calls `executeInternal`;
 captured requests show escaped values in separate SQL statements with no native bindings.
@@ -795,7 +821,9 @@ propagate without fallback.
    `GET_PROCEDURES` and `GET_PROCEDURE_COLUMNS` carry operation types but execute parameterized
    `information_schema` SELECTs through `CommandConstants`: use `ARROW_BATCH`,
    `INLINE_OR_EXTERNAL_LINKS`, no metadata headers, and ordinary result decoding before their
-   existing metadata conversion. Internal catalog/schema SELECTs follow the same APC request and
+   existing metadata conversion. Gate their parameter maps through the live APC protocol version:
+   V8+ uses native scalar bindings; below V8 and missing versions use `SQLInterpolator` and omit
+   the `parameters` property. Internal catalog/schema SELECTs follow the same APC request and
    decoder path. Add an `IDatabricksClient.executeStatementAsync` overload in both implementations
    with the operation/type signal, preserving the existing SQL async call. Add a callable async
    metadata path on `IDatabricksMetadataClient`, implemented by
@@ -841,7 +869,9 @@ propagate without fallback.
    for APC. Force the tested interpolation path below V8 even when `supportManyParameters=0`;
    in `LegacyPreparedStatementBatchExecutor.executeIndividualStatements`, interpolate each
    fallback set before execution and pass an empty parameter map to `executeInternal`. Treat a
-   missing version as below V8 and record a distinct missing-version downgrade signal.
+   missing version as below V8 and record a distinct missing-version downgrade signal. In the
+   APC SEA request builder, leave `parameters` unset whenever the map is empty, including after
+   interpolation; preserve warehouse serialization and assert property absence on the wire.
    Keep non-parameterized `Statement` batches on `DatabricksBatchExecutor`, which sends one
    ExecuteStatement per SQL and never populates `statements`.
 9. Preserve warehouse SEA error behavior in `DatabricksSession#open`: APC CreateSession failures
@@ -1084,8 +1114,11 @@ gate keeps the new SEA code unreachable through public APC connections. Those ea
   Assert a single aggregate server count is never reported as a per-set count.
   Below V8, force existing interpolation regardless of `supportManyParameters`, including in
   `LegacyPreparedStatementBatchExecutor.executeIndividualStatements`: interpolate each fallback
-  set with `SQLInterpolator` before `executeInternal` and pass an empty parameter map. A flag
-  change alone leaves that individual path sending raw bindings. Add captured-request escaping,
+  set with `SQLInterpolator` before `executeInternal` and pass an empty parameter map. Change the
+  APC branch of `DatabricksSdkClient.getRequest` to leave `parameters` unset for an empty map;
+  assert the serialized property is absent for single and fallback-batch interpolation, while
+  warehouse empty-map fixtures remain unchanged. A flag change alone leaves that individual path
+  sending raw bindings. Add captured-request escaping,
   injection, update-count, and parameter-downgrade logging/telemetry tests, including a missing
   version. Keep non-parameterized batches sequential with one ExecuteStatement per SQL (R6,
   R15; AC6, AC17, AC22, AC23, AC29). On V8+ APC sessions, reject complex logical bindings before
@@ -1117,7 +1150,12 @@ gate keeps the new SEA code unreachable through public APC connections. Those ea
   the seven R5 APC SHOW operations, even with `EnableSQLExecHybridResults=0`. The two
   procedure operations carry non-null operation types but run parameterized SELECTs; use
   `ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, no metadata headers, and ordinary result decoding
-  before their existing JDBC metadata conversion. Add async submit and completion
+  before their existing JDBC metadata conversion. For `listProcedures` and
+  `listProcedureColumns`, use the live APC version to retain scalar native parameters at V8+ or
+  interpolate their parameter maps with `SQLInterpolator` below V8 and when the version is
+  missing; call `executeStatement` with an empty map in the latter cases so T9's APC request
+  builder omits `parameters`. Capture both SELECT requests and assert escaped SQL and field
+  absence for old and missing versions. Add async submit and completion
   methods `executeMetadataAsync(MetadataAsyncRequest, IDatabricksSession)` and
   `getMetadataExecutionResult(MetadataAsyncHandle, IDatabricksSession)` on
   `IDatabricksMetadataClient`, so a caller obtains the metadata client from
@@ -1142,8 +1180,9 @@ gate keeps the new SEA code unreachable through public APC connections. Those ea
   despite their non-null operation types, and warehouse requests stay unchanged. For SHOW
   responses, multiplex per response between Arrow IPC `attachment` and
   `columnar_data` (including response `format=COLUMN_BASED_SET`), and pick native
-  decoders when `is_native_metadata_result=true`; test sync-header enabled, disabled, and async
-  cases plus the preserved require-native header condition. Assert a session-reachable async
+  decoders when `is_native_metadata_result=true`; capture synchronous requests for all seven SHOW
+  operations with the sync setting both enabled and disabled, plus async requests and the
+  preserved require-native header condition. Assert a session-reachable async
   submit returns a pending handle and typed completion returns converted metadata with correct
   metadata update-count semantics for Arrow IPC and `columnar_data`. Cover all seven SHOW
   operations with operation-specific arguments, headers, typed completion, conversion, failure,
@@ -1156,7 +1195,9 @@ gate keeps the new SEA code unreachable through public APC connections. Those ea
   decimal, array, map, struct, union, and null JDBC values and metadata against pinned Thrift
   fixtures; add any missing union type-name mapping needed to preserve that parity (R13; AC16).
 - [ ] T15: Add compute type, protocol, routing reason, and connection failure to telemetry and
-  debug logs. Audit existing synchronous/asynchronous `DatabricksSdkClient` execute logs,
+  debug logs. Capture one routing event for each successful APC/warehouse route and each failed
+  APC SEA, APC Thrift, warehouse SEA, and warehouse Thrift open attempt. Audit existing
+  synchronous/asynchronous `DatabricksSdkClient` execute logs,
   `DatabricksSession.toString()`, and failure diagnostics for raw APC org/cluster ids and compound
   identifiers; replace them with redacted compute labels and add captured-log and telemetry
   assertions (R8; AC10, AC25).
