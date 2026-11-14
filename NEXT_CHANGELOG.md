@@ -25,6 +25,8 @@
 - Reduced connection setup time by caching successful host-metadata and OIDC discovery JSON documents for up to an hour, with a JVM-wide limit of 1,024 entries. Responses redirected to another origin or path, or whose bodies cannot be parsed as discovery documents, are excluded.
 - Reduced heap usage when reading large CloudFetch results: chunks are now streamed from the HTTP response through decompression into Arrow instead of first being buffered on-heap. When Arrow uses off-heap memory, this cuts peak heap by about 40% and GC pause time by about half, so large results fit in smaller heaps.
 - Fixed CloudFetch rows being silently skipped when a chunk failed to parse and its retried download then succeeded: the chunk stayed in a failed state and its rows were not returned.
+- Fixed `Connection.close()` waiting for the final telemetry flush when it closes the last connection to a host (about 100 ms per close, up to `TelemetrySocketTimeout` when the telemetry endpoint is slow or throttling). The flush now finishes on a background thread; the session is still closed before `close()` returns.
+- Fixed telemetry from a host's open connections being dropped after the connection that created the host's telemetry client closed, and one telemetry collector leaking per closed connection.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
