@@ -96,7 +96,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           // preserved so getColumnTypeName() reports the actual server type
           // (see GitHub issue #1495); when EnableTimestampNtzTypeName=0 it is
           // normalized to "TIMESTAMP" to match the legacy (v2.x.x) driver.
-          if (columnInfo.getTypeText().equalsIgnoreCase(TIMESTAMP_NTZ)) {
+          boolean isTimestampNtz = columnInfo.getTypeText().equalsIgnoreCase(TIMESTAMP_NTZ);
+          if (isTimestampNtz) {
             columnTypeName = ColumnInfoTypeName.TIMESTAMP;
             if (!ctx.isTimestampNtzTypeNameEnabled()) {
               columnInfo.setTypeText(TIMESTAMP);
@@ -147,7 +148,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .schemaName(
                   null) // set schema and table name to null, as server do not return these fields.
               .tableName(null)
-              .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+              .isSigned(DatabricksTypeUtil.isSigned(columnTypeName))
+              .isTimestampNtz(isTimestampNtz);
           columnsBuilder.add(columnBuilder.build());
           // Keep index starting from 1, to be consistent with JDBC convention
           columnNameIndexBuilder.putIfAbsent(columnInfo.getName(), ++currIndex);
@@ -234,9 +236,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           // Normalize TIMESTAMP_NTZ to TIMESTAMP only when the type-name feature is
           // disabled (legacy/v2.x.x parity); by default the NTZ type name is preserved
           // (see GitHub issue #1495).
-          if (columnTypeText != null
-              && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)
-              && !ctx.isTimestampNtzTypeNameEnabled()) {
+          boolean isTimestampNtz =
+              columnTypeText != null && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ);
+          if (isTimestampNtz && !ctx.isTimestampNtzTypeNameEnabled()) {
             columnTypeText = TIMESTAMP;
           }
 
@@ -255,7 +257,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .isSearchable(true)
               .schemaName(null)
               .tableName(null)
-              .isSigned(DatabricksTypeUtil.isSigned(columnInfo.getTypeName()));
+              .isSigned(DatabricksTypeUtil.isSigned(columnInfo.getTypeName()))
+              .isTimestampNtz(isTimestampNtz);
           if (isVariantColumn(arrowMetadata, columnIndex)) {
             columnBuilder
                 .columnTypeClassName("java.lang.String")
@@ -515,7 +518,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .schemaName(
               null) // set schema and table name to null, as server do not return these fields.
           .tableName(null)
-          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName))
+          .isTimestampNtz(baseTypeName.equals(TIMESTAMP_NTZ));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameIndexBuilder.putIfAbsent(columnName, i + 1);
@@ -611,6 +615,17 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   @Override
   public String getColumnTypeName(int column) throws SQLException {
     return columns.get(getEffectiveIndex(column)).columnTypeText();
+  }
+
+  /**
+   * Returns true if the column is TIMESTAMP_NTZ, including when {@link #getColumnTypeName} reports
+   * it as TIMESTAMP because EnableTimestampNtzTypeName=0.
+   *
+   * @param column the first column is 1, the second is 2, ...
+   * @return true for TIMESTAMP_NTZ columns
+   */
+  public boolean isTimestampNtz(int column) {
+    return columns.get(getEffectiveIndex(column)).isTimestampNtz();
   }
 
   @Override
