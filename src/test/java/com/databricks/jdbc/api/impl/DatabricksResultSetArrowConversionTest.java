@@ -11,8 +11,8 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.core.StatementStatus;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
@@ -167,7 +167,7 @@ class DatabricksResultSetArrowConversionTest {
             .setTypeScale(2L));
     ResultManifest manifest =
         new ResultManifest()
-            .setFormat(Format.ARROW_STREAM)
+            .setFormat(SqlExecResultFormat.ARROW_STREAM)
             .setSchema(new ResultSchema().setColumnCount((long) columns.size()).setColumns(columns))
             .setTotalRowCount(3L)
             .setTotalChunkCount(1L);

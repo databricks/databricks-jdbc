@@ -19,6 +19,7 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
@@ -26,7 +27,6 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
-import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -451,7 +451,9 @@ public class TelemetryHelper {
    * @param format The result format
    */
   public static void setResultFormat(
-      IDatabricksConnectionContext connectionContext, StatementId statementId, Format format) {
+      IDatabricksConnectionContext connectionContext,
+      StatementId statementId,
+      SqlExecResultFormat format) {
     try {
       if (connectionContext != null) {
         TelemetryCollectorManager.getInstance()

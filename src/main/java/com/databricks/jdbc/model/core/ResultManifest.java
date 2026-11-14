@@ -2,7 +2,6 @@ package com.databricks.jdbc.model.core;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
@@ -18,7 +17,7 @@ public class ResultManifest {
   private Collection<BaseChunkInfo> chunks;
 
   @JsonProperty("format")
-  private Format format;
+  private SqlExecResultFormat format;
 
   @JsonProperty("schema")
   private ResultSchema schema;
@@ -64,12 +63,12 @@ public class ResultManifest {
     return this.chunks;
   }
 
-  public ResultManifest setFormat(Format format) {
+  public ResultManifest setFormat(SqlExecResultFormat format) {
     this.format = format;
     return this;
   }
 
-  public Format getFormat() {
+  public SqlExecResultFormat getFormat() {
     return this.format;
   }
 

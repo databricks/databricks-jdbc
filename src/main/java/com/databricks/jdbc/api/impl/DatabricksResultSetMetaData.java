@@ -715,10 +715,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
-    int[] result = getBasePrecisionAndScale(columnType, ctx);
+    int[] result =
+        columnType == Types.DECIMAL && columnInfo.getTypeText() != null
+            ? getPrecisionAndScale(columnInfo.getTypeText(), columnType)
+            : getBasePrecisionAndScale(columnType, ctx);
     if (columnInfo.getTypePrecision() != null) {
       result[0] = Math.toIntExact(columnInfo.getTypePrecision()); // precision
-      result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
+      if (columnInfo.getTypeScale() != null) {
+        result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
+      }
     }
     return result;
   }

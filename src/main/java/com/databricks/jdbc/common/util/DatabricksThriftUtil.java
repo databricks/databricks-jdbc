@@ -58,6 +58,7 @@ public class DatabricksThriftUtil {
           Map.entry(ARRAY_TYPE, ColumnInfoTypeName.ARRAY),
           Map.entry(MAP_TYPE, ColumnInfoTypeName.MAP),
           Map.entry(NULL_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(UNION_TYPE, ColumnInfoTypeName.UNION),
           Map.entry(STRUCT_TYPE, ColumnInfoTypeName.STRUCT));
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);

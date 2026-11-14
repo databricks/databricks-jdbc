@@ -12,12 +12,17 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ColumnVector;
+import com.databricks.jdbc.model.core.ColumnarData;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
-import com.databricks.sdk.service.sql.Format;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -48,12 +53,55 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_jsonInline() throws SQLException {
     ResultManifest manifest = new ResultManifest();
-    manifest.setFormat(Format.JSON_ARRAY);
+    manifest.setFormat(SqlExecResultFormat.JSON_ARRAY);
     ResultData data = new ResultData();
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
     assertInstanceOf(InlineJsonResult.class, result);
+  }
+
+  @Test
+  public void testWarehouseJsonFixtureStillReadsRowsAfterFormatRoundTrip() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    ResultManifest manifest =
+        mapper.readValue(
+            "{\"format\":\"JSON_ARRAY\",\"total_chunk_count\":1,"
+                + "\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"v\","
+                + "\"type_name\":\"STRING\",\"type_text\":\"STRING\"}]}}",
+            ResultManifest.class);
+    assertEquals(
+        "JSON_ARRAY", mapper.readTree(mapper.writeValueAsString(manifest)).get("format").asText());
+    ResultData data = mapper.readValue("{\"data_array\":[[\"warehouse-row\"]]}", ResultData.class);
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
+    assertInstanceOf(InlineJsonResult.class, result);
+    assertTrue(result.next());
+    assertEquals("warehouse-row", result.getObject(0));
+  }
+
+  @Test
+  public void testUnknownFutureFormatFailsOnlyAtDecoding() throws Exception {
+    ResultManifest manifest =
+        new ObjectMapper().readValue("{\"format\":\"FUTURE_FORMAT\"}", ResultManifest.class);
+    assertEquals(SqlExecResultFormat.UNKNOWN, manifest.getFormat());
+    DatabricksParsingException error =
+        assertThrows(
+            DatabricksParsingException.class,
+            () ->
+                ExecutionResultFactory.getResultSet(
+                    new ResultData(), manifest, STATEMENT_ID, session, parentStatement));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+    assertThrows(
+        DatabricksParsingException.class,
+        () ->
+            ExecutionResultFactory.getResultSet(
+                new ResultData().setColumnarData(new ColumnarData().setColumns(List.of())),
+                manifest,
+                STATEMENT_ID,
+                session,
+                parentStatement));
   }
 
   @Test
@@ -63,7 +111,7 @@ public class ExecutionResultFactoryTest {
     when(session.getConnectionContext()).thenReturn(connectionContext);
     lenient().when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
-    manifest.setFormat(Format.ARROW_STREAM);
+    manifest.setFormat(SqlExecResultFormat.ARROW_STREAM);
     manifest.setTotalChunkCount(0L);
     manifest.setTotalRowCount(0L);
     manifest.setSchema(new ResultSchema().setColumnCount(0L));
@@ -75,6 +123,53 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
+  public void testColumnarMetadataThenArrowAttachmentUsesEachResponsePayload() throws Exception {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    ResultManifest columnarManifest =
+        new ResultManifest()
+            .setFormat(SqlExecResultFormat.COLUMN_BASED_SET)
+            .setSchema(new ResultSchema().setColumnCount(1L));
+    ResultData columnarData =
+        new ResultData()
+            .setColumnarData(
+                new ColumnarData()
+                    .setColumns(
+                        List.of(
+                            new ColumnVector()
+                                .setI32Values(new ColumnVector.Values<>(List.of(7))))));
+    IExecutionResult first =
+        ExecutionResultFactory.getResultSet(
+            columnarData, columnarManifest, STATEMENT_ID, session, parentStatement);
+    assertInstanceOf(ColumnarDataResult.class, first);
+    assertTrue(first.next());
+    assertEquals(7, first.getObject(0));
+
+    ObjectMapper mapper = new ObjectMapper();
+    ResultManifest arrowManifest =
+        mapper.readValue(
+            "{\"format\":\"ARROW_STREAM\",\"total_row_count\":1,"
+                + "\"total_chunk_count\":1,\"schema\":{\"column_count\":1,"
+                + "\"columns\":[{\"name\":\"col_0\",\"position\":0,"
+                + "\"type_name\":\"INT\",\"type_text\":\"INT\"}]}}",
+            ResultManifest.class);
+    assertEquals(
+        "ARROW_STREAM",
+        mapper.readTree(mapper.writeValueAsString(arrowManifest)).get("format").asText());
+    ResultData arrowData = new ResultData();
+    arrowData.setAttachment(createArrowBytes());
+    IExecutionResult second =
+        ExecutionResultFactory.getResultSet(
+            arrowData, arrowManifest, STATEMENT_ID, session, parentStatement);
+    assertInstanceOf(ArrowStreamResult.class, second);
+    assertTrue(second.next());
+    assertEquals(42, second.getObject(0));
+    first.close();
+    second.close();
+  }
+
+  @Test
   public void testGetResultSet_volumeOperation() throws SQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(session.getConnectionContext()).thenReturn(connectionContext);
@@ -82,7 +177,7 @@ public class ExecutionResultFactoryTest {
     ResultManifest manifest =
         new ResultManifest()
             .setIsVolumeOperation(true)
-            .setFormat(Format.JSON_ARRAY)
+            .setFormat(SqlExecResultFormat.JSON_ARRAY)
             .setTotalRowCount(1L)
             .setSchema(new ResultSchema().setColumnCount(4L));
     IExecutionResult result =

@@ -37,6 +37,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.SessionVersion;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ApiClient;
@@ -879,7 +880,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         new ExecuteStatementRequest()
             .setStatement(sql)
             .setDisposition(disposition)
-            .setFormat(format)
+            .setFormat(SqlExecResultFormat.fromSdkFormat(format))
             .setResultCompression(compressionCodec)
             .setParameters(parameterListItems);
     if (!session.getSessionInfo().realtimeSession()) {

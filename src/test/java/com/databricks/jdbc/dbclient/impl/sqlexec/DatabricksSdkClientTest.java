@@ -37,6 +37,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.SessionVersion;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ApiClient;
@@ -169,7 +170,7 @@ public class DatabricksSdkClientTest {
             .setWarehouseId(WAREHOUSE_ID)
             .setStatement(STATEMENT)
             .setDisposition(Disposition.INLINE_OR_EXTERNAL_LINKS)
-            .setFormat(Format.ARROW_STREAM)
+            .setFormat(SqlExecResultFormat.ARROW_STREAM)
             .setRowLimit(100L)
             .setParameters(params);
     if (async) {
@@ -188,7 +189,7 @@ public class DatabricksSdkClientTest {
           .setResult(resultData)
           .setManifest(
               new ResultManifest()
-                  .setFormat(Format.JSON_ARRAY)
+                  .setFormat(SqlExecResultFormat.JSON_ARRAY)
                   .setSchema(
                       new ResultSchema()
                           .setColumns(manifestColumns)
@@ -991,7 +992,7 @@ public class DatabricksSdkClientTest {
     verify(apiClient, atLeastOnce()).serialize(captor.capture());
     ExecuteStatementRequest request = captor.getValue();
     assertEquals(expectedDisposition, request.getDisposition());
-    assertEquals(expectedFormat, request.getFormat());
+    assertEquals(SqlExecResultFormat.fromSdkFormat(expectedFormat), request.getFormat());
     if (expectedFormat == Format.JSON_ARRAY) {
       assertEquals(CompressionCodec.NONE, request.getResultCompression());
     }
@@ -1854,7 +1855,7 @@ public class DatabricksSdkClientTest {
             .setResult(resultData)
             .setManifest(
                 new ResultManifest()
-                    .setFormat(Format.JSON_ARRAY)
+                    .setFormat(SqlExecResultFormat.JSON_ARRAY)
                     .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
                     .setTotalRowCount(0L));
 
@@ -1909,7 +1910,7 @@ public class DatabricksSdkClientTest {
             .setResult(resultData)
             .setManifest(
                 new ResultManifest()
-                    .setFormat(Format.JSON_ARRAY)
+                    .setFormat(SqlExecResultFormat.JSON_ARRAY)
                     .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
                     .setTotalRowCount(0L));
 

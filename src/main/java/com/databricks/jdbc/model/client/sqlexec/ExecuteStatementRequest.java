@@ -3,10 +3,11 @@ package com.databricks.jdbc.model.client.sqlexec;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.SessionVersion;
+import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.sdk.service.sql.ExecuteStatementRequestOnWaitTimeout;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.StatementParameterListItem;
 import com.databricks.sdk.support.ToStringer;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
@@ -21,7 +22,12 @@ public class ExecuteStatementRequest {
   private String statement;
 
   @JsonProperty("warehouse_id")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private String warehouseId;
+
+  @JsonProperty("backend_compute")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private BackendCompute backendCompute;
 
   @JsonProperty("row_limit")
   private Long rowLimit;
@@ -33,7 +39,7 @@ public class ExecuteStatementRequest {
   private Disposition disposition;
 
   @JsonProperty("format")
-  private Format format;
+  private SqlExecResultFormat format;
 
   @JsonProperty("on_wait_timeout")
   private ExecuteStatementRequestOnWaitTimeout onWaitTimeout;
@@ -70,7 +76,7 @@ public class ExecuteStatementRequest {
     return disposition;
   }
 
-  public Format getFormat() {
+  public SqlExecResultFormat getFormat() {
     return format;
   }
 
@@ -125,8 +131,17 @@ public class ExecuteStatementRequest {
     return this;
   }
 
-  public ExecuteStatementRequest setFormat(Format format) {
+  public ExecuteStatementRequest setFormat(SqlExecResultFormat format) {
     this.format = format;
+    return this;
+  }
+
+  public BackendCompute getBackendCompute() {
+    return backendCompute;
+  }
+
+  public ExecuteStatementRequest setBackendCompute(BackendCompute backendCompute) {
+    this.backendCompute = backendCompute;
     return this;
   }
 

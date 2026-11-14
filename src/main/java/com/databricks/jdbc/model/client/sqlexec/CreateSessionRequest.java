@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.client.sqlexec;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 
@@ -8,7 +9,21 @@ public class CreateSessionRequest {
 
   /** Warehouse-Id for session */
   @JsonProperty("warehouse_id")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private String warehouseId;
+
+  @JsonProperty("backend_compute")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private BackendCompute backendCompute;
+
+  public BackendCompute getBackendCompute() {
+    return backendCompute;
+  }
+
+  public CreateSessionRequest setBackendCompute(BackendCompute backendCompute) {
+    this.backendCompute = backendCompute;
+    return this;
+  }
 
   @JsonProperty("schema")
   private String schema;
