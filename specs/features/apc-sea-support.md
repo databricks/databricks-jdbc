@@ -71,7 +71,8 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   fall back to Thrift.
   - Rollout (M15): opt-in first, then default APC to Reyder. This spec implements that with a
   dedicated APC client-config flag and a client override (R1, Q8).
-- Driver today (as of `origin/main` @ `9d825b0c`, 2026-11-13):
+- Driver today (as of `origin/main` @ `1e6fe871`; #1805 changed only this spec
+  relative to `9d825b0c`):
   - `AllPurposeCluster` (`common/AllPurposeCluster.java`) holds `orgId` + `clusterId`, parsed
   from `/o/<org>/<cluster>` HTTP paths (including `sql/protocolv1/o/<org>/<cluster>`);
   the legacy `cliservice` path maps to placeholder `default` ids.
@@ -110,11 +111,16 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   `is_native_metadata_result`, and `DatabricksResultSet` already uses it to select native-shaped
   metadata; `ResultData` does not yet have `columnar_data`, and `ColumnInfo` has `type_text` but
   not `type_json`.
+  `DatabricksMetadataQueryClient` currently calls only synchronous `executeStatement`;
+  `IDatabricksClient.executeStatementAsync` has no `MetadataOperationType` argument, and
+  `DatabricksSdkClient.executeStatementAsync` fixes the statement type to `SQL`.
   - `PreparedStatementBatchExecutor` requires `EnableNativeBatching=1` (default `0`), a parsed
   parameterized INSERT, and a supported `NativeBatchExecutor` for native batching.
   `DatabricksPreparedStatement` currently supplies no native executor, so it uses the legacy
   path. With `EnableBatchedInserts=1`, that path may combine parameter sets into a multi-row
   INSERT. `supportManyParameters=1` currently selects interpolation at statement construction.
+  `LegacyPreparedStatementBatchExecutor.executeIndividualStatements` passes raw SQL and bindings
+  directly to its statement executor; only its multi-row branch interpolates today.
   - `DatabricksSession#open` has warehouse Thrift→SEA recovery for Reyden KP001 errors; APC
   routing must remain fixed after the initial choice, including on that error path.
   - `DatabricksConnection.getConnectionId()` publicly returns `SessionId.toString()`.
@@ -190,7 +196,11 @@ ResultSet. APC compute type—not
 - R5: APC metadata operations go through `DatabricksMetadataQueryClient` as SHOW commands with
 `X-Databricks-Metadata-Operation-Type`; synchronous calls send
 `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`; synchronous calls
-with that setting disabled and all asynchronous calls omit the sync header. APC preserves the
+with that setting disabled and all asynchronous calls omit the sync header. Add a callable
+asynchronous metadata path through `DatabricksMetadataQueryClient` and
+an `IDatabricksClient.executeStatementAsync` overload that carries `MetadataOperationType` and
+`StatementType.METADATA` through the SDK request and header builders. APC SHOW requests keep
+`disposition=INLINE_OR_EXTERNAL_LINKS` even when `EnableSQLExecHybridResults=0`. APC preserves the
 existing `X-Databricks-Require-Thrift-Native-Metadata: true` behavior when
 `isThriftNativeMetadataEnabled()` is true and the operation supports it, although Reyder ignores
 that header because APC metadata is always native. Requests use `format=ARROW_STREAM` and
@@ -207,13 +217,18 @@ not change warehouse request behavior.
 - R6: The driver records `negotiated_protocol_version` from CreateSession and gates native
 parameters at ≥ 42248 (V8). It sends `parameter_sets` only for a parameterized INSERT at
 ≥ 42250 (V10) when `EnableNativeBatching=1` and an APC-capable `NativeBatchExecutor` is selected;
-the version alone never enables native batching. For APC below V10, with native batching off, or
-without that executor, execute each parameter set separately rather than combining sets through
-`EnableBatchedInserts`. V8–V9 use native `parameters` per execution; below V8 uses the existing
-interpolation and escaping path even when `supportManyParameters` is unset. When an APC session
-below V8 downgrades to client-side parameter interpolation, the driver records that downgrade in logs and
-telemetry. A missing protocol version is treated conservatively as below V8: native parameters
-and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
+the version alone never enables native batching. The native ExecuteStatement JSON contains
+`"parameter_sets":[{"parameters":[...]}]`, one nested `parameters` array per ordered input set,
+and omits the mutually exclusive top-level `parameters` field entirely. For APC below V10, with
+native batching off, or without that executor, execute each parameter set separately rather than
+combining sets through `EnableBatchedInserts`. V8–V9 use native `parameters` per execution; below V8 uses the existing
+interpolation and escaping path even when `supportManyParameters` is unset. For prepared-batch
+fallback below V8, interpolate each set's SQL separately and send an empty parameter map to
+`executeInternal`; setting the interpolation flag alone does not affect
+`LegacyPreparedStatementBatchExecutor.executeIndividualStatements`. When an APC session
+below V8 downgrades to client-side parameter interpolation, the driver records that downgrade
+in logs and telemetry. A missing protocol version is treated conservatively as below V8:
+native parameters and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
 present but old version. Only the live CreateSession response on the current connection grants
 capabilities. A version reconstructed from serialized `SessionId` is diagnostic state and must
 never enable native `parameters` or `parameter_sets` by itself.
@@ -273,8 +288,10 @@ response order:
 `i16_values`, `i32_values`, `i64_values`, `double_values`, `string_values`, and
 `binary_values` — into a JDBC ResultSet. Decode each physical vector using the
 `manifest.schema` logical type and apply least-significant-bit-first null masks, including
-placeholder values at null positions. Boolean, byte, short, int, long, double, string, and
-binary values must retain their JDBC values; string vectors also cover logical decimal,
+placeholder values at null positions. A missing or short mask treats all rows beyond its last
+bit as non-null; a mask longer than `ceil(row_count/8)` ignores every excess bit and byte.
+Boolean, byte, short, int, long, double, string, and binary values must retain their JDBC values;
+string vectors also cover logical decimal,
 array, map, struct, union, and null types named by the schema. New oneof arms require an
 explicit model/reader update.
 - R14: APC query timeouts use the client-side `TimeoutHandler` + CancelStatement path, as for
@@ -386,9 +403,13 @@ more batches yields every row in batch order, with the sum of batch `row_count` 
 the number of rows read.
 - AC5: GIVEN an APC-SEA session WHEN `DatabaseMetaData.getTables/getColumns/getSchemas/getCatalogs`
 is called synchronously with `EnableSeaSyncMetadata=1` THEN the request is a SHOW command with
-`format=ARROW_STREAM`, `X-Databricks-Metadata-Operation-Type` set, and
+`format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`,
+`X-Databricks-Metadata-Operation-Type` set, and
 `X-Databricks-Sea-Can-Run-Fully-Sync: true`; GIVEN `EnableSeaSyncMetadata=0` or an asynchronous
-metadata call THEN the sync header is absent. GIVEN `isThriftNativeMetadataEnabled()` and a
+metadata call through the metadata client THEN the sync header is absent while the async request
+retains the operation-type header, `ARROW_STREAM` format, and
+`INLINE_OR_EXTERNAL_LINKS` disposition. A fake-service assertion covers both sync and async
+metadata with `EnableSQLExecHybridResults=0`. GIVEN `isThriftNativeMetadataEnabled()` and a
 supported operation THEN `X-Databricks-Require-Thrift-Native-Metadata: true` remains present.
 WHEN any response contains Arrow IPC in
 `chunk.attachment` or HIVE-shaped data in `chunk.columnar_data` with
@@ -458,7 +479,10 @@ full correct ResultSet.
 - AC16: GIVEN `columnar_data` chunks covering `bool_values`, `byte_values`, `i16_values`,
 `i32_values`, `i64_values`, `double_values`, `string_values`, and `binary_values`, plus empty
 vectors and least-significant-bit-first null masks crossing a
-byte boundary WHEN they are read THEN nulls and values land at the right row positions;
+byte boundary WHEN they are read THEN nulls and values land at the right row positions. Fixtures
+with an absent mask, a mask shorter than `ceil(row_count/8)`, and a longer mask prove that
+unrepresented rows are non-null and excess bits/bytes do not affect any row or cause an index
+failure;
 GIVEN string vectors with logical decimal, array, map, struct, union, and null schema types THEN
 the JDBC values and `ResultSetMetaData` match pinned Thrift fixtures for every type: for example,
 `DECIMAL(5,2)` text `123.45` yields a `BigDecimal` with scale 2 and JDBC `Types.DECIMAL` with
@@ -475,13 +499,15 @@ not the previously used `columnar_data` path.
 `EnableNativeBatching=1`, and a supported native executor WHEN `executeBatch` runs a
 parameterized INSERT THEN one request uses `parameter_sets`, and successful `executeBatch` and
 `executeLargeBatch` return one `Statement.SUCCESS_NO_INFO` count per input set in order; the
-aggregate affected-row count is never presented as an individual set count. GIVEN that native
+serialized request has one `{"parameters":[...]}` object per input set in `parameter_sets` and
+has no top-level `parameters` property; the aggregate affected-row count is never presented as an individual set count. GIVEN that native
 request fails THEN `BatchUpdateException` reports `Statement.EXECUTE_FAILED` for every set and
 does not claim a partial success. GIVEN V10 with `EnableNativeBatching=0` or no supported
 executor, or version 42248–42249 (V8–V9), THEN it sends one execution per set with native
 `parameters` and no `parameter_sets`. GIVEN a version below 42248 (below V8) or a missing
 version THEN it sends one execution per set with client-side interpolation and neither
-`parameters` nor `parameter_sets`.
+`parameters` nor `parameter_sets`; a captured batch request verifies that each set's bound values
+were escaped into its own SQL text and no native bindings were sent.
 For every non-native case, `EnableBatchedInserts=1` does not combine sets into a multi-row INSERT;
 update counts preserve input order and a failure stops subsequent sets.
 - AC18: GIVEN an APC-SEA statement with `setQueryTimeout(n)` WHEN it runs longer than `n`
@@ -506,6 +532,9 @@ does not execute the third and throws `BatchUpdateException` with the first comm
 parameterized query or prepared batch is executed THEN the driver treats the capability as below
 V8, uses the tested client-interpolation path even with `supportManyParameters=0`, never sends
 `parameters` or `parameter_sets`, and emits telemetry identifying the protocol version as missing.
+For a prepared batch, each set takes the interpolation path before
+`LegacyPreparedStatementBatchExecutor.executeIndividualStatements` calls `executeInternal`;
+captured requests show escaped values in separate SQL statements with no native bindings.
 - AC24: GIVEN an APC-SEA connection with `EnableHeartbeat=1` WHEN a completed ResultSet remains
 open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
 `GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
@@ -541,6 +570,11 @@ that wire value and metadata decodes from `columnar_data`.
 THEN those RUNNING responses contain no attachment, Arrow batches, columnar data, or external
 links, and transfer zero result-payload bytes; the terminal response plus result fetch returns
 all rows once. Record the poll count and payload-byte measurements as a release gate.
+- AC28: GIVEN the T17 SAFE configuration WHEN the flag definition is inspected THEN
+`databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc` exists as a
+sub-flag of `databricks.partnerplatform.clientConfigsFeatureFlags` and its default is OFF.
+Configuration evidence records the exact name, parent batch flag, and default value; no flag
+assignment or connector-service change is required for this criterion.
 
 ## Constraints
 
@@ -648,13 +682,18 @@ propagate without fallback.
    T10 adds the APC decoder branch.
 6. Send `format=ARROW_STREAM` for APC SHOW metadata identified by a non-null
    `MetadataOperationType`; pass that signal into `DatabricksSdkClient.getRequest` and header
-   selection. Internal catalog/schema SELECTs have `StatementType.METADATA` but no operation
-   signal; send `ARROW_BATCH` and omit metadata headers for them. Synchronous SHOW metadata sends
-   `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`, while disabled
+   selection. Add an `IDatabricksClient.executeStatementAsync` overload in both implementations
+   with the operation/type signal, preserving the existing SQL async call. Add a callable async
+   metadata path in `DatabricksMetadataQueryClient` that preserves the operation header without the sync header.
+   Keep `disposition=INLINE_OR_EXTERNAL_LINKS` for APC SHOW even with
+   `EnableSQLExecHybridResults=0`. Internal catalog/schema SELECTs have `StatementType.METADATA`
+   but no operation signal; send `ARROW_BATCH` and omit metadata headers for them. Synchronous
+   SHOW metadata sends `X-Databricks-Sea-Can-Run-Fully-Sync: true` only when `EnableSeaSyncMetadata=1`, while disabled
    and asynchronous calls omit it. Preserve the existing
    `X-Databricks-Require-Thrift-Native-Metadata: true` condition even though Reyder ignores it.
    Add a `ColumnarDataResult` reader for `chunk.columnar_data` (null masks,
-   string/integer/etc. vectors). For every metadata response, multiplex between
+   string/integer/etc. vectors); missing and short masks imply non-null trailing rows, and
+   long masks have ignored excess bits. For every metadata response, multiplex between
    `chunk.attachment` (Arrow IPC, primary path) and
    `chunk.columnar_data` (alternate path, also valid with response format `COLUMN_BASED_SET`)
    using the returned payload representation; do not cache
@@ -669,13 +708,16 @@ propagate without fallback.
    `List<BatchParameterSet>` with the current session/statement context and returns one `long`
    update count per set. Call it through `session.getDatabricksClient()` so the
    `DatabricksSession` proxy exposes it; implement its SEA behavior and a clear unsupported
-   Thrift behavior. For one successful native request, fill the returned array with
-   `Statement.SUCCESS_NO_INFO` per input set because the response has only an aggregate count;
+   Thrift behavior. Native request serialization puts each set in a nested
+   `parameter_sets[].parameters` array and omits top-level `parameters`. For one successful native
+   request, fill the returned array with `Statement.SUCCESS_NO_INFO` per input set because the response has only an aggregate count;
    on failure mark every set `Statement.EXECUTE_FAILED` in the batch exception.
    The current constructor uses an unsupported executor. Otherwise
    execute each set separately, bypassing the legacy multi-row `EnableBatchedInserts` optimization
    for APC. Force the tested interpolation path below V8 even when `supportManyParameters=0`;
-   treat a missing version as below V8 and record a distinct missing-version downgrade signal.
+   in `LegacyPreparedStatementBatchExecutor.executeIndividualStatements`, interpolate each
+   fallback set before execution and pass an empty parameter map to `executeInternal`. Treat a
+   missing version as below V8 and record a distinct missing-version downgrade signal.
    Keep non-parameterized `Statement` batches on `DatabricksBatchExecutor`, which sends one
    ExecuteStatement per SQL and never populates `statements`.
 9. Preserve warehouse SEA error behavior in `DatabricksSession#open`: APC CreateSession failures
@@ -702,7 +744,8 @@ fallback; keep warehouse KP001 Thrift→SEA recovery off APC.
 family, disposition/format selection.
 - `src/main/java/com/databricks/jdbc/dbclient/IDatabricksClient.java` and
   `dbclient/impl/thrift/DatabricksThriftServiceClient.java` — callable native-batch interface
-  through the session proxy and explicit Thrift unsupported behavior.
+  through the session proxy and explicit Thrift unsupported behavior; async metadata
+  operation/type signal through both client implementations.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/PathConstants.java` — reuse standard session/statement
 paths for APC (no new constants expected).
 - `src/main/java/com/databricks/jdbc/dbclient/impl/common/SessionId.java` and
@@ -722,7 +765,7 @@ paths for APC (no new constants expected).
   GetStatementResultChunkN requests use URL targeting; CloseStatement uses URL targeting because
   the DELETE binding has no body.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataQueryClient.java` — APC metadata
-format/header, native-result decoder selection.
+format/header, callable async metadata path, native-result decoder selection.
 - `src/main/java/com/databricks/jdbc/api/impl/arrow/` — `ArrowBatchSchemaBuilder`; schema prepend for bare
 `ARROW_BATCH` record batches; `row_offset` paging for APC.
 - `src/main/java/com/databricks/jdbc/api/impl/` — new `ColumnarDataResult` reader for
@@ -747,6 +790,8 @@ int64 row_count }`) and `chunk.columnar_data` (`ColumnarData { repeated ColumnVe
 `ColumnVector { bytes null_mask; oneof values }`), plus
 `CreateSessionResponse.negotiated_protocol_version`; `ResultManifest.is_native_metadata_result`
 already exists. `ColumnInfo` gains `type_json` to support the nested Arrow type matrix.
+- ExecuteStatement gains optional `parameter_sets`, an ordered array of objects each holding
+  a `parameters` array. Native batch requests omit the mutually exclusive top-level `parameters`.
 - New driver-owned `SqlExecResultFormat` replaces the SDK `Format` in SEA request/response models,
 preserves existing JSON values, adds `ARROW_BATCH` and `COLUMN_BASED_SET`, and maps unknown
 response values to `UNKNOWN`.
@@ -881,12 +926,18 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   executor into `DatabricksPreparedStatement` through a callable `IDatabricksClient` method
   accepting ordered `List<BatchParameterSet>` and returning per-set counts, available on the
   `DatabricksSession` proxy; test the proxy call, implement SEA `parameter_sets` behavior and an
-  explicit unsupported Thrift implementation. Below V10, when opt-in is off, or without an
+  explicit unsupported Thrift implementation. Model and serialize `parameter_sets` as an ordered
+  array of `{"parameters":[...]}` objects, and ensure the native request builder does not
+  populate top-level `parameters`; assert mutual exclusivity on the captured wire request.
+  Below V10, when opt-in is off, or without an
   executor, send one execution per set and bypass `EnableBatchedInserts` multi-row combining.
   For a successful native request return `Statement.SUCCESS_NO_INFO` for every input set in both
   batch APIs; on native failure return `EXECUTE_FAILED` for every set in the batch exception.
   Assert a single aggregate server count is never reported as a per-set count.
-  Below V8, force existing interpolation regardless of `supportManyParameters`; add escaping,
+  Below V8, force existing interpolation regardless of `supportManyParameters`, including in
+  `LegacyPreparedStatementBatchExecutor.executeIndividualStatements`: interpolate each fallback
+  set with `SQLInterpolator` before `executeInternal` and pass an empty parameter map. A flag
+  change alone leaves that individual path sending raw bindings. Add captured-request escaping,
   injection, update-count, and parameter-downgrade logging/telemetry tests, including a missing
   version. Keep non-parameterized batches sequential with one ExecuteStatement per SQL (R6,
   R15; AC6, AC17, AC22, AC23).
@@ -910,8 +961,13 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
 
 - [ ] T13: APC metadata through `DatabricksMetadataQueryClient` and the SDK execute/result path:
   pass `MetadataOperationType` into `DatabricksSdkClient.getRequest` and select
-  `format=ARROW_STREAM` and metadata headers only for APC SHOW operations. Internal
-  `getCurrentCatalog`/`getCurrentCatalogAndSchema` SELECTs keep `ARROW_BATCH` with no metadata
+  `format=ARROW_STREAM`, `disposition=INLINE_OR_EXTERNAL_LINKS`, and metadata headers only for
+  APC SHOW operations, even with `EnableSQLExecHybridResults=0`. Add a callable asynchronous
+  metadata path in `DatabricksMetadataQueryClient`; extend
+  `IDatabricksClient.executeStatementAsync` with an overload in both client implementations to
+  carry `MetadataOperationType` and `StatementType.METADATA` into the request and header builders.
+  Preserve the existing SQL async call. Test sync and async fake-service requests: the async path retains the operation header and
+  APC format/disposition but omits the sync header. Internal `getCurrentCatalog`/`getCurrentCatalogAndSchema` SELECTs keep `ARROW_BATCH` with no metadata
   headers despite `StatementType.METADATA`; assert warehouse requests stay unchanged. For SHOW
   responses, multiplex per response between Arrow IPC `attachment` and
   `columnar_data` (including response `format=COLUMN_BASED_SET`), and pick native
@@ -919,7 +975,9 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   cases plus the preserved require-native header condition (R5; AC5).
 - [ ] T14: Add `ColumnarData`/`ColumnVector` models and the `ColumnarDataResult` reader with
   all eight R13 oneof variants and null-mask handling; test physical-to-logical conversion,
-  empty vectors, placeholder values, and mask bits across a byte boundary. Assert logical
+  empty vectors, placeholder values, and mask bits across a byte boundary. Test an absent mask,
+  a short mask with non-null trailing rows, and a long mask with ignored excess bits/bytes;
+  neither valid encoding may fail on a mask index. Assert logical
   decimal, array, map, struct, union, and null JDBC values and metadata against pinned Thrift
   fixtures; add any missing union type-name mapping needed to preserve that parity (R13; AC16).
 - [ ] T15: Add compute type, protocol, routing reason, and connection failure to telemetry and
@@ -931,7 +989,7 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   `NEXT_CHANGELOG.md` entry.
 - [ ] T17: (universe, SAFE flag creation only) Create the APC sub-flag under
   `databricks.partnerplatform.clientConfigsFeatureFlags`, default off; verify its name, parent
-  batch flag, and default. Do not change connector-service or assign/ramp the flag (R1; AC1, Q8).
+  batch flag, and default. Do not change connector-service or assign/ramp the flag (R1; AC28, Q8).
 
 ### Validation
 
@@ -947,10 +1005,10 @@ often and do not restore the removed circuit-breaker, rate-limit, or HTTP 307 fa
   result for each configuration without credentials. Require the deployed metadata fix for
   dogfood AC5, inline-only fix for dogfood AC8, and TerminateSession binding fix for dogfood AC3;
   unit and fake-service checks for these ACs run before deployment. Include the AC27 bounded
-  polling run in the pre-release dogfood gate. Package approval does not wait for deployment, but
-  release readiness does (R1–R16; AC1–AC27).
-- [ ] T-val: Record a pass/fail evidence link for each AC1–AC27 (unit, fake-service, or dogfood
-  run as appropriate), plus exact build/test commands and failures. Mark externally gated dogfood
-  checks pending until the corresponding SC fix is deployed; retain their local test evidence.
+  polling run in the pre-release dogfood gate. Implementation package approval does not wait for
+  deployment; validation package completion and release readiness do (R1–R16; AC1–AC28).
+- [ ] T-val: Record a pass/fail evidence link for each AC1–AC28 (unit, fake-service, dogfood,
+  or SAFE configuration as appropriate), plus exact build/test commands and failures. Mark
+  externally gated dogfood checks pending until the corresponding SC fix is deployed; retain their local test evidence.
   Verify warehouse request serialization, AC13 type matrix, and AC27 polling before calling the
   JDBC stack release-ready; keep release blocked under Q7 if any required Arrow type is lossy.
