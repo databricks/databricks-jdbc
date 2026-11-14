@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -187,18 +188,95 @@ class ApcArrowBatchChunkProviderTest {
   }
 
   @Test
-  void invalidPopulatedSchemaUsesDriverParsingErrorCode() {
+  void malformedOptionalArrowSchemaDoesNotOverrideManifest() throws Exception {
     IDatabricksSession session = session(mock(IDatabricksClient.class), false);
     ResultManifest invalid = manifest(CompressionCodec.NONE).setArrowSchema(new byte[] {1, 2});
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                invalid,
+                new ResultData().setArrowBatches(List.of(batch(5, false))),
+                ID,
+                session,
+                mock(IDatabricksHttpClient.class)))) {
+      assertEquals(List.of(5), readInts(result.result));
+    }
+  }
+
+  @Test
+  void malformedInlineBatchUsesDriverCode() {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), false);
+    ResultData page =
+        new ResultData()
+            .setArrowBatches(
+                List.of(
+                    new ArrowBatch()
+                        .setBatch(
+                            java.nio.ByteBuffer.allocate(8)
+                                .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                .putInt(-1)
+                                .putInt(1024)
+                                .array())
+                        .setRowCount(1L)));
     DatabricksSQLException error =
         assertThrows(
             DatabricksSQLException.class,
             () ->
-                new ArrowStreamResult(
-                    invalid, new ResultData(), ID, session, mock(IDatabricksHttpClient.class)));
+                new ApcArrowBatchChunkProvider(
+                    page,
+                    manifest(CompressionCodec.NONE),
+                    ID,
+                    session,
+                    mock(IDatabricksHttpClient.class)));
     assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
     assertEquals(
         DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), error.getErrorCode());
+  }
+
+  @Test
+  void invalidPresignedUrlDoesNotExposePathOrSignature() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    String secret = "private path?Signature=secret-signature";
+    ResultData page =
+        new ResultData()
+            .setExternalLinks(
+                List.of(link("https://storage.example.test/" + secret, 0, 0, 1, null)));
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(page, manifest(CompressionCodec.NONE), ID, session, http);
+    try {
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
+      assertFalse(error.toString().contains(secret));
+      assertFalse(error.toString().contains("secret-signature"));
+      verifyNoInteractions(http);
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void httpFailureDoesNotExposePresignedUrlInExceptionChain() throws Exception {
+    String url = "https://storage.example.test/private/chunk?Signature=secret-signature";
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenThrow(
+            new com.databricks.jdbc.exception.DatabricksHttpException(
+                "Failed request to " + url, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR));
+    ArrowResultChunk chunk =
+        ArrowResultChunk.builder().withStatementId(ID).withChunkMetadata(0, 1, 0).build();
+    chunk.setChunkLink(link(url, 0, 0, 1, null));
+    try {
+      DatabricksSQLException error =
+          assertThrows(
+              DatabricksSQLException.class,
+              () -> chunk.downloadData(http, CompressionCodec.NONE, 0));
+      for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+        assertFalse(cause.toString().contains("secret-signature"));
+        assertFalse(cause.toString().contains("private/chunk"));
+      }
+    } finally {
+      chunk.releaseChunk();
+    }
   }
 
   @Test
@@ -252,6 +330,58 @@ class ApcArrowBatchChunkProviderTest {
           assertThrows(DatabricksSQLException.class, result.result::next);
       assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.name(), error.getSQLState());
       assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.getCode(), error.getErrorCode());
+    }
+  }
+
+  @Test
+  void closeDefersChunkReleaseUntilCancelledDownloadStops() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    when(session.getConnectionContext().getChunkReadyTimeoutSeconds()).thenReturn(1);
+    CountDownLatch started = new CountDownLatch(1);
+    CountDownLatch finish = new CountDownLatch(1);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              boolean released = false;
+              boolean interrupted = false;
+              while (!released) {
+                try {
+                  finish.await();
+                  released = true;
+                } catch (InterruptedException ignored) {
+                  // Simulate an HTTP client that completes after cancellation.
+                  interrupted = true;
+                }
+              }
+              if (interrupted) {
+                Thread.currentThread().interrupt();
+              }
+              throw new java.io.IOException("late download failure");
+            });
+    ResultData initial =
+        new ResultData()
+            .setExternalLinks(
+                List.of(
+                    link("https://storage.example.test/chunk?Signature=secret", 0, 0, 1, null)));
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(initial, manifest(CompressionCodec.NONE), ID, session, http);
+    try {
+      assertThrows(DatabricksSQLException.class, provider::next);
+      assertTrue(started.await(1, TimeUnit.SECONDS));
+      ArrowResultChunk chunk = provider.getChunk();
+      provider.close();
+      assertFalse(chunk.getStatus() == ChunkStatus.CHUNK_RELEASED);
+      finish.countDown();
+      for (int i = 0; i < 50 && chunk.getStatus() != ChunkStatus.CHUNK_RELEASED; i++) {
+        TimeUnit.MILLISECONDS.sleep(100);
+      }
+      assertEquals(ChunkStatus.CHUNK_RELEASED, chunk.getStatus());
+      assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
+    } finally {
+      finish.countDown();
+      provider.close();
     }
   }
 
