@@ -46,6 +46,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
             return thread;
           });
   private ArrowResultChunk current;
+  private boolean downloadWorkerRunning;
   private Long nextChunkIndex;
   private long nextRowOffset;
   private long rowCount;
@@ -77,6 +78,11 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
         if ("TIMEZONE".equalsIgnoreCase(config.getKey()) && config.getValue() != null) {
           timeZone = config.getValue();
         }
+      }
+      // A SET TIME ZONE update publishes the canonical key before removing older key variants.
+      // Prefer it if a reader snapshots the map during that short transition.
+      if (configs.get("timezone") != null) {
+        timeZone = configs.get("timezone");
       }
     }
     // APC bare batches have no wire schema. The manifest is authoritative even when the
@@ -165,13 +171,20 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
         download =
             downloadExecutor.submit(
                 () -> {
+                  synchronized (stateLock) {
+                    if (closed) {
+                      return null;
+                    }
+                    downloadWorkerRunning = true;
+                  }
                   try {
                     return task.call();
                   } finally {
-                    // Cancellation marks the Future done before the worker actually exits.
-                    // If close has already returned, the worker owns final cleanup.
-                    if (closed) {
-                      chunk.releaseChunkAndAllocator();
+                    synchronized (stateLock) {
+                      downloadWorkerRunning = false;
+                      if (closed) {
+                        chunk.releaseChunkAndAllocator();
+                      }
                     }
                   }
                 });
@@ -296,8 +309,8 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
                     .withChunkMetadata(
                         link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
                     .build();
-            chunk.setChunkLink(link);
             staged.add(chunk);
+            chunk.setChunkLink(link);
           }
           pageRows += link.getRowCount();
         }
@@ -355,16 +368,18 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       pending.clear();
     }
     downloadExecutor.shutdownNow();
-    boolean terminated = false;
     try {
-      terminated = downloadExecutor.awaitTermination(3, TimeUnit.SECONDS);
+      downloadExecutor.awaitTermination(3, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-    if (terminated && active != null) {
-      active.releaseChunkAndAllocator();
+    synchronized (stateLock) {
+      // An active worker owns its chunk until its finally block. Inline chunks and queued or
+      // completed downloads have no worker to perform cleanup, even if close was interrupted.
+      if (active != null && !downloadWorkerRunning) {
+        active.releaseChunkAndAllocator();
+      }
     }
-    // An active worker releases current in its finally block after parsing stops.
     for (ArrowResultChunk chunk : abandoned) {
       chunk.releaseChunkAndAllocator();
     }
