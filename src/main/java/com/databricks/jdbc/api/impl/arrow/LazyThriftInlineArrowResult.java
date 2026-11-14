@@ -104,6 +104,16 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
         session, currentChunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
+    validateGetObjectState(columnIndex);
+    if (currentChunkIterator.hasJavaTimeVector(columnIndex)) {
+      return currentChunkIterator.getJavaTimeObjectAtCurrentRow(columnIndex);
+    }
+    return getObject(columnIndex);
+  }
+
   /**
    * Validates the state before getting an object at the specified column index.
    *

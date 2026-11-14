@@ -35,6 +35,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
@@ -1086,5 +1087,55 @@ public class ArrowStreamResultTest {
     }
     assertEquals(rowsInChunk * 2, rowCount);
     assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testGetTemporalObjectReadsExactValuesFromArrow() throws Exception {
+    // Set explicitly so the inline-attachment path is used without a server feature-flag lookup.
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    List<ColumnInfo> columns =
+        Arrays.asList(
+            new ColumnInfo()
+                .setPosition(0L)
+                .setName("d")
+                .setTypeName(ColumnInfoTypeName.DATE)
+                .setTypeText("DATE"),
+            new ColumnInfo()
+                .setPosition(1L)
+                .setName("ts")
+                .setTypeName(ColumnInfoTypeName.TIMESTAMP)
+                .setTypeText("TIMESTAMP"),
+            new ColumnInfo().setPosition(2L).setName("ntz").setTypeText("TIMESTAMP_NTZ"),
+            new ColumnInfo()
+                .setPosition(3L)
+                .setName("i")
+                .setTypeName(ColumnInfoTypeName.INT)
+                .setTypeText("INT"));
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(2L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(columns).setColumnCount(4L));
+    ResultData resultData = new ResultData();
+    resultData.setAttachment(TemporalArrowTestData.create());
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    try {
+      assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
+      DatabricksSQLException beforeFirstRow =
+          assertThrows(DatabricksSQLException.class, () -> result.getTemporalObject(0));
+      assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), beforeFirstRow.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.INVALID_STATE.getCode(), beforeFirstRow.getErrorCode());
+      TemporalArrowTestData.assertRows(result);
+    } finally {
+      result.close();
+    }
   }
 }
