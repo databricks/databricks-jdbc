@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.core;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -113,5 +114,33 @@ class SqlExecWireModelsTest {
         mapper
             .readValue("{\"type_json\":\"{\\\"type\\\":\\\"array\\\"}\"}", ColumnInfo.class)
             .getTypeJson());
+  }
+
+  @Test
+  void allColumnarOneofArmsDeserializeFromWireJson() throws Exception {
+    ResultData data =
+        mapper.readValue(
+            "{\"columnar_data\":{\"columns\":["
+                + "{\"bool_values\":{\"values\":[true]}},"
+                + "{\"byte_values\":{\"values\":[-2]}},"
+                + "{\"i16_values\":{\"values\":[-3]}},"
+                + "{\"i32_values\":{\"values\":[-4]}},"
+                + "{\"i64_values\":{\"values\":[-5]}},"
+                + "{\"double_values\":{\"values\":[1.5]}},"
+                + "{\"string_values\":{\"values\":[\"text\"]}},"
+                + "{\"binary_values\":{\"values\":[\"AQI=\"]}}]}}",
+            ResultData.class);
+    List<ColumnVector> vectors = data.getColumnarData().getColumns();
+    assertEquals(Boolean.TRUE, vectors.get(0).getValues().get(0));
+    assertEquals((byte) -2, vectors.get(1).getValue(0));
+    assertEquals((short) -3, vectors.get(2).getValue(0));
+    assertEquals(-4, vectors.get(3).getValue(0));
+    assertEquals(-5L, vectors.get(4).getValue(0));
+    assertEquals(1.5, vectors.get(5).getValue(0));
+    assertEquals("text", vectors.get(6).getValue(0));
+    assertArrayEquals(new byte[] {1, 2}, (byte[]) vectors.get(7).getValue(0));
+    JsonNode serialized = mapper.readTree(mapper.writeValueAsString(data));
+    assertFalse(serialized.path("columnar_data").path("columns").get(0).has("values"));
+    assertEquals(1, serialized.path("columnar_data").path("columns").get(0).size());
   }
 }
