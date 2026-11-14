@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,6 +36,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   private final IDatabricksHttpClient httpClient;
   private final CompressionCodec compressionCodec;
   private final byte[] schemaMessage;
+  private final Object stateLock = new Object();
   private final ArrayDeque<ArrowResultChunk> pending = new ArrayDeque<>();
   private final ExecutorService downloadExecutor =
       Executors.newSingleThreadExecutor(
@@ -94,54 +96,73 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
 
   @Override
   public boolean hasNextChunk() {
-    return !closed && (!pending.isEmpty() || nextChunkIndex != null);
+    synchronized (stateLock) {
+      return !closed && (!pending.isEmpty() || nextChunkIndex != null);
+    }
   }
 
   @Override
   public boolean next() throws DatabricksSQLException {
-    if (closed) {
-      return false;
+    synchronized (stateLock) {
+      if (closed) {
+        return false;
+      }
+      if (current != null) {
+        current.releaseChunkAndAllocator();
+        current = null;
+      }
     }
-    if (current != null) {
-      current.releaseChunkAndAllocator();
-      current = null;
-    }
-    while (pending.isEmpty() && nextChunkIndex != null) {
-      long index = nextChunkIndex;
-      long offset = nextRowOffset;
+    while (true) {
+      long index;
+      long offset;
+      synchronized (stateLock) {
+        if (closed) {
+          return false;
+        }
+        if (!pending.isEmpty() || nextChunkIndex == null) {
+          break;
+        }
+        index = nextChunkIndex;
+        offset = nextRowOffset;
+      }
       ResultData page =
           session.getDatabricksClient().getResultChunksData(statementId, index, offset);
       if (page == null) {
         throw invalidPage("APC result page is missing");
       }
       addPage(page);
-      if (pending.isEmpty()
-          && nextChunkIndex != null
-          && index == nextChunkIndex
-          && offset == nextRowOffset) {
-        throw invalidPage("APC result continuation did not advance");
+      synchronized (stateLock) {
+        if (!closed
+            && pending.isEmpty()
+            && nextChunkIndex != null
+            && index == nextChunkIndex
+            && offset == nextRowOffset) {
+          throw invalidPage("APC result continuation did not advance");
+        }
       }
     }
-    if (pending.isEmpty()) {
-      return false;
-    }
-    current = pending.removeFirst();
-    if (current.getChunkLink() != null) {
-      ArrowResultChunk chunk = current;
-      StreamingChunkDownloadTask task =
-          new StreamingChunkDownloadTask(
-              chunk,
-              httpClient,
-              compressionCodec,
-              (index, offset) -> {
-                ExternalLink refreshed =
-                    new SeaChunkLinkFetcher(session, statementId).refetchLink(index, offset);
-                chunk.setChunkLink(refreshed);
-                return refreshed;
-              },
-              session.getConnectionContext().getCloudFetchSpeedThreshold());
-      try {
-        Future<Void> download =
+    ArrowResultChunk chunk;
+    Future<Void> download = null;
+    synchronized (stateLock) {
+      if (closed || pending.isEmpty()) {
+        return false;
+      }
+      chunk = pending.removeFirst();
+      current = chunk;
+      if (chunk.getChunkLink() != null) {
+        StreamingChunkDownloadTask task =
+            new StreamingChunkDownloadTask(
+                chunk,
+                httpClient,
+                compressionCodec,
+                (index, offset) -> {
+                  ExternalLink refreshed =
+                      new SeaChunkLinkFetcher(session, statementId).refetchLink(index, offset);
+                  chunk.setChunkLink(refreshed);
+                  return refreshed;
+                },
+                session.getConnectionContext().getCloudFetchSpeedThreshold());
+        download =
             downloadExecutor.submit(
                 () -> {
                   try {
@@ -154,6 +175,10 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
                     }
                   }
                 });
+      }
+    }
+    if (download != null) {
+      try {
         int timeoutSeconds = session.getConnectionContext().getChunkReadyTimeoutSeconds();
         try {
           if (timeoutSeconds <= 0) {
@@ -182,81 +207,124 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
             DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
             DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.getCode(),
             e.getCause());
+      } catch (CancellationException e) {
+        if (closed) {
+          return false;
+        }
+        throw new DatabricksSQLException(
+            "APC result chunk download was cancelled",
+            DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
+            DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.getCode(),
+            e);
       }
     }
-    chunkCount++;
-    return true;
+    synchronized (stateLock) {
+      if (closed) {
+        return false;
+      }
+      chunkCount++;
+      return true;
+    }
   }
 
   private void addPage(ResultData page) throws DatabricksSQLException {
     List<ArrowBatch> batches = page.getArrowBatches();
     Collection<ExternalLink> links = page.getExternalLinks();
+    ArrayDeque<ArrowResultChunk> staged = new ArrayDeque<>();
     long inlineRows = 0;
-    if (batches != null && !batches.isEmpty()) {
-      ByteArrayOutputStream stream = new ByteArrayOutputStream();
-      try {
-        stream.write(schemaMessage);
-        for (ArrowBatch batch : batches) {
-          if (batch.getBatch() == null || batch.getRowCount() == null || batch.getRowCount() < 0) {
-            throw invalidPage("APC Arrow batch is missing bytes or row_count");
-          }
-          stream.write(
-              DecompressionUtil.decompress(
-                  batch.getBatch(), compressionCodec, "APC inline Arrow batch"));
-          inlineRows += batch.getRowCount();
-        }
-      } catch (IOException e) {
-        DatabricksDriverErrorCode code = DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR;
-        throw new DatabricksParsingException(
-            "Unable to assemble APC Arrow batches", e, code.name(), code.getCode());
-      }
-      if (inlineRows > 0) {
-        try {
-          pending.add(
-              ArrowResultChunk.builder()
-                  .withStatementId(statementId)
-                  .withInputStream(new ByteArrayInputStream(stream.toByteArray()), inlineRows)
-                  .build());
-        } catch (DatabricksParsingException e) {
-          throw new DatabricksParsingException(
-              "Unable to parse APC inline Arrow batch",
-              e,
-              DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(),
-              DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode());
-        }
-      }
-      rowCount += inlineRows;
+    long pageRows = 0;
+    Long continuation;
+    long offset;
+    synchronized (stateLock) {
+      offset = nextRowOffset;
     }
-    if (links != null && !links.isEmpty()) {
-      if (!session.getConnectionContext().isCloudFetchEnabled()) {
-        throw invalidPage("APC returned external links when result download is disabled");
-      }
-      List<ExternalLink> ordered = new ArrayList<>(links);
-      for (ExternalLink link : ordered) {
-        if (link.getChunkIndex() == null
-            || link.getRowCount() == null
-            || link.getRowCount() < 0
-            || link.getRowOffset() == null) {
-          throw invalidPage("APC external link is missing paging metadata");
+    try {
+      if (batches != null && !batches.isEmpty()) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        try {
+          stream.write(schemaMessage);
+          for (ArrowBatch batch : batches) {
+            if (batch.getBatch() == null
+                || batch.getRowCount() == null
+                || batch.getRowCount() < 0) {
+              throw invalidPage("APC Arrow batch is missing bytes or row_count");
+            }
+            stream.write(
+                DecompressionUtil.decompress(
+                    batch.getBatch(), compressionCodec, "APC inline Arrow batch"));
+            inlineRows += batch.getRowCount();
+          }
+        } catch (IOException e) {
+          DatabricksDriverErrorCode code = DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR;
+          throw new DatabricksParsingException(
+              "Unable to assemble APC Arrow batches", e, code.name(), code.getCode());
         }
-        if (link.getRowCount() > 0) {
-          ArrowResultChunk chunk =
-              ArrowResultChunk.builder()
-                  .withStatementId(statementId)
-                  .withConnectionContext(session.getConnectionContext())
-                  .withChunkMetadata(link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
-                  .build();
-          chunk.setChunkLink(link);
-          pending.add(chunk);
+        if (inlineRows > 0) {
+          try {
+            staged.add(
+                ArrowResultChunk.builder()
+                    .withStatementId(statementId)
+                    .withInputStream(new ByteArrayInputStream(stream.toByteArray()), inlineRows)
+                    .build());
+          } catch (DatabricksParsingException e) {
+            throw new DatabricksParsingException(
+                "Unable to parse APC inline Arrow batch",
+                e,
+                DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(),
+                DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode());
+          }
         }
-        rowCount += link.getRowCount();
       }
-      ExternalLink last = ordered.get(ordered.size() - 1);
-      nextChunkIndex = last.getNextChunkIndex();
-      nextRowOffset = last.getRowOffset() + last.getRowCount();
-    } else {
-      nextChunkIndex = page.getNextChunkIndex();
-      nextRowOffset += inlineRows;
+      pageRows += inlineRows;
+      if (links != null && !links.isEmpty()) {
+        if (!session.getConnectionContext().isCloudFetchEnabled()) {
+          throw invalidPage("APC returned external links when result download is disabled");
+        }
+        List<ExternalLink> ordered = new ArrayList<>(links);
+        for (ExternalLink link : ordered) {
+          if (link.getChunkIndex() == null
+              || link.getRowCount() == null
+              || link.getRowCount() < 0
+              || link.getRowOffset() == null) {
+            throw invalidPage("APC external link is missing paging metadata");
+          }
+          if (link.getRowCount() > 0) {
+            ArrowResultChunk chunk =
+                ArrowResultChunk.builder()
+                    .withStatementId(statementId)
+                    .withConnectionContext(session.getConnectionContext())
+                    .withChunkMetadata(
+                        link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
+                    .build();
+            chunk.setChunkLink(link);
+            staged.add(chunk);
+          }
+          pageRows += link.getRowCount();
+        }
+        ExternalLink last = ordered.get(ordered.size() - 1);
+        continuation = last.getNextChunkIndex();
+        offset = last.getRowOffset() + last.getRowCount();
+      } else {
+        continuation = page.getNextChunkIndex();
+        offset += inlineRows;
+      }
+      synchronized (stateLock) {
+        if (!closed) {
+          pending.addAll(staged);
+          rowCount += pageRows;
+          nextChunkIndex = continuation;
+          nextRowOffset = offset;
+          return;
+        }
+      }
+    } catch (DatabricksSQLException | RuntimeException e) {
+      for (ArrowResultChunk chunk : staged) {
+        chunk.releaseChunkAndAllocator();
+      }
+      throw e;
+    }
+    for (ArrowResultChunk chunk : staged) {
+      chunk.releaseChunkAndAllocator();
     }
   }
 
@@ -267,12 +335,25 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
 
   @Override
   public ArrowResultChunk getChunk() {
-    return current;
+    synchronized (stateLock) {
+      return current;
+    }
   }
 
   @Override
   public void close() {
-    closed = true;
+    ArrowResultChunk active;
+    ArrayDeque<ArrowResultChunk> abandoned;
+    synchronized (stateLock) {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      active = current;
+      current = null;
+      abandoned = new ArrayDeque<>(pending);
+      pending.clear();
+    }
     downloadExecutor.shutdownNow();
     boolean terminated = false;
     try {
@@ -280,25 +361,27 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-    if (terminated && current != null) {
-      current.releaseChunkAndAllocator();
+    if (terminated && active != null) {
+      active.releaseChunkAndAllocator();
     }
     // An active worker releases current in its finally block after parsing stops.
-    current = null;
-    for (ArrowResultChunk chunk : pending) {
+    for (ArrowResultChunk chunk : abandoned) {
       chunk.releaseChunkAndAllocator();
     }
-    pending.clear();
   }
 
   @Override
   public long getRowCount() {
-    return rowCount;
+    synchronized (stateLock) {
+      return rowCount;
+    }
   }
 
   @Override
   public long getChunkCount() {
-    return chunkCount;
+    synchronized (stateLock) {
+      return chunkCount;
+    }
   }
 
   @Override

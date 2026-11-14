@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -706,6 +708,137 @@ class ApcArrowBatchChunkProviderTest {
     assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
     assertEquals(
         DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), error.getErrorCode());
+  }
+
+  @Test
+  void rejectedContinuationDiscardsInlineChunksAndPreservesCursor() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    IDatabricksSession session = session(client, false);
+    ResultData initial = new ResultData().setArrowBatches(List.of(batch(10, false)));
+    initial.setNextChunkIndex(1L);
+    ResultData rejected =
+        new ResultData()
+            .setArrowBatches(List.of(batch(20, false)))
+            .setExternalLinks(List.of(link("https://storage.example.test/chunk", 1, 2, 1, null)));
+    when(client.getResultChunksData(ID, 1, 1)).thenReturn(rejected);
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            initial,
+            manifest(CompressionCodec.NONE),
+            ID,
+            session,
+            mock(IDatabricksHttpClient.class));
+    try {
+      assertTrue(provider.next());
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
+      assertEquals(
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+      assertEquals(1, provider.getRowCount());
+      Field pendingField = ApcArrowBatchChunkProvider.class.getDeclaredField("pending");
+      pendingField.setAccessible(true);
+      assertTrue(((ArrayDeque<?>) pendingField.get(provider)).isEmpty());
+      assertThrows(DatabricksSQLException.class, provider::next);
+      verify(client, times(2)).getResultChunksData(ID, 1, 1);
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void closeDuringContinuationFetchDoesNotPublishOrLeakFetchedChunk() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    IDatabricksSession session = session(client, false);
+    CountDownLatch fetching = new CountDownLatch(1);
+    CountDownLatch resume = new CountDownLatch(1);
+    when(client.getResultChunksData(ID, 1, 0))
+        .thenAnswer(
+            invocation -> {
+              fetching.countDown();
+              assertTrue(resume.await(5, TimeUnit.SECONDS));
+              return new ResultData().setArrowBatches(List.of(batch(7, false)));
+            });
+    ResultData initial = new ResultData().setNextChunkIndex(1L);
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            initial,
+            manifest(CompressionCodec.NONE),
+            ID,
+            session,
+            mock(IDatabricksHttpClient.class));
+    FutureTask<Boolean> read = new FutureTask<>(provider::next);
+    new Thread(read, "apc-close-race-test").start();
+    try {
+      assertTrue(fetching.await(5, TimeUnit.SECONDS));
+      provider.close();
+      resume.countDown();
+      assertFalse(read.get(5, TimeUnit.SECONDS));
+      assertFalse(provider.hasNextChunk());
+      assertNull(provider.getChunk());
+      assertEquals(0, provider.getRowCount());
+    } finally {
+      resume.countDown();
+      provider.close();
+    }
+  }
+
+  @Test
+  void closeDuringChunkHandoffReleasesItsAllocator() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    CountDownLatch handoff = new CountDownLatch(1);
+    CountDownLatch resume = new CountDownLatch(1);
+    when(session.getConnectionContext().getCloudFetchSpeedThreshold())
+        .thenAnswer(
+            invocation -> {
+              handoff.countDown();
+              assertTrue(resume.await(5, TimeUnit.SECONDS));
+              return 0.0;
+            });
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+              when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(7)));
+              when(response.getStatusLine())
+                  .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+              return response;
+            });
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            new ResultData()
+                .setExternalLinks(
+                    List.of(link("https://storage.example.test/chunk", 0, 0, 1, null))),
+            manifest(CompressionCodec.NONE),
+            ID,
+            session,
+            http);
+    Field pendingField = ApcArrowBatchChunkProvider.class.getDeclaredField("pending");
+    pendingField.setAccessible(true);
+    ArrowResultChunk chunk = ((ArrayDeque<ArrowResultChunk>) pendingField.get(provider)).getFirst();
+    FutureTask<Boolean> read = new FutureTask<>(provider::next);
+    new Thread(read, "apc-handoff-test").start();
+    try {
+      assertTrue(handoff.await(5, TimeUnit.SECONDS));
+      FutureTask<Void> close =
+          new FutureTask<>(
+              () -> {
+                provider.close();
+                return null;
+              });
+      new Thread(close, "apc-handoff-close-test").start();
+      resume.countDown();
+      close.get(5, TimeUnit.SECONDS);
+      try {
+        read.get(5, TimeUnit.SECONDS);
+      } catch (ExecutionException e) {
+        assertFalse(e.getCause() instanceof java.util.NoSuchElementException);
+      }
+      assertEquals(ChunkStatus.CHUNK_RELEASED, chunk.getStatus());
+      assertThrows(IllegalStateException.class, () -> chunk.rootAllocator.buffer(1));
+    } finally {
+      resume.countDown();
+      provider.close();
+    }
   }
 
   private static ExternalLink link(
