@@ -883,8 +883,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throws SQLException {
     String stackTraceMessage =
         format(
-            "DatabricksResultSet executeInternal(String sql = %s, Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
-            sql, params, statementType);
+            "DatabricksResultSet executeInternal(String sql = %s, parameterCount = %s, StatementType statementType = {%s})",
+            sql, params.size(), statementType);
     LOGGER.debug(stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
@@ -1027,15 +1027,18 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            String SQLString = escapeProcessing ? StringUtil.convertJdbcEscapeSequences(sql) : sql;
-            // Remove empty ESCAPE clauses that cause syntax errors in Databricks
-            SQLString = StringUtil.removeRedundantEscapeClause(SQLString);
+            String SQLString = processJdbcEscapes(sql);
             return getResultFromClient(SQLString, params, statementType);
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
         },
         executor);
+  }
+
+  String processJdbcEscapes(String sql) throws SQLException {
+    String processed = escapeProcessing ? StringUtil.convertJdbcEscapeSequences(sql) : sql;
+    return StringUtil.removeRedundantEscapeClause(processed);
   }
 
   DatabricksResultSet getResultFromClient(
@@ -1124,7 +1127,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
    * operation handle (if still open) and the local ResultSet, clears flags, and nulls the
    * statementId so a failed execution doesn't leave stale state.
    */
-  private void resetForNewExecution() {
+  void resetForNewExecution() {
     pendingAsyncTimeZoneSql = null;
     noMoreResults = false;
     updateCount = -1;

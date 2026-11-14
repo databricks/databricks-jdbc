@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.InsertStatementParser;
-import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -179,15 +178,10 @@ class LegacyPreparedStatementBatchExecutor {
     for (int sqlQueryIndex = 0; sqlQueryIndex < batchParameterSets.size(); sqlQueryIndex++) {
       BatchParameterSet batchParameterSet = batchParameterSets.get(sqlQueryIndex);
       try {
-        boolean apcInterpolation =
-            ApcParameterCapabilities.isApcSea(connection.getSession())
-                && !ApcParameterCapabilities.supportsNativeParameters(connection.getSession());
-        String sqlToExecute =
-            apcInterpolation
-                ? SQLInterpolator.interpolateSQL(sql, batchParameterSet.getParameterBindings())
-                : sql;
-        Map<Integer, ImmutableSqlParameter> parameters =
-            apcInterpolation ? new HashMap<>() : batchParameterSet.getParameterBindings();
+        // The SEA client interpolates downgraded APC bindings into the wire request. Keeping the
+        // SQL template here prevents bound values from entering statement logs and timeout text.
+        String sqlToExecute = sql;
+        Map<Integer, ImmutableSqlParameter> parameters = batchParameterSet.getParameterBindings();
         DatabricksResultSet resultSet =
             statementExecutor.execute(sqlToExecute, parameters, StatementType.UPDATE, false);
         largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();

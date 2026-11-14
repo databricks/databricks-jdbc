@@ -10,8 +10,10 @@ import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.TelemetryLogLevel;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
@@ -137,13 +139,71 @@ class ApcParameterCapabilitiesTest {
             any(),
             eq(prepared),
             isNull());
-    if (version != null && version >= 42248) {
-      assertEquals(sql, executedSql.getValue());
-      assertEquals("hello", executedBindings.getValue().get(1).value());
-    } else {
-      assertEquals("SELECT 'hello' AS value, '?' AS literal /* ? */", executedSql.getValue());
-      assertTrue(executedBindings.getValue().isEmpty());
+    assertEquals(sql, executedSql.getValue());
+    assertEquals("hello", executedBindings.getValue().get(1).value());
+  }
+
+  @Test
+  void warehouseAndThriftMetadataKeepOriginalBindings() throws Exception {
+    for (DatabricksClientType clientType :
+        List.of(DatabricksClientType.SEA, DatabricksClientType.THRIFT)) {
+      TestConnection test = testConnection(42250L);
+      Warehouse warehouse = new Warehouse("warehouse");
+      ImmutableSessionInfo info =
+          ImmutableSessionInfo.builder()
+              .sessionId("session")
+              .computeResource(warehouse)
+              .clientType(clientType)
+              .build();
+      when(test.connection.getSession().getSessionInfo()).thenReturn(info);
+      when(test.connection.getSession().getComputeResource()).thenReturn(warehouse);
+      DatabricksPreparedStatement prepared =
+          new DatabricksPreparedStatement(test.connection, "SELECT ?");
+      prepared.setString(1, "bound");
+      DatabricksResultSet describe = mock(DatabricksResultSet.class);
+      when(test.client.executeStatement(
+              anyString(),
+              eq(warehouse),
+              anyMap(),
+              eq(StatementType.QUERY),
+              any(),
+              any(),
+              isNull()))
+          .thenReturn(describe);
+
+      prepared.getMetaData();
+
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<Map<Integer, ImmutableSqlParameter>> bindings =
+          ArgumentCaptor.forClass(Map.class);
+      verify(test.client)
+          .executeStatement(
+              eq("DESCRIBE QUERY SELECT '?'"),
+              eq(warehouse),
+              bindings.capture(),
+              eq(StatementType.QUERY),
+              any(),
+              any(),
+              isNull());
+      assertEquals("bound", bindings.getValue().get(1).value());
     }
+  }
+
+  @Test
+  void variantIsRejectedAsComplexLogicalBinding() {
+    ImmutableSqlParameter variant =
+        ImmutableSqlParameter.builder()
+            .type(ColumnInfoTypeName.VARIANT)
+            .value("{}")
+            .cardinal(1)
+            .build();
+    DatabricksSQLException error =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> ApcParameterCapabilities.rejectComplexBindings(Map.of(1, variant)));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.name(), error.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.getCode(), error.getErrorCode());
   }
 
   @ParameterizedTest
@@ -183,14 +243,9 @@ class ApcParameterCapabilitiesTest {
             any(),
             eq(prepared),
             isNull());
-    if (version != null && version >= 42248) {
-      assertEquals(List.of(INSERT, INSERT), sql.getAllValues());
-      assertEquals("a' ; --", bindings.getAllValues().get(0).get(1).value());
-    } else {
-      assertEquals("INSERT INTO t VALUES ('a'' ; --')", sql.getAllValues().get(0));
-      assertEquals("INSERT INTO t VALUES ('b\\\\c')", sql.getAllValues().get(1));
-      assertTrue(bindings.getAllValues().stream().allMatch(Map::isEmpty));
-    }
+    assertEquals(List.of(INSERT, INSERT), sql.getAllValues());
+    assertEquals("a' ; --", bindings.getAllValues().get(0).get(1).value());
+    assertEquals("b\\c", bindings.getAllValues().get(1).get(1).value());
     verify(test.client, never()).executeNativeBatch(anyString(), anyList(), any(), any());
   }
 
@@ -230,6 +285,30 @@ class ApcParameterCapabilitiesTest {
     assertArrayEquals(
         new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
         unchecked.getLargeUpdateCounts());
+  }
+
+  @Test
+  void nativeBatchProcessesJdbcEscapesAndHonorsEscapeSetting() throws Exception {
+    TestConnection test = testConnection(42250L);
+    String escaped = "INSERT INTO t VALUES (?, {d '2024-01-01'})";
+    DatabricksPreparedStatement prepared =
+        new DatabricksPreparedStatement(test.connection, escaped);
+    prepared.setEscapeProcessing(true);
+    when(test.client.supportsNativeBatchExecution()).thenReturn(true);
+    when(test.client.executeNativeBatch(anyString(), anyList(), any(), eq(prepared)))
+        .thenReturn(new long[] {Statement.SUCCESS_NO_INFO});
+    prepared.setInt(1, 1);
+    prepared.addBatch();
+    prepared.executeLargeBatch();
+    verify(test.client)
+        .executeNativeBatch(
+            eq("INSERT INTO t VALUES (?, DATE '2024-01-01')"), anyList(), any(), eq(prepared));
+
+    prepared.setEscapeProcessing(false);
+    prepared.setInt(1, 2);
+    prepared.addBatch();
+    prepared.executeLargeBatch();
+    verify(test.client).executeNativeBatch(eq(escaped), anyList(), any(), eq(prepared));
   }
 
   @Test
@@ -276,15 +355,19 @@ class ApcParameterCapabilitiesTest {
         .thenReturn(mock(DatabricksResultSet.class));
 
     prepared.executeQuery();
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<Integer, ImmutableSqlParameter>> bindings =
+        ArgumentCaptor.forClass(Map.class);
     verify(test.client)
         .executeStatement(
-            eq("SELECT 'saved'"),
+            eq("SELECT ?"),
             eq(CLUSTER),
-            eq(Map.of()),
+            bindings.capture(),
             eq(StatementType.QUERY),
             any(),
             eq(prepared),
             isNull());
+    assertEquals("saved", bindings.getValue().get(1).value());
   }
 
   @Test

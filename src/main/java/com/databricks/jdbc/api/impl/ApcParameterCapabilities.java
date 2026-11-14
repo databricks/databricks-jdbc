@@ -52,7 +52,8 @@ public final class ApcParameterCapabilities {
           || type == ColumnInfoTypeName.MAP
           || type == ColumnInfoTypeName.STRUCT
           || type == ColumnInfoTypeName.UNION
-          || type == ColumnInfoTypeName.USER_DEFINED_TYPE) {
+          || type == ColumnInfoTypeName.USER_DEFINED_TYPE
+          || type == ColumnInfoTypeName.VARIANT) {
         throw new DatabricksSQLException(
             "APC native parameters do not support complex logical type " + type,
             DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.name(),

@@ -150,11 +150,12 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
               @Override
               public long[] execute(String batchSql, List<BatchParameterSet> parameterSets)
                   throws SQLException {
+                resetForNewExecution();
                 return connection
                     .getSession()
                     .getDatabricksClient()
                     .executeNativeBatch(
-                        batchSql,
+                        processJdbcEscapes(batchSql),
                         parameterSets,
                         connection.getSession(),
                         DatabricksPreparedStatement.this);
@@ -906,7 +907,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
     boolean nativeParameters =
         ApcParameterCapabilities.supportsNativeParameters(connection.getSession());
-    boolean interpolate = apc ? !nativeParameters : interpolateParameters;
+    boolean interpolate = !apc && interpolateParameters;
     if (nativeParameters) {
       ApcParameterCapabilities.rejectComplexBindings(
           databricksParameterMetaData.getParameterBindings());
@@ -943,12 +944,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
    */
   private ResultSetMetaData getMetaDataFromDescribeQuery() throws DatabricksSQLException {
     String describeQuerySQL = "DESCRIBE QUERY " + surroundPlaceholdersWithQuotes(sql);
+    boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
     try (DatabricksPreparedStatement preparedStatement =
             new DatabricksPreparedStatement(
                 connection,
                 describeQuerySQL,
-                false,
-                new DatabricksParameterMetaData(describeQuerySQL));
+                apc ? false : interpolateParameters,
+                apc
+                    ? new DatabricksParameterMetaData(describeQuerySQL)
+                    : databricksParameterMetaData);
         ResultSet metadataResultSet = preparedStatement.executeQuery(); ) {
       ArrayList<String> columnNames = new ArrayList<>();
       ArrayList<String> columnDataTypes = new ArrayList<>();

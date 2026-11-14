@@ -400,15 +400,32 @@ public class DatabricksSdkClient implements IDatabricksClient {
                             .map(this::mapToParameterListItem)
                             .collect(Collectors.toList())))
             .collect(Collectors.toList());
-    executeStatementInternal(
-        sql,
-        session.getComputeResource(),
-        Collections.emptyMap(),
-        StatementType.UPDATE,
-        session,
-        parentStatement,
-        null,
-        wireSets);
+    DatabricksResultSet result = null;
+    try {
+      result =
+          executeStatementInternal(
+              sql,
+              session.getComputeResource(),
+              Collections.emptyMap(),
+              StatementType.UPDATE,
+              session,
+              parentStatement,
+              null,
+              wireSets);
+    } finally {
+      if (result != null) {
+        try {
+          result.close();
+        } finally {
+          if (parentStatement == null) {
+            closeStatement(
+                StatementId.forCurrentSession(result.getStatementId(), session.getSessionInfo()));
+          }
+        }
+      } else if (parentStatement != null) {
+        parentStatement.closeServerOperation();
+      }
+    }
     long[] counts = new long[parameterSets.size()];
     Arrays.fill(counts, java.sql.Statement.SUCCESS_NO_INFO);
     return counts;
@@ -424,11 +441,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
       MetadataOperationType metadataOperationType,
       List<StatementParameterSet> parameterSets)
       throws SQLException {
+    boolean interpolatedApc =
+        SeaComputeTarget.of(computeResource).isApc()
+            && !parameters.isEmpty()
+            && !ApcParameterCapabilities.supportsNativeParameters(session);
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, parameterCount = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
         sql,
         computeLabel(computeResource),
-        parameters,
+        parameters.size(),
         statementType,
         session,
         parentStatement,
@@ -474,7 +495,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           sql,
           statementType,
           computeLabel(computeResource));
-      handleFailedExecution(response, "", sql);
+      handleFailedExecution(response, "", sql, interpolatedApc);
     }
     LOGGER.debug(
         "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
@@ -569,7 +590,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           pollCount);
     }
     if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
-      handleFailedExecution(response, statementId, sql);
+      handleFailedExecution(response, statementId, sql, interpolatedApc);
     }
 
     // Defer markDirectResultsReceived until AFTER ResultSet construction.
@@ -633,7 +654,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error("Empty Statement ID for sql {}, compute {}", sql, computeLabel(computeResource));
-      handleFailedExecution(response, "", sql);
+      handleFailedExecution(
+          response,
+          "",
+          sql,
+          SeaComputeTarget.of(computeResource).isApc()
+              && !parameters.isEmpty()
+              && !ApcParameterCapabilities.supportsNativeParameters(session));
     }
     StatementId typedStatementId =
         StatementId.forCurrentSession(statementId, session.getSessionInfo());
@@ -997,9 +1024,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
         ApcParameterCapabilities.rejectComplexBindings(parameters);
       } else {
         String reason = ApcParameterCapabilities.downgradeReason(session);
-        LOGGER.warn("APC parameter downgrade: {}", reason);
-        TelemetryHelper.exportFailureLog(
-            connectionContext, "APC_PARAMETER_DOWNGRADE", reason, TelemetryLogLevel.WARN);
+        if (!(parentStatement instanceof DatabricksPreparedStatement)) {
+          LOGGER.warn("APC parameter downgrade: {}", reason);
+          TelemetryHelper.exportFailureLog(
+              connectionContext, "APC_PARAMETER_DOWNGRADE", reason, TelemetryLogLevel.WARN);
+        }
         sql = SQLInterpolator.interpolateSQL(sql, parameters);
         parameters = Collections.emptyMap();
       }
@@ -1079,6 +1108,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
   /** Handles a failed execution and throws appropriate exception */
   void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
+    handleFailedExecution(response, statementId, statement, false);
+  }
+
+  private void handleFailedExecution(
+      ExecuteStatementResponse response,
+      String statementId,
+      String statement,
+      boolean interpolatedApc)
+      throws SQLException {
     StatementState statementState = response.getStatus().getState();
     ServiceError error = response.getStatus().getError();
 
@@ -1097,10 +1135,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String errorMessage =
         String.format(
             "Statement execution failed %s -> %s\n%s.", statementId, statement, statementState);
+    // The server may echo interpolated SQL in its error text. Keep it only for SQL-state
+    // classification; callers and logs receive the message without bound values.
+    String rawErrorMessage = errorMessage;
     if (error != null) {
-      errorMessage +=
+      rawErrorMessage +=
           String.format(
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
+      errorMessage +=
+          interpolatedApc
+              ? String.format(" Error code: %s", error.getErrorCode())
+              : String.format(
+                  " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
     LOGGER.debug(errorMessage);
 
@@ -1109,7 +1155,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throw new DatabricksTimeoutException(
           errorMessage, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
     }
-    String remappedSqlState = classifyTransientSqlState(errorMessage, sqlState);
+    String remappedSqlState = classifyTransientSqlState(rawErrorMessage, sqlState);
     if (!Objects.equals(remappedSqlState, sqlState)) {
       LOGGER.info(
           "Remapped SQL state [{}] -> [{}] for transient error pattern in SEA statement [{}]",
