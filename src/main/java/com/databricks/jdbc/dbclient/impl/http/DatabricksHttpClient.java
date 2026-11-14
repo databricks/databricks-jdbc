@@ -30,6 +30,7 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -194,10 +195,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
                 "Retry handler failed for http request: [%s]. HTTP error code: %d",
                 RequestSanitizer.sanitizeRequest(request), retry.getErrCode());
         LOGGER.error(errorMsg);
-        throw new DatabricksHttpException(
-            errorMsg,
-            DatabricksDriverErrorCode.INVALID_STATE.name(),
-            DatabricksDriverErrorCode.INVALID_STATE);
+        DatabricksDriverErrorCode code =
+            retry.getErrCode() == HttpStatus.SC_TOO_MANY_REQUESTS
+                ? DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED
+                : DatabricksDriverErrorCode.SDK_CLIENT_ERROR;
+        throw new DatabricksHttpException(errorMsg, code.name(), code);
       }
       cause = cause.getCause();
     }
