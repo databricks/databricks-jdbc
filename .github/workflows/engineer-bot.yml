@@ -249,7 +249,7 @@ jobs:
 
       - name: Write E2E token file (survives the agent env scrub)
         id: e2e_config
-        # The bug-fix flow's REQUIRED live e2e repro authenticates via
+        # The bug-fix flow's live e2e repro authenticates via
         # IntegrationTestUtil.getDatabricksToken(), which reads DATABRICKS_TOKEN.
         # But the author agent runs `mvn test` in a subprocess whose env is scrubbed
         # of every credential-shaped var (engine shared/env_scrub.py strips
@@ -288,7 +288,7 @@ jobs:
           ENGINEER_BOT_MODEL_OVERRIDE: databricks-claude-opus-5-5
           MODEL_ENDPOINT: https://${{ secrets.DATABRICKS_HOST }}/serving-endpoints/databricks-claude-opus-5-5/invocations
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          # Live-warehouse connection env for the agent's REQUIRED e2e repro
+          # Live-warehouse connection env for the agent's e2e repro
           # (IntegrationTestUtil reads these). host/http-path/user/catalog/schema are
           # not credential-shaped so they survive the scrub; the TOKEN can't (it's
           # stripped) — it rides the token file above instead.
