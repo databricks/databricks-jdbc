@@ -10,11 +10,16 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -43,6 +48,60 @@ public class DatabricksHttpClientTest {
   @Mock IDatabricksConnectionContext mockConnectionContext;
   @Mock HttpClientBuilder mockHttpClientBuilder;
   private DatabricksHttpClient databricksHttpClient;
+
+  @Test
+  void presignedDownloadFailureDoesNotLogOrReturnPath() throws Exception {
+    String secret = "org-secret/cluster-secret/path-token";
+    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
+    when(mockHttpClient.execute(request)).thenThrow(new IOException("failure at " + secret));
+    Logger logger = Logger.getLogger(DatabricksHttpClient.class.getName());
+    Level oldLevel = logger.getLevel();
+    List<String> messages = new ArrayList<>();
+    Handler handler =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            messages.add(record.getMessage());
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    handler.setLevel(Level.FINE);
+    logger.setLevel(Level.FINE);
+    logger.addHandler(handler);
+    try {
+      DatabricksHttpException error =
+          assertThrows(
+              DatabricksHttpException.class, () -> databricksHttpClient.execute(request, true));
+      assertTrue(messages.stream().anyMatch(message -> message.contains("/REDACTED")));
+      assertTrue(messages.stream().noneMatch(message -> message.contains(secret)));
+      assertTrue(messages.stream().noneMatch(message -> message.contains("query-secret")));
+      assertFalse(error.getMessage().contains(secret));
+      assertFalse(error.getMessage().contains("query-secret"));
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(oldLevel);
+    }
+  }
+
+  @Test
+  void presignedRetryFailureDoesNotReturnPath() throws Exception {
+    String secret = "org-secret/cluster-secret/path-token";
+    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
+    when(mockHttpClient.execute(request))
+        .thenThrow(new DatabricksRetryHandlerException("retry at " + secret, 503));
+    DatabricksHttpException error =
+        assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
+    assertFalse(error.getMessage().contains(secret));
+    assertFalse(error.getMessage().contains("query-secret"));
+    assertTrue(error.getMessage().contains("/REDACTED"));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+  }
 
   @BeforeEach
   public void setUp() {
