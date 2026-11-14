@@ -127,9 +127,6 @@ public class SessionId {
     }
     switch (parts[0]) {
       case "s":
-        if ("a".equals(parts[1])) {
-          throw invalid("APC session ID has invalid structure");
-        }
         if (parts.length == 4 && !"r".equals(parts[3])) {
           throw invalid("Session ID has invalid route marker");
         }

@@ -5,10 +5,12 @@ import static com.databricks.jdbc.telemetry.TelemetryHelper.*;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.SessionId;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -122,12 +124,20 @@ public class Driver implements IDatabricksDriver {
     SessionId savedSession = SessionId.deserialize(connectionId);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
-    IDatabricksClient databricksClient;
-    if (savedSession.getClientType() == DatabricksClientType.THRIFT) {
-      databricksClient = new DatabricksThriftServiceClient(connectionContext);
-    } else {
-      databricksClient = new DatabricksSdkClient(connectionContext);
+    try {
+      IDatabricksClient databricksClient;
+      if (savedSession.getClientType() == DatabricksClientType.THRIFT) {
+        databricksClient = new DatabricksThriftServiceClient(connectionContext);
+      } else {
+        databricksClient = new DatabricksSdkClient(connectionContext);
+      }
+      databricksClient.deleteSession(savedSession.getSessionInfo());
+    } finally {
+      try {
+        DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
+      } finally {
+        DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
+      }
     }
-    databricksClient.deleteSession(savedSession.getSessionInfo());
   }
 }

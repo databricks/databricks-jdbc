@@ -65,6 +65,17 @@ public class SessionIdTest {
   }
 
   @Test
+  public void testLegacyWarehouseIdAStillParsesWithBothRoutes() throws Exception {
+    for (String serialized : new String[] {"s|a|session", "s|a|session|r"}) {
+      SessionId parsed = SessionId.deserialize(serialized);
+      assertEquals(serialized, parsed.toString());
+      assertEquals(DatabricksClientType.SEA, parsed.getClientType());
+      assertEquals(new Warehouse("a"), parsed.getSessionInfo().computeResource());
+      assertEquals(serialized.endsWith("|r"), parsed.getSessionInfo().realtimeSession());
+    }
+  }
+
+  @Test
   public void testConstructorThrift() throws Exception {
     THandleIdentifier tHandleIdentifier =
         new THandleIdentifier().setGuid(testGuidBytes).setSecret(testSecretBytes);
@@ -137,7 +148,6 @@ public class SessionIdTest {
   public void testMalformedApcSessionIdsReportOnlyStructure() {
     for (String input :
         new String[] {
-          "s|a|org",
           "s|a|org|cluster",
           "s|a|org|cluster|session",
           "s|a|org|cluster|session|-|extra",
