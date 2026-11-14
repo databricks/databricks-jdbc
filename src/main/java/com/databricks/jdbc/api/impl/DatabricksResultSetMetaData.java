@@ -104,6 +104,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             }
           }
 
+          // Thrift NULL_TYPE is exposed as STRING metadata, while its values remain SQL NULL.
+          // Match that metadata for SEA results as well.
+          if (columnTypeName == ColumnInfoTypeName.NULL) {
+            columnTypeName = ColumnInfoTypeName.STRING;
+          }
+
           // For collated string columns (e.g. "STRING COLLATE UTF8_LCASE") getTypeName() returns
           // null because the collated type name does not map to a ColumnInfoTypeName. Recover
           // STRING from the typeText so the java.sql type resolves to VARCHAR instead of OTHER; the

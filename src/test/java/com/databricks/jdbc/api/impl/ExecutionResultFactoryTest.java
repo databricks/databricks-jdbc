@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -21,7 +22,9 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.SqlExecResultFormat;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.StatementState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
@@ -63,6 +66,7 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testWarehouseJsonFixtureStillReadsRowsAfterFormatRoundTrip() throws Exception {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     ObjectMapper mapper = new ObjectMapper();
     ResultManifest manifest =
         mapper.readValue(
@@ -78,6 +82,20 @@ public class ExecutionResultFactoryTest {
     assertInstanceOf(InlineJsonResult.class, result);
     assertTrue(result.next());
     assertEquals("warehouse-row", result.getObject(0));
+    DatabricksResultSet jdbcResult =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            data,
+            manifest,
+            StatementType.QUERY,
+            session,
+            null);
+    assertTrue(jdbcResult.next());
+    assertEquals("warehouse-row", jdbcResult.getObject(1));
+    assertEquals("v", jdbcResult.getMetaData().getColumnName(1));
+    assertEquals(java.sql.Types.VARCHAR, jdbcResult.getMetaData().getColumnType(1));
+    jdbcResult.close();
   }
 
   @Test
@@ -165,6 +183,20 @@ public class ExecutionResultFactoryTest {
     assertInstanceOf(ArrowStreamResult.class, second);
     assertTrue(second.next());
     assertEquals(42, second.getObject(0));
+    DatabricksResultSet jdbcResult =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            arrowData,
+            arrowManifest,
+            StatementType.QUERY,
+            session,
+            null);
+    assertTrue(jdbcResult.next());
+    assertEquals(42, jdbcResult.getObject(1));
+    assertEquals("col_0", jdbcResult.getMetaData().getColumnName(1));
+    assertEquals(java.sql.Types.INTEGER, jdbcResult.getMetaData().getColumnType(1));
+    jdbcResult.close();
     first.close();
     second.close();
   }

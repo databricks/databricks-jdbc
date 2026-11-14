@@ -1021,6 +1021,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isBeforeFirst() throws SQLException {
     checkIfClosed();
+    if (executionResult instanceof ColumnarDataResult && executionResult.getRowCount() == 0) {
+      return false;
+    }
     return executionResult.getCurrentRow() == -1;
   }
 
@@ -1040,6 +1043,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (truncatedByMaxRows) {
       return true;
     }
+    if (executionResult instanceof ColumnarDataResult) {
+      return executionResult.getRowCount() > 0
+          && executionResult.getCurrentRow() >= executionResult.getRowCount();
+    }
     // SEA Arrow manifests may omit total_row_count. Use provider exhaustion so isAfterLast()
     // is true only AFTER the last row, not while the cursor is still positioned ON it.
     if (executionResult instanceof ArrowStreamResult
@@ -1052,6 +1059,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isFirst() throws SQLException {
     checkIfClosed();
+    if (executionResult instanceof ColumnarDataResult && executionResult.getRowCount() == 0) {
+      return false;
+    }
     return executionResult.getCurrentRow() == 0;
   }
 
@@ -1075,6 +1085,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isLast() throws SQLException {
     checkIfClosed();
+    if (executionResult instanceof ColumnarDataResult) {
+      long currentRow = executionResult.getCurrentRow();
+      if (currentRow < 0 || currentRow >= executionResult.getRowCount()) {
+        return false;
+      }
+      return (maxRowsLimit > 0 && rowsReturned >= maxRowsLimit)
+          || currentRow == executionResult.getRowCount() - 1;
+    }
     // Account for client-side maxRows truncation: if the next next() call would
     // hit the limit, this is the last row the caller will see.
     if (maxRowsLimit > 0 && rowsReturned >= maxRowsLimit) {
@@ -1127,6 +1145,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     checkIfClosed();
     // JDBC spec: getRow() returns 0 when cursor is not on a valid row (after last)
     if (truncatedByMaxRows) {
+      return 0;
+    }
+    if (executionResult instanceof ColumnarDataResult
+        && executionResult.getCurrentRow() >= executionResult.getRowCount()) {
       return 0;
     }
     return (int) executionResult.getCurrentRow() + 1;
