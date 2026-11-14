@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -22,10 +23,15 @@ import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Handler;
@@ -34,7 +40,9 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -106,6 +114,62 @@ class ApcArrowBatchChunkProviderTest {
       bytes = out.toByteArray();
     }
     return new ArrowBatch().setBatch(bytes).setRowCount(1L);
+  }
+
+  private static ResultManifest typedManifest(CompressionCodec codec) {
+    return manifest(codec)
+        .setSchema(
+            new ResultSchema()
+                .setColumnCount(3L)
+                .setColumns(
+                    List.of(
+                        new ColumnInfo()
+                            .setName("n")
+                            .setPosition(0L)
+                            .setTypeName(ColumnInfoTypeName.INT)
+                            .setTypeText("INT")
+                            .setTypeJson("integer"),
+                        new ColumnInfo()
+                            .setName("label")
+                            .setPosition(1L)
+                            .setTypeName(ColumnInfoTypeName.STRING)
+                            .setTypeText("STRING")
+                            .setTypeJson("string"),
+                        new ColumnInfo()
+                            .setName("amount")
+                            .setPosition(2L)
+                            .setTypeName(ColumnInfoTypeName.DECIMAL)
+                            .setTypeText("DECIMAL(8,2)")
+                            .setTypeJson("decimal(8,2)")
+                            .setTypePrecision(8L)
+                            .setTypeScale(2L))));
+  }
+
+  private static byte[] typedStream(int value, String label) throws Exception {
+    Schema schema = ArrowBatchSchemaBuilder.build(typedManifest(CompressionCodec.NONE).getSchema());
+    try (RootAllocator allocator = new RootAllocator();
+        VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      root.allocateNew();
+      ((IntVector) root.getVector("n")).setSafe(0, value);
+      ((VarCharVector) root.getVector("label")).setSafe(0, label.getBytes(StandardCharsets.UTF_8));
+      ((DecimalVector) root.getVector("amount")).setSafe(0, new BigDecimal(value + ".25"));
+      root.setRowCount(1);
+      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+      try (ArrowStreamWriter writer = new ArrowStreamWriter(root, null, bytes)) {
+        writer.start();
+        writer.writeBatch();
+        writer.end();
+      }
+      return bytes.toByteArray();
+    }
+  }
+
+  private static byte[] lz4(byte[] bytes) throws Exception {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream frame = new LZ4FrameOutputStream(out)) {
+      frame.write(bytes);
+    }
+    return out.toByteArray();
   }
 
   private static IDatabricksSession session(IDatabricksClient client, boolean cloudFetch) {
@@ -480,6 +544,147 @@ class ApcArrowBatchChunkProviderTest {
     assertEquals(
         List.of(first.getExternalLink(), second.getExternalLink(), third.getExternalLink()),
         requested);
+  }
+
+  @Test
+  void lz4ExternalLinksReadCompleteIpcStreamsWithEveryColumn() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    String firstUrl = "https://storage.example.test/first?sig=a%2Bb";
+    String secondUrl = "https://storage.example.test/second?sig=c%2Fd";
+    byte[] first = lz4(typedStream(10, "first"));
+    byte[] second = lz4(typedStream(20, "second"));
+    List<String> requested = new ArrayList<>();
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              HttpUriRequest request = invocation.getArgument(0);
+              String url = request.getURI().toString();
+              requested.add(url);
+              assertEquals("keep-me", request.getFirstHeader("x-presigned").getValue());
+              CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+              when(response.getEntity())
+                  .thenReturn(new ByteArrayEntity(url.equals(firstUrl) ? first : second));
+              when(response.getStatusLine())
+                  .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+              return response;
+            });
+    ResultData initial =
+        new ResultData()
+            .setExternalLinks(List.of(link(firstUrl, 0, 0, 1, 1), link(secondUrl, 1, 1, 1, null)));
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                typedManifest(CompressionCodec.LZ4_FRAME), initial, ID, session, http))) {
+      for (int value : List.of(10, 20)) {
+        assertTrue(result.result.next());
+        assertEquals(value, result.result.getObject(0));
+        assertEquals(value == 10 ? "first" : "second", result.result.getObject(1));
+        assertEquals(new BigDecimal(value + ".25"), result.result.getObject(2));
+      }
+      assertFalse(result.result.next());
+      assertEquals(2, result.result.getRowCount());
+    }
+    assertEquals(List.of(firstUrl, secondUrl), requested);
+  }
+
+  @Test
+  void serverErrorAfterInlinePagePropagatesWithoutSuccessfulCompletion() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    IDatabricksSession session = session(client, false);
+    ResultData initial = new ResultData().setArrowBatches(List.of(batch(10, false)));
+    initial.setNextChunkIndex(1L);
+    DatabricksSQLException serverError =
+        new DatabricksSQLException("inline capacity exceeded", "SERVER_INLINE_LIMIT", 4242);
+    when(client.getResultChunksData(ID, 1, 1)).thenThrow(serverError);
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                manifest(CompressionCodec.NONE),
+                initial,
+                ID,
+                session,
+                mock(IDatabricksHttpClient.class)))) {
+      assertTrue(result.result.next());
+      assertEquals(10, result.result.getObject(0));
+      assertSame(serverError, assertThrows(DatabricksSQLException.class, result.result::next));
+      assertTrue(result.result.hasNext());
+      assertEquals(0, result.result.getCurrentRow());
+    }
+    verify(client).getResultChunksData(ID, 1, 1);
+  }
+
+  @Test
+  void closingPartiallyReadOrFailedLinksClosesEveryAllocator() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    ResultData initial =
+        new ResultData()
+            .setExternalLinks(
+                List.of(
+                    link("https://storage.example.test/one", 0, 0, 1, 1),
+                    link("https://storage.example.test/two", 1, 1, 1, null)));
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(initial, manifest(CompressionCodec.NONE), ID, session, http);
+    Field pendingField = ApcArrowBatchChunkProvider.class.getDeclaredField("pending");
+    pendingField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    ArrayDeque<ArrowResultChunk> pending =
+        (ArrayDeque<ArrowResultChunk>) pendingField.get(provider);
+    List<ArrowResultChunk> chunks = new ArrayList<>(pending);
+    provider.close();
+    for (ArrowResultChunk chunk : chunks) {
+      assertEquals(ChunkStatus.CHUNK_RELEASED, chunk.getStatus());
+      assertThrows(IllegalStateException.class, () -> chunk.rootAllocator.buffer(1));
+    }
+
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              throw new java.io.IOException("download failed");
+            });
+    ApcArrowBatchChunkProvider failed =
+        new ApcArrowBatchChunkProvider(
+            new ResultData()
+                .setExternalLinks(
+                    List.of(link("https://storage.example.test/fail", 0, 0, 1, null))),
+            manifest(CompressionCodec.NONE),
+            ID,
+            session,
+            http);
+    assertThrows(DatabricksSQLException.class, failed::next);
+    ArrowResultChunk failedChunk = failed.getChunk();
+    failed.close();
+    assertThrows(IllegalStateException.class, () -> failedChunk.rootAllocator.buffer(1));
+  }
+
+  @Test
+  void concurrentSessionTimeZoneUpdatesCannotInvalidateProviderConstruction() throws Exception {
+    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    when(context.getSessionConfigs()).thenReturn(Map.of("TIMEZONE", "UTC"));
+    DatabricksSession session = new DatabricksSession(context, mock(IDatabricksClient.class));
+    assertInstanceOf(ConcurrentHashMap.class, session.getSessionConfigs());
+    Thread writer =
+        new Thread(
+            () -> {
+              for (int i = 0; i < 1000; i++) {
+                session.setSessionConfig("TIMEZONE", i % 2 == 0 ? "UTC" : "Asia/Tokyo");
+              }
+            });
+    writer.start();
+    try {
+      for (int i = 0; i < 100; i++) {
+        new ApcArrowBatchChunkProvider(
+                new ResultData(),
+                manifest(CompressionCodec.NONE),
+                ID,
+                session,
+                mock(IDatabricksHttpClient.class))
+            .close();
+      }
+    } finally {
+      writer.join();
+    }
   }
 
   @Test

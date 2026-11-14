@@ -353,6 +353,8 @@ class ApcResultTypeMatrixTest {
     try {
       assertTrue(result.next());
       assertTrue(thrift.next());
+      assertTrue(result.isFirst());
+      assertEquals(1, result.getRow());
       assertEquals(21, result.getMetaData().getColumnCount());
       int[] thriftJdbcTypes = {
         Types.BOOLEAN,
@@ -462,6 +464,8 @@ class ApcResultTypeMatrixTest {
       assertFalse(result.next());
       assertTrue(result.isAfterLast());
       assertFalse(result.isLast());
+      assertFalse(result.isFirst());
+      assertEquals(0, result.getRow());
     } finally {
       result.close();
       thrift.close();

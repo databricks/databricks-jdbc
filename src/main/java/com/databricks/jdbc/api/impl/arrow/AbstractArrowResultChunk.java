@@ -140,14 +140,25 @@ public abstract class AbstractArrowResultChunk {
    *
    * @return true if chunk was released, false if it was already released
    */
-  public boolean releaseChunk() {
+  public synchronized boolean releaseChunk() {
+    return releaseChunk(false);
+  }
+
+  /** Releases an APC chunk whose download has finished or never started. */
+  synchronized boolean releaseChunkAndAllocator() {
+    return releaseChunk(true);
+  }
+
+  private boolean releaseChunk(boolean closeUnusedAllocator) {
     if (getStatus() == ChunkStatus.CHUNK_RELEASED) {
       return false;
     }
 
-    if (getStatus() == ChunkStatus.PROCESSING_SUCCEEDED) {
+    if (getStatus() == ChunkStatus.PROCESSING_SUCCEEDED || closeUnusedAllocator) {
       logAllocatorStats("BeforeRelease");
-      purgeArrowData(this.recordBatchList);
+      if (recordBatchList != null) {
+        purgeArrowData(recordBatchList);
+      }
       rootAllocator.close();
     }
     setStatus(ChunkStatus.CHUNK_RELEASED);

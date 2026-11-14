@@ -22,6 +22,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
 import java.sql.*;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -77,6 +78,32 @@ public class DatabricksStatementTest {
         DatabricksStatement.sessionTimeZoneSetBy(
             "SET spark.sql.session.timeZone=America/Los_Angeles"));
     assertNull(DatabricksStatement.sessionTimeZoneSetBy("SELECT 'SET TIME ZONE UTC'"));
+  }
+
+  @Test
+  public void setTimeZoneLocalStoresAUsableZoneForArrowTimestamps() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(context, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String sql = "SET TIME ZONE LOCAL";
+    when(client.executeStatement(
+            eq(sql),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    String timeZone = connection.getSession().getSessionConfigs().get("TIMEZONE");
+    assertEquals(ZoneId.systemDefault().getId(), timeZone);
+    assertEquals(
+        timeZone, connection.getSession().getSessionConfigs().get("spark.sql.session.timeZone"));
+    assertEquals(ZoneId.systemDefault(), ZoneId.of(timeZone));
   }
 
   @Test

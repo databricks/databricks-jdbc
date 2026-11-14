@@ -20,6 +20,7 @@ import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -933,7 +934,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     }
     for (int i = 1; i <= 3; i++) {
       if (match.group(i) != null) {
-        return match.group(i);
+        String zone = match.group(i);
+        return i == 3 && "LOCAL".equalsIgnoreCase(zone) ? ZoneId.systemDefault().getId() : zone;
       }
     }
     return null;
