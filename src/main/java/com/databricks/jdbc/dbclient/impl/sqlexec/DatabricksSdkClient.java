@@ -415,7 +415,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     } finally {
       if (result != null) {
         try {
-          result.close();
+          result.closeForNativeBatch();
         } finally {
           if (parentStatement == null) {
             closeStatement(
@@ -441,13 +441,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
       MetadataOperationType metadataOperationType,
       List<StatementParameterSet> parameterSets)
       throws SQLException {
-    boolean interpolatedApc =
-        SeaComputeTarget.of(computeResource).isApc()
-            && !parameters.isEmpty()
-            && !ApcParameterCapabilities.supportsNativeParameters(session);
+    boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    boolean redactApcDetails =
+        apc
+            && !ApcParameterCapabilities.supportsNativeParameters(session)
+            && (!parameters.isEmpty() || parentStatement instanceof DatabricksPreparedStatement);
+    String logSql = apc ? "[REDACTED]" : sql;
+    String errorSql = redactApcDetails ? "[REDACTED]" : sql;
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, parameterCount = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
-        sql,
+        logSql,
         computeLabel(computeResource),
         parameters.size(),
         statementType,
@@ -492,14 +495,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (statementId == null) {
       LOGGER.error(
           "Empty Statement ID for sql {}, statementType {}, compute {}",
-          sql,
+          logSql,
           statementType,
           computeLabel(computeResource));
-      handleFailedExecution(response, "", sql, interpolatedApc);
+      handleFailedExecution(response, "", errorSql, redactApcDetails);
     }
     LOGGER.debug(
         "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
-        sql,
+        logSql,
         statementType,
         computeLabel(computeResource),
         statementId);
@@ -561,7 +564,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       }
       responseState = response.getStatus().getState();
       LOGGER.debug(
-          "Executed sql {} with status {} with retry count {}", sql, responseState, pollCount);
+          "Executed sql {} with status {} with retry count {}", logSql, responseState, pollCount);
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
@@ -590,7 +593,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           pollCount);
     }
     if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
-      handleFailedExecution(response, statementId, sql, interpolatedApc);
+      handleFailedExecution(response, statementId, errorSql, redactApcDetails);
     }
 
     // Defer markDirectResultsReceived until AFTER ResultSet construction.
@@ -627,9 +630,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
+    boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    String logSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
         "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
-        sql,
+        logSql,
         computeLabel(computeResource),
         session,
         parentStatement);
@@ -653,14 +658,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     String statementId = response.getStatementId();
     if (statementId == null) {
-      LOGGER.error("Empty Statement ID for sql {}, compute {}", sql, computeLabel(computeResource));
-      handleFailedExecution(
-          response,
-          "",
-          sql,
-          SeaComputeTarget.of(computeResource).isApc()
+      LOGGER.error(
+          "Empty Statement ID for sql {}, compute {}", logSql, computeLabel(computeResource));
+      boolean redactApcDetails =
+          apc
               && !parameters.isEmpty()
-              && !ApcParameterCapabilities.supportsNativeParameters(session));
+              && !ApcParameterCapabilities.supportsNativeParameters(session);
+      handleFailedExecution(response, "", redactApcDetails ? "[REDACTED]" : sql, redactApcDetails);
     }
     StatementId typedStatementId =
         StatementId.forCurrentSession(statementId, session.getSessionInfo());
@@ -668,7 +672,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
-    LOGGER.debug("Executed sql [{}] with status [{}]", sql, response.getStatus().getState());
+    LOGGER.debug("Executed sql [{}] with status [{}]", logSql, response.getStatus().getState());
 
     // SEA async execution never returns direct results — the server always returns
     // PENDING/RUNNING state, and the client polls via getStatementResult(). No need
@@ -1115,7 +1119,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementResponse response,
       String statementId,
       String statement,
-      boolean interpolatedApc)
+      boolean redactApcDetails)
       throws SQLException {
     StatementState statementState = response.getStatus().getState();
     ServiceError error = response.getStatus().getError();
@@ -1135,15 +1139,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String errorMessage =
         String.format(
             "Statement execution failed %s -> %s\n%s.", statementId, statement, statementState);
-    // The server may echo interpolated SQL in its error text. Keep it only for SQL-state
-    // classification; callers and logs receive the message without bound values.
+    // The APC server may echo SQL or bound values in its error text. Keep the raw text only for
+    // SQL-state classification; callers and logs receive a redacted message.
     String rawErrorMessage = errorMessage;
     if (error != null) {
       rawErrorMessage +=
           String.format(
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
       errorMessage +=
-          interpolatedApc
+          redactApcDetails
               ? String.format(" Error code: %s", error.getErrorCode())
               : String.format(
                   " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());

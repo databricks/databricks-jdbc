@@ -24,7 +24,12 @@ class RedactingRequestTest {
     String body =
         "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
             + cluster
-            + "\"}}}";
+            + "\"}},\"statement\":\"SELECT ?\",\"parameters\":[{\"value\":\"native-secret\"}],"
+            + "\"parameter_sets\":[{\"parameters\":[{\"value\":\"batch-secret\"}]}]}";
+    String interpolatedBody =
+        "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
+            + cluster
+            + "\"}},\"statement\":\"SELECT 'interpolated-secret'\"}";
     List<String> wireBodies = new ArrayList<>();
     List<String> wireUrls = new ArrayList<>();
     ApiClient client =
@@ -68,6 +73,9 @@ class RedactingRequestTest {
       client.execute(
           new RedactingRequest(Request.POST, "/api/2.0/sql/statements/", body), Void.class);
       client.execute(
+          new RedactingRequest(Request.POST, "/api/2.0/sql/statements/", interpolatedBody),
+          Void.class);
+      client.execute(
           new RedactingRequest(Request.POST, "/api/2.0/sql/statements/id/cancel", body),
           Void.class);
       client.execute(
@@ -83,12 +91,16 @@ class RedactingRequestTest {
       logger.removeHandler(handler);
       logger.setLevel(previousLevel);
     }
-    assertEquals(5, wireBodies.size());
-    for (int i = 0; i < 4; i++) {
+    assertEquals(6, wireBodies.size());
+    for (int i : List.of(0, 1, 3, 4)) {
       assertEquals(body, wireBodies.get(i));
     }
-    assertTrue(wireUrls.get(4).contains(cluster));
+    assertEquals(interpolatedBody, wireBodies.get(2));
+    assertTrue(wireUrls.get(5).contains(cluster));
     assertTrue(logged.toString().contains("[REDACTED]"));
     assertFalse(logged.toString().contains(cluster));
+    assertFalse(logged.toString().contains("native-secret"));
+    assertFalse(logged.toString().contains("batch-secret"));
+    assertFalse(logged.toString().contains("interpolated-secret"));
   }
 }

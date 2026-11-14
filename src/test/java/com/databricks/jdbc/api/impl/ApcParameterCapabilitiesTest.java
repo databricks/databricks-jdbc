@@ -243,9 +243,16 @@ class ApcParameterCapabilitiesTest {
             any(),
             eq(prepared),
             isNull());
-    assertEquals(List.of(INSERT, INSERT), sql.getAllValues());
-    assertEquals("a' ; --", bindings.getAllValues().get(0).get(1).value());
-    assertEquals("b\\c", bindings.getAllValues().get(1).get(1).value());
+    if (version == null || version < 42248L) {
+      assertEquals(
+          List.of("INSERT INTO t VALUES ('a'' ; --')", "INSERT INTO t VALUES ('b\\\\c')"),
+          sql.getAllValues());
+      assertTrue(bindings.getAllValues().stream().allMatch(Map::isEmpty));
+    } else {
+      assertEquals(List.of(INSERT, INSERT), sql.getAllValues());
+      assertEquals("a' ; --", bindings.getAllValues().get(0).get(1).value());
+      assertEquals("b\\c", bindings.getAllValues().get(1).get(1).value());
+    }
     verify(test.client, never()).executeNativeBatch(anyString(), anyList(), any(), any());
   }
 
@@ -260,8 +267,11 @@ class ApcParameterCapabilitiesTest {
     }
     when(test.client.executeNativeBatch(eq(INSERT), anyList(), any(), eq(prepared)))
         .thenReturn(new long[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO});
+    prepared.closeOnCompletion();
     assertArrayEquals(
         new int[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO}, prepared.executeBatch());
+    assertFalse(prepared.isClosed());
+    assertArrayEquals(new long[0], prepared.executeLargeBatch());
     verify(test.client, never())
         .executeStatement(anyString(), any(), anyMap(), any(), any(), any(), any());
 

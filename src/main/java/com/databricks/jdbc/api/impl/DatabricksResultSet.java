@@ -450,6 +450,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public void close() throws DatabricksSQLException {
+    closeInternal(true);
+  }
+
+  /** Closes the private aggregate result of a native batch without completing its statement. */
+  public void closeForNativeBatch() throws DatabricksSQLException {
+    closeInternal(false);
+  }
+
+  private void closeInternal(boolean notifyParent) throws DatabricksSQLException {
     // Idempotency guard. Besides making close() safe to call more than once, this also breaks the
     // mutual recursion that occurs when closeOnCompletion() is enabled (ES-1978361): closing the
     // ResultSet notifies the parent Statement (handleResultSetClose), which closes the Statement,
@@ -466,7 +475,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult != null) {
       executionResult.close();
     }
-    if (parentStatement != null) {
+    if (notifyParent && parentStatement != null) {
       parentStatement.handleResultSetClose(this);
     }
   }

@@ -90,6 +90,17 @@ public class DatabricksResultSetTest {
         false);
   }
 
+  @Test
+  void nativeBatchResultCleanupDoesNotTriggerCloseOnCompletion() throws Exception {
+    DatabricksResultSet result = getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
+
+    result.closeForNativeBatch();
+
+    assertTrue(result.isClosed());
+    verify(mockedDatabricksStatement).closeServerOperation();
+    verify(mockedDatabricksStatement, never()).handleResultSetClose(result);
+  }
+
   private DatabricksResultSet getResultSet(
       StatementStatus statementState, IDatabricksStatementInternal statement) {
     return new DatabricksResultSet(

@@ -59,6 +59,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
@@ -2565,6 +2566,56 @@ public class DatabricksSdkClientTest {
       assertFalse(body.has("parameters"));
     }
     assertFalse(body.has("parameter_sets"));
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(longs = {42247L})
+  public void testApcProcedureMetadataDowngradeOmitsParameters(Long version) throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(cluster)
+            .negotiatedProtocolVersion(version)
+            .liveProtocolVersion(true)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("session");
+    when(session.getComputeResource()).thenReturn(cluster);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenThrow(new IOException("captured request"));
+    DatabricksMetadataQueryClient metadata = new DatabricksMetadataQueryClient(client);
+
+    assertThrows(
+        SQLException.class, () -> metadata.listProcedures(session, "main", "s';--\\tail", "p'%"));
+    assertThrows(
+        SQLException.class,
+        () -> metadata.listProcedureColumns(session, "main", "s';--\\tail", "p'%", "c\\_"));
+
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient, times(2)).execute(requests.capture(), eq(ExecuteStatementResponse.class));
+    JsonNode procedures =
+        new ObjectMapper().readTree(requests.getAllValues().get(0).getBodyString());
+    JsonNode columns = new ObjectMapper().readTree(requests.getAllValues().get(1).getBodyString());
+    for (JsonNode body : List.of(procedures, columns)) {
+      String sql = body.path("statement").asText();
+      assertTrue(sql.contains("LIKE 's'';--\\\\tail'"));
+      assertTrue(sql.contains("LIKE 'p''%'"));
+      assertFalse(sql.contains("LIKE ?"));
+      assertFalse(body.has("parameters"));
+      assertFalse(body.has("parameter_sets"));
+    }
+    assertTrue(columns.path("statement").asText().contains("LIKE 'c\\\\_'"));
   }
 
   @Test

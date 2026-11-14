@@ -102,6 +102,42 @@ class PreparedStatementBatchExecutorTest {
   }
 
   @Test
+  void literalQuestionMarkWithoutBindingsDoesNotEnableNativeBatching() throws Exception {
+    String sql = "INSERT INTO target VALUES ('?')";
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    List<BatchParameterSet> batch = List.of(BatchParameterSet.from(Map.of()));
+    when(statementExecutor.execute(sql, Map.of(), StatementType.UPDATE, false))
+        .thenReturn(firstResultSet);
+    when(firstResultSet.getUpdateCount()).thenReturn(1L);
+
+    assertArrayEquals(
+        new long[] {1L}, newExecutor(sql, false, nativeBatchExecutor).executeBatch(batch));
+    verifyNoInteractions(nativeBatchExecutor);
+  }
+
+  @Test
+  void nativeBatchFailurePreservesServerSqlStateVendorCodeAndCause() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    SQLException serverError = new SQLException("retry later", "40001", 1287);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(serverError);
+
+    DatabricksBatchUpdateException error =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+    assertEquals("40001", error.getSQLState());
+    assertEquals(1287, error.getErrorCode());
+    assertEquals(serverError, error.getCause());
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        error.getLargeUpdateCounts());
+  }
+
+  @Test
   void unsupportedNativeExecutorFallsBackToLegacyExecution() throws Exception {
     setBatchedInsertsEnabled(true);
     when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);

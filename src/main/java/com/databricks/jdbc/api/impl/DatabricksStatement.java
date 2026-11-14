@@ -884,7 +884,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     String stackTraceMessage =
         format(
             "DatabricksResultSet executeInternal(String sql = %s, parameterCount = %s, StatementType statementType = {%s})",
-            sql, params.size(), statementType);
+            ApcParameterCapabilities.isApcSea(connection.getSession()) ? "[REDACTED]" : sql,
+            params.size(),
+            statementType);
     LOGGER.debug(stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
