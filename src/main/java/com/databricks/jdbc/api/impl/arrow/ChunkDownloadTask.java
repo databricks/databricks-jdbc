@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -45,6 +46,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     int retries = 0;
     boolean downloadSuccessful = false;
     boolean refreshedAfterWait = false;
+    boolean cancelled = false;
 
     // Sets context in the newly spawned thread
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
@@ -120,7 +122,17 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               chunk.getChunkIndex(),
               taskTotalMs,
               retries);
+        } catch (InterruptedException e) {
+          // Interrupted waiting for a link or a download permit, e.g. by close(): a cancel too.
+          Thread.currentThread().interrupt();
+          cancelled = true;
+          break;
         } catch (IOException | DatabricksSQLException e) {
+          if (Thread.currentThread().isInterrupted()) {
+            // Cancelled (e.g. result set closed early): stop without retrying or reporting.
+            cancelled = true;
+            break;
+          }
           retries++;
           if (retries >= MAX_RETRIES) {
             LOGGER.error(
@@ -146,10 +158,8 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {
               Thread.currentThread().interrupt();
-              throw new DatabricksSQLException(
-                  "Chunk download was interrupted",
-                  ie,
-                  DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+              cancelled = true;
+              break;
             }
           }
         }
@@ -160,6 +170,15 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     } finally {
       if (downloadSuccessful) {
         chunk.getChunkReadyFuture().complete(null); // complete the void future successfully
+      } else if (cancelled) {
+        LOGGER.debug("Chunk download cancelled. Chunk index: {}", chunk.getChunkIndex());
+        chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        // Not a DatabricksSQLException: a cancellation must not export failure telemetry.
+        chunk
+            .getChunkReadyFuture()
+            .completeExceptionally(
+                new InterruptedIOException(
+                    "Download cancelled for chunk index " + chunk.getChunkIndex()));
       } else {
         LOGGER.info(
             "Uncaught exception during chunk download. Chunk index: {}, Error: {}",

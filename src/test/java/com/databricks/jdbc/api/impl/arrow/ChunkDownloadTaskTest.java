@@ -13,6 +13,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.SocketException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -102,6 +103,56 @@ public class ChunkDownloadTaskTest {
   }
 
   @Test
+  void interruptedDownload_isCancelledWithoutRetryOrFailureReport() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    doAnswer(
+            invocation -> {
+              Thread.currentThread().interrupt(); // e.g. close() during the read
+              throw new InterruptedIOException("Chunk download interrupted");
+            })
+        .when(chunk)
+        .downloadData(httpClient, CompressionCodec.NONE, 0.1);
+
+    try {
+      assertDoesNotThrow(() -> chunkDownloadTask.call());
+      assertTrue(Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
+
+    verify(chunk, times(1)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verify(chunk).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
+    // Not a DatabricksSQLException, so no CHUNK_DOWNLOAD_ERROR telemetry is exported.
+    assertInstanceOf(InterruptedIOException.class, executionException.getCause());
+  }
+
+  @Test
+  void interruptWhileWaitingForLink_isCancelledWithoutFailureReport() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(true);
+    when(chunkLinkDownloadService.getLinkForChunk(anyLong())).thenReturn(new CompletableFuture<>());
+
+    Thread.currentThread().interrupt();
+    try {
+      assertDoesNotThrow(() -> chunkDownloadTask.call());
+      assertTrue(Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
+
+    verify(chunk, never()).downloadData(any(), any(), anyDouble());
+    verify(chunk).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
+    assertInstanceOf(InterruptedIOException.class, executionException.getCause());
+  }
+
+  @Test
   void testRetryLogicWithRealChunkAndStatusTransitions() throws Exception {
     StatementId statementId = new StatementId("test-statement-123");
     ExternalLink mockExternalLink = mock(ExternalLink.class);
@@ -145,15 +196,10 @@ public class ChunkDownloadTaskTest {
         .when(spiedChunk)
         .setStatus(any(ChunkStatus.class));
 
-    // Mock the initializeData method to avoid Arrow parsing issues
-    doAnswer(
-            invocation -> {
-              // Simulate successful data initialization
-              spiedChunk.setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
-              return null;
-            })
+    // Mock Arrow parsing; status transitions still run for real
+    doReturn(new AbstractArrowResultChunk.ArrowData(new ArrayList<>(), Collections.emptyList(), 0L))
         .when(spiedChunk)
-        .initializeData(any(InputStream.class));
+        .readArrowData(any(InputStream.class));
 
     // Create a valid Arrow stream for successful response
     byte[] validArrowData = createValidArrowStreamData();
@@ -204,8 +250,8 @@ public class ChunkDownloadTaskTest {
     assertTrue(chunkFuture.isDone());
     assertDoesNotThrow(() -> chunkFuture.get());
 
-    // Verify initializeData was called once (on successful download)
-    verify(spiedChunk, times(1)).initializeData(any(InputStream.class));
+    // Verify Arrow parsing ran once (on successful download)
+    verify(spiedChunk, times(1)).readArrowData(any(InputStream.class));
   }
 
   private BaseChunkInfo createMockBaseChunkInfo(long chunkIndex, long rowCount, long rowOffset) {

@@ -10,16 +10,21 @@
 
 ### Updated
 
+- Reduced typed result getter CPU by resolving each column's converter once when its metadata is built and reusing it across rows.
 - Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
+- Reduced `getConnection()` latency for apps that open connections one at a time or after idle periods: a new connection reuses the driver feature flags fetched in the last 15 minutes (or within the server's TTL, if shorter) for the same host, User-Agent, and custom headers instead of fetching them again.
 
 ### Fixed
 
 - Fixed numeric getters returning shifted values for BC and pre-1582 dates: `getLong`, `getInt` and `getShort` (and `getObject(column, Long/Integer/Short/BigInteger)`) on DATE columns, and `getLong` (and `getObject(column, Long/BigInteger)`) on TIMESTAMP columns. For example, `DATE '1582-10-05'` returned epoch day -141427 instead of -141437. Values after the 1582 Gregorian cutover are unchanged. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
 - Fixed reading ARRAY, STRUCT and MAP values that contain a TIMESTAMP_NTZ with zero seconds (for example `2023-10-05 15:20:00`), which failed with `Invalid TIMESTAMP_NTZ array representation`. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.
+- Reduced lock contention when many threads read compressed inline results: the LZ4 decompressor and checksum are no longer looked up through JVM-wide synchronized factories for every result.
 - Fixed connection opens and other telemetry-emitting calls stalling for tens of seconds while another connection to the same host closed and its final telemetry flush was slow. `Connection.close()` also no longer waits indefinitely for that final flush: `TelemetrySocketTimeout` now also caps each final telemetry flush on close (authenticated and unauthenticated telemetry flush separately), including time queued behind other telemetry pushes and retries. After that many seconds the remaining telemetry batch is dropped (a value of `0` keeps the unbounded wait). ([#1442](https://github.com/databricks/databricks-jdbc/issues/1442))
 - Fixed connection setup stalling under concurrency: per-connection auth setup and the first feature-flag fetch no longer block connections to other hosts; same-host connections wait for the first feature-flag initialization, including any required authentication.
 - Reduced connection setup time by caching successful host-metadata and OIDC discovery JSON documents for up to an hour, with a JVM-wide limit of 1,024 entries. Responses redirected to another origin or path, or whose bodies cannot be parsed as discovery documents, are excluded.
+- Reduced heap usage when reading large CloudFetch results: chunks are now streamed from the HTTP response through decompression into Arrow instead of first being buffered on-heap. When Arrow uses off-heap memory, this cuts peak heap by about 40% and GC pause time by about half, so large results fit in smaller heaps.
+- Fixed CloudFetch rows being silently skipped when a chunk failed to parse and its retried download then succeeded: the chunk stayed in a failed state and its rows were not returned.
 - Fixed many concurrent CloudFetch queries in one JVM failing with `OutOfMemoryError` ("Failed to ready chunk"): the number of chunks being downloaded at once is now bounded for each workspace host, scaled to the maximum heap (one download per 128 MiB, at least 16), instead of growing by 16 per query. A JVM that queries several workspaces gets this bound once per host. Single-query download parallelism is unchanged: a query with a larger `cloudFetchThreadPoolSize` raises its host's bound to that size, up to 256, while it is open. A user-set `ChunkReadyTimeoutSeconds` now includes time spent waiting for a download slot.
 
 ---

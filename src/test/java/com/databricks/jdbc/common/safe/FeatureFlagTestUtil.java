@@ -8,4 +8,9 @@ public class FeatureFlagTestUtil {
       IDatabricksConnectionContext connectionContext, Map<String, String> flags) {
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
   }
+
+  /** Forgets flags fetched by earlier tests so a new context fetches again. */
+  public static void clearFeatureFlagSnapshots() {
+    DatabricksDriverFeatureFlagsContext.clearSnapshots();
+  }
 }

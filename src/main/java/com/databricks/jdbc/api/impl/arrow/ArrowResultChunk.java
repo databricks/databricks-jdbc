@@ -20,9 +20,11 @@ import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.time.Instant;
 import java.util.Map;
-import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.CloseShieldInputStream;
+import org.apache.commons.io.input.CountingInputStream;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -87,47 +89,58 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       TelemetryHelper.recordChunkDownloadLatency(
           connectionContext, getStatementIdString(statementId), chunkIndex, downloadTimeMs);
 
-      // Read compressed stream fully (download latency excludes decompression)
-      byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
-      long readTimeMs = (System.nanoTime() - startTime) / 1_000_000;
-
-      // Set status to DOWNLOAD_SUCCEEDED after reading the compressed stream fully
-      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
-
-      long size = response.getEntity().getContentLength();
-      logDownloadMetrics(
-          downloadTimeMs,
-          size > 0 ? size : compressed.length,
-          chunkLink.getExternalLink(),
-          speedThreshold);
-
-      // Decompress and parse. The decompression is streamed straight into the Arrow reader so the
-      // full decompressed payload is never materialized on-heap alongside the compressed bytes.
-      long decompressStart = System.nanoTime();
-      try {
-        String ctx =
-            String.format(
-                "Data decompression for chunk index [%d] and statement [%s]",
-                this.chunkIndex, StatementId.loggableStatementId(this.statementId));
-        initializeData(
-            DecompressionUtil.decompressToInputStream(compressed, compressionCodec, ctx));
-      } catch (Exception e) {
-        handleFailure(e, ChunkStatus.PROCESSING_FAILED);
+      // Stream the body through decompression straight into the Arrow reader so no copy of the
+      // chunk payload is buffered on-heap. Network errors can surface mid-parse, so any failure
+      // here is a retryable DOWNLOAD_FAILED; the body has been fully read once parsing returns.
+      String ctx =
+          String.format(
+              "Data decompression for chunk index [%d] and statement [%s]",
+              this.chunkIndex, StatementId.loggableStatementId(this.statementId));
+      CountingInputStream counted = new CountingInputStream(response.getEntity().getContent());
+      InputStream body = DecompressionUtil.decompressToInputStream(counted, compressionCodec, ctx);
+      // Arrow's interruptible channel closes its source on the interrupting thread (e.g. the one
+      // closing the result set), which would drain the live body there. Only this thread closes it.
+      ArrowData arrowData = readArrowData(CloseShieldInputStream.wrap(body));
+      if (Thread.currentThread().isInterrupted()) {
+        // An interrupted Arrow read returns early without batches; never report it as complete.
+        purgeArrowData(arrowData.getValueVectors());
+        throw new InterruptedIOException("Chunk download interrupted");
       }
-      long decompressTimeMs = (System.nanoTime() - decompressStart) / 1_000_000;
-      long totalTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+      // Install the batches before draining the body: if the drain stalls and the chunk is
+      // released meanwhile, releaseChunk() must find and free them.
+      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+      setArrowData(arrowData);
+      try {
+        // Drain the few trailing bytes so the connection is reused. On failure paths
+        // response.close() discards the connection instead of draining it.
+        body.close();
+      } catch (IOException e) {
+        LOGGER.debug("Ignoring error closing chunk body after a complete read: {}", e.getMessage());
+      }
+      long contentLength = response.getEntity().getContentLength();
+      long size = contentLength > 0 ? contentLength : counted.getByteCount();
+      logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
       LOGGER.debug(
-          "Chunk download complete: statementId={}, chunkIndex={}, "
-              + "compressedBytes={}, httpResponseMs={}, streamReadMs={}, decompressAndParseMs={}, "
-              + "totalMs={}",
+          "Chunk download complete: statementId={}, chunkIndex={}, compressedBytes={}, "
+              + "httpResponseMs={}, readAndParseMs={}",
           StatementId.loggableStatementId(statementId),
           chunkIndex,
-          compressed.length,
+          size,
           downloadTimeMs,
-          readTimeMs - downloadTimeMs,
-          decompressTimeMs,
-          totalTimeMs);
+          (System.nanoTime() - startTime) / 1_000_000 - downloadTimeMs);
     } catch (Exception e) {
+      if (Thread.currentThread().isInterrupted()) {
+        // Cancellation (e.g. the result set was closed early), not a failure: skip
+        // handleFailure so no error is logged or exported as telemetry. Decided by the interrupt
+        // flag, not the exception type: SocketTimeoutException is an InterruptedIOException too
+        // and must remain a retryable failure.
+        LOGGER.debug(
+            "Download cancelled for chunk index {} and statement {}",
+            chunkIndex,
+            StatementId.loggableStatementId(statementId));
+        setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        throw cancellation(e);
+      }
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
       if (response != null) {
@@ -157,6 +170,15 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
+  }
+
+  private static InterruptedIOException cancellation(Exception cause) {
+    if (cause instanceof InterruptedIOException) {
+      return (InterruptedIOException) cause;
+    }
+    InterruptedIOException cancelled = new InterruptedIOException("Chunk download interrupted");
+    cancelled.initCause(cause);
+    return cancelled;
   }
 
   private void addHeaders(HttpGet getRequest, Map<String, String> headers) {

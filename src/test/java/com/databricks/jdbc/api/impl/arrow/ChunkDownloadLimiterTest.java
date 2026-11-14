@@ -17,6 +17,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import java.io.InterruptedIOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -225,25 +227,23 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
-  void testInterruptWhileWaitingForPermitFailsChunk() throws Exception {
+  void testInterruptWhileWaitingForPermitCancelsChunk() throws Exception {
     ChunkDownloadLimiter limiter = newLimiter();
     when(remoteChunkProvider.getDownloadLimiter()).thenReturn(limiter);
     when(chunk.getChunkIndex()).thenReturn(3L);
-    assertInterruptedWhileWaitingFailsChunk(
+    assertInterruptWhileWaitingCancelsChunk(
         limiter,
         new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, linkDownloadService));
   }
 
   @Test
-  void testInterruptWhileWaitingForPermitFailsStreamingChunk() throws Exception {
+  void testInterruptWhileWaitingForPermitCancelsStreamingChunk() throws Exception {
     ChunkDownloadLimiter limiter = newLimiter();
     when(chunk.getChunkIndex()).thenReturn(3L);
-    assertInterruptedWhileWaitingFailsChunk(
+    assertInterruptWhileWaitingCancelsChunk(
         limiter,
         new StreamingChunkDownloadTask(
             chunk, httpClient, CompressionCodec.NONE, linkRefresher, 0.1, limiter));
-    // An interrupt while waiting for a permit fails the chunk without going through a retry.
-    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
   }
 
   @Test
@@ -508,8 +508,11 @@ class ChunkDownloadLimiterTest {
     assertEquals(TEST_DEFAULT_PERMITS, ChunkDownloadLimiter.forHost(host).totalPermits());
   }
 
-  /** Holds every permit, then interrupts a task blocked on the limiter, as close() does. */
-  private void assertInterruptedWhileWaitingFailsChunk(
+  /**
+   * Holds every permit, then interrupts a task blocked on the limiter, as close() does. That is a
+   * cancel, as for an interrupted download: no retry and no DatabricksSQLException (telemetry).
+   */
+  private void assertInterruptWhileWaitingCancelsChunk(
       ChunkDownloadLimiter limiter, Callable<Void> task) throws Exception {
     CompletableFuture<Void> ready = new CompletableFuture<>();
     when(chunk.getChunkReadyFuture()).thenReturn(ready);
@@ -526,8 +529,11 @@ class ChunkDownloadLimiterTest {
       }
       assertTrue(limiter.hasQueuedThreads(), "task never waited for a permit");
       pool.shutdownNow(); // interrupts the waiting task
-      assertThrows(Exception.class, () -> result.get(10, TimeUnit.SECONDS));
-      assertTrue(ready.isCompletedExceptionally());
+      assertDoesNotThrow(() -> result.get(10, TimeUnit.SECONDS));
+      ExecutionException failure = assertThrows(ExecutionException.class, ready::get);
+      assertInstanceOf(InterruptedIOException.class, failure.getCause());
+      verify(chunk).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+      verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
       verify(chunk, never()).downloadData(any(), any(), anyDouble());
     } finally {
       for (int i = 0; i < held; i++) {

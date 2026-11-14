@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.sql.SQLException;
 import java.util.concurrent.Callable;
 
@@ -73,6 +74,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
     int retries = 0;
     boolean downloadSuccessful = false;
     boolean refreshedAfterWait = false;
+    boolean cancelled = false;
     Throwable uncaughtException = null;
 
     // Propagate caller's thread context for telemetry/logging
@@ -126,11 +128,16 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
               retries);
 
         } catch (InterruptedException ie) {
-          // Interrupted while waiting for a download permit, e.g. by close(); do not retry.
+          // Interrupted waiting for a download permit, e.g. by close(): a cancel too.
           Thread.currentThread().interrupt();
-          throw new DatabricksSQLException(
-              "Chunk download interrupted", ie, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+          cancelled = true;
+          break;
         } catch (IOException | SQLException e) {
+          if (Thread.currentThread().isInterrupted()) {
+            // Cancelled (e.g. result set closed early): stop without retrying or reporting.
+            cancelled = true;
+            break;
+          }
           retries++;
           if (retries >= MAX_RETRIES) {
             LOGGER.error(
@@ -153,10 +160,8 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {
               Thread.currentThread().interrupt();
-              throw new DatabricksSQLException(
-                  "Chunk download interrupted",
-                  ie,
-                  DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+              cancelled = true;
+              break;
             }
           }
         }
@@ -167,6 +172,15 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
     } finally {
       if (downloadSuccessful) {
         chunk.getChunkReadyFuture().complete(null);
+      } else if (cancelled) {
+        LOGGER.debug("Download cancelled for chunk {}", chunk.getChunkIndex());
+        chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        // Not a DatabricksSQLException: a cancellation must not export failure telemetry.
+        chunk
+            .getChunkReadyFuture()
+            .completeExceptionally(
+                new InterruptedIOException(
+                    "Download cancelled for chunk " + chunk.getChunkIndex()));
       } else {
         LOGGER.error(
             "Download failed for chunk {}: {}",
