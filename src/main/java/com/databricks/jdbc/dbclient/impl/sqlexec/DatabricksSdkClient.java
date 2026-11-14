@@ -260,7 +260,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private String sessionPath(ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.realtimeSession()) {
+    if (sessionInfo.realtimeSession()
+        && !SeaComputeTarget.of(sessionInfo.computeResource()).isApc()) {
       return String.format(
           WAREHOUSE_SESSION_PATH_WITH_ID,
           SeaComputeTarget.of(sessionInfo.computeResource()).warehouseId(),
@@ -270,7 +271,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private String statementCollectionPath(ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.realtimeSession()) {
+    if (sessionInfo.realtimeSession()
+        && !SeaComputeTarget.of(sessionInfo.computeResource()).isApc()) {
       return String.format(
           WAREHOUSE_STATEMENT_PATH,
           SeaComputeTarget.of(sessionInfo.computeResource()).warehouseId(),
@@ -1010,7 +1012,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setResultCompression(compressionCodec)
             .setParameters(parameterListItems);
     SeaComputeTarget target = SeaComputeTarget.of(computeResource);
-    if (!session.getSessionInfo().realtimeSession()) {
+    if (target.isApc() || !session.getSessionInfo().realtimeSession()) {
       request.setSessionId(session.getSessionId());
       if (target.isApc()) {
         request.setBackendCompute(target.backendCompute());
