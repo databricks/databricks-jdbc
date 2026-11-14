@@ -149,14 +149,22 @@ public class TestUberPackaging {
 
     try (Connection connection = connect(params)) {
       try (Statement statement = connection.createStatement()) {
-        final String sql = "SELECT * FROM samples.tpch.lineitem where 1 = 0";
+        final int expectedRows = 100_000;
+        final String sql = "SELECT id FROM range(" + expectedRows + ") ORDER BY id";
         ResultSet result = statement.executeQuery(sql);
         int totalRows = 0;
         while (result.next()) {
+          if (result.getLong(1) != totalRows) {
+            throw new AssertionError("Unexpected row at index " + totalRows);
+          }
           if (totalRows % 100_000 == 0) {
             logger.info("Processed " + totalRows + " rows");
           }
           totalRows++;
+        }
+
+        if (totalRows != expectedRows) {
+          throw new AssertionError("Expected " + expectedRows + " rows but got " + totalRows);
         }
 
         logger.info("Total " + totalRows + " rows processed");
