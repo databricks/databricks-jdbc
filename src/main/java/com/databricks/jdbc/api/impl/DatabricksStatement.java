@@ -870,6 +870,15 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug(stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
+    return waitForExecutionResult(sql, stackTraceMessage, futureResultSet, closeStatement);
+  }
+
+  private DatabricksResultSet waitForExecutionResult(
+      String sql,
+      String stackTraceMessage,
+      CompletableFuture<DatabricksResultSet> futureResultSet,
+      boolean closeStatement)
+      throws SQLException {
     try {
       resultSet =
           timeoutInSeconds == 0
@@ -942,6 +951,38 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return result;
   }
 
+  boolean supportsNativeParameterBatching() {
+    try {
+      IDatabricksClient client = connection.getSession().getDatabricksClient();
+      return client.supportsNativeParameterBatching(connection.getSession().getComputeResource());
+    } catch (DatabricksSQLException e) {
+      LOGGER.warn("Unable to determine native batch capability, using legacy execution", e);
+      return false;
+    }
+  }
+
+  long[] executeNativeBatchInternal(String sql, List<BatchParameterSet> parameterSets)
+      throws SQLException {
+    resetForNewExecution();
+    DatabricksThreadContextHolder.setStatementType(StatementType.UPDATE);
+    String stackTraceMessage =
+        format(
+            "DatabricksResultSet executeNativeBatchInternal(String sql = %s, parameterSetCount = %s)",
+            sql, parameterSets.size());
+    LOGGER.debug(stackTraceMessage);
+    DatabricksResultSet result =
+        waitForExecutionResult(
+            sql,
+            stackTraceMessage,
+            getFutureBatchResult(sql, parameterSets, StatementType.UPDATE),
+            false);
+    try {
+      return result.getBatchUpdateCounts(parameterSets.size());
+    } catch (SQLException e) {
+      throw new NativeBatchResultException(e);
+    }
+  }
+
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
     return CompletableFuture.supplyAsync(
@@ -951,6 +992,21 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             // Remove empty ESCAPE clauses that cause syntax errors in Databricks
             SQLString = StringUtil.removeRedundantEscapeClause(SQLString);
             return getResultFromClient(SQLString, params, statementType);
+          } catch (SQLException e) {
+            throw new RuntimeException(e);
+          }
+        },
+        executor);
+  }
+
+  private CompletableFuture<DatabricksResultSet> getFutureBatchResult(
+      String sql, List<BatchParameterSet> parameterSets, StatementType statementType) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            String sqlString = escapeProcessing ? StringUtil.convertJdbcEscapeSequences(sql) : sql;
+            sqlString = StringUtil.removeRedundantEscapeClause(sqlString);
+            return getBatchResultFromClient(sqlString, parameterSets, statementType);
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
@@ -970,6 +1026,19 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         connection.getSession(),
         this,
         null /* metadataOperationType */);
+  }
+
+  private DatabricksResultSet getBatchResultFromClient(
+      String sql, List<BatchParameterSet> parameterSets, StatementType statementType)
+      throws SQLException {
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
+    return client.executeStatementBatch(
+        sql,
+        connection.getSession().getComputeResource(),
+        parameterSets,
+        statementType,
+        connection.getSession(),
+        this);
   }
 
   void checkIfClosed() throws DatabricksSQLException {
