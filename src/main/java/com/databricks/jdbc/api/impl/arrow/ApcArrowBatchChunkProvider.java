@@ -15,6 +15,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -329,7 +330,14 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
                         link.getChunkIndex(), link.getRowCount(), link.getRowOffset())
                     .build();
             staged.add(chunk);
-            chunk.setChunkLink(link);
+            if (link.getExpiration() == null) {
+              throw invalidPage("APC external link is missing expiration");
+            }
+            try {
+              chunk.setChunkLink(link);
+            } catch (DateTimeParseException e) {
+              throw invalidPage("APC external link has invalid expiration");
+            }
           }
           pageRows += link.getRowCount();
         }
