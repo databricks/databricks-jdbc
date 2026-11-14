@@ -26,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.arrow.vector.util.SchemaUtility;
 
 /** Pages APC Arrow batches using server continuation markers, without manifest chunk totals. */
 final class ApcArrowBatchChunkProvider implements ChunkProvider {
@@ -48,7 +47,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   private long nextRowOffset;
   private long rowCount;
   private long chunkCount;
-  private boolean closed;
+  private volatile boolean closed;
 
   ApcArrowBatchChunkProvider(
       ResultData initialData,
@@ -61,26 +60,24 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     this.statementId = statementId;
     this.httpClient = httpClient;
     this.compressionCodec = manifest.getResultCompression();
-    byte[] suppliedSchema = manifest.getArrowSchema();
-    if (suppliedSchema != null && suppliedSchema.length > 0) {
-      try {
-        SchemaUtility.deserialize(suppliedSchema, null);
-      } catch (IOException | RuntimeException e) {
-        throw invalidPage("Invalid APC arrow_schema");
-      }
-      this.schemaMessage = suppliedSchema;
-    } else {
-      String timeZone = "UTC";
-      Map<String, String> configs = session.getSessionConfigs();
-      if (configs != null) {
-        for (Map.Entry<String, String> config : configs.entrySet()) {
-          if ("TIMEZONE".equalsIgnoreCase(config.getKey()) && config.getValue() != null) {
-            timeZone = config.getValue();
-          }
+    String timeZone = "UTC";
+    Map<String, String> configs = session.getSessionConfigs();
+    if (configs != null) {
+      for (Map.Entry<String, String> config : configs.entrySet()) {
+        if ("spark.sql.session.timeZone".equalsIgnoreCase(config.getKey())
+            && config.getValue() != null) {
+          timeZone = config.getValue();
         }
       }
-      this.schemaMessage = ArrowBatchSchemaBuilder.serialize(manifest.getSchema(), timeZone);
+      for (Map.Entry<String, String> config : configs.entrySet()) {
+        if ("TIMEZONE".equalsIgnoreCase(config.getKey()) && config.getValue() != null) {
+          timeZone = config.getValue();
+        }
+      }
     }
+    // APC bare batches have no wire schema. The manifest is authoritative even when the
+    // optional arrow_schema is populated or malformed.
+    this.schemaMessage = ArrowBatchSchemaBuilder.serialize(manifest.getSchema(), timeZone);
     if (initialData == null) {
       nextChunkIndex = 0L;
     } else {
@@ -142,7 +139,19 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
               },
               session.getConnectionContext().getCloudFetchSpeedThreshold());
       try {
-        Future<Void> download = downloadExecutor.submit(task);
+        Future<Void> download =
+            downloadExecutor.submit(
+                () -> {
+                  try {
+                    return task.call();
+                  } finally {
+                    // Cancellation marks the Future done before the worker actually exits.
+                    // If close has already returned, the worker owns final cleanup.
+                    if (closed) {
+                      chunk.releaseChunk();
+                    }
+                  }
+                });
         int timeoutSeconds = session.getConnectionContext().getChunkReadyTimeoutSeconds();
         try {
           if (timeoutSeconds <= 0) {
@@ -200,11 +209,19 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
             "Unable to assemble APC Arrow batches", e, code.name(), code.getCode());
       }
       if (inlineRows > 0) {
-        pending.add(
-            ArrowResultChunk.builder()
-                .withStatementId(statementId)
-                .withInputStream(new ByteArrayInputStream(stream.toByteArray()), inlineRows)
-                .build());
+        try {
+          pending.add(
+              ArrowResultChunk.builder()
+                  .withStatementId(statementId)
+                  .withInputStream(new ByteArrayInputStream(stream.toByteArray()), inlineRows)
+                  .build());
+        } catch (DatabricksParsingException e) {
+          throw new DatabricksParsingException(
+              "Unable to parse APC inline Arrow batch",
+              e,
+              DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(),
+              DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode());
+        }
       }
       rowCount += inlineRows;
     }
@@ -254,15 +271,22 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   @Override
   public void close() {
     closed = true;
-    if (current != null) {
-      current.releaseChunk();
-      current = null;
+    downloadExecutor.shutdownNow();
+    boolean terminated = false;
+    try {
+      terminated = downloadExecutor.awaitTermination(3, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
+    if (terminated && current != null) {
+      current.releaseChunk();
+    }
+    // An active worker releases current in its finally block after parsing stops.
+    current = null;
     for (ArrowResultChunk chunk : pending) {
       chunk.releaseChunk();
     }
     pending.clear();
-    downloadExecutor.shutdownNow();
   }
 
   @Override
