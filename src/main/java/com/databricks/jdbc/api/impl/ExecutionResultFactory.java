@@ -65,6 +65,8 @@ class ExecutionResultFactory {
     }
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
+      case ARROW_BATCH:
+        return new ArrowStreamResult(manifest, data, statementId, session);
       case ARROW_STREAM:
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:
