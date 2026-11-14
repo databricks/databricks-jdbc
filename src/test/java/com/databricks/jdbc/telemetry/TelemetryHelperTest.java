@@ -10,14 +10,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.impl.common.SessionId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
+import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Collections;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -83,6 +90,68 @@ public class TelemetryHelperTest {
           () ->
               TelemetryHelper.exportFailureLog(
                   connectionContext, TEST_STRING, TEST_STRING, TelemetryLogLevel.ERROR));
+    }
+  }
+
+  @Test
+  void malformedApcIdFailureTelemetryRedactsConnectionPath() throws Exception {
+    String org = "sensitive-org-984";
+    String cluster = "sensitive-cluster-735";
+    when(connectionContext.getHostUrl()).thenReturn("https://example.com");
+    when(connectionContext.getHttpPath()).thenReturn("/sql/protocolv1/o/" + org + "/" + cluster);
+    when(connectionContext.getComputeResource()).thenReturn(new AllPurposeCluster(org, cluster));
+    when(connectionContext.getSessionConfigs()).thenReturn(Map.of());
+    TelemetryHelper.removeConnectionParameters("test-uuid");
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+      DatabricksParsingException error =
+          assertThrows(
+              DatabricksParsingException.class,
+              () -> SessionId.deserialize("s|a|" + org + "|" + cluster + "|session|invalid"));
+      assertFalse(error.getMessage().contains(org));
+      assertFalse(error.getMessage().contains(cluster));
+      ArgumentCaptor<TelemetryFrontendLog> captured =
+          ArgumentCaptor.forClass(TelemetryFrontendLog.class);
+      verify(clientMock, atLeastOnce()).exportEvent(captured.capture());
+      for (TelemetryFrontendLog capturedEvent : captured.getAllValues()) {
+        String event = new ObjectMapper().writeValueAsString(capturedEvent);
+        assertFalse(event.contains(org));
+        assertFalse(event.contains(cluster));
+        assertTrue(event.contains("[REDACTED]"));
+        assertTrue(event.contains("SESSION_ID_PARSING_EXCEPTION"));
+      }
+    } finally {
+      TelemetryHelper.removeConnectionParameters("test-uuid");
+    }
+  }
+
+  @Test
+  void legacyClusterTelemetryRetainsItsHttpPath() throws Exception {
+    when(connectionContext.getHostUrl()).thenReturn("https://example.com");
+    when(connectionContext.getHttpPath()).thenReturn("/cliservice");
+    when(connectionContext.getComputeResource())
+        .thenReturn(new AllPurposeCluster("default", "default"));
+    when(connectionContext.getSessionConfigs()).thenReturn(Map.of());
+    TelemetryHelper.removeConnectionParameters("test-uuid");
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+      TelemetryHelper.exportFailureLog(
+          connectionContext, "test-error", "test-message", TelemetryLogLevel.ERROR);
+      ArgumentCaptor<TelemetryFrontendLog> captured =
+          ArgumentCaptor.forClass(TelemetryFrontendLog.class);
+      verify(clientMock).exportEvent(captured.capture());
+      assertTrue(
+          new ObjectMapper().writeValueAsString(captured.getValue()).contains("/cliservice"));
+    } finally {
+      TelemetryHelper.removeConnectionParameters("test-uuid");
     }
   }
 
