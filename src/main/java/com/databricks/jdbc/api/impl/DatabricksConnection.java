@@ -90,7 +90,14 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public Statement getStatement(String statementId) throws SQLException {
     throwExceptionIfConnectionIsClosed();
     // Retrieved handles do not transfer ownership of the server operation.
-    return new DatabricksStatement(this, StatementId.deserialize(statementId));
+    StatementId id = StatementId.deserialize(statementId);
+    ImmutableSessionInfo currentSession = session.getSessionInfo();
+    if (id.clientType() == com.databricks.jdbc.common.DatabricksClientType.SEA
+        && currentSession != null
+        && currentSession.clientType() == com.databricks.jdbc.common.DatabricksClientType.SEA) {
+      id = StatementId.forCurrentSession(id.toSQLExecStatementId(), currentSession);
+    }
+    return new DatabricksStatement(this, id);
   }
 
   @Override
