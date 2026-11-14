@@ -143,6 +143,14 @@ public enum DatabricksJdbcUrlParams {
           + "\"TIMESTAMP_NTZ\" for TIMESTAMP_NTZ columns. Set to 0 to report "
           + "\"TIMESTAMP\" instead, matching the legacy (v2.x.x) driver behavior.",
       "1"),
+  ENABLE_STRICT_GET_OBJECT_CONVERSION(
+      "EnableStrictGetObjectConversion",
+      "When enabled, ResultSet.getObject(column, Class) on query results throws a SQLException "
+          + "if the type is null or the value cannot be returned as an instance of the type, as "
+          + "the JDBC specification requires. When disabled (default), a value that cannot be "
+          + "converted is returned as a String. DatabaseMetaData result sets always use the "
+          + "default.",
+      "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",

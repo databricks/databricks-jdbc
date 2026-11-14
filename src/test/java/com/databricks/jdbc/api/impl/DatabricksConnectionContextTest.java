@@ -1820,6 +1820,17 @@ class DatabricksConnectionContextTest {
     assertFalse(ctx.isComplexDatatypeSupportEnabled());
   }
 
+  @Test
+  public void testStrictGetObjectConversionDefaultsToDisabled() throws DatabricksSQLException {
+    assertFalse(
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties)
+            .isStrictGetObjectConversionEnabled());
+    assertTrue(
+        DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";EnableStrictGetObjectConversion=1", properties)
+            .isStrictGetObjectConversionEnabled());
+  }
+
   // ---------------------------------------------------------------------------
   // Client type selection with Thrift-native metadata parameters
   // ---------------------------------------------------------------------------
