@@ -18,10 +18,13 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.client.sqlexec.CreateSessionRequest;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -46,6 +49,25 @@ public class DatabricksSessionTest {
   private static final String VALID_CLUSTER_URL =
       "jdbc:databricks://sample-host.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999999;AuthMech=3;conncatalog=field_demos;connschema=ossjdbc";
   private static IDatabricksConnectionContext connectionContext;
+
+  @Test
+  public void warehouseSessionConfigCopyPreservesSerializedKeyOrder() throws Exception {
+    Map<String, String> original = new HashMap<>();
+    for (int i = 0; i < 24; i++) {
+      original.put("session.config." + i, "value" + i);
+    }
+    IDatabricksConnectionContext context = Mockito.mock(IDatabricksConnectionContext.class);
+    when(context.getSessionConfigs()).thenReturn(original);
+    DatabricksSession session = new DatabricksSession(context, sdkClient);
+
+    assertEquals(
+        new ArrayList<>(original.keySet()), new ArrayList<>(session.getSessionConfigs().keySet()));
+    ObjectMapper mapper = new ObjectMapper();
+    assertEquals(
+        mapper.writeValueAsString(new CreateSessionRequest().setSessionConfigs(original)),
+        mapper.writeValueAsString(
+            new CreateSessionRequest().setSessionConfigs(session.getSessionConfigs())));
+  }
 
   static void setupWarehouse(boolean useThrift) throws SQLException {
     String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
