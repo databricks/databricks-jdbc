@@ -145,7 +145,7 @@ public class DecompressionUtilTest {
     }
     InputStream resultStream =
         DecompressionUtil.decompressToInputStream(
-            out.toByteArray(), CompressionCodec.LZ4_FRAME, CONTEXT);
+            new ByteArrayInputStream(out.toByteArray()), CompressionCodec.LZ4_FRAME, CONTEXT);
     assertTrue(
         IOUtils.contentEquals(resultStream, new ByteArrayInputStream(uncompressed)),
         "Streaming decompression should yield the original bytes");
@@ -155,7 +155,8 @@ public class DecompressionUtilTest {
   public void testDecompressToInputStreamNoneReturnsRawBytes() throws Exception {
     byte[] raw = INITIAL_STRING.getBytes();
     InputStream resultStream =
-        DecompressionUtil.decompressToInputStream(raw, CompressionCodec.NONE, CONTEXT);
+        DecompressionUtil.decompressToInputStream(
+            new ByteArrayInputStream(raw), CompressionCodec.NONE, CONTEXT);
     assertTrue(IOUtils.contentEquals(resultStream, new ByteArrayInputStream(raw)));
   }
 
@@ -163,7 +164,8 @@ public class DecompressionUtilTest {
   public void testDecompressToInputStreamNullCodecReturnsRawBytes() throws Exception {
     // A null codec is treated as no compression: the raw bytes are returned unchanged.
     byte[] raw = INITIAL_STRING.getBytes();
-    InputStream resultStream = DecompressionUtil.decompressToInputStream(raw, null, CONTEXT);
+    InputStream resultStream =
+        DecompressionUtil.decompressToInputStream(new ByteArrayInputStream(raw), null, CONTEXT);
     assertTrue(IOUtils.contentEquals(resultStream, new ByteArrayInputStream(raw)));
   }
 
@@ -174,7 +176,8 @@ public class DecompressionUtilTest {
     // caller (ArrowResultChunk.downloadData) catches it and routes it through handleFailure.
     byte[] notLz4 = "this-is-not-a-valid-lz4-frame-payload".getBytes();
     InputStream resultStream =
-        DecompressionUtil.decompressToInputStream(notLz4, CompressionCodec.LZ4_FRAME, CONTEXT);
+        DecompressionUtil.decompressToInputStream(
+            new ByteArrayInputStream(notLz4), CompressionCodec.LZ4_FRAME, CONTEXT);
     assertNotNull(resultStream, "A streaming decorator should be returned before any read");
     assertThrows(IOException.class, () -> IOUtils.toByteArray(resultStream));
   }

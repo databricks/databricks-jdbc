@@ -12,6 +12,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.SocketException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -69,6 +70,32 @@ public class StreamingChunkDownloadTaskTest {
     verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
     assertTrue(downloadFuture.isDone());
     assertDoesNotThrow(() -> downloadFuture.get());
+  }
+
+  @Test
+  void interruptedDownload_isCancelledWithoutRetryOrFailureReport() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    doThrow(new InterruptedIOException("Chunk download interrupted"))
+        .when(chunk)
+        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
+
+    Thread.currentThread().interrupt();
+    try {
+      assertDoesNotThrow(() -> downloadTask.call());
+      assertTrue(Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
+
+    verify(chunk, times(1))
+        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verify(chunk).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
+    // Not a DatabricksSQLException, so no CHUNK_DOWNLOAD_ERROR telemetry is exported.
+    assertInstanceOf(InterruptedIOException.class, executionException.getCause());
   }
 
   @Test
@@ -213,14 +240,10 @@ public class StreamingChunkDownloadTaskTest {
         .when(spiedChunk)
         .setStatus(any(ChunkStatus.class));
 
-    // Mock the initializeData method to avoid Arrow parsing issues
-    doAnswer(
-            invocation -> {
-              spiedChunk.setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
-              return null;
-            })
+    // Mock Arrow parsing; status transitions still run for real
+    doReturn(new AbstractArrowResultChunk.ArrowData(new ArrayList<>(), Collections.emptyList(), 0L))
         .when(spiedChunk)
-        .initializeData(any(InputStream.class));
+        .readArrowData(any(InputStream.class));
 
     // Mock HTTP client to fail twice, then succeed
     CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);

@@ -69,23 +69,21 @@ public class DecompressionUtil {
   }
 
   /**
-   * Returns a stream that decompresses {@code compressedInput} lazily as it is read, so the full
-   * decompressed payload is never materialized alongside the compressed bytes. Only LZ4_FRAME is
-   * wrapped in a decompressing decorator; a {@code null}/NONE codec returns the raw bytes as-is.
+   * Returns a stream that decompresses {@code compressedStream} lazily as it is read, without
+   * buffering either the compressed or the decompressed payload. Only LZ4_FRAME is wrapped in a
+   * decompressing decorator; a {@code null}/NONE codec returns {@code compressedStream} as-is.
    *
-   * <p>Any {@link IOException} from constructing the LZ4 decoder propagates to the caller ({@code
-   * ArrowResultChunk.downloadData}), which handles it as a chunk-processing failure — the same
-   * terminal path as any other decompression error.
+   * <p>Any {@link IOException} from the LZ4 decoder propagates to the caller ({@code
+   * ArrowResultChunk.downloadData}), which handles it as a retryable download failure.
    */
   public static InputStream decompressToInputStream(
-      byte[] compressedInput, CompressionCodec compressionCodec, String context)
+      InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException {
     if (compressionCodec == CompressionCodec.LZ4_FRAME) {
       LOGGER.debug("Streaming LZ4 Frame decompression. Context: {}", context);
-      return new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput));
+      return new LZ4FrameInputStream(compressedStream);
     }
-    // null / NONE codec: no decompression needed.
-    return new ByteArrayInputStream(compressedInput);
+    return compressedStream;
   }
 
   /**
