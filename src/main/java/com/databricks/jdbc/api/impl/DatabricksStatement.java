@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -35,8 +36,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private static final Pattern SET_TIME_ZONE =
       Pattern.compile(
-          "(?is)^\\s*SET\\s+(?:TIME\\s+ZONE\\s+|spark\\.sql\\.session\\.timeZone\\s*=\\s*)"
-              + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+))\\s*;?\\s*$");
+          "(?is)^\\s*SET\\s+(?:TIME\\s*ZONE\\s*(?:=\\s*)?|spark\\.sql\\.session\\.timeZone\\s*=\\s*)"
+              + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+)"
+              + "|(INTERVAL\\s+'[+-]?\\d{1,2}(?::\\d{2})?'\\s+HOUR(?:\\s+TO\\s+MINUTE)?))"
+              + "\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -936,7 +939,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (!match.matches()) {
       return null;
     }
-    for (int i = 1; i <= 3; i++) {
+    for (int i = 1; i <= 4; i++) {
       if (match.group(i) != null) {
         String zone = match.group(i);
         return zone;
@@ -962,7 +965,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (zone == null) {
       return;
     }
-    if ("LOCAL".equalsIgnoreCase(zone)) {
+    boolean apcSea =
+        connection.getConnectionContext().isAllPurposeCluster()
+            && connection.getSession().getDatabricksClient() instanceof DatabricksSdkClient;
+    if (!apcSea) {
+      return;
+    }
+    if ("LOCAL".equalsIgnoreCase(zone) || zone.regionMatches(true, 0, "INTERVAL ", 0, 9)) {
       try (Statement zoneStatement = connection.createStatement();
           ResultSet zoneResult = zoneStatement.executeQuery("SELECT current_timezone()")) {
         if (!zoneResult.next()) {
@@ -974,8 +983,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         zone = zoneResult.getString(1);
       }
     }
-    connection.getSession().setSessionConfig("TIMEZONE", zone);
-    connection.getSession().setSessionConfig("spark.sql.session.timeZone", zone);
+    Map<String, String> configs = connection.getSession().getSessionConfigs();
+    connection.getSession().setSessionConfig("timezone", zone);
+    connection.getSession().setSessionConfig("spark.sql.session.timezone", zone);
+    configs
+        .keySet()
+        .removeIf(
+            key ->
+                ("timezone".equalsIgnoreCase(key) && !"timezone".equals(key))
+                    || ("spark.sql.session.timeZone".equalsIgnoreCase(key)
+                        && !"spark.sql.session.timezone".equals(key)));
   }
 
   DatabricksResultSet executeInternal(
