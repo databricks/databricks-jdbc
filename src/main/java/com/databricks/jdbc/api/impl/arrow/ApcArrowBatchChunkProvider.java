@@ -46,7 +46,8 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
             return thread;
           });
   private ArrowResultChunk current;
-  private boolean downloadWorkerRunning;
+  private ArrowResultChunk downloadWorkerChunk;
+  private DatabricksSQLException terminalFailure;
   private Long nextChunkIndex;
   private long nextRowOffset;
   private long rowCount;
@@ -67,7 +68,9 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     String timeZone = "UTC";
     Map<String, String> configs = session.getSessionConfigs();
     if (configs != null) {
-      configs = new HashMap<>(configs);
+      synchronized (configs) {
+        configs = new HashMap<>(configs);
+      }
       for (Map.Entry<String, String> config : configs.entrySet()) {
         if ("spark.sql.session.timeZone".equalsIgnoreCase(config.getKey())
             && config.getValue() != null) {
@@ -103,13 +106,16 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   @Override
   public boolean hasNextChunk() {
     synchronized (stateLock) {
-      return !closed && (!pending.isEmpty() || nextChunkIndex != null);
+      return !closed && (terminalFailure != null || !pending.isEmpty() || nextChunkIndex != null);
     }
   }
 
   @Override
   public boolean next() throws DatabricksSQLException {
     synchronized (stateLock) {
+      if (terminalFailure != null) {
+        throw terminalFailure;
+      }
       if (closed) {
         return false;
       }
@@ -175,13 +181,13 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
                     if (closed) {
                       return null;
                     }
-                    downloadWorkerRunning = true;
+                    downloadWorkerChunk = chunk;
                   }
                   try {
                     return task.call();
                   } finally {
                     synchronized (stateLock) {
-                      downloadWorkerRunning = false;
+                      downloadWorkerChunk = null;
                       if (closed) {
                         chunk.releaseChunkAndAllocator();
                       }
@@ -201,34 +207,38 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
           }
         } catch (TimeoutException e) {
           download.cancel(true);
-          throw new DatabricksSQLException(
-              "Timed out waiting for APC result chunk",
-              DatabricksDriverErrorCode.CHUNK_READY_ERROR.name(),
-              DatabricksDriverErrorCode.CHUNK_READY_ERROR.getCode(),
-              e);
+          throw failDownload(
+              new DatabricksSQLException(
+                  "Timed out waiting for APC result chunk",
+                  DatabricksDriverErrorCode.CHUNK_READY_ERROR.name(),
+                  DatabricksDriverErrorCode.CHUNK_READY_ERROR.getCode(),
+                  e));
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw new DatabricksSQLException(
-            "Interrupted downloading APC result chunk",
-            DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.name(),
-            DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.getCode(),
-            e);
+        throw failDownload(
+            new DatabricksSQLException(
+                "Interrupted downloading APC result chunk",
+                DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.name(),
+                DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.getCode(),
+                e));
       } catch (ExecutionException e) {
-        throw new DatabricksSQLException(
-            "Unable to download APC result chunk",
-            DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
-            DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.getCode(),
-            e.getCause());
+        throw failDownload(
+            new DatabricksSQLException(
+                "Unable to download APC result chunk",
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.getCode(),
+                e.getCause()));
       } catch (CancellationException e) {
         if (closed) {
           return false;
         }
-        throw new DatabricksSQLException(
-            "APC result chunk download was cancelled",
-            DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
-            DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.getCode(),
-            e);
+        throw failDownload(
+            new DatabricksSQLException(
+                "APC result chunk download was cancelled",
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.getCode(),
+                e));
       }
     }
     synchronized (stateLock) {
@@ -237,6 +247,15 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       }
       chunkCount++;
       return true;
+    }
+  }
+
+  private DatabricksSQLException failDownload(DatabricksSQLException error) {
+    synchronized (stateLock) {
+      if (terminalFailure == null) {
+        terminalFailure = error;
+      }
+      return terminalFailure;
     }
   }
 
@@ -376,7 +395,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
     synchronized (stateLock) {
       // An active worker owns its chunk until its finally block. Inline chunks and queued or
       // completed downloads have no worker to perform cleanup, even if close was interrupted.
-      if (active != null && !downloadWorkerRunning) {
+      if (active != null && active != downloadWorkerChunk) {
         active.releaseChunkAndAllocator();
       }
     }
