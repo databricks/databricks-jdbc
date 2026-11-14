@@ -21,6 +21,8 @@
 - Fixed connection setup stalling under concurrency: per-connection auth setup and the first feature-flag fetch no longer block connections to other hosts; same-host connections wait for the first feature-flag initialization, including any required authentication.
 - Reduced connection setup time by caching successful host-metadata and OIDC discovery JSON documents for up to an hour, with a JVM-wide limit of 1,024 entries. Responses redirected to another origin or path, or whose bodies cannot be parsed as discovery documents, are excluded.
 
+- Executing very large SQL texts no longer strips comments from the whole text to classify the statement, or runs the empty `ESCAPE` clause regex when the text has no `ESCAPE` keyword.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*

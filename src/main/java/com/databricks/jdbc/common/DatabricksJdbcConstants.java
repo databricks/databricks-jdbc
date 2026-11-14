@@ -160,6 +160,9 @@ public final class DatabricksJdbcConstants {
     JWT_TOKEN_ENDPOINT
   }
 
+  // Statement-type patterns. DatabricksStatement.classificationText relies on each anchored
+  // pattern reading at most CLASSIFICATION_KEYWORD_CHARS characters after the leading whitespace
+  // and '(' run; DatabricksStatementTest checks every anchored pattern here against that limit.
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =
