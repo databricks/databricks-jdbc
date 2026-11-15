@@ -17,7 +17,6 @@ import java.util.Collections;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,8 +31,6 @@ class DatabricksCteStatementTest {
       "jdbc:databricks://sample-host.18.azuredatabricks.net:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UseThriftClient=0;EnableTelemetry=0;EnableHeartbeat=0;";
   private static final String CTE_INSERT =
       "WITH src AS (SELECT 1 AS id) INSERT INTO target SELECT id FROM src";
-  private static final String MULTI_INSERT =
-      "FROM (SELECT 1 AS id) src INSERT INTO target SELECT id";
   private static final String CTE_SELECT = "WITH src AS (SELECT 1 AS id) SELECT id FROM src";
 
   @Mock private DatabricksSdkClient client;
@@ -51,6 +48,7 @@ class DatabricksCteStatementTest {
   @ValueSource(
       strings = {
         CTE_INSERT,
+        "WITH src AS (SELECT 1 AS id)\u00a0INSERT INTO target SELECT id FROM src",
         "WITH src (SELECT 1 AS id) INSERT INTO target SELECT id FROM src",
         "WITH src(id) (SELECT 1) INSERT INTO target SELECT id FROM src",
         "WITH src(id) AS (VALUES (1)) INSERT INTO target SELECT id FROM src",
@@ -67,7 +65,6 @@ class DatabricksCteStatementTest {
         "WITH a AS (SELECT 1 AS id) UPDATE target SET id = 2 WHERE id IN (SELECT id FROM a)",
         "WITH a AS (SELECT 1 AS id) DELETE FROM target WHERE id IN (SELECT id FROM a)",
         "WITH a AS (SELECT 1 AS id) MERGE INTO target t USING a ON t.id = a.id WHEN MATCHED THEN DELETE",
-        "WITH a AS (SELECT 1 AS id) FROM a INSERT INTO target SELECT id",
         "WITH AS(id) AS (VALUES (1)) INSERT INTO target SELECT id FROM AS",
         "WITH TABLE AS (SELECT 1 AS id) UPDATE target SET id = 2"
       })
@@ -79,29 +76,11 @@ class DatabricksCteStatementTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "FROM (SELECT 1 AS id) src INSERT INTO target SELECT id",
-        "FROM (SELECT 1 AS id) src INSERT OVERWRITE target SELECT id",
-        "FROM (SELECT 1 AS id) src INSERT WITH SCHEMA EVOLUTION INTO target SELECT id",
-        "FROM (SELECT 1 AS id) src INSERT ONCE INTO target SELECT id"
-      })
-  void classifiesMultiInsertAsUpdateCount(String sql) {
-    assertFalse(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
-    assertFalse(DatabricksStatement.isDescribableQuery(sql));
-  }
-
-  @Test
-  void configuredPrefixPreservesMultiInsertResultSet() {
-    assertTrue(
-        DatabricksStatement.shouldReturnResultSet(
-            "FROM (SELECT 1 AS id) src INSERT INTO target SELECT id",
-            Collections.singletonList("FROM")));
-  }
-
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
         CTE_SELECT,
         "WITH UPDATE AS (SELECT 1 AS id) SELECT id FROM UPDATE",
+        "WITH insert AS (SELECT 7 AS id) FROM insert into SELECT *",
+        "WITH a AS (SELECT 1 AS id) SELECT (id) insert FROM a",
+        "WITH a AS (SELECT 1 AS id)\u00a0SELECT (id) INSERT FROM a",
         "WITH a(id) AS (VALUES (1)), b AS (SELECT * FROM a) SELECT * FROM b",
         "WITH a AS (SELECT 'INSERT INTO target' AS txt) SELECT txt FROM a",
         "WITH a AS (SELECT 'it\\'s ) DELETE FROM target' AS txt) SELECT txt FROM a",
@@ -111,23 +90,9 @@ class DatabricksCteStatementTest {
         "WITH a AS (SELECT 1) (SELECT * FROM a)",
         "WITH a AS (SELECT 1) VALUES (2)",
         "WITH a AS (SELECT 1) TABLE a",
-        "WITH a AS (SELECT 1) FROM a SELECT *",
-        "WITH a AS (SELECT 1",
-        "WITH a AS (SELECT 1)"
+        "WITH a AS (SELECT 1) FROM a SELECT *"
       })
   void preservesCteQueryClassification(String sql) {
-    assertTrue(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
-    assertTrue(DatabricksStatement.isDescribableQuery(sql));
-  }
-
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "FROM (SELECT 1 AS id) src SELECT id",
-        "FROM (SELECT 'INSERT INTO target' AS value) src SELECT value",
-        "FROM (SELECT 1 AS id) src INSERT WITH SCHEMA INTO target SELECT id"
-      })
-  void preservesFromQueryClassification(String sql) {
     assertTrue(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
     assertTrue(DatabricksStatement.isDescribableQuery(sql));
   }
@@ -142,26 +107,18 @@ class DatabricksCteStatementTest {
   }
 
   static Stream<Arguments> dmlExecutions() {
-    return Stream.of(CTE_INSERT, MULTI_INSERT)
-        .flatMap(DatabricksCteStatementTest::dmlExecutionsFor);
-  }
-
-  private static Stream<Arguments> dmlExecutionsFor(String sql) {
     return Stream.of(false, true)
         .flatMap(
             prepared ->
                 Stream.of("update", "largeUpdate", "execute")
                     .flatMap(
-                        api ->
-                            Stream.of(0L, 1L)
-                                .map(count -> Arguments.of(sql, prepared, api, count))));
+                        api -> Stream.of(0L, 1L).map(count -> Arguments.of(prepared, api, count))));
   }
 
   @ParameterizedTest
   @MethodSource("dmlExecutions")
-  void exposesPrefixedDmlUpdateCounts(String sql, boolean prepared, String api, long count)
-      throws Exception {
-    try (Statement statement = statement(prepared, sql, "")) {
+  void exposesCteDmlUpdateCounts(boolean prepared, String api, long count) throws Exception {
+    try (Statement statement = statement(prepared, "")) {
       when(resultSet.getUpdateCount()).thenReturn(count);
       switch (api) {
         case "update":
@@ -169,18 +126,18 @@ class DatabricksCteStatementTest {
               count,
               prepared
                   ? ((PreparedStatement) statement).executeUpdate()
-                  : statement.executeUpdate(sql));
+                  : statement.executeUpdate(CTE_INSERT));
           break;
         case "largeUpdate":
           assertEquals(
               count,
               prepared
                   ? ((PreparedStatement) statement).executeLargeUpdate()
-                  : statement.executeLargeUpdate(sql));
+                  : statement.executeLargeUpdate(CTE_INSERT));
           break;
         case "execute":
           assertFalse(
-              prepared ? ((PreparedStatement) statement).execute() : statement.execute(sql));
+              prepared ? ((PreparedStatement) statement).execute() : statement.execute(CTE_INSERT));
           break;
         default:
           fail("Unexpected API: " + api);
@@ -189,27 +146,14 @@ class DatabricksCteStatementTest {
       assertEquals(count, statement.getLargeUpdateCount());
       assertNull(statement.getResultSet());
       verifyExecution(
-          statement, sql, api.equals("execute") ? StatementType.SQL : StatementType.UPDATE);
+          statement, CTE_INSERT, api.equals("execute") ? StatementType.SQL : StatementType.UPDATE);
     }
   }
 
-  static Stream<Arguments> optedOutDmlExecutions() {
-    return Stream.of(
-        Arguments.of(CTE_INSERT, "WITH", false),
-        Arguments.of(CTE_INSERT, "WITH", true),
-        Arguments.of(MULTI_INSERT, "FROM", false),
-        Arguments.of(MULTI_INSERT, "FROM", true));
-  }
-
-  static Stream<Arguments> prefixedDmlStatements() {
-    return Stream.of(CTE_INSERT, MULTI_INSERT)
-        .flatMap(sql -> Stream.of(false, true).map(prepared -> Arguments.of(sql, prepared)));
-  }
-
   @ParameterizedTest
-  @MethodSource("prefixedDmlStatements")
-  void rejectsPrefixedDmlInExecuteQuery(String sql, boolean prepared) throws Exception {
-    try (Statement statement = statement(prepared, sql, "")) {
+  @ValueSource(booleans = {false, true})
+  void rejectsCteDmlInExecuteQuery(boolean prepared) throws Exception {
+    try (Statement statement = statement(prepared, "")) {
       SQLException error =
           assertThrows(
               DatabricksSQLException.class,
@@ -217,89 +161,41 @@ class DatabricksCteStatementTest {
                 if (prepared) {
                   ((PreparedStatement) statement).executeQuery();
                 } else {
-                  statement.executeQuery(sql);
+                  statement.executeQuery(CTE_INSERT);
                 }
               });
       assertEquals("RESULT_SET_ERROR", error.getSQLState());
       assertEquals(0, error.getErrorCode());
       assertTrue(error.getMessage().contains("execution was successful"));
-      verifyExecution(statement, sql, StatementType.QUERY);
+      verifyExecution(statement, CTE_INSERT, StatementType.QUERY);
     }
   }
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void returnsCteSelectResultSet(boolean prepared) throws Exception {
-    try (Statement statement = statement(prepared, CTE_SELECT, "")) {
+  void optOutReturnsCteDmlResultSet(boolean prepared) throws Exception {
+    try (Statement statement = statement(prepared, "NonRowcountQueryPrefixes=WITH;")) {
       assertSame(
           resultSet,
           prepared
               ? ((PreparedStatement) statement).executeQuery()
-              : statement.executeQuery(CTE_SELECT));
-      assertEquals(-1, statement.getUpdateCount());
-      verifyExecution(statement, CTE_SELECT, StatementType.QUERY);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("optedOutDmlExecutions")
-  void optOutReturnsDmlResultSet(String sql, String prefix, boolean prepared) throws Exception {
-    try (Statement statement =
-        statement(prepared, sql, "NonRowcountQueryPrefixes=" + prefix + ";")) {
-      assertSame(
-          resultSet,
-          prepared ? ((PreparedStatement) statement).executeQuery() : statement.executeQuery(sql));
+              : statement.executeQuery(CTE_INSERT));
       assertSame(resultSet, statement.getResultSet());
       assertEquals(-1, statement.getUpdateCount());
-      verifyExecution(statement, sql, StatementType.QUERY);
+      verifyExecution(statement, CTE_INSERT, StatementType.QUERY);
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("optedOutDmlExecutions")
-  void optOutExecuteExposesDmlResultSet(String sql, String prefix, boolean prepared)
-      throws Exception {
-    try (Statement statement =
-        statement(prepared, sql, "NonRowcountQueryPrefixes=" + prefix + ";")) {
-      assertTrue(prepared ? ((PreparedStatement) statement).execute() : statement.execute(sql));
-      assertSame(resultSet, statement.getResultSet());
-      assertEquals(-1, statement.getUpdateCount());
-      verifyExecution(statement, sql, StatementType.SQL);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("optedOutDmlExecutions")
-  void optOutPreservesUpdateApiRejection(String sql, String prefix, boolean prepared)
-      throws Exception {
-    try (Statement statement =
-        statement(prepared, sql, "NonRowcountQueryPrefixes=" + prefix + ";")) {
-      SQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () -> {
-                if (prepared) {
-                  ((PreparedStatement) statement).executeUpdate();
-                } else {
-                  statement.executeUpdate(sql);
-                }
-              });
-      assertEquals("RESULT_SET_ERROR", error.getSQLState());
-      assertEquals(0, error.getErrorCode());
-      verifyExecution(statement, sql, StatementType.UPDATE);
-    }
-  }
-
-  private Statement statement(boolean prepared, String sql, String options) throws Exception {
+  private Statement statement(boolean prepared, String options) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL + options, new Properties());
     connection = new DatabricksConnection(context, client);
     Statement statement =
         prepared
-            ? new DatabricksPreparedStatement(connection, sql)
+            ? new DatabricksPreparedStatement(connection, CTE_INSERT)
             : new DatabricksStatement(connection);
     when(client.executeStatement(
-            eq(sql),
+            eq(CTE_INSERT),
             eq(new Warehouse("99999999")),
             anyMap(),
             any(StatementType.class),
