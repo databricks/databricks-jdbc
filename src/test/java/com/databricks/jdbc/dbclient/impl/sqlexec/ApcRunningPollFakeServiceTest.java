@@ -1,0 +1,110 @@
+package com.databricks.jdbc.dbclient.impl.sqlexec;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksSession;
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.http.HttpClient;
+import com.databricks.sdk.core.http.Request;
+import com.databricks.sdk.core.http.Response;
+import com.databricks.sdk.service.sql.StatementExecutionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
+
+class ApcRunningPollFakeServiceTest {
+  @Test
+  void threeRunningPollsCarryNoResultPayload() throws Exception {
+    AtomicInteger polls = new AtomicInteger();
+    List<Request> sent = new ArrayList<>();
+    List<String> runningBodies = new ArrayList<>();
+    String statusOnly = "{\"statement_id\":\"statement\",\"status\":{\"state\":\"RUNNING\"}}";
+    HttpClient transport =
+        request -> {
+          if (request.getUri().getPath().equals("/oidc/.well-known/oauth-authorization-server")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          sent.add(request);
+          String body;
+          if (PathConstants.STATEMENT_PATH.equals(request.getUri().getPath())
+              && Request.POST.equals(request.getMethod())) {
+            body = "{\"statement_id\":\"statement\",\"status\":{\"state\":\"PENDING\"}}";
+          } else if (request.getUri().getPath().endsWith("/statements/statement")
+              && Request.GET.equals(request.getMethod())) {
+            if (polls.getAndIncrement() < 3) {
+              body = statusOnly;
+              runningBodies.add(body);
+            } else {
+              body = "{\"statement_id\":\"statement\",\"status\":{\"state\":\"SUCCEEDED\"}}";
+            }
+          } else {
+            throw new AssertionError("Unexpected APC request: " + request.getUri().getPath());
+          }
+          return new Response(request, 200, "OK", Map.of(), body);
+        };
+    ApiClient api =
+        DatabricksSdkClient.buildApiClient(
+            new DatabricksConfig()
+                .setHost("https://example.com")
+                .setAuthType("pat")
+                .setToken("test-token")
+                .setHttpClient(transport),
+            null,
+            true);
+    DatabricksConnectionContext context =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                "jdbc:databricks://example.com:443/default;AuthMech=3;"
+                    + "httpPath=/sql/protocolv1/o/private-org/private-cluster;"
+                    + "UseThriftClient=0;TelemetryLogLevel=OFF;PollInterval=1",
+                new Properties());
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionId()).thenReturn("session");
+    when(session.getConnectionContext()).thenReturn(context);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(cluster)
+                .clientType(DatabricksClientType.SEA)
+                .build());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, mock(StatementExecutionService.class), api);
+
+    client.executeStatement(
+        "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null);
+
+    assertEquals(4, polls.get());
+    assertEquals(3, runningBodies.size());
+    ObjectMapper mapper = new ObjectMapper();
+    for (String body : runningBodies) {
+      assertEquals(2, mapper.readTree(body).size());
+      assertFalse(body.contains("attachment"));
+      assertFalse(body.contains("arrow_batches"));
+      assertFalse(body.contains("columnar_data"));
+      assertFalse(body.contains("external_links"));
+    }
+    for (Request request : sent.subList(1, sent.size())) {
+      assertEquals(Request.GET, request.getMethod());
+      assertNull(request.getBodyString());
+      assertFalse(request.getUrl().contains("/status"));
+      assertEquals(
+          "backend_compute.all_purpose_cluster_compute.cluster_id=private-cluster",
+          request.getUri().getRawQuery());
+    }
+  }
+}

@@ -102,6 +102,123 @@ public class DatabricksSdkClientTest {
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
+  @Test
+  void apcCreateSessionFailureKeepsUnsupportedMessageWithoutIdentifiers() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(
+            new DatabricksError(
+                "UNSUPPORTED",
+                "all-purpose clusters are not supported for private-org/private-cluster",
+                400));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.createSession(
+                      new AllPurposeCluster("private-org", "private-cluster"),
+                      null,
+                      null,
+                      Map.of()));
+      assertTrue(failure.getMessage().contains("all-purpose clusters are not supported"));
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_ERROR.name(), failure.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_ERROR.getCode(), failure.getErrorCode());
+      assertFalse(failure.getMessage().contains("private-org"));
+      assertFalse(failure.getMessage().contains("private-cluster"));
+      assertFalse(logs.getOutput().contains("private-org"));
+      assertFalse(logs.getOutput().contains("private-cluster"));
+    }
+  }
+
+  @Test
+  void apcCreateSessionRateLimitUsesDriverErrorCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new DatabricksError("RATE_LIMITED", "private-cluster", 429));
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcCreateSessionIoFailureUsesDriverErrorCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new IOException("private-cluster"));
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), failure.getErrorCode());
+    assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void ordinaryApcSyncAndAsyncExecuteLogsOmitComputeAndSessionIds() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://sample-host.18.azuredatabricks.net:443/default;"
+                + "AuthMech=3;httpPath=/sql/protocolv1/o/private-org-541/private-cluster-612;"
+                + "UseThriftClient=0;TelemetryLogLevel=OFF;",
+            new Properties());
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org-541", "private-cluster-612");
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("private-session-725")
+                .computeResource(cluster)
+                .clientType(DatabricksClientType.SEA)
+                .build());
+    when(session.getSessionId()).thenReturn("private-session-725");
+    when(session.getConnectionContext()).thenReturn(context);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("statement")
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+
+    try (LogCapture logs = new LogCapture()) {
+      client.executeStatement(
+          "select 1", cluster, Map.of(), StatementType.QUERY, session, null, null);
+      client.executeStatementAsync("select 1", cluster, Map.of(), session, null);
+      assertFalse(logs.getOutput().contains("private-org-541"));
+      assertFalse(logs.getOutput().contains("private-cluster-612"));
+      assertFalse(logs.getOutput().contains("private-session-725"));
+      assertTrue(logs.getOutput().contains("all-purpose cluster"));
+    }
+  }
+
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
       new HashMap<>() {
         {

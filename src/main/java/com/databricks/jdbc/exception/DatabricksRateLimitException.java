@@ -34,6 +34,13 @@ public class DatabricksRateLimitException extends DatabricksSQLException {
     this.statusCode = statusCode;
   }
 
+  /** Constructs a redacted rate-limit error with an explicit driver error code. */
+  public DatabricksRateLimitException(
+      String message, int statusCode, DatabricksDriverErrorCode errorCode) {
+    super(message, errorCode.name(), errorCode);
+    this.statusCode = statusCode;
+  }
+
   /**
    * Gets the HTTP status code.
    *
