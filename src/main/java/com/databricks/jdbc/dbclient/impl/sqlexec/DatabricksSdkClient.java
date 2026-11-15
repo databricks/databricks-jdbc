@@ -285,6 +285,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       createSessionResponse = execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;
     } catch (DatabricksError e) {
+      if (target.isApc() && isSdkTransportError(e)) {
+        throw new DatabricksSQLException(
+            "APC SEA CreateSession request failed",
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       if (e.getStatusCode() == HttpStatus.SC_TOO_MANY_REQUESTS) {
         if (target.isApc()) {
           String code = safeServerErrorCode(e.getErrorCode());
@@ -429,10 +435,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static DatabricksError findServerError(Throwable failure) {
     for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
       if (cause instanceof DatabricksError) {
-        return (DatabricksError) cause;
+        DatabricksError error = (DatabricksError) cause;
+        return isSdkTransportError(error) ? null : error;
       }
     }
     return null;
+  }
+
+  private static boolean isSdkTransportError(DatabricksError error) {
+    // ApiClient wraps an IOException as IO_ERROR/523, including after exhausting retries.
+    // Require the IOException cause so a server response with those fields remains a server error.
+    return "IO_ERROR".equals(error.getErrorCode())
+        && error.getStatusCode() == 523
+        && error.getCause() instanceof IOException;
   }
 
   private static DatabricksSQLException apcServerFailure(
@@ -722,7 +737,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementRequest suppliedRequest)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
-    boolean redactApcDetails = apc;
     String logSql = apc ? "[REDACTED]" : sql;
     String errorSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
@@ -830,7 +844,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
           computeLabel(computeResource));
       handleFailedExecution(response, "", errorSql, apc);
     }
-    String diagnosticStatementId = redactApcDetails ? "[REDACTED]" : statementId;
     LOGGER.debug(
         "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
         logSql,
@@ -883,8 +896,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           } catch (InterruptedException e) {
             String timeoutErrorMessage =
                 String.format(
-                    "Thread interrupted due to statement timeout. StatementID %s",
-                    diagnosticStatementId);
+                    "Thread interrupted due to statement timeout. StatementID %s", statementId);
             LOGGER.error(timeoutErrorMessage);
             throw new DatabricksTimeoutException(
                 timeoutErrorMessage, null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
@@ -966,7 +978,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
       try {
-        handleFailedExecution(response, diagnosticStatementId, errorSql, apc);
+        handleFailedExecution(response, statementId, errorSql, apc);
       } finally {
         if (apc) {
           closeFailedApcOperation(typedStatementId, parentStatement);
@@ -1194,11 +1206,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       StatementType statementType)
       throws SQLException {
     boolean apc = typedStatementId.computeResource() != null;
-    boolean redactApcDetails = apc;
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     String statementId = typedStatementId.toSQLExecStatementId();
-    String diagnosticStatementId = redactApcDetails ? "[REDACTED]" : statementId;
     LOGGER.debug("Getting statement result for statementId={}", statementId);
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = targetStatementPath(typedStatementId, statementPath(typedStatementId));
@@ -1238,7 +1248,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     // Detect cancellation before constructing ResultSet (result data is null when cancelled)
     if (response.getStatus() != null
         && response.getStatus().getState() == StatementState.CANCELED) {
-      String cancelMessage = String.format("Statement [%s] was cancelled", diagnosticStatementId);
+      String cancelMessage = String.format("Statement [%s] was cancelled", statementId);
       LOGGER.info(cancelMessage);
       throw new DatabricksSQLException(
           cancelMessage,
@@ -1251,11 +1261,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         && response.getStatus().getState() == StatementState.FAILED) {
       try {
         handleFailedExecution(
-            wrapGetStatementResponse(response),
-            diagnosticStatementId,
-            "[metadata statement]",
-            apc,
-            true);
+            wrapGetStatementResponse(response), statementId, "[metadata statement]", apc, true);
       } finally {
         if (apc) {
           closeFailedApcOperation(typedStatementId, parentStatement);

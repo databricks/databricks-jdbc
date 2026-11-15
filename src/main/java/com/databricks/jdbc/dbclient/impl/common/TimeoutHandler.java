@@ -124,7 +124,7 @@ public class TimeoutHandler {
     return forStatement(timeoutSeconds, statementId, client, internalErrorCode, false);
   }
 
-  /** Creates a timeout handler that omits sensitive statement details from diagnostics. */
+  /** Creates a timeout handler that omits sensitive cancellation failures from diagnostics. */
   public static TimeoutHandler forStatement(
       int timeoutSeconds,
       StatementId statementId,
@@ -151,8 +151,7 @@ public class TimeoutHandler {
 
     return new TimeoutHandler(
         timeoutSeconds,
-        "Statement ID: "
-            + (redactDetails ? "[REDACTED]" : StatementId.loggableStatementId(statementId)),
+        "Statement ID: " + statementId.toSQLExecStatementId(),
         () -> {
           try {
             client.cancelStatement(statementId);

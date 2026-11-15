@@ -220,7 +220,7 @@ class TimeoutHandlerTest {
     assertFalse(error.getMessage().contains("private-org"));
     assertFalse(error.getMessage().contains("private-cluster"));
     assertFalse(error.getMessage().contains("private-session"));
-    assertFalse(error.getMessage().contains("raw-statement"));
+    assertTrue(error.getMessage().contains("Statement ID: raw-statement"));
   }
 
   @Test
