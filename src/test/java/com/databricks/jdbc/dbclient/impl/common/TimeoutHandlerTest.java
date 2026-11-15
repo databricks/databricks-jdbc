@@ -244,4 +244,23 @@ class TimeoutHandlerTest {
     assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
     verify(mockClient).cancelStatement(id);
   }
+
+  @Test
+  void legacyTimeoutKeepsWholeSecondThreshold() throws Exception {
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            1,
+            "warehouse operation",
+            mockTimeoutAction,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+    Field start = TimeoutHandler.class.getDeclaredField("startTimeMillis");
+    start.setAccessible(true);
+    start.set(handler, System.currentTimeMillis() - 1100);
+
+    assertDoesNotThrow(handler::checkTimeout);
+    verifyNoInteractions(mockTimeoutAction);
+    start.set(handler, System.currentTimeMillis() - 2100);
+    assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+    verify(mockTimeoutAction).run();
+  }
 }

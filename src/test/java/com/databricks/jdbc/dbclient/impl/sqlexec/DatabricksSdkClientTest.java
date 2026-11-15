@@ -158,7 +158,36 @@ public class DatabricksSdkClientTest {
                     new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
     assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
     assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("RATE_LIMITED", cause.getErrorCode());
+    assertEquals(429, cause.getStatusCode());
+    assertFalse(cause.getMessage().contains("private-cluster"));
     assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcRateLimitRedactsUnsafeServerCodeFromExceptionAndCause() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new DatabricksError("private-org/private-cluster", "private-secret", 429));
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("SERVER_ERROR", cause.getErrorCode());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    for (String secret : List.of("private-org", "private-cluster", "private-secret")) {
+      assertFalse(failure.getMessage().contains(secret));
+      assertFalse(cause.getMessage().contains(secret));
+    }
   }
 
   @Test
@@ -3820,6 +3849,43 @@ public class DatabricksSdkClientTest {
     assertEquals("22000", failure.getSQLState());
     assertTrue(failure.getMessage().contains("BAD_REQUEST"));
     assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcStatementFailureUsesSafeCodeWhenServerCodeIsMissing() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(new AllPurposeCluster("private-org", "private-cluster"))
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionId()).thenReturn("private-session");
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId("private-statement")
+                .setStatus(
+                    new StatementStatus()
+                        .setState(StatementState.FAILED)
+                        .setSqlState("22000")
+                        .setError(new ServiceError().setMessage("private-secret"))));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.getStatementResult(
+                      StatementId.forCurrentSession("private-statement", info), session, null));
+      assertTrue(failure.getMessage().contains("SERVER_ERROR"));
+      assertFalse(failure.getMessage().contains("private-secret"));
+      assertFalse(logs.getOutput().contains("private-secret"));
+    }
   }
 
   @Test

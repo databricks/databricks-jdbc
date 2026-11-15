@@ -247,8 +247,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     } catch (DatabricksError e) {
       if (e.getStatusCode() == HttpStatus.SC_TOO_MANY_REQUESTS) {
         if (target.isApc()) {
+          String code = safeServerErrorCode(e.getErrorCode());
+          String safeMessage =
+              "APC SEA CreateSession rate limited (server error " + code + ", HTTP 429)";
           throw new DatabricksRateLimitException(
-              "APC SEA CreateSession rate limited",
+              safeMessage,
+              new DatabricksError(code, safeMessage, HttpStatus.SC_TOO_MANY_REQUESTS),
               HttpStatus.SC_TOO_MANY_REQUESTS,
               DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED);
         }
@@ -385,8 +389,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String operation, DatabricksError error, DatabricksDriverErrorCode driverCode) {
     // Server messages can echo the request URL, SQL, and bound values. Keep only structured
     // server fields and recognized error categories in the exception, its cause, and telemetry.
-    String rawCode = error.getErrorCode();
-    String code = rawCode != null && rawCode.matches("[A-Z0-9_]{1,128}") ? rawCode : "SERVER_ERROR";
+    String code = safeServerErrorCode(error.getErrorCode());
     int status = error.getStatusCode();
     String rawMessage = error.getMessage();
     String normalized = rawMessage == null ? "" : rawMessage.toLowerCase(Locale.ROOT);
@@ -407,6 +410,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         ? new DatabricksSQLException(safeMessage, code, status, safeCause)
         : new DatabricksSQLException(
             safeMessage, driverCode.name(), driverCode.getCode(), safeCause);
+  }
+
+  private static String safeServerErrorCode(String rawCode) {
+    return rawCode != null && rawCode.matches("[A-Z0-9_]{1,128}") ? rawCode : "SERVER_ERROR";
   }
 
   @Override
@@ -1806,12 +1813,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     // SQL-state classification; callers and logs receive a redacted message.
     String rawErrorMessage = errorMessage;
     if (error != null) {
+      String safeCode = safeServerErrorCode(String.valueOf(error.getErrorCode()));
       rawErrorMessage +=
           String.format(
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
       errorMessage +=
           redactApcDetails
-              ? String.format(" Error code: %s", error.getErrorCode())
+              ? String.format(" Error code: %s", safeCode)
               : String.format(
                   " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
       if (redactApcDetails) {

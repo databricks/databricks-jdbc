@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -19,6 +20,7 @@ public class TimeoutHandler {
   private final DatabricksDriverErrorCode
       internalErrorCode; // internal error code to be used for timeout error (if any)
   private final boolean includeVendorCode;
+  private final boolean preciseDeadline;
 
   /**
    * Creates a new timeout handler with the provided parameters.
@@ -48,7 +50,8 @@ public class TimeoutHandler {
         onTimeoutAction,
         internalErrorCode,
         includeVendorCode,
-        System.currentTimeMillis());
+        System.currentTimeMillis(),
+        false);
   }
 
   private TimeoutHandler(
@@ -57,13 +60,15 @@ public class TimeoutHandler {
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode,
       boolean includeVendorCode,
-      long startTimeMillis) {
+      long startTimeMillis,
+      boolean preciseDeadline) {
     this.startTimeMillis = startTimeMillis;
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
     this.internalErrorCode = internalErrorCode;
     this.includeVendorCode = includeVendorCode;
+    this.preciseDeadline = preciseDeadline;
   }
 
   /**
@@ -78,7 +83,10 @@ public class TimeoutHandler {
     }
 
     long currentTimeMillis = System.currentTimeMillis();
-    if (currentTimeMillis - startTimeMillis >= TimeUnit.SECONDS.toMillis(timeoutSeconds)) {
+    long elapsedMillis = currentTimeMillis - startTimeMillis;
+    if (preciseDeadline
+        ? elapsedMillis >= TimeUnit.SECONDS.toMillis(timeoutSeconds)
+        : TimeUnit.MILLISECONDS.toSeconds(elapsedMillis) > timeoutSeconds) {
       // Attempt to execute the timeout action
       try {
         if (onTimeoutAction != null) {
@@ -157,6 +165,7 @@ public class TimeoutHandler {
         },
         internalErrorCode,
         false,
-        startTimeMillis);
+        startTimeMillis,
+        statementId.computeResource() instanceof AllPurposeCluster);
   }
 }
