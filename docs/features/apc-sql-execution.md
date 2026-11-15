@@ -28,5 +28,8 @@ request to the cluster. `setQueryTimeout` cancels a timed-out statement and rais
 timeout exception. Result-set heartbeats are unsupported for APC SEA, including when
 `EnableHeartbeat=1`, because the server does not support status polling for this route.
 Opening an APC SEA session fails directly if the server rejects CreateSession; the driver does
-not retry on Thrift. Connection diagnostics and routing telemetry report compute type,
+not retry on Thrift. Server failures retain the HTTP status and server error code. The driver
+redacts server message text that may echo cluster IDs, SQL, or bound values; recognized
+unsupported-cluster and unsupported-region errors keep a clear category in the message.
+Connection diagnostics and routing telemetry report compute type,
 protocol, routing reason, and outcome without cluster, org, session, or compound statement IDs.

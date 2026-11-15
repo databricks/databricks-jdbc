@@ -42,7 +42,23 @@ public class TimeoutHandler {
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode,
       boolean includeVendorCode) {
-    this.startTimeMillis = System.currentTimeMillis();
+    this(
+        timeoutSeconds,
+        operationDescription,
+        onTimeoutAction,
+        internalErrorCode,
+        includeVendorCode,
+        System.currentTimeMillis());
+  }
+
+  private TimeoutHandler(
+      int timeoutSeconds,
+      String operationDescription,
+      Runnable onTimeoutAction,
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean includeVendorCode,
+      long startTimeMillis) {
+    this.startTimeMillis = startTimeMillis;
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
@@ -62,9 +78,7 @@ public class TimeoutHandler {
     }
 
     long currentTimeMillis = System.currentTimeMillis();
-    long elapsedTimeSeconds = TimeUnit.MILLISECONDS.toSeconds(currentTimeMillis - startTimeMillis);
-
-    if (elapsedTimeSeconds > timeoutSeconds) {
+    if (currentTimeMillis - startTimeMillis >= TimeUnit.SECONDS.toMillis(timeoutSeconds)) {
       // Attempt to execute the timeout action
       try {
         if (onTimeoutAction != null) {
@@ -109,6 +123,23 @@ public class TimeoutHandler {
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode,
       boolean redactDetails) {
+    return forStatement(
+        timeoutSeconds,
+        statementId,
+        client,
+        internalErrorCode,
+        redactDetails,
+        System.currentTimeMillis());
+  }
+
+  /** Starts the deadline at the initial ExecuteStatement request, before its response arrives. */
+  public static TimeoutHandler forStatement(
+      int timeoutSeconds,
+      StatementId statementId,
+      IDatabricksClient client,
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean redactDetails,
+      long startTimeMillis) {
 
     return new TimeoutHandler(
         timeoutSeconds,
@@ -124,6 +155,8 @@ public class TimeoutHandler {
                     : "Cancel statement on timeout failed: " + e.getMessage());
           }
         },
-        internalErrorCode);
+        internalErrorCode,
+        false,
+        startTimeMillis);
   }
 }

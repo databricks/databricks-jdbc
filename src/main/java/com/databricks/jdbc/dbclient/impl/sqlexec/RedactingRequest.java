@@ -12,6 +12,7 @@ class RedactingRequest extends Request {
   private static final String CLUSTER_QUERY =
       "backend_compute.all_purpose_cluster_compute.cluster_id=";
   private static final String STATEMENT_PATH = "/api/2.0/sql/statements/";
+  private static final String SESSION_PATH = "/api/2.0/sql/sessions/";
   private volatile boolean wireBodyVisible = true;
   private final String logBody;
 
@@ -49,6 +50,9 @@ class RedactingRequest extends Request {
     if (path.startsWith(STATEMENT_PATH) && path.length() > STATEMENT_PATH.length()) {
       int idEnd = path.indexOf('/', STATEMENT_PATH.length());
       path = STATEMENT_PATH + "[REDACTED]" + (idEnd < 0 ? "" : path.substring(idEnd));
+    } else if (path.startsWith(SESSION_PATH) && path.length() > SESSION_PATH.length()) {
+      int idEnd = path.indexOf('/', SESSION_PATH.length());
+      path = SESSION_PATH + "[REDACTED]" + (idEnd < 0 ? "" : path.substring(idEnd));
     }
     String query = uri.getRawQuery();
     if (query == null) {
@@ -80,6 +84,24 @@ class RedactingRequest extends Request {
           }
           if (request.has("statement_id")) {
             request.put("statement_id", "[REDACTED]");
+          }
+          if (request.has("sessionId")) {
+            request.put("sessionId", "[REDACTED]");
+          }
+          if (request.has("session_id")) {
+            request.put("session_id", "[REDACTED]");
+          }
+          if (request.has("sessionConfigs")) {
+            request.put("sessionConfigs", "[REDACTED]");
+          }
+          if (request.has("session_configs")) {
+            request.put("session_configs", "[REDACTED]");
+          }
+          if (request.has("catalog")) {
+            request.put("catalog", "[REDACTED]");
+          }
+          if (request.has("schema")) {
+            request.put("schema", "[REDACTED]");
           }
           if (request.has("statement")) {
             request.put("statement", "[REDACTED]");

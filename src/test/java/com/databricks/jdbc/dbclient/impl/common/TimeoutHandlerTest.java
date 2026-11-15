@@ -222,4 +222,26 @@ class TimeoutHandlerTest {
     assertFalse(error.getMessage().contains("private-session"));
     assertFalse(error.getMessage().contains("raw-statement"));
   }
+
+  @Test
+  void deadlineIncludesTimeBeforeStatementIdIsAvailable() throws Exception {
+    StatementId id =
+        StatementId.forCurrentSession(
+            "statement",
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .build());
+    TimeoutHandler handler =
+        TimeoutHandler.forStatement(
+            1,
+            id,
+            mockClient,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT,
+            true,
+            System.currentTimeMillis() - 1100);
+
+    assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+    verify(mockClient).cancelStatement(id);
+  }
 }

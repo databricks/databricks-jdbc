@@ -90,11 +90,17 @@ class RedactingRequestTest {
   void sdkDebugLogHidesApcTargetWhileTransportReceivesIt() throws Exception {
     String cluster = "secret-cluster-918273";
     String statementId = "secret-statement-918273";
+    String sessionId = "secret-session-918273";
     String body =
         "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
             + cluster
             + "\"}},\"statement\":\"SELECT ?\",\"parameters\":[{\"value\":\"native-secret\"}],"
             + "\"parameter_sets\":[{\"parameters\":[{\"value\":\"batch-secret\"}]}]}";
+    String createBody =
+        "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
+            + cluster
+            + "\"}},\"catalog\":\"secret-catalog\",\"schema\":\"secret-schema\","
+            + "\"session_configs\":{\"tag\":\"secret-config\"}}";
     String interpolatedBody =
         "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
             + cluster
@@ -104,6 +110,12 @@ class RedactingRequestTest {
             + cluster
             + "\"}},\"statementId\":\""
             + statementId
+            + "\"}";
+    String deleteBody =
+        "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
+            + cluster
+            + "\"}},\"session_id\":\""
+            + sessionId
             + "\"}";
     List<String> wireBodies = new ArrayList<>();
     List<String> wireUrls = new ArrayList<>();
@@ -118,6 +130,19 @@ class RedactingRequestTest {
                       if (request.getUri().getPath().startsWith("/api/2.0/sql/")) {
                         wireBodies.add(request.getBodyString());
                         wireUrls.add(request.getUri().toString());
+                      }
+                      if (request.getUri().getPath().startsWith("/api/2.0/sql/sessions/")
+                          && Request.DELETE.equals(request.getMethod())) {
+                        return new Response(
+                            request,
+                            403,
+                            "Forbidden",
+                            Map.of(),
+                            "{\"error_code\":\"PERMISSION_DENIED\",\"message\":\""
+                                + sessionId
+                                + " "
+                                + cluster
+                                + "\"}");
                       }
                       return new Response(request, 204, "No Content", Map.of());
                     }),
@@ -144,7 +169,7 @@ class RedactingRequestTest {
     logger.addHandler(handler);
     try {
       client.execute(
-          new RedactingRequest(Request.POST, "/api/2.0/sql/sessions/", body), Void.class);
+          new RedactingRequest(Request.POST, "/api/2.0/sql/sessions/", createBody), Void.class);
       client.execute(
           new RedactingRequest(Request.POST, "/api/2.0/sql/statements/", body), Void.class);
       client.execute(
@@ -154,8 +179,13 @@ class RedactingRequestTest {
           new RedactingRequest(
               Request.POST, "/api/2.0/sql/statements/" + statementId + "/cancel", cancelBody),
           Void.class);
-      client.execute(
-          new RedactingRequest(Request.DELETE, "/api/2.0/sql/sessions/id", body), Void.class);
+      assertThrows(
+          DatabricksError.class,
+          () ->
+              client.execute(
+                  new RedactingRequest(
+                      Request.DELETE, "/api/2.0/sql/sessions/" + sessionId, deleteBody),
+                  Void.class));
       client.execute(
           new RedactingRequest(
               Request.GET,
@@ -189,9 +219,9 @@ class RedactingRequestTest {
       logger.setLevel(previousLevel);
     }
     assertEquals(8, wireBodies.size());
-    for (int i : List.of(0, 1, 4)) {
-      assertEquals(body, wireBodies.get(i));
-    }
+    assertEquals(createBody, wireBodies.get(0));
+    assertEquals(body, wireBodies.get(1));
+    assertEquals(deleteBody, wireBodies.get(4));
     assertEquals(interpolatedBody, wireBodies.get(2));
     assertEquals(cancelBody, wireBodies.get(3));
     assertTrue(wireUrls.get(5).contains(cluster));
@@ -201,8 +231,12 @@ class RedactingRequestTest {
     assertTrue(logged.toString().contains("[REDACTED]"));
     assertFalse(logged.toString().contains(cluster));
     assertFalse(logged.toString().contains(statementId));
+    assertFalse(logged.toString().contains(sessionId));
     assertFalse(logged.toString().contains("native-secret"));
     assertFalse(logged.toString().contains("batch-secret"));
     assertFalse(logged.toString().contains("interpolated-secret"));
+    assertFalse(logged.toString().contains("secret-catalog"));
+    assertFalse(logged.toString().contains("secret-schema"));
+    assertFalse(logged.toString().contains("secret-config"));
   }
 }
