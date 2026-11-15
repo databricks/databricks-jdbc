@@ -1,0 +1,32 @@
+{
+  "captured_utc_date": "2026-11-15",
+  "target_http_path_kind": "APC",
+  "target_region": null,
+  "target_runtime": null,
+  "safe_flag_name": "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+  "live_safe_flags_get_config_found": false,
+  "connection_attempts": [
+    {
+      "UseThriftClient": "0",
+      "observed_protocol": null,
+      "query_executed": false,
+      "outcome": "connection_open_failed",
+      "exception_type": "DatabricksSQLException",
+      "sql_state": "CONNECTION_ERROR",
+      "vendor_code": 0
+    },
+    {
+      "UseThriftClient": "1",
+      "observed_protocol": null,
+      "query_executed": false,
+      "outcome": "connection_open_failed",
+      "exception_type": "DatabricksSQLException",
+      "sql_state": "CONNECTION_ERROR",
+      "vendor_code": 0
+    }
+  ],
+  "ac27_live_running_poll_count": null,
+  "ac27_live_running_result_payload_bytes": null,
+  "ac27_live_terminal_row_count": null,
+  "release_ready": false
+}
