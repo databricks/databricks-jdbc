@@ -32,4 +32,5 @@ not retry on Thrift. Server failures retain the HTTP status and server error cod
 redacts server message text that may echo cluster IDs, SQL, or bound values; recognized
 unsupported-cluster and unsupported-region errors keep a clear category in the message.
 Connection diagnostics and routing telemetry report compute type,
-protocol, routing reason, and outcome without cluster, org, session, or compound statement IDs.
+protocol, routing reason, and outcome without cluster, org, or session IDs. APC statement IDs
+are redacted from logs and exceptions and omitted from operation telemetry.

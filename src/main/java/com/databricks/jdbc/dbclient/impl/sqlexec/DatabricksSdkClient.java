@@ -672,14 +672,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementRequest suppliedRequest)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
-    boolean redactApcDetails =
-        apc
-            && (statementType == StatementType.METADATA
-                || !parameters.isEmpty()
-                || parameterSets != null
-                || parentStatement instanceof DatabricksPreparedStatement
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURES
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURE_COLUMNS);
+    boolean redactApcDetails = apc;
     String logSql = apc ? "[REDACTED]" : sql;
     String errorSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
@@ -1002,13 +995,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       MetadataOperationType metadataOperationType)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
-    boolean redactApcDetails =
-        apc
-            && (statementType == StatementType.METADATA
-                || !parameters.isEmpty()
-                || parentStatement instanceof DatabricksPreparedStatement
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURES
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURE_COLUMNS);
     String logSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
         "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
@@ -1158,10 +1144,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       StatementType statementType)
       throws SQLException {
     boolean apc = typedStatementId.computeResource() != null;
-    boolean redactApcDetails =
-        apc
-            && (statementType == StatementType.METADATA
-                || parentStatement instanceof DatabricksPreparedStatement);
+    boolean redactApcDetails = apc;
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     String statementId = typedStatementId.toSQLExecStatementId();

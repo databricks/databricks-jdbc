@@ -332,7 +332,7 @@ public class DatabricksSdkClientTest {
     when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
         .thenReturn(
             new ExecuteStatementResponse()
-                .setStatementId("statement")
+                .setStatementId("private-statement-904")
                 .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
 
     try (LogCapture logs = new LogCapture()) {
@@ -342,7 +342,85 @@ public class DatabricksSdkClientTest {
       assertFalse(logs.getOutput().contains("private-org-541"));
       assertFalse(logs.getOutput().contains("private-cluster-612"));
       assertFalse(logs.getOutput().contains("private-session-725"));
+      assertFalse(logs.getOutput().contains("private-statement-904"));
       assertTrue(logs.getOutput().contains("all-purpose cluster"));
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = StatementState.class,
+      names = {"FAILED", "CANCELED"})
+  void ordinaryApcSyncFailureRedactsStatementId(StatementState state) throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .clientType(DatabricksClientType.SEA)
+                .sessionId("private-session")
+                .computeResource(cluster)
+                .build());
+    when(session.getSessionId()).thenReturn("private-session");
+    String rawId = "private-ordinary-statement-id";
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(rawId)
+                .setStatus(new StatementStatus().setState(state).setSqlState("42000")));
+
+    try (LogCapture logs = new LogCapture()) {
+      SQLException failure =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
+      assertFalse(failure.getMessage().contains(rawId));
+      assertTrue(failure.getMessage().contains("[REDACTED]"));
+      assertFalse(logs.getOutput().contains(rawId));
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = StatementState.class,
+      names = {"FAILED", "CANCELED"})
+  void ordinaryApcAsyncResultFailureRedactsStatementId(StatementState state) throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionId()).thenReturn("private-session");
+    String rawId = "private-ordinary-async-statement-id";
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId(rawId)
+                .setStatus(new StatementStatus().setState(state).setSqlState("42000")));
+
+    try (LogCapture logs = new LogCapture()) {
+      SQLException failure =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  client.getStatementResult(
+                      StatementId.forCurrentSession(rawId, info), session, null));
+      assertFalse(failure.getMessage().contains(rawId));
+      assertTrue(failure.getMessage().contains("[REDACTED]"));
+      assertFalse(logs.getOutput().contains(rawId));
     }
   }
 

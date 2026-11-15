@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -141,6 +142,7 @@ public class TelemetryHelper {
       // In any of these cases, export is skipped.
       return;
     }
+    boolean apcSea = isApcSea(connectionContext);
     TelemetryEvent telemetryEvent =
         new TelemetryEvent()
             .setDriverSystemConfiguration(DRIVER_SYSTEM_CONFIGURATION)
@@ -148,14 +150,9 @@ public class TelemetryHelper {
             // TODO(ES-1961329 follow-up): sessionId is still read from the shared thread-local and
             // can be misattributed across connections on the same thread (unlike connectionContext,
             // which is now passed explicitly). Thread sessionId through per-connection state too.
-            .setSessionId(
-                connectionContext.getComputeResource() instanceof AllPurposeCluster
-                        && connectionContext.getClientType()
-                            == com.databricks.jdbc.common.DatabricksClientType.SEA
-                    ? null
-                    : DatabricksThreadContextHolder.getSessionId())
+            .setSessionId(apcSea ? null : DatabricksThreadContextHolder.getSessionId())
             .setDriverErrorInfo(errorInfo) // This is only set for failure logs
-            .setSqlStatementId(telemetryDetails.getStatementId())
+            .setSqlStatementId(apcSea ? null : telemetryDetails.getStatementId())
             .setLatency(telemetryDetails.getOperationLatencyMillis());
     SqlExecutionEvent sqlExecutionEvent =
         new SqlExecutionEvent()
@@ -194,6 +191,14 @@ public class TelemetryHelper {
       String statementId,
       Long chunkIndex,
       TelemetryLogLevel logLevel) {
+    if (isApcSea(connectionContext)) {
+      AllPurposeCluster cluster = (AllPurposeCluster) connectionContext.getComputeResource();
+      errorMessage = redactIdentifier(errorMessage, statementId);
+      errorMessage = redactIdentifier(errorMessage, DatabricksThreadContextHolder.getStatementId());
+      errorMessage = redactIdentifier(errorMessage, DatabricksThreadContextHolder.getSessionId());
+      errorMessage = redactIdentifier(errorMessage, cluster.getOrgId());
+      errorMessage = redactIdentifier(errorMessage, cluster.getClusterId());
+    }
     DriverErrorInfo errorInfo =
         new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
     StatementTelemetryDetails telemetryDetails;
@@ -205,6 +210,18 @@ public class TelemetryHelper {
       telemetryDetails = collector.getOrCreateTelemetryDetails(statementId);
     }
     exportTelemetryEvent(connectionContext, telemetryDetails, errorInfo, chunkIndex, logLevel);
+  }
+
+  private static boolean isApcSea(IDatabricksConnectionContext connectionContext) {
+    return connectionContext != null
+        && connectionContext.getComputeResource() instanceof AllPurposeCluster
+        && connectionContext.getClientType() == DatabricksClientType.SEA;
+  }
+
+  private static String redactIdentifier(String message, String identifier) {
+    return message == null || identifier == null || identifier.isEmpty()
+        ? message
+        : message.replace(identifier, "[REDACTED]");
   }
 
   public static String getStatementIdString(StatementId statementId) {

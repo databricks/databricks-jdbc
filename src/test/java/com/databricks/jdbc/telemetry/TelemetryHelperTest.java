@@ -48,6 +48,64 @@ public class TelemetryHelperTest {
   private static final String TEST_STRING = "test";
 
   @Test
+  void apcOperationAndFailureTelemetryOmitStatementAndSessionIds() throws Exception {
+    String rawId = "private-apc-statement-857";
+    String rawSession = "s|a|private-org|private-cluster|private-session";
+    when(connectionContext.getComputeResource())
+        .thenReturn(new AllPurposeCluster("private-org", "private-cluster"));
+    when(connectionContext.getHostUrl()).thenReturn("https://example.com");
+    when(connectionContext.getHttpPath())
+        .thenReturn("/sql/protocolv1/o/private-org/private-cluster");
+    when(connectionContext.getSessionConfigs()).thenReturn(Map.of());
+    DatabricksThreadContextHolder.setSessionId(rawSession);
+    DatabricksThreadContextHolder.setStatementId(rawId);
+    TelemetryHelper.removeConnectionParameters("test-uuid");
+    ITelemetryClient client = mock(ITelemetryClient.class);
+    TelemetryClientFactory factory = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factory);
+      when(factory.getTelemetryClient(connectionContext)).thenReturn(client);
+
+      TelemetryHelper.exportTelemetryLog(
+          connectionContext, new StatementTelemetryDetails(rawId), TelemetryLogLevel.INFO);
+      TelemetryHelper.exportFailureLog(
+          connectionContext,
+          "TEST_FAILURE",
+          "failed " + rawId + " in " + rawSession,
+          TelemetryLogLevel.ERROR);
+
+      TelemetryHelper.removeConnectionParameters("test-uuid");
+      when(connectionContext.getComputeResource()).thenReturn(new Warehouse("warehouse"));
+      when(connectionContext.getHttpPath()).thenReturn("/sql/1.0/warehouses/warehouse");
+      TelemetryHelper.exportTelemetryLog(
+          connectionContext, new StatementTelemetryDetails(rawId), TelemetryLogLevel.INFO);
+
+      ArgumentCaptor<TelemetryFrontendLog> captured =
+          ArgumentCaptor.forClass(TelemetryFrontendLog.class);
+      verify(client, times(3)).exportEvent(captured.capture());
+      for (TelemetryFrontendLog event : captured.getAllValues().subList(0, 2)) {
+        String json = new ObjectMapper().writeValueAsString(event);
+        assertFalse(json.contains(rawId));
+        assertFalse(json.contains(rawSession));
+        assertFalse(json.contains("private-org"));
+        assertFalse(json.contains("private-cluster"));
+        assertNull(event.getEntry().getSqlDriverLog().getSessionId());
+      }
+      assertTrue(
+          new ObjectMapper()
+              .writeValueAsString(captured.getAllValues().get(1))
+              .contains("[REDACTED]"));
+      String warehouseEvent = new ObjectMapper().writeValueAsString(captured.getAllValues().get(2));
+      assertTrue(warehouseEvent.contains(rawId));
+      assertTrue(warehouseEvent.contains(rawSession));
+    } finally {
+      DatabricksThreadContextHolder.clearStatementInfo();
+      TelemetryHelper.removeConnectionParameters("test-uuid");
+    }
+  }
+
+  @Test
   void routingEventsContainOnlySafeRouteFields() throws Exception {
     ITelemetryClient client = mock(ITelemetryClient.class);
     TelemetryClientFactory factory = mock(TelemetryClientFactory.class);

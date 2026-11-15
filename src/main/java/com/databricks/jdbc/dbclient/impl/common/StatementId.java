@@ -189,11 +189,13 @@ public class StatementId {
     return new StatementId(operationHandle.getOperationId()).toSQLExecStatementId();
   }
 
-  /** Returns the public identifier for diagnostics, without the serialized Thrift secret. */
+  /** Returns a loggable identifier, redacting APC IDs and the serialized Thrift secret. */
   public static String loggableStatementId(StatementId statementId) {
     return statementId == null
         ? null
-        : statementId.redactDiagnostics ? "[REDACTED]" : statementId.toSQLExecStatementId();
+        : statementId.apc != null || statementId.redactDiagnostics
+            ? "[REDACTED]"
+            : statementId.toSQLExecStatementId();
   }
 
   @Override
