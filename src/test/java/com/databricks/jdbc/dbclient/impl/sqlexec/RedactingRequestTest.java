@@ -8,18 +8,103 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class RedactingRequestTest {
+  @ParameterizedTest
+  @ValueSource(ints = {429, 503})
+  void sdkRetryThrowableCannotLogEchoedApcIdentifiers(int status) throws Exception {
+    String secret = "private-org-private-cluster-binding-SQL";
+    AtomicInteger attempts = new AtomicInteger();
+    ApiClient client =
+        DatabricksSdkClient.buildApiClient(
+            new DatabricksConfig()
+                .setHost("https://example.com")
+                .setAuthType("pat")
+                .setToken("test-token")
+                .setHttpClient(
+                    request -> {
+                      if (request.getUri().getPath().startsWith("/oidc/")) {
+                        return new Response(request, 200, "OK", Map.of(), "{}");
+                      }
+                      attempts.incrementAndGet();
+                      return new Response(
+                          request,
+                          status,
+                          "server echoed " + secret,
+                          Map.of("retry-after", List.of("0")),
+                          "{\"error_code\":\"RATE_LIMITED\",\"message\":\""
+                              + secret
+                              + "\",\"details\":{\"sql\":\""
+                              + secret
+                              + "\"}}");
+                    }),
+            null,
+            true);
+    Logger logger = Logger.getLogger(ApiClient.class.getName());
+    Level previousLevel = logger.getLevel();
+    StringWriter logged = new StringWriter();
+    Handler handler =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            logged.append(record.getMessage()).append('\n');
+            if (record.getThrown() != null) {
+              record.getThrown().printStackTrace(new PrintWriter(logged));
+            }
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    handler.setLevel(Level.ALL);
+    logger.setLevel(Level.FINE);
+    logger.addHandler(handler);
+    try {
+      DatabricksException failure =
+          assertThrows(
+              DatabricksException.class,
+              () ->
+                  client.execute(
+                      new RedactingRequest(
+                          Request.POST,
+                          "/api/2.0/sql/statements/",
+                          "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
+                              + secret
+                              + "\"}},\"statement\":\"SELECT '"
+                              + secret
+                              + "'\"}"),
+                      Void.class));
+      assertTrue(attempts.get() > 1);
+      assertTrue(failure.getCause() instanceof DatabricksError);
+      assertEquals("RATE_LIMITED", ((DatabricksError) failure.getCause()).getErrorCode());
+      assertFalse(failure.getMessage().contains(secret));
+      assertFalse(failure.getCause().getMessage().contains(secret));
+      assertFalse(logged.toString().contains(secret));
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(previousLevel);
+    }
+  }
+
   @Test
   void sdkDebugLogHidesBoundValueEchoedByHttpError() throws Exception {
     String secret = "response-secret-918273";
@@ -82,7 +167,7 @@ class RedactingRequestTest {
     }
 
     assertTrue(wireBodies.contains(body));
-    assertTrue(logged.toString().contains("<InputStream>"));
+    assertTrue(logged.toString().contains("BAD_REQUEST"));
     assertFalse(logged.toString().contains(secret));
   }
 
@@ -230,7 +315,7 @@ class RedactingRequestTest {
     assertTrue(wireUrls.get(7).contains(statementId));
     assertTrue(logged.toString().contains("[REDACTED]"));
     assertFalse(logged.toString().contains(cluster));
-    assertFalse(logged.toString().contains(statementId));
+    assertTrue(logged.toString().contains(statementId));
     assertFalse(logged.toString().contains(sessionId));
     assertFalse(logged.toString().contains("native-secret"));
     assertFalse(logged.toString().contains("batch-secret"));

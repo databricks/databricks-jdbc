@@ -27,14 +27,14 @@ public class StatementIdTest {
     assertEquals("s|a|org|cluster|statement", id.serialize());
     assertEquals("statement", id.toString());
     assertEquals("statement", id.toSQLExecStatementId());
-    assertEquals("[REDACTED]", StatementId.loggableStatementId(id));
+    assertEquals("statement", StatementId.loggableStatementId(id));
     StatementId privateDiagnostics = id.withRedactedDiagnostics();
     assertEquals("[REDACTED]", StatementId.loggableStatementId(privateDiagnostics));
     assertEquals("statement", privateDiagnostics.toSQLExecStatementId());
     assertEquals(id, privateDiagnostics);
     StatementId parsed = StatementId.deserialize(id.serialize());
     assertEquals(id.toString(), parsed.toString());
-    assertEquals("[REDACTED]", StatementId.loggableStatementId(parsed));
+    assertEquals("statement", StatementId.loggableStatementId(parsed));
     assertEquals(info.computeResource(), parsed.computeResource());
   }
 

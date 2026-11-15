@@ -152,7 +152,7 @@ public class TelemetryHelper {
             // which is now passed explicitly). Thread sessionId through per-connection state too.
             .setSessionId(apcSea ? null : DatabricksThreadContextHolder.getSessionId())
             .setDriverErrorInfo(errorInfo) // This is only set for failure logs
-            .setSqlStatementId(apcSea ? null : telemetryDetails.getStatementId())
+            .setSqlStatementId(telemetryDetails.getStatementId())
             .setLatency(telemetryDetails.getOperationLatencyMillis());
     SqlExecutionEvent sqlExecutionEvent =
         new SqlExecutionEvent()

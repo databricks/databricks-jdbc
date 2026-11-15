@@ -69,6 +69,42 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  void apcPublicStatementEntrypointsDoNotLogSqlText() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    DatabricksConnection connection = mock(DatabricksConnection.class);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    IDatabricksClient sdk = mock(IDatabricksClient.class);
+    when(connection.getConnectionContext()).thenReturn(context);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getDatabricksClient()).thenReturn(sdk);
+    when(session.getComputeResource()).thenReturn(APC_COMPUTE);
+    DatabricksStatement statement = spy(new DatabricksStatement(connection));
+    String sql = "INSERT INTO private_table VALUES ('private-sql-secret')";
+    doThrow(new SQLException("stopped"))
+        .when(statement)
+        .executeInternal(eq(sql), anyMap(), eq(StatementType.UPDATE));
+    when(sdk.executeStatementAsync(eq(sql), eq(APC_COMPUTE), anyMap(), eq(session), eq(statement)))
+        .thenReturn(mock(DatabricksResultSet.class));
+
+    try (LogCapture logs = new LogCapture()) {
+      statement.addBatch(sql);
+      assertThrows(SQLException.class, () -> statement.executeLargeUpdate(sql));
+      assertThrows(
+          SQLException.class, () -> statement.executeLargeUpdate(sql, Statement.NO_GENERATED_KEYS));
+      assertThrows(
+          DatabricksSQLFeatureNotSupportedException.class,
+          () -> statement.executeLargeUpdate(sql, new int[] {1}));
+      assertThrows(
+          DatabricksSQLFeatureNotSupportedException.class,
+          () -> statement.executeLargeUpdate(sql, new String[] {"id"}));
+      statement.executeAsync(sql);
+      assertFalse(logs.getOutput().contains("private-sql-secret"));
+      assertFalse(logs.getOutput().contains("private_table"));
+      assertTrue(logs.getOutput().contains("[REDACTED]"));
+    }
+  }
+
+  @Test
   public void successfulSetTimeZoneUpdatesArrowSessionConfig() throws Exception {
     IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = new DatabricksConnection(context, client);

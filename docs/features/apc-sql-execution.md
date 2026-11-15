@@ -33,4 +33,6 @@ redacts server message text that may echo cluster IDs, SQL, or bound values; rec
 unsupported-cluster and unsupported-region errors keep a clear category in the message.
 Connection diagnostics and routing telemetry report compute type,
 protocol, routing reason, and outcome without cluster, org, or session IDs. APC statement IDs
-are redacted from logs and exceptions and omitted from operation telemetry.
+use the raw server statement ID in statement ID fields in logs and operation telemetry. The
+internal compound statement ID, org ID, and cluster ID are not logged. Server error text that
+may echo SQL or bound values is redacted before the SDK retries a request.

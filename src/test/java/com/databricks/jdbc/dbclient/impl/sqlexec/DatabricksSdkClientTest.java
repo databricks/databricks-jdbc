@@ -166,6 +166,81 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  void apcCreateSessionExhaustedRetryKeepsRateLimitDriverCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(
+            new DatabricksException(
+                "Request failed after retries",
+                new DatabricksError("RATE_LIMITED", "private-cluster", 429)));
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    assertEquals(429, failure.getStatusCode());
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("RATE_LIMITED", cause.getErrorCode());
+    assertFalse(failure.getMessage().contains("private-cluster"));
+    assertFalse(cause.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcCreateSessionRealSdkRetryKeepsRateLimitDriverCodeAndRedactsEcho() throws Exception {
+    String secret = "private-org-private-cluster";
+    int[] attempts = {0};
+    HttpClient transport =
+        request -> {
+          if (request.getUri().getPath().startsWith("/oidc/")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          attempts[0]++;
+          return new Response(
+              request,
+              429,
+              "Too Many Requests",
+              Map.of("retry-after", List.of("0")),
+              "{\"error_code\":\"RATE_LIMITED\",\"message\":\"" + secret + "\"}");
+        };
+    ApiClient realApiClient =
+        DatabricksSdkClient.buildApiClient(
+            new DatabricksConfig()
+                .setHost("https://example.com")
+                .setAuthType("pat")
+                .setToken("test-token")
+                .setHttpClient(transport),
+            null,
+            true);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(4, attempts[0]);
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    assertEquals(429, failure.getStatusCode());
+    assertEquals("RATE_LIMITED", ((DatabricksError) failure.getCause()).getErrorCode());
+    assertFalse(failure.getMessage().contains(secret));
+    assertFalse(failure.getCause().getMessage().contains(secret));
+  }
+
+  @Test
   void apcRateLimitRedactsUnsafeServerCodeFromExceptionAndCause() throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(
@@ -342,7 +417,7 @@ public class DatabricksSdkClientTest {
       assertFalse(logs.getOutput().contains("private-org-541"));
       assertFalse(logs.getOutput().contains("private-cluster-612"));
       assertFalse(logs.getOutput().contains("private-session-725"));
-      assertFalse(logs.getOutput().contains("private-statement-904"));
+      assertTrue(logs.getOutput().contains("private-statement-904"));
       assertTrue(logs.getOutput().contains("all-purpose cluster"));
     }
   }
@@ -382,7 +457,7 @@ public class DatabricksSdkClientTest {
                       "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
       assertFalse(failure.getMessage().contains(rawId));
       assertTrue(failure.getMessage().contains("[REDACTED]"));
-      assertFalse(logs.getOutput().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
     }
   }
 
@@ -420,7 +495,11 @@ public class DatabricksSdkClientTest {
                       StatementId.forCurrentSession(rawId, info), session, null));
       assertFalse(failure.getMessage().contains(rawId));
       assertTrue(failure.getMessage().contains("[REDACTED]"));
-      assertFalse(logs.getOutput().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
+    }
+    if (state == StatementState.FAILED) {
+      verify(apiClient)
+          .execute(argThat(request -> Request.DELETE.equals(request.getMethod())), eq(Void.class));
     }
   }
 
@@ -615,8 +694,10 @@ public class DatabricksSdkClientTest {
         assertFalse(failure.getMessage().contains(rawId));
         assertTrue(failure.getMessage().contains("[REDACTED]"));
       }
-      assertFalse(logs.getOutput().contains(rawId));
-      assertTrue(logs.getOutput().contains("[REDACTED]"));
+      assertTrue(logs.getOutput().contains(rawId));
+      if (state != StatementState.SUCCEEDED) {
+        assertTrue(logs.getOutput().contains("[REDACTED]"));
+      }
       if (state == StatementState.SUCCEEDED) {
         assertTrue(logs.getOutput().contains("Empty result (total_chunk_count=0)"));
       }
@@ -650,7 +731,7 @@ public class DatabricksSdkClientTest {
           assertThrows(DatabricksTimeoutException.class, timeout::checkTimeout);
       assertFalse(failure.getMessage().contains(rawId));
       assertTrue(failure.getMessage().contains("[REDACTED]"));
-      assertFalse(logs.getOutput().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
     }
     ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
     verify(apiClient).execute(requests.capture(), eq(Void.class));
@@ -1661,7 +1742,7 @@ public class DatabricksSdkClientTest {
     try (LogCapture logs = new LogCapture()) {
       client.closeStatement(id);
       assertTrue(logs.getOutput().contains("closeStatement"));
-      assertFalse(logs.getOutput().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
     }
     ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
     verify(apiClient).execute(requests.capture(), eq(Void.class));
@@ -3245,9 +3326,8 @@ public class DatabricksSdkClientTest {
     try (LogCapture logs = new LogCapture()) {
       client.getResultChunks(id, 2, 7);
       client.getResultChunksData(id, 3, 0);
-      assertTrue(logs.getOutput().contains("getResultChunks(statementId=[REDACTED]"));
-      assertTrue(logs.getOutput().contains("getResultChunksData(statementId=[REDACTED]"));
-      assertFalse(logs.getOutput().contains(rawId));
+      assertTrue(logs.getOutput().contains("getResultChunks(statementId=" + rawId));
+      assertTrue(logs.getOutput().contains("getResultChunksData(statementId=" + rawId));
     }
 
     ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
@@ -3594,21 +3674,29 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testApcResponseDebugBodyHidesEchoedBindingAndPreservesWireBody() throws Exception {
+  public void testApcErrorResponseScrubsSdkThrowableBeforeRetry() throws Exception {
     Request request =
         new RedactingRequest(
             Request.POST,
             "https://example.com" + STATEMENT_PATH,
             "{\"backend_compute\":{},\"statement\":\"SELECT ?\",\"parameters\":[]}");
-    String echoed = "{\"error\":{\"message\":\"bound-secret\"}}";
+    String echoed =
+        "{\"error_code\":\"BAD_REQUEST\",\"message\":\"bound-secret\","
+            + "\"details\":{\"sql\":\"SELECT secret\"}}";
     Response raw = new Response(request, 400, "Bad Request", Map.of(), echoed);
 
     Response protectedResponse = DatabricksSdkClient.redactApcResponseDebugBody(request, raw);
 
     assertFalse(protectedResponse.getDebugBody().contains("bound-secret"));
-    assertEquals(
-        echoed, new String(protectedResponse.getBody().readAllBytes(), StandardCharsets.UTF_8));
+    String safeBody =
+        new String(protectedResponse.getBody().readAllBytes(), StandardCharsets.UTF_8);
+    assertFalse(safeBody.contains("bound-secret"));
+    assertFalse(safeBody.contains("SELECT secret"));
+    assertTrue(safeBody.contains("BAD_REQUEST"));
     assertEquals(400, protectedResponse.getStatusCode());
+    Response success = new Response(request, 200, "OK", Map.of(), echoed);
+    Response safeSuccess = DatabricksSdkClient.redactApcResponseDebugBody(request, success);
+    assertEquals(echoed, new String(safeSuccess.getBody().readAllBytes(), StandardCharsets.UTF_8));
     assertSame(
         raw, DatabricksSdkClient.redactApcResponseDebugBody(new Request(Request.GET, "/"), raw));
   }
@@ -4105,8 +4193,10 @@ public class DatabricksSdkClientTest {
         assertFalse(error.getMessage().contains(rawId));
         assertTrue(error.getMessage().contains("[REDACTED]"));
       }
-      assertFalse(logs.getOutput().contains(rawId));
-      assertTrue(logs.getOutput().contains("[REDACTED]"));
+      assertTrue(logs.getOutput().contains(rawId));
+      if (state != StatementState.SUCCEEDED) {
+        assertTrue(logs.getOutput().contains("[REDACTED]"));
+      }
     }
   }
 

@@ -189,13 +189,11 @@ public class StatementId {
     return new StatementId(operationHandle.getOperationId()).toSQLExecStatementId();
   }
 
-  /** Returns a loggable identifier, redacting APC IDs and the serialized Thrift secret. */
+  /** Returns the raw server identifier, excluding APC routing fields and the Thrift secret. */
   public static String loggableStatementId(StatementId statementId) {
     return statementId == null
         ? null
-        : statementId.apc != null || statementId.redactDiagnostics
-            ? "[REDACTED]"
-            : statementId.toSQLExecStatementId();
+        : statementId.redactDiagnostics ? "[REDACTED]" : statementId.toSQLExecStatementId();
   }
 
   @Override

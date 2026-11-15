@@ -48,7 +48,7 @@ public class TelemetryHelperTest {
   private static final String TEST_STRING = "test";
 
   @Test
-  void apcOperationAndFailureTelemetryOmitStatementAndSessionIds() throws Exception {
+  void apcOperationAndFailureTelemetryKeepRawStatementIdButOmitTargetIds() throws Exception {
     String rawId = "private-apc-statement-857";
     String rawSession = "s|a|private-org|private-cluster|private-session";
     when(connectionContext.getComputeResource())
@@ -86,7 +86,7 @@ public class TelemetryHelperTest {
       verify(client, times(3)).exportEvent(captured.capture());
       for (TelemetryFrontendLog event : captured.getAllValues().subList(0, 2)) {
         String json = new ObjectMapper().writeValueAsString(event);
-        assertFalse(json.contains(rawId));
+        assertTrue(json.contains(rawId));
         assertFalse(json.contains(rawSession));
         assertFalse(json.contains("private-org"));
         assertFalse(json.contains("private-cluster"));

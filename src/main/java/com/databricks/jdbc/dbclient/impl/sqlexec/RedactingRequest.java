@@ -6,12 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.net.URI;
 
-/** Keeps the wire request intact while hiding APC targets and statement IDs from SDK logs. */
+/** Keeps the wire request intact while hiding APC targets, sessions, and SQL from SDK logs. */
 class RedactingRequest extends Request {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final String CLUSTER_QUERY =
       "backend_compute.all_purpose_cluster_compute.cluster_id=";
-  private static final String STATEMENT_PATH = "/api/2.0/sql/statements/";
   private static final String SESSION_PATH = "/api/2.0/sql/sessions/";
   private volatile boolean wireBodyVisible = true;
   private final String logBody;
@@ -47,10 +46,7 @@ class RedactingRequest extends Request {
   public String getRequestLine() {
     URI uri = getUri();
     String path = uri.getRawPath();
-    if (path.startsWith(STATEMENT_PATH) && path.length() > STATEMENT_PATH.length()) {
-      int idEnd = path.indexOf('/', STATEMENT_PATH.length());
-      path = STATEMENT_PATH + "[REDACTED]" + (idEnd < 0 ? "" : path.substring(idEnd));
-    } else if (path.startsWith(SESSION_PATH) && path.length() > SESSION_PATH.length()) {
+    if (path.startsWith(SESSION_PATH) && path.length() > SESSION_PATH.length()) {
       int idEnd = path.indexOf('/', SESSION_PATH.length());
       path = SESSION_PATH + "[REDACTED]" + (idEnd < 0 ? "" : path.substring(idEnd));
     }
@@ -79,12 +75,6 @@ class RedactingRequest extends Request {
         ((ObjectNode) cluster).put("cluster_id", "[REDACTED]");
         if (root instanceof ObjectNode) {
           ObjectNode request = (ObjectNode) root;
-          if (request.has("statementId")) {
-            request.put("statementId", "[REDACTED]");
-          }
-          if (request.has("statement_id")) {
-            request.put("statement_id", "[REDACTED]");
-          }
           if (request.has("sessionId")) {
             request.put("sessionId", "[REDACTED]");
           }
