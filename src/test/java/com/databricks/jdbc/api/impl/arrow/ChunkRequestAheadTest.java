@@ -290,10 +290,74 @@ public class ChunkRequestAheadTest {
     assertEquals(0, storage.closedUnread.get());
     if (requestAhead) {
       assertTrue(storage.maxRequestLead.get() >= WINDOW, "lead " + storage.maxRequestLead);
-      assertTrue(storage.maxRequestLead.get() < 2 * WINDOW, "lead " + storage.maxRequestLead);
+      assertTrue(
+          storage.maxRequestLead.get() < WINDOW + ChunkAdmissionWindow.MAX_REQUEST_LEAD,
+          "lead " + storage.maxRequestLead);
     } else {
       assertTrue(storage.maxRequestLead.get() < WINDOW, "lead " + storage.maxRequestLead);
     }
+  }
+
+  // Wider than the lead, so a lead of a full window would show up as more requests.
+  private static final int WIDE_WINDOW = ChunkAdmissionWindow.MAX_REQUEST_LEAD + 4;
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void waitingReader_requestsAtMostMaxLeadBeyondWindow(boolean streaming) throws Exception {
+    FakeStorage storage = new FakeStorage(0, 0);
+    // The reader waits a second for chunk 0; meanwhile every other request answers at once.
+    storage.firstHeaderDelayMs = 1_000;
+    int chunks = 3 * WIDE_WINDOW;
+    ChunkProvider provider =
+        streaming
+            ? streamingProvider(storage, true, WIDE_WINDOW, chunks)
+            : remoteProvider(storage, true, WIDE_WINDOW, chunks);
+    try {
+      drain(provider, storage, chunks, 0);
+    } finally {
+      provider.close();
+    }
+    assertEquals(
+        WIDE_WINDOW + ChunkAdmissionWindow.MAX_REQUEST_LEAD,
+        storage.requestsWhenFirstAnswered.get());
+    assertTrue(
+        storage.maxRequestLead.get() < WIDE_WINDOW + ChunkAdmissionWindow.MAX_REQUEST_LEAD,
+        "lead " + storage.maxRequestLead);
+    assertEquals(chunks, storage.requests.get());
+    assertEquals(0, storage.closedUnread.get());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void readerPausedPastUnreadLimit_requestsAgainAtMostMaxLead(boolean streaming) throws Exception {
+    FakeStorage storage = new FakeStorage(0, 0);
+    storage.firstHeaderDelayMs = 300;
+    int chunks = 3 * WIDE_WINDOW;
+    ChunkProvider provider =
+        streaming
+            ? streamingProvider(storage, true, WIDE_WINDOW, chunks)
+            : remoteProvider(storage, true, WIDE_WINDOW, chunks);
+    try {
+      assertTrue(provider.next());
+      assertValues((ArrowResultChunk) provider.getChunk(), 0);
+      // The reader stops past the unread limit, holding chunk 0, after having waited for it.
+      TimeUnit.MILLISECONDS.sleep(ChunkAdmissionWindow.DEFAULT_MAX_UNREAD_RESPONSE_MILLIS + 1_500);
+      assertEquals(ChunkAdmissionWindow.MAX_REQUEST_LEAD, storage.closedUnread.get());
+      int read = 1;
+      while (true) {
+        storage.released.incrementAndGet();
+        if (!provider.next()) {
+          break;
+        }
+        assertValues((ArrowResultChunk) provider.getChunk(), read++);
+      }
+      assertEquals(chunks, read);
+    } finally {
+      provider.close();
+    }
+    // Only the chunks requested beyond the window are requested twice.
+    assertEquals(chunks + ChunkAdmissionWindow.MAX_REQUEST_LEAD, storage.requests.get());
+    assertEquals(ChunkAdmissionWindow.MAX_REQUEST_LEAD, storage.closedUnread.get());
   }
 
   @Test
@@ -548,9 +612,10 @@ public class ChunkRequestAheadTest {
   }
 
   /**
-   * Storage double: answers each GET after {@code headerDelayMs}, delays the first body read by
-   * {@code bodyDelayMs}, and records how far requests run ahead of the reader and how many bodies
-   * are in memory. {@link #released} is the reader's release count, kept by the test.
+   * Storage double: answers each GET after {@code headerDelayMs} ({@code firstHeaderDelayMs} for
+   * chunk 0), delays the first body read by {@code bodyDelayMs}, and records how far requests run
+   * ahead of the reader and how many bodies are in memory. {@link #released} is the reader's
+   * release count, kept by the test.
    */
   private static final class FakeStorage implements IDatabricksHttpClient {
     final long headerDelayMs;
@@ -561,6 +626,9 @@ public class ChunkRequestAheadTest {
     final AtomicInteger bodiesStarted = new AtomicInteger();
     final AtomicInteger maxBodiesInMemory = new AtomicInteger();
     final AtomicInteger closedUnread = new AtomicInteger();
+    // Header delay for chunk 0 only, and the request count when chunk 0's headers arrive.
+    volatile long firstHeaderDelayMs;
+    final AtomicInteger requestsWhenFirstAnswered = new AtomicInteger(-1);
 
     FakeStorage(long headerDelayMs, long bodyDelayMs) {
       this.headerDelayMs = headerDelayMs;
@@ -578,7 +646,10 @@ public class ChunkRequestAheadTest {
       int index = Integer.parseInt(url.substring(url.lastIndexOf('-') + 1));
       requests.incrementAndGet();
       maxRequestLead.accumulateAndGet(index - released.get(), Math::max);
-      sleep(headerDelayMs);
+      sleep(index == 0 ? Math.max(headerDelayMs, firstHeaderDelayMs) : headerDelayMs);
+      if (index == 0) {
+        requestsWhenFirstAnswered.compareAndSet(-1, requests.get());
+      }
       byte[] data = payload(index);
       AtomicInteger started = new AtomicInteger();
       FilterInputStream body =

@@ -5,16 +5,26 @@ import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Bounds how many chunk bodies a result reads into memory, while letting downloads send their
- * requests before their chunk is within that bound.
+ * Bounds how many chunks a result decodes into memory, while letting downloads send their requests
+ * before their chunk is within that bound.
  *
  * <p>Chunks are numbered by their position in consumption order. The chunk at position {@code p}
  * may read its body once {@code p < released + size}, where {@code released} counts the chunks the
- * reader has finished with. This is the same bound as submitting a download only once its chunk
- * fits in the window, but a chunk beyond it can already wait for its response headers, so that
- * round trip overlaps earlier downloads instead of following them.
+ * reader has finished with. This is the same bound on decoded chunks as submitting a download only
+ * once its chunk fits in the window, but a chunk beyond it can already wait for its response, so
+ * that round trip overlaps earlier downloads instead of following them. Meanwhile the kernel may
+ * receive the body into the socket buffer; {@link #MAX_REQUEST_LEAD} bounds how many such chunks
+ * there are.
  */
 final class ChunkAdmissionWindow {
+
+  /**
+   * How many chunks beyond the window may be requested while the reader waits. The kernel may
+   * already receive their bodies, so this bounds the extra memory per result (about this many
+   * compressed chunks, outside the heap) and what a reader that pauses past the unread limit
+   * downloads again.
+   */
+  static final int MAX_REQUEST_LEAD = 8;
 
   /** Default limit on how long a download holds a response unread while waiting for admission. */
   static final long DEFAULT_MAX_UNREAD_RESPONSE_MILLIS = 10_000;

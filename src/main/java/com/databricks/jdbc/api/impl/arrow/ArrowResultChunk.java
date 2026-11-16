@@ -63,7 +63,8 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
 
   /**
    * Lets this chunk's download send its request before the chunk is admitted to {@code window}: it
-   * reads the body only once the chunk at {@code position} is admitted. Call before submitting it.
+   * reads and decodes the body only once the chunk at {@code position} is admitted. Call before
+   * submitting it.
    */
   void setAdmissionWindow(ChunkAdmissionWindow window, long position) {
     this.admissionWindow = window;
@@ -99,8 +100,9 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       if (admissionWindow != null
           && !admissionWindow.await(
               admissionPosition, admissionWindow.getMaxUnreadResponseMillis())) {
-        // The reader has stalled. Rather than hold the response unread on its connection, release
-        // it, wait for admission without it, and let the download task request the chunk again.
+        // The reader has stalled. Rather than hold the response and its connection indefinitely,
+        // close both (discarding any body the kernel received), wait for admission without them,
+        // and let the download task request the chunk again.
         response.close();
         response = null;
         admissionWindow.await(admissionPosition, 0);

@@ -587,10 +587,12 @@ public class StreamingChunkProvider implements ChunkProvider {
   private void triggerDownloads() {
     downloadLock.lock();
     try {
-      // While the reader waits on a download, submit up to a window's worth of chunks beyond it:
-      // they send their requests now and read their bodies once admitted.
+      // While the reader waits on a download, submit up to MAX_REQUEST_LEAD chunks beyond the
+      // window: they send their requests now and are decoded once admitted.
       int limit =
-          admissionWindow != null && readerWaiting ? 2 * maxChunksInMemory : maxChunksInMemory;
+          admissionWindow != null && readerWaiting
+              ? maxChunksInMemory + ChunkAdmissionWindow.MAX_REQUEST_LEAD
+              : maxChunksInMemory;
       while (!closed && chunksInMemory.get() < limit) {
         Long downloadIdx = downloadOrder.peek();
         if (downloadIdx == null) {

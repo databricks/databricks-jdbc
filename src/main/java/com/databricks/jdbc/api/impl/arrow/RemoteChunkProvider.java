@@ -115,11 +115,11 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
       chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     }
 
-    // While the reader waits on a download, submit up to a window's worth of chunks beyond it:
-    // they send their requests now and read their bodies once admitted.
+    // While the reader waits on a download, submit up to MAX_REQUEST_LEAD chunks beyond the window:
+    // they send their requests now and are decoded once admitted.
     long limit =
         admissionWindow != null && readerWaiting
-            ? 2 * allowedChunksInMemory
+            ? allowedChunksInMemory + ChunkAdmissionWindow.MAX_REQUEST_LEAD
             : allowedChunksInMemory;
     while (!isClosed && nextChunkToDownload < chunkCount && totalChunksInMemory < limit) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
