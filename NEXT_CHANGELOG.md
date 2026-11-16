@@ -27,6 +27,8 @@
 - Reduced heap usage when reading large CloudFetch results: chunks are now streamed from the HTTP response through decompression into Arrow instead of first being buffered on-heap. When Arrow uses off-heap memory, this cuts peak heap by about 40% and GC pause time by about half, so large results fit in smaller heaps.
 - Fixed CloudFetch rows being silently skipped when a chunk failed to parse and its retried download then succeeded: the chunk stayed in a failed state and its rows were not returned.
 
+- Executing very large SQL texts no longer strips comments from the whole text to classify the statement, or runs the empty `ESCAPE` clause regex when the text has no `ESCAPE` keyword.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*

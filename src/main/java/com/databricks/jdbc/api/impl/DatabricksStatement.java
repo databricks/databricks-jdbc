@@ -30,6 +30,11 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+  // Raw characters stripped to classify a large statement, and the most characters any
+  // statement-type pattern reads after the leading whitespace and '(' run ("BEGIN TRANSACTION"
+  // plus a word boundary is the longest).
+  private static final int CLASSIFICATION_SCAN_CHARS = 8192;
+  @VisibleForTesting static final int CLASSIFICATION_KEYWORD_CHARS = 32;
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -791,17 +796,59 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return SqlCommentParser.stripCommentsAndWhitespaces(query);
   }
 
+  /**
+   * Returns a prefix of {@link #trimCommentsAndWhitespaces} that the anchored statement-type
+   * patterns classify exactly like the full text, without stripping all of a very large statement.
+   *
+   * <p>Each pattern reads a run of whitespace and '(' followed by at most {@link
+   * #CLASSIFICATION_KEYWORD_CHARS} characters. Stripping scans left to right with one character of
+   * lookahead, so the strip of the first {@link #CLASSIFICATION_SCAN_CHARS} characters can differ
+   * from the full strip only in its last character; without that character and trailing whitespace
+   * it is a prefix of the full strip. It is used when it covers the leading run and the keyword;
+   * otherwise, for example after a long leading comment, the whole text is stripped.
+   */
+  @VisibleForTesting
+  static String classificationText(String query) {
+    if (query != null && query.length() > CLASSIFICATION_SCAN_CHARS) {
+      String stripped =
+          SqlCommentParser.stripCommentsAndWhitespaces(
+              query.substring(0, CLASSIFICATION_SCAN_CHARS));
+      String head = stripped.substring(0, Math.max(0, stripped.length() - 1)).trim();
+      if (leadingSpaceOrParenCount(head) + CLASSIFICATION_KEYWORD_CHARS <= head.length()) {
+        return head;
+      }
+    }
+    return trimCommentsAndWhitespaces(query);
+  }
+
+  /** Counts leading characters matched by the patterns' {@code \s} or {@code (}. */
+  private static int leadingSpaceOrParenCount(String text) {
+    int i = 0;
+    while (i < text.length() && " \t\n\u000B\f\r(".indexOf(text.charAt(i)) >= 0) {
+      i++;
+    }
+    return i;
+  }
+
   @VisibleForTesting
   static boolean shouldReturnResultSet(String query, List<String> nonRowcountQueryPrefixes) {
-    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    // Configured prefixes can be of any length, so they are matched against the full strip.
+    String trimmedQuery =
+        nonRowcountQueryPrefixes.isEmpty()
+            ? classificationText(query)
+            : trimCommentsAndWhitespaces(query);
 
     // Check configured non-rowcount prefixes first
     String upperQuery = trimmedQuery.toUpperCase();
     if (nonRowcountQueryPrefixes.stream().anyMatch(upperQuery::startsWith)) {
       return true;
     }
+    return matchesResultSetPattern(trimmedQuery);
+  }
 
-    // Check if the query matches any of the patterns that return a ResultSet
+  /** Whether stripped query text matches any of the patterns that return a ResultSet. */
+  @VisibleForTesting
+  static boolean matchesResultSetPattern(String trimmedQuery) {
     return SELECT_PATTERN.matcher(trimmedQuery).find()
         || SHOW_PATTERN.matcher(trimmedQuery).find()
         || DESCRIBE_PATTERN.matcher(trimmedQuery).find()
@@ -819,8 +866,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || LIST_PATTERN.matcher(trimmedQuery).find()
         || BEGIN_PATTERN_FOR_SQL_SCRIPT.matcher(trimmedQuery).find()
         || CALL_PATTERN.matcher(trimmedQuery).find();
-
-    // Otherwise, it should not return a ResultSet
   }
 
   protected boolean shouldReturnResultSetWithConfig(String query) {
@@ -829,7 +874,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   static boolean isSelectQuery(String query) {
-    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    String trimmedQuery = classificationText(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find();
   }
 
@@ -842,7 +887,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
    * must be excluded.
    */
   static boolean isDescribableQuery(String query) {
-    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    String trimmedQuery = classificationText(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find()
         || WITH_PATTERN.matcher(trimmedQuery).find()
         || VALUES_PATTERN.matcher(trimmedQuery).find()
@@ -853,7 +898,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (query == null || query.trim().isEmpty()) {
       return false;
     }
-    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    String trimmedQuery = classificationText(query);
     return INSERT_PATTERN.matcher(trimmedQuery).find();
   }
 

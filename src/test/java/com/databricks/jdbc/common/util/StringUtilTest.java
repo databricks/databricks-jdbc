@@ -1,6 +1,8 @@
 package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -87,6 +89,23 @@ public class StringUtilTest {
   public void testPreserveCustomEscapeClause() {
     String sql = "SELECT * FROM table WHERE name LIKE 'pattern#%' ESCAPE '#'";
     assertEquals(sql, StringUtil.removeRedundantEscapeClause(sql));
+  }
+
+  @Test
+  public void testRemoveEmptyEscapeClauseIsCaseInsensitive() {
+    assertEquals(
+        "SELECT 1 WHERE a LIKE 'x%' AND b LIKE 'y%'",
+        StringUtil.removeRedundantEscapeClause(
+            "SELECT 1 WHERE a LIKE 'x%' escape \"\" AND b LIKE 'y%'\tEsCaPe ''"));
+  }
+
+  @Test
+  public void testRemoveRedundantEscapeClauseWithoutEscapeKeyword() {
+    String sql = "SELECT 'e', '' AS s FROM t WHERE x = ''";
+    assertSame(sql, StringUtil.removeRedundantEscapeClause(sql));
+    assertNull(StringUtil.removeRedundantEscapeClause(null));
+    assertEquals("", StringUtil.removeRedundantEscapeClause(""));
+    assertEquals("ESCAP", StringUtil.removeRedundantEscapeClause("ESCAP"));
   }
 
   @Test
