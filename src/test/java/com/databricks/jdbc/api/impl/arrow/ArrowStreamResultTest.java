@@ -43,6 +43,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
@@ -1091,6 +1092,153 @@ public class ArrowStreamResultTest {
       TemporalArrowTestData.assertRows(result);
     } finally {
       result.close();
+    }
+  }
+
+  @Test
+  public void testNextAcrossChunksTracksRowsAndValues() throws Exception {
+    try (RootAllocator allocator = new RootAllocator()) {
+      // Chunk rows are b * 1000 + r for row r of batch b; the middle chunk is empty.
+      List<AbstractArrowResultChunk> chunks =
+          List.of(intChunk(allocator, 3, 2, 1), intChunk(allocator, 0), intChunk(allocator, 2, 2));
+      ArrowStreamResult result = resultOverChunks(chunks);
+
+      assertEquals(-1, result.getCurrentRow());
+      assertNextRow(result, 0, 0);
+      assertNextRow(result, 1, 1);
+      assertNextRow(result, 2, 1000);
+      // Reaching an empty chunk ends the iteration step but still counts a row position.
+      assertFalse(result.next());
+      assertEquals(3, result.getCurrentRow());
+      assertNextRow(result, 4, 0);
+      assertNextRow(result, 5, 1);
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+      assertFalse(result.next());
+      assertEquals(5, result.getCurrentRow());
+      result.close();
+      chunks.forEach(AbstractArrowResultChunk::releaseChunk);
+    }
+  }
+
+  @Test
+  public void testNextReturnsFalseAfterCloseMidChunk() throws Exception {
+    try (RootAllocator allocator = new RootAllocator()) {
+      AbstractArrowResultChunk chunk = intChunk(allocator, 4, 4);
+      ArrowStreamResult result = resultOverChunks(List.of(chunk));
+      assertNextRow(result, 0, 0);
+      result.close();
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+      assertEquals(0, result.getCurrentRow());
+      chunk.releaseChunk();
+    }
+  }
+
+  private static void assertNextRow(ArrowStreamResult result, long row, int value)
+      throws Exception {
+    assertTrue(result.next());
+    assertEquals(row, result.getCurrentRow());
+    assertEquals(value, result.getObject(0));
+  }
+
+  /** An INT chunk with {@code numRows} rows split into batches of the given sizes. */
+  private static AbstractArrowResultChunk intChunk(
+      RootAllocator allocator, long numRows, int... batchSizes) throws Exception {
+    ArrowResultChunk chunk =
+        ArrowResultChunk.builder()
+            .withStatementId(STATEMENT_ID)
+            .withChunkInfo(
+                new BaseChunkInfo().setChunkIndex(0L).setRowOffset(0L).setRowCount(numRows))
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+            .build();
+    List<List<ValueVector>> batches = new ArrayList<>();
+    for (int b = 0; b < batchSizes.length; b++) {
+      IntVector vector = new IntVector("i", allocator);
+      vector.allocateNew(Math.max(1, batchSizes[b]));
+      for (int r = 0; r < batchSizes[b]; r++) {
+        vector.set(r, b * 1000 + r);
+      }
+      vector.setValueCount(batchSizes[b]);
+      batches.add(List.of(vector));
+    }
+    chunk.recordBatchList = batches;
+    chunk.arrowMetadata = Collections.singletonList(null);
+    return chunk;
+  }
+
+  /** An INT result whose chunk provider serves {@code chunks} in order. */
+  private ArrowStreamResult resultOverChunks(List<AbstractArrowResultChunk> chunks)
+      throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    List<ColumnInfo> columns =
+        List.of(
+            new ColumnInfo()
+                .setPosition(0L)
+                .setName("i")
+                .setTypeName(ColumnInfoTypeName.INT)
+                .setTypeText("INT"));
+    ResultManifest manifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setSchema(new ResultSchema().setColumns(columns).setColumnCount(1L));
+    ArrowStreamResult result =
+        new ArrowStreamResult(manifest, new ResultData(), STATEMENT_ID, session, mockHttpClient);
+    java.lang.reflect.Field provider = ArrowStreamResult.class.getDeclaredField("chunkProvider");
+    provider.setAccessible(true);
+    provider.set(result, new ListChunkProvider(chunks));
+    return result;
+  }
+
+  private static final class ListChunkProvider implements ChunkProvider {
+    private final List<AbstractArrowResultChunk> chunks;
+    private int index = -1;
+    private boolean closed;
+
+    ListChunkProvider(List<AbstractArrowResultChunk> chunks) {
+      this.chunks = chunks;
+    }
+
+    @Override
+    public boolean hasNextChunk() {
+      return !closed && index < chunks.size() - 1;
+    }
+
+    @Override
+    public boolean next() {
+      if (!hasNextChunk()) {
+        return false;
+      }
+      index++;
+      return true;
+    }
+
+    @Override
+    public AbstractArrowResultChunk getChunk() {
+      return index < 0 ? null : chunks.get(index);
+    }
+
+    @Override
+    public void close() {
+      closed = true;
+    }
+
+    @Override
+    public long getRowCount() {
+      return chunks.stream().mapToLong(AbstractArrowResultChunk::getNumRows).sum();
+    }
+
+    @Override
+    public long getChunkCount() {
+      return chunks.size();
+    }
+
+    @Override
+    public boolean isClosed() {
+      return closed;
     }
   }
 }
