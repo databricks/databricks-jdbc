@@ -19,6 +19,7 @@ import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,14 +30,19 @@ public class NativePreparedStatementBatchIntegrationTests
     extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
+  private String routeProperty;
+  private String originalRoute;
 
   @BeforeEach
   void setUp() throws SQLException {
     if (!isSqlExecSdkClient()) {
-      String targetUri = System.getProperty("thrift_server.targetURI");
-      String routeProperty = targetUri + FAKE_SERVICE_URI_PROP_SUFFIX;
-      System.setProperty(
-          routeProperty, System.getProperty(routeProperty).replace("localhost", "127.0.0.1"));
+      routeProperty = System.getProperty("thrift_server.targetURI") + FAKE_SERVICE_URI_PROP_SUFFIX;
+      originalRoute =
+          Objects.requireNonNull(
+              System.getProperty(routeProperty),
+              "Fake service route property is not set: " + routeProperty);
+      // Netty's localhost may not resolve to the address WireMock listens on.
+      System.setProperty(routeProperty, originalRoute.replace("localhost", "127.0.0.1"));
     }
     Properties properties = new Properties();
     properties.setProperty(DatabricksJdbcUrlParams.ENABLE_NATIVE_BATCHING.getParamName(), "1");
@@ -46,13 +52,18 @@ public class NativePreparedStatementBatchIntegrationTests
 
   @AfterEach
   void cleanUp() throws SQLException {
-    if (connection == null) {
-      return;
-    }
-    if (((DatabricksConnection) connection).getConnectionContext().getClientType()
-            != DatabricksClientType.THRIFT
-        || getFakeServiceMode() != FakeServiceExtension.FakeServiceMode.REPLAY) {
-      connection.close();
+    try {
+      if (connection != null
+          && (((DatabricksConnection) connection).getConnectionContext().getClientType()
+                  != DatabricksClientType.THRIFT
+              || getFakeServiceMode() != FakeServiceExtension.FakeServiceMode.REPLAY)) {
+        connection.close();
+      }
+    } finally {
+      if (originalRoute != null) {
+        System.setProperty(routeProperty, originalRoute);
+        originalRoute = null;
+      }
     }
   }
 
