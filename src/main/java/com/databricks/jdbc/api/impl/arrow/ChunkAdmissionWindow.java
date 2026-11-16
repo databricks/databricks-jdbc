@@ -21,8 +21,8 @@ final class ChunkAdmissionWindow {
   /**
    * How many chunks beyond the window may be requested while the reader waits. The kernel may
    * already receive their bodies, so this bounds the extra memory per result (about this many
-   * compressed chunks, outside the heap) and what a reader that pauses past the unread limit
-   * downloads again.
+   * compressed chunks, outside the heap) and what is downloaded again when the reader does not
+   * reach them within the unread limit (it paused, or reads slowly after a wait).
    */
   static final int MAX_REQUEST_LEAD = 8;
 

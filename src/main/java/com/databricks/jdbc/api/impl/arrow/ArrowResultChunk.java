@@ -100,9 +100,10 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       if (admissionWindow != null
           && !admissionWindow.await(
               admissionPosition, admissionWindow.getMaxUnreadResponseMillis())) {
-        // The reader has stalled. Rather than hold the response and its connection indefinitely,
-        // close both (discarding any body the kernel received), wait for admission without them,
-        // and let the download task request the chunk again.
+        // The reader has not reached this chunk within the limit (it paused or reads slowly).
+        // Rather than keep a response stalled mid-body on its connection, close both (discarding
+        // any body the kernel received), wait for admission without them, and let the download
+        // task request the chunk again.
         response.close();
         response = null;
         admissionWindow.await(admissionPosition, 0);
