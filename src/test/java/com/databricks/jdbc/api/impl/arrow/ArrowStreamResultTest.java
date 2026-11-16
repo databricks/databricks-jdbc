@@ -1107,7 +1107,9 @@ public class ArrowStreamResultTest {
       assertNextRow(result, 0, 0);
       assertNextRow(result, 1, 1);
       assertNextRow(result, 2, 1000);
-      // Reaching an empty chunk ends the iteration step but still counts a row position.
+      // Same as before this change: an empty chunk in the middle makes next() return false while
+      // later chunks still hold rows, and it still counts a row position. This is an existing bug
+      // kept as is here; fixing it should update this assertion.
       assertFalse(result.next());
       assertEquals(3, result.getCurrentRow());
       assertNextRow(result, 4, 0);
