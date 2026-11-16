@@ -254,7 +254,7 @@ public enum DatabricksJdbcUrlParams {
   CLOUD_FETCH_REQUEST_AHEAD(
       "CloudFetchRequestAhead",
       "Let CloudFetch downloads request chunks before they fit in the in-memory window, reading each "
-          + "body only once it fits. Requires the server-side flag unless set explicitly.",
+          + "body only once it fits. Set to 0 to turn it off.",
       "1"),
   LINK_PREFETCH_WINDOW(
       "LinkPrefetchWindow",

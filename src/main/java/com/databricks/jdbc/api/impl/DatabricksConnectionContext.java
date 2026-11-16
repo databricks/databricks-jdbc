@@ -44,9 +44,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
 
-  private static final String CLOUD_FETCH_REQUEST_AHEAD_FLAG_NAME =
-      "databricks.partnerplatform.clientConfigsFeatureFlags.enableCloudFetchRequestAheadForJdbc";
-
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -1551,8 +1548,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isCloudFetchRequestAheadEnabled() {
-    return resolveFeatureFlag(
-        DatabricksJdbcUrlParams.CLOUD_FETCH_REQUEST_AHEAD, CLOUD_FETCH_REQUEST_AHEAD_FLAG_NAME);
+    return !"0".equals(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_REQUEST_AHEAD));
   }
 
   @Override
