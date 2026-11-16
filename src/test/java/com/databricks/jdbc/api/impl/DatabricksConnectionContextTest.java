@@ -1712,6 +1712,48 @@ class DatabricksConnectionContextTest {
     assertFalse(disabledCtx.isThriftNativeMetadataEnabled());
   }
 
+  private static final String REQUEST_AHEAD_FLAG =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableCloudFetchRequestAheadForJdbc";
+
+  @Test
+  public void cloudFetchRequestAhead_followsServerFlagOnWarehouses() throws DatabricksSQLException {
+    DatabricksConnectionContext warehouse =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    DatabricksConnectionContext cluster =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    assertEquals("1", DatabricksJdbcUrlParams.CLOUD_FETCH_REQUEST_AHEAD.getDefaultValue());
+
+    setFeatureFlagsContext(warehouse, Collections.singletonMap(REQUEST_AHEAD_FLAG, "true"));
+    assertTrue(warehouse.isCloudFetchRequestAheadEnabled());
+    setFeatureFlagsContext(warehouse, Collections.singletonMap(REQUEST_AHEAD_FLAG, "false"));
+    assertFalse(warehouse.isCloudFetchRequestAheadEnabled());
+    setFeatureFlagsContext(warehouse, Collections.emptyMap());
+    assertFalse(warehouse.isCloudFetchRequestAheadEnabled());
+
+    setFeatureFlagsContext(cluster, Collections.singletonMap(REQUEST_AHEAD_FLAG, "true"));
+    assertFalse(cluster.isCloudFetchRequestAheadEnabled());
+  }
+
+  @Test
+  public void cloudFetchRequestAhead_explicitParamOverridesServerFlag()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext forcedOn =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";CloudFetchRequestAhead=1", properties);
+    DatabricksConnectionContext forcedOff =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_2 + ";CloudFetchRequestAhead=0", properties);
+
+    setFeatureFlagsContext(forcedOn, Collections.singletonMap(REQUEST_AHEAD_FLAG, "false"));
+    assertTrue(forcedOn.isCloudFetchRequestAheadEnabled());
+    setFeatureFlagsContext(forcedOff, Collections.singletonMap(REQUEST_AHEAD_FLAG, "true"));
+    assertFalse(forcedOff.isCloudFetchRequestAheadEnabled());
+  }
+
   // ---------------------------------------------------------------------------
   // Geospatial flag independence from complex datatype flag
   // ---------------------------------------------------------------------------

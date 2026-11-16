@@ -82,6 +82,8 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               chunk.getChunkIndex(),
               taskTotalMs,
               retries);
+        } catch (ChunkAdmissionWindow.ResponseReleasedException e) {
+          // Not a failure: the chunk is admitted now, so request it again.
         } catch (IOException | DatabricksSQLException e) {
           if (Thread.currentThread().isInterrupted()) {
             // Cancelled (e.g. result set closed early): stop without retrying or reporting.

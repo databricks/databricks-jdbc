@@ -85,6 +85,8 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
               taskTotalMs,
               retries);
 
+        } catch (ChunkAdmissionWindow.ResponseReleasedException e) {
+          // Not a failure: the chunk is admitted now, so request it again.
         } catch (IOException | SQLException e) {
           if (Thread.currentThread().isInterrupted()) {
             // Cancelled (e.g. result set closed early): stop without retrying or reporting.

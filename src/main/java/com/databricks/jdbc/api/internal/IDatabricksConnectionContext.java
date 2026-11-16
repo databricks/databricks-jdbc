@@ -486,6 +486,12 @@ public interface IDatabricksConnectionContext {
   boolean isBoundedSeaApiEnabled();
 
   /**
+   * Returns whether CloudFetch downloads may request chunks before they fit in the in-memory
+   * window, reading each body only once it fits.
+   */
+  boolean isCloudFetchRequestAheadEnabled();
+
+  /**
    * Returns the maximum number of batches to keep in memory for Thrift streaming.
    *
    * @return the max batches in memory (default: 3)

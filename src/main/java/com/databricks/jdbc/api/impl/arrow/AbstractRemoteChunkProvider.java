@@ -59,6 +59,14 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
   protected final ChunkLinkDownloadService<T> linkDownloadService;
   protected final int chunkReadyTimeoutSeconds;
 
+  /**
+   * Non-null when downloads may request chunks ahead of the in-memory window; chunk positions are
+   * their indices. Requests run ahead only while {@link #readerWaiting}.
+   */
+  protected ChunkAdmissionWindow admissionWindow;
+
+  protected boolean readerWaiting;
+
   protected AbstractRemoteChunkProvider(
       StatementId statementId,
       ResultManifest resultManifest,
@@ -158,6 +166,10 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
 
     long waitStart = System.nanoTime();
     try {
+      if (admissionWindow != null && !chunk.getChunkReadyFuture().isDone()) {
+        readerWaiting = true;
+        downloadNextChunks();
+      }
       chunk.waitForChunkReady();
     } catch (InterruptedException e) {
       LOGGER.error(
@@ -174,6 +186,8 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     } catch (ExecutionException | TimeoutException e) {
       throw new DatabricksSQLException(
           "Failed to ready chunk", e.getCause(), DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+    } finally {
+      readerWaiting = false;
     }
     long waitMs = (System.nanoTime() - waitStart) / 1_000_000;
     LOGGER.debug(
@@ -242,6 +256,10 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     totalChunksInMemory = 0L;
     // Number of worker threads are directly linked to allowed chunks in memory
     allowedChunksInMemory = Math.min(maxParallelChunkDownloadsPerQuery, chunkCount);
+    if (allowedChunksInMemory > 0
+        && session.getConnectionContext().isCloudFetchRequestAheadEnabled()) {
+      admissionWindow = new ChunkAdmissionWindow((int) allowedChunksInMemory);
+    }
     // The first link is available
     downloadNextChunks();
   }
@@ -308,6 +326,9 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
   private void releaseChunk() throws DatabricksSQLException {
     if (chunkIndexToChunksMap.get(currentChunkIndex).releaseChunk()) {
       totalChunksInMemory--;
+      if (admissionWindow != null) {
+        admissionWindow.release();
+      }
       downloadNextChunks();
     }
   }
