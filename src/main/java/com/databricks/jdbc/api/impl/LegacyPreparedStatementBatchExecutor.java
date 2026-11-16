@@ -170,7 +170,7 @@ class LegacyPreparedStatementBatchExecutor {
     }
   }
 
-  private long[] executeIndividualStatements(List<BatchParameterSet> batchParameterSets)
+  public long[] executeIndividualStatements(List<BatchParameterSet> batchParameterSets)
       throws DatabricksBatchUpdateException {
     LOGGER.debug("Executing batch individually with {} statements", batchParameterSets.size());
     long[] largeUpdateCount = new long[batchParameterSets.size()];
