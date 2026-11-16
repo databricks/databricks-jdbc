@@ -2298,6 +2298,10 @@ public class DatabricksResultSetTest {
     DatabricksResultSetMetaData mockMeta = mock(DatabricksResultSetMetaData.class);
     when(mockMeta.getColumnType(1)).thenReturn(Types.BIGINT);
     when(mockMeta.getColumnType(2)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnConverter(1))
+        .thenReturn(ConverterHelper.getConverterForSqlType(Types.BIGINT));
+    when(mockMeta.getColumnConverter(2))
+        .thenReturn(ConverterHelper.getConverterForSqlType(Types.BIGINT));
     when(mockMeta.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
     when(mockMeta.getColumnNameIndex("repeat")).thenReturn(2);
     IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
