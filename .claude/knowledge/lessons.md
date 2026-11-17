@@ -78,10 +78,11 @@
 - L-0065 (1×, #1723): Avoid HTTP gzip over already-compressed LZ4 Arrow by default; use identity encoding and make recompression an explicit bandwidth tradeoff.
 - L-0066 (1×, #1700): Decode real producer wire fixtures; round trips through the same writer can hide production serialization quirks.
 - L-0067 (1×, #1753): Before offline Maven tests, warm Surefire providers and matching junit-platform-launcher, normalize repository IDs, and keep bot warm-up checks best-effort.
-- L-0068 (2×, #1790 #1808 #1783): Performance regressions must fail on revert. Use warmed hot-path call assertions and differential tests against the old iterator/state machine, including random inputs and call orders.
+- L-0068 (2×, #1790 #1808 #1811): Performance regressions must fail on revert. Use warmed hot-path call assertions and differential tests against the old iterator/state machine, including random inputs and call orders.
 - L-0069 (1×, #1633): Ordering tests need ignoreArrayOrder=false and distinguishable per-element values; identical elements or update counts cannot detect reordering.
 
 ## Bot workflow
-- L-0070 (2×, log:2026-08-14): Keep diagnosis/plan phases read-only and carry precise findings into implementation prompts to avoid repeated discovery.
+- L-0070 (1×, log:2026-08-14): Keep diagnosis/plan phases read-only; defer file creation and edits to the author_tests/fix phases.
 - L-0071 (3×, #1582 #1739 #1742): State agreed environment restrictions once. Stop repeated identical bot setup/commit failures, request human resolution, and label uncompiled or untested edits as unverified.
 - L-0072 (1×, log:2026-10-22): Author-run environments lack WebFetch/WebSearch; diagnose from repository context and available tools.
+- L-0073 (1×, log:2026-10-22): Carry exact file locations, signatures and helper findings from diagnosis into implementation prompts to avoid repeated discovery.
