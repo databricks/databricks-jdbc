@@ -6,7 +6,7 @@
 
 ### Updated
 
-- CTE-prefixed INSERT, UPDATE, DELETE, and MERGE now return affected-row counts through JDBC update APIs. Set `NonRowcountQueryPrefixes=WITH` to retain counter ResultSets.
+- `WITH ... INSERT/UPDATE/DELETE/MERGE` statements are now treated as updates: `executeUpdate()` and `executeLargeUpdate()` return the affected-row count instead of throwing after the write. This changes behavior for existing callers: `execute()` now returns `false`, and `executeQuery()` throws `RESULT_SET_ERROR` after the statement has run. To keep receiving the affected-row ResultSet, set `NonRowcountQueryPrefixes=WITH`. Prefixes match the start of the statement, so `NonRowcountQueryPrefixes=INSERT` alone does not opt out for a statement beginning with `WITH`.
 - SQL classification and client-side placeholder detection recognize backslash-escaped quotes, raw string literals, and backslash-continued line comments.
 
 ### Fixed
