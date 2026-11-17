@@ -90,6 +90,13 @@ public class SqlCommentParserTest {
             "-- comment\nSELECT 'foo', \"bar\", `baz` -- comment\n--comment\nFROM table -- comment\n-- comment"));
   }
 
+  @Test
+  public void testEscapedNewlineContinuesLineComment() {
+    assertEquals(
+        "SELECT 1",
+        SqlCommentParser.stripCommentsAndWhitespaces("-- first\\\nstill comment\nSELECT 1"));
+  }
+
   // --- Single line block comment tests ---
 
   @Test
@@ -447,10 +454,42 @@ public class SqlCommentParserTest {
   }
 
   @Test
+  public void testFindPlaceholderPositionsHandlesBackslashEscapedQuotes() {
+    String sql = "select 'it\\'s ?' as x, ? as y from t";
+    assertArrayEquals(
+        new int[] {sql.lastIndexOf('?')}, SqlCommentParser.findPlaceholderPositions(sql));
+
+    String doubleQuoted = "select \"dir\\\"name?\" as x, ? as y";
+    assertArrayEquals(
+        new int[] {doubleQuoted.lastIndexOf('?')},
+        SqlCommentParser.findPlaceholderPositions(doubleQuoted));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsHandlesRawStringEndingInBackslash() {
+    String sql = "select r'path\\' as x, ? as y from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', sql.indexOf("as x"))},
+        SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsSkipsContinuedLineComment() {
+    String sql = "-- \\\n? still comment\nselect ? from t";
+    assertArrayEquals(
+        new int[] {sql.lastIndexOf('?')}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
   public void testFindPlaceholderPositionsHandlesCrlfLineComment() {
     String sql = "-- ?\r\nselect ? from t";
     assertArrayEquals(
         new int[] {sql.indexOf('?', 6)}, SqlCommentParser.findPlaceholderPositions(sql));
+
+    String backslashBeforeCrlf = "-- \\\r\nselect ? from t";
+    assertArrayEquals(
+        new int[] {backslashBeforeCrlf.lastIndexOf('?')},
+        SqlCommentParser.findPlaceholderPositions(backslashBeforeCrlf));
   }
 
   @Test
