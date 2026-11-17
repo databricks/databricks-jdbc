@@ -21,8 +21,12 @@ public class ArrowResultChunkIterator {
   // current row index in current record batch
   private int rowCursorInRecordBatch;
 
-  // total number of rows read
-  private int rowsReadByIterator;
+  // last row index of the current record batch that is within the chunk's row count, so moving
+  // within a batch needs a single comparison
+  private int lastReadableRowInRecordBatch;
+
+  // number of rows read before the current record batch
+  private long rowsReadBeforeRecordBatch;
 
   ArrowResultChunkIterator(AbstractArrowResultChunk resultChunk) {
     this.resultChunk = resultChunk;
@@ -33,8 +37,8 @@ public class ArrowResultChunkIterator {
     this.rowsInRecordBatch = -1;
     // start before first row
     this.rowCursorInRecordBatch = -1;
-    // initialize rows read to 0
-    this.rowsReadByIterator = 0;
+    this.lastReadableRowInRecordBatch = -1;
+    this.rowsReadBeforeRecordBatch = 0;
   }
 
   /**
@@ -42,33 +46,40 @@ public class ArrowResultChunkIterator {
    * chunk.
    */
   boolean nextRow() {
+    if (rowCursorInRecordBatch < lastReadableRowInRecordBatch) {
+      rowCursorInRecordBatch++;
+      return true;
+    }
+    return nextRowInNextRecordBatch();
+  }
+
+  private boolean nextRowInNextRecordBatch() {
     if (!hasNextRow()) {
       return false;
     }
-
-    // Either not initialized or crossed record batch boundary
-    if (rowsInRecordBatch < 0 || ++rowCursorInRecordBatch == rowsInRecordBatch) {
-      // reset rowCursor to 0
-      rowCursorInRecordBatch = 0;
-      // Fetches number of rows in the record batch using the number of values in the first column
-      // vector
+    rowsReadBeforeRecordBatch += rowCursorInRecordBatch + 1;
+    // reset rowCursor to 0
+    rowCursorInRecordBatch = 0;
+    // Fetches number of rows in the record batch using the number of values in the first column
+    // vector
+    recordBatchCursorInChunk++;
+    while (recordBatchCursorInChunk < recordBatchesInChunk
+        && resultChunk.recordBatchList.get(recordBatchCursorInChunk).get(0).getValueCount() == 0) {
       recordBatchCursorInChunk++;
-      while (recordBatchCursorInChunk < recordBatchesInChunk
-          && resultChunk.recordBatchList.get(recordBatchCursorInChunk).get(0).getValueCount()
-              == 0) {
-        recordBatchCursorInChunk++;
-      }
-      rowsInRecordBatch =
-          resultChunk.recordBatchList.get(recordBatchCursorInChunk).get(0).getValueCount();
     }
-    rowsReadByIterator++;
-
+    rowsInRecordBatch =
+        resultChunk.recordBatchList.get(recordBatchCursorInChunk).get(0).getValueCount();
+    lastReadableRowInRecordBatch =
+        (int) Math.min(rowsInRecordBatch, resultChunk.numRows - rowsReadBeforeRecordBatch) - 1;
     return true;
   }
 
   /** Returns whether the next row in the chunk exists. */
   boolean hasNextRow() {
-    if (rowsReadByIterator >= resultChunk.numRows) return false;
+    if (rowCursorInRecordBatch < lastReadableRowInRecordBatch) return true;
+    if (rowsReadBeforeRecordBatch + rowCursorInRecordBatch + 1 >= resultChunk.numRows) {
+      return false;
+    }
     // If there are more rows in record batch
     return (rowCursorInRecordBatch < rowsInRecordBatch - 1)
         // or there are more record batches to be processed

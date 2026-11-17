@@ -421,7 +421,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     // Iteration telemetry only uses the first call (start time) and end of stream (latency), so
     // skip the per-row calls in between.
-    if (cachedTelemetryCollector != null && (!hasNext || !iterationTelemetryStarted)) {
+    if ((!hasNext || !iterationTelemetryStarted) && cachedTelemetryCollector != null) {
       iterationTelemetryStarted = true;
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
