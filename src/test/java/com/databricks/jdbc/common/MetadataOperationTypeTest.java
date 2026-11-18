@@ -31,5 +31,6 @@ public class MetadataOperationTypeTest {
     MetadataOperationType operationType = MetadataOperationType.valueOf(enumName);
     assertEquals(expectedHeaderValue, operationType.getHeaderValue());
     assertEquals(thriftNativeSupported, operationType.isThriftNativeSupported());
+    assertEquals(thriftNativeSupported, operationType.isShowOperation());
   }
 }

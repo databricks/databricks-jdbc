@@ -5,31 +5,42 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.SYNTAX_OR_ACCES
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
 
+import com.databricks.jdbc.api.impl.ApcParameterCapabilities;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.JdbcThreadUtils;
+import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.MetadataAsyncHandle;
+import com.databricks.jdbc.dbclient.MetadataAsyncRequest;
 import com.databricks.jdbc.dbclient.impl.common.CommandConstants;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.sdk.service.sql.StatementState;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
 public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient {
@@ -55,6 +66,507 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
   }
 
   @Override
+  public MetadataAsyncHandle executeMetadataAsync(
+      MetadataAsyncRequest request, IDatabricksSession session) throws SQLException {
+    if (request == null
+        || request.getMethod() == null
+        || !request.getOperation().isShowOperation()) {
+      throw unsupportedAsyncMetadata();
+    }
+    String catalog = request.getCatalog();
+    String[] parent = null;
+    String sql;
+    CommandBuilder builder;
+    switch (request.getMethod()) {
+      case CATALOGS:
+        if (isMultipleCatalogSupportDisabled()) {
+          return immediateHandle(request, listCatalogs(session));
+        }
+        sql = new CommandBuilder(session).getSQLString(CommandName.LIST_CATALOGS);
+        break;
+      case SCHEMAS:
+        if (emptyCatalogResult(request, session)) {
+          return immediateHandle(
+              request, metadataResultSetBuilder.getSchemasResult(new ArrayList<>()));
+        }
+        catalog =
+            autoFillCatalog(
+                catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        sql =
+            new CommandBuilder(catalog, session)
+                .setSchemaPattern(request.getSchema())
+                .getSQLString(CommandName.LIST_SCHEMAS);
+        break;
+      case TABLES:
+        if (request.getTableTypes() != null && request.getTableTypes().length == 0) {
+          return immediateHandle(
+              request,
+              metadataResultSetBuilder.getTablesResult(
+                  catalog, request.getTableTypes(), new ArrayList<>()));
+        }
+        if (emptyCatalogResult(request, session)) {
+          return immediateHandle(
+              request,
+              metadataResultSetBuilder.getTablesResult(
+                  catalog, request.getTableTypes(), new ArrayList<>()));
+        }
+        catalog =
+            autoFillCatalog(
+                catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        sql =
+            new CommandBuilder(catalog, session)
+                .setSchemaPattern(request.getSchema())
+                .setTablePattern(request.getTable())
+                .getSQLString(CommandName.LIST_TABLES);
+        break;
+      case COLUMNS:
+        if (emptyCatalogResult(request, session)) {
+          return immediateHandle(
+              request, metadataResultSetBuilder.getColumnsResult(new ArrayList<>()));
+        }
+        catalog =
+            autoFillCatalog(
+                catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        sql =
+            new CommandBuilder(catalog, session)
+                .setSchemaPattern(request.getSchema())
+                .setTablePattern(request.getTable())
+                .setColumnPattern(request.getColumn())
+                .getSQLString(CommandName.LIST_COLUMNS);
+        break;
+      case FUNCTIONS:
+        if (emptyCatalogResult(request, session)) {
+          return immediateHandle(
+              request, metadataResultSetBuilder.getFunctionsResult(catalog, new ArrayList<>()));
+        }
+        catalog =
+            autoFillCatalog(
+                catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        if (catalog == null) {
+          catalog = session.getCurrentCatalog();
+          if (catalog == null) {
+            catalog = "hive_metastore";
+          }
+        }
+        sql =
+            new CommandBuilder(catalog, session)
+                .setSchemaPattern(request.getSchema())
+                .setFunctionPattern(request.getFunctionPattern())
+                .getSQLString(CommandName.LIST_FUNCTIONS);
+        break;
+      case PRIMARY_KEYS:
+      case IMPORTED_KEYS:
+      case CROSS_REFERENCES:
+        if (request.getMethod() == MetadataAsyncRequest.Method.CROSS_REFERENCES
+            && request.getTable() == null) {
+          return immediateHandle(
+              request, metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>()));
+        }
+        String[] key = null;
+        // With multiple catalogs, synchronous key metadata validates these arguments before
+        // building SQL, including when an empty catalog produces an empty result.
+        if (!isMultipleCatalogSupportDisabled()) {
+          key = resolveKeyBasedParams(catalog, request.getSchema(), request.getTable(), session);
+          if (request.getMethod() == MetadataAsyncRequest.Method.CROSS_REFERENCES) {
+            parent =
+                resolveKeyBasedParams(
+                    request.getParentCatalog(),
+                    request.getParentSchema(),
+                    request.getParentTable(),
+                    session);
+          }
+        }
+        if (emptyCatalogResult(request, session)) {
+          return immediateHandle(request, emptyKeyResult(request));
+        }
+        catalog =
+            autoFillCatalog(
+                catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        if (key == null) {
+          key = resolveKeyBasedParams(catalog, request.getSchema(), request.getTable(), session);
+        }
+        catalog = key[0];
+        builder = new CommandBuilder(key[0], session).setSchema(key[1]).setTable(key[2]);
+        sql =
+            builder.getSQLString(
+                request.getMethod() == MetadataAsyncRequest.Method.PRIMARY_KEYS
+                    ? CommandName.LIST_PRIMARY_KEYS
+                    : CommandName.LIST_FOREIGN_KEYS);
+        if (request.getMethod() == MetadataAsyncRequest.Method.CROSS_REFERENCES && parent == null) {
+          parent =
+              resolveKeyBasedParams(
+                  request.getParentCatalog(),
+                  request.getParentSchema(),
+                  request.getParentTable(),
+                  session);
+        }
+        break;
+      default:
+        throw unsupportedAsyncMetadata();
+    }
+    try (DatabricksResultSet submitted =
+        queryExecutionClient.executeStatementAsync(
+            sql,
+            session.getComputeResource(),
+            java.util.Collections.emptyMap(),
+            session,
+            null,
+            StatementType.METADATA,
+            request.getOperation())) {
+      StatementId id =
+          StatementId.forCurrentSession(submitted.getStatementId(), session.getSessionInfo());
+      return new MetadataAsyncHandle(id, request, catalog, parent);
+    }
+  }
+
+  @Override
+  public DatabricksResultSet getMetadataExecutionResult(
+      MetadataAsyncHandle handle, IDatabricksSession session) throws SQLException {
+    if (handle == null) {
+      throw new DatabricksSQLException(
+          "Metadata async handle is required",
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
+    if (handle.getImmediateResult() != null) {
+      return handle.getImmediateResult();
+    }
+    AtomicReference<StatementId> activeId = new AtomicReference<>(handle.getStatementId());
+    TimeoutHandler timeout =
+        new TimeoutHandler(
+            queryExecutionClient.getConnectionContext().getMetadataOperationTimeout(),
+            "asynchronous metadata",
+            () -> {
+              try {
+                queryExecutionClient.cancelStatement(activeId.get());
+              } catch (SQLException e) {
+                LOGGER.warn("Could not cancel timed out metadata statement");
+              }
+            },
+            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+            true);
+    try {
+      return convertCompletedMetadata(handle, session, timeout);
+    } catch (SQLException e) {
+      MetadataAsyncRequest request = handle.getRequest();
+      if (isTerminalMetadataError(e)) {
+        throw e;
+      }
+      if (handle.getResolvedCatalog() == null
+          && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())
+          && (request.getMethod() == MetadataAsyncRequest.Method.SCHEMAS
+              || request.getMethod() == MetadataAsyncRequest.Method.COLUMNS)) {
+        return fallbackAcrossCatalogs(handle, session, timeout, activeId);
+      }
+      if (shouldReturnEmpty(request, handle.getResolvedCatalog(), e)) {
+        return emptyResult(request, handle.getResolvedCatalog());
+      }
+      throw e;
+    } finally {
+      closeMetadataOperation(handle.getStatementId());
+      for (StatementId id : handle.getFallbackStatementIds()) {
+        closeMetadataOperation(id);
+      }
+    }
+  }
+
+  private DatabricksResultSet convertCompletedMetadata(
+      MetadataAsyncHandle handle, IDatabricksSession session, TimeoutHandler timeout)
+      throws SQLException {
+    DatabricksResultSet source = awaitMetadata(handle.getStatementId(), session, timeout);
+    try {
+      return convertMetadata(handle, source);
+    } finally {
+      closeMetadataSource(source);
+    }
+  }
+
+  private void closeMetadataSource(DatabricksResultSet source) {
+    try {
+      source.close();
+    } catch (SQLException e) {
+      LOGGER.warn("Could not close metadata result");
+    }
+  }
+
+  private void closeMetadataOperation(StatementId id) {
+    // Warehouse metadata did not issue an explicit CloseStatement before APC support.
+    if (id == null || id.computeResource() == null) {
+      return;
+    }
+    try {
+      queryExecutionClient.closeStatement(id);
+    } catch (SQLException e) {
+      LOGGER.warn("Could not close metadata operation");
+    }
+  }
+
+  @FunctionalInterface
+  private interface MetadataResultConverter {
+    DatabricksResultSet convert(DatabricksResultSet source) throws SQLException;
+  }
+
+  private DatabricksResultSet convertSynchronousMetadata(
+      DatabricksResultSet source, IDatabricksSession session, MetadataResultConverter converter)
+      throws SQLException {
+    StatementId id = null;
+    try {
+      String rawId = source.getStatementId();
+      if (rawId != null) {
+        id =
+            session.getSessionInfo() == null
+                ? new StatementId(rawId)
+                : StatementId.forCurrentSession(rawId, session.getSessionInfo());
+      }
+      return converter.convert(source);
+    } finally {
+      closeMetadataSource(source);
+      closeMetadataOperation(id);
+    }
+  }
+
+  private DatabricksResultSet awaitMetadata(
+      StatementId id, IDatabricksSession session, TimeoutHandler timeout) throws SQLException {
+    while (true) {
+      timeout.checkTimeout();
+      DatabricksResultSet result =
+          queryExecutionClient.getStatementResult(id, session, null, StatementType.METADATA);
+      boolean completed = false;
+      try {
+        StatementState state = result.getStatementStatus().getState();
+        if (state == StatementState.SUCCEEDED || state == StatementState.CLOSED) {
+          completed = true;
+          return result;
+        }
+        if (state == StatementState.CANCELED) {
+          throw new DatabricksSQLException(
+              "Metadata statement was cancelled",
+              com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE,
+              DatabricksDriverErrorCode.EXECUTE_STATEMENT_CANCELLED);
+        }
+        if (state == StatementState.FAILED) {
+          throw new DatabricksSQLException(
+              "Metadata execution " + state,
+              result.getStatementStatus().getSqlState(),
+              DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+        }
+        if (state != StatementState.PENDING && state != StatementState.RUNNING) {
+          throw new DatabricksSQLException(
+              "Unexpected metadata execution state " + state,
+              DatabricksDriverErrorCode.INVALID_STATE.name(),
+              DatabricksDriverErrorCode.INVALID_STATE);
+        }
+      } finally {
+        if (!completed) {
+          closeMetadataSource(result);
+        }
+      }
+      try {
+        Thread.sleep(50);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new DatabricksSQLException(
+            "Interrupted while waiting for metadata",
+            DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED.name(),
+            DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED.getCode(),
+            e);
+      }
+    }
+  }
+
+  private MetadataAsyncHandle immediateHandle(
+      MetadataAsyncRequest request, DatabricksResultSet result) {
+    return new MetadataAsyncHandle(null, request, request.getCatalog(), null, result);
+  }
+
+  private boolean emptyCatalogResult(MetadataAsyncRequest request, IDatabricksSession session)
+      throws SQLException {
+    String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
+    return !metadataResultSetBuilder.shouldAllowCatalogAccess(
+            request.getCatalog(), currentCatalog, session)
+        || (request.getMethod() == MetadataAsyncRequest.Method.CROSS_REFERENCES
+            && !metadataResultSetBuilder.shouldAllowCatalogAccess(
+                request.getParentCatalog(), currentCatalog, session))
+        || "".equals(request.getCatalog());
+  }
+
+  private DatabricksResultSet emptyKeyResult(MetadataAsyncRequest request) throws SQLException {
+    switch (request.getMethod()) {
+      case PRIMARY_KEYS:
+        return metadataResultSetBuilder.getPrimaryKeysResult(new ArrayList<>());
+      case IMPORTED_KEYS:
+        return metadataResultSetBuilder.getImportedKeys(new ArrayList<>());
+      case CROSS_REFERENCES:
+        return metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>());
+      default:
+        throw new SQLException("Not a key metadata operation");
+    }
+  }
+
+  private DatabricksResultSet convertMetadata(
+      MetadataAsyncHandle handle, DatabricksResultSet result) throws SQLException {
+    MetadataAsyncRequest request = handle.getRequest();
+    String catalog = handle.getResolvedCatalog();
+    switch (request.getMethod()) {
+      case CATALOGS:
+        return metadataResultSetBuilder.getCatalogsResult(result);
+      case SCHEMAS:
+        return metadataResultSetBuilder.getSchemasResult(
+            result, catalog == null ? null : WildcardUtil.stripJdbcEscapes(catalog).toLowerCase());
+      case TABLES:
+        String[] types = request.getTableTypes();
+        return metadataResultSetBuilder.getTablesResult(
+            result,
+            request.getCatalog(),
+            result.isThriftNativeMetadataResult()
+                ? types
+                : types == null ? DEFAULT_TABLE_TYPES : types);
+      case COLUMNS:
+        return metadataResultSetBuilder.getColumnsResult(result);
+      case FUNCTIONS:
+        return metadataResultSetBuilder.getFunctionsResult(
+            result, result.isThriftNativeMetadataResult() ? request.getCatalog() : catalog);
+      case PRIMARY_KEYS:
+        return metadataResultSetBuilder.getPrimaryKeysResult(result);
+      case IMPORTED_KEYS:
+        return metadataResultSetBuilder.getImportedKeysResult(result);
+      case CROSS_REFERENCES:
+        String[] parent = handle.getResolvedParent();
+        return metadataResultSetBuilder.getCrossReferenceKeysResult(
+            result, parent[0], parent[1], parent[2]);
+      default:
+        throw unsupportedAsyncMetadata();
+    }
+  }
+
+  private static SQLFeatureNotSupportedException unsupportedAsyncMetadata() {
+    return new SQLFeatureNotSupportedException(
+        "Only SHOW metadata operations support async execution",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+  }
+
+  private boolean shouldReturnEmpty(
+      MetadataAsyncRequest request, String resolvedCatalog, SQLException error) {
+    boolean notFound = isObjectNotFoundException(error);
+    switch (request.getMethod()) {
+      case SCHEMAS:
+      case FUNCTIONS:
+      case PRIMARY_KEYS:
+        return notFound;
+      case TABLES:
+        return notFound
+            || (resolvedCatalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(error.getSQLState()))
+            || isEmptyPatternError(request.getSchema(), request.getTable());
+      case COLUMNS:
+        return notFound
+            || isEmptyPatternError(request.getSchema(), request.getTable(), request.getColumn());
+      case IMPORTED_KEYS:
+      case CROSS_REFERENCES:
+        return notFound || PARSE_SYNTAX_ERROR_SQL_STATE.equals(error.getSQLState());
+      default:
+        return false;
+    }
+  }
+
+  private DatabricksResultSet emptyResult(MetadataAsyncRequest request, String catalog)
+      throws SQLException {
+    switch (request.getMethod()) {
+      case SCHEMAS:
+        return metadataResultSetBuilder.getSchemasResult(new ArrayList<>());
+      case TABLES:
+        return metadataResultSetBuilder.getTablesResult(
+            catalog,
+            request.getTableTypes() == null ? DEFAULT_TABLE_TYPES : request.getTableTypes(),
+            new ArrayList<>());
+      case COLUMNS:
+        return metadataResultSetBuilder.getColumnsResult(new ArrayList<>());
+      case FUNCTIONS:
+        return metadataResultSetBuilder.getFunctionsResult(catalog, new ArrayList<>());
+      case PRIMARY_KEYS:
+      case IMPORTED_KEYS:
+      case CROSS_REFERENCES:
+        return emptyKeyResult(request);
+      default:
+        throw new SQLException("No empty result for " + request.getOperation());
+    }
+  }
+
+  private DatabricksResultSet fallbackAcrossCatalogs(
+      MetadataAsyncHandle handle,
+      IDatabricksSession session,
+      TimeoutHandler timeout,
+      AtomicReference<StatementId> activeId)
+      throws SQLException {
+    MetadataAsyncHandle catalogsHandle =
+        executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), session);
+    activeId.set(catalogsHandle.getStatementId());
+    handle.addFallbackStatementId(catalogsHandle.getStatementId());
+    DatabricksResultSet catalogs = convertCompletedMetadata(catalogsHandle, session, timeout);
+    List<List<Object>> rows = new ArrayList<>();
+    try (ResultSet catalogRows = catalogs) {
+      while (catalogRows.next()) {
+        String catalog = catalogRows.getString(1);
+        if (catalog == null || catalog.isEmpty()) {
+          continue;
+        }
+        MetadataAsyncRequest original = handle.getRequest();
+        MetadataAsyncRequest request =
+            original.getMethod() == MetadataAsyncRequest.Method.SCHEMAS
+                ? MetadataAsyncRequest.forSchemas(catalog, original.getSchema())
+                : MetadataAsyncRequest.forColumns(
+                    catalog, original.getSchema(), original.getTable(), original.getColumn());
+        try {
+          timeout.checkTimeout();
+          MetadataAsyncHandle child = executeMetadataAsync(request, session);
+          activeId.set(child.getStatementId());
+          handle.addFallbackStatementId(child.getStatementId());
+          try (ResultSet converted = convertCompletedMetadata(child, session, timeout)) {
+            ResultSetMetaData metadata = converted.getMetaData();
+            while (converted.next()) {
+              List<Object> row = new ArrayList<>();
+              for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                row.add(converted.getObject(i));
+              }
+              rows.add(row);
+            }
+          }
+        } catch (SQLException e) {
+          if (isTerminalMetadataError(e)) {
+            throw e;
+          }
+          LOGGER.warn("Error fetching metadata for catalog {}", catalog);
+        }
+      }
+    }
+    boolean schemas = handle.getRequest().getMethod() == MetadataAsyncRequest.Method.SCHEMAS;
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        schemas ? SCHEMA_COLUMNS : COLUMN_COLUMNS,
+        rows,
+        METADATA_STATEMENT_ID,
+        schemas
+            ? com.databricks.jdbc.common.CommandName.LIST_SCHEMAS
+            : com.databricks.jdbc.common.CommandName.LIST_COLUMNS);
+  }
+
+  private static boolean isTerminalMetadataError(SQLException error) {
+    return error instanceof com.databricks.jdbc.exception.DatabricksTimeoutException
+        || com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE.equals(
+            error.getSQLState())
+        || Thread.currentThread().isInterrupted()
+        || hasInterruptedCause(error);
+  }
+
+  private static boolean hasInterruptedCause(Throwable error) {
+    for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+      if (cause instanceof InterruptedException) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
     LOGGER.debug("public ResultSet getTypeInfo()");
     return metadataResultSetBuilder.getTypeInfoResult();
@@ -77,8 +589,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-    return metadataResultSetBuilder.getCatalogsResult(
-        getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS));
+    return convertSynchronousMetadata(
+        getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS),
+        session,
+        metadataResultSetBuilder::getCatalogsResult);
   }
 
   @Override
@@ -114,8 +628,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String resultCatalog =
         catalog != null ? WildcardUtil.stripJdbcEscapes(catalog).toLowerCase() : null;
     try {
-      return metadataResultSetBuilder.getSchemasResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_SCHEMAS), resultCatalog);
+      return convertSynchronousMetadata(
+          getResultSet(SQL, session, MetadataOperationType.GET_SCHEMAS),
+          session,
+          source -> metadataResultSetBuilder.getSchemasResult(source, resultCatalog));
     } catch (SQLException e) {
       if (catalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // This is a fallback for the case where the SQL command fails with "syntax error at or near
@@ -167,11 +683,14 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     LOGGER.debug("SQL command to fetch tables: {}", SQL);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     try {
-      DatabricksResultSet resultSet = getResultSet(SQL, session, MetadataOperationType.GET_TABLES);
-      String[] resultTableTypes =
-          resultSet.isThriftNativeMetadataResult() ? tableTypes : validatedTableTypes;
-      return metadataResultSetBuilder.getTablesResult(
-          resultSet, requestedCatalog, resultTableTypes);
+      return convertSynchronousMetadata(
+          getResultSet(SQL, session, MetadataOperationType.GET_TABLES),
+          session,
+          source ->
+              metadataResultSetBuilder.getTablesResult(
+                  source,
+                  requestedCatalog,
+                  source.isThriftNativeMetadataResult() ? tableTypes : validatedTableTypes));
     } catch (SQLException e) {
       if ((PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) && catalog == null)
           || isObjectNotFoundException(e)
@@ -218,8 +737,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
     LOGGER.debug("SQL command to fetch columns: {}", SQL);
     try {
-      return metadataResultSetBuilder.getColumnsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS));
+      return convertSynchronousMetadata(
+          getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS),
+          session,
+          metadataResultSetBuilder::getColumnsResult);
     } catch (SQLException e) {
       if (catalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // Fallback for older DBR versions that don't support "SHOW COLUMNS IN ALL CATALOGS":
@@ -278,10 +799,14 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug("SQL command to fetch functions: {}", SQL);
     try {
-      DatabricksResultSet resultSet =
-          getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS);
-      return metadataResultSetBuilder.getFunctionsResult(
-          resultSet, resultSet.isThriftNativeMetadataResult() ? requestedCatalog : catalog);
+      String resolvedCatalog = catalog;
+      return convertSynchronousMetadata(
+          getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS),
+          session,
+          source ->
+              metadataResultSetBuilder.getFunctionsResult(
+                  source,
+                  source.isThriftNativeMetadataResult() ? requestedCatalog : resolvedCatalog));
     } catch (SQLException e) {
       if (isObjectNotFoundException(e)) {
         LOGGER.debug("Object not found for getFunctions, returning empty result set.");
@@ -309,8 +834,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         CommandConstants.buildProceduresSQL(
             catalog, schemaNamePattern, procedureNamePattern, params);
     LOGGER.debug("SQL command to fetch procedures: {}", SQL);
-    return metadataResultSetBuilder.getProceduresResult(
-        getResultSet(SQL, params, session, MetadataOperationType.GET_PROCEDURES));
+    return convertSynchronousMetadata(
+        getResultSet(SQL, params, session, MetadataOperationType.GET_PROCEDURES),
+        session,
+        metadataResultSetBuilder::getProceduresResult);
   }
 
   @Override
@@ -332,8 +859,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         CommandConstants.buildProcedureColumnsSQL(
             catalog, schemaNamePattern, procedureNamePattern, columnNamePattern, params);
     LOGGER.debug("SQL command to fetch procedure columns: {}", SQL);
-    return metadataResultSetBuilder.getProcedureColumnsResult(
-        getResultSet(SQL, params, session, MetadataOperationType.GET_PROCEDURE_COLUMNS));
+    return convertSynchronousMetadata(
+        getResultSet(SQL, params, session, MetadataOperationType.GET_PROCEDURE_COLUMNS),
+        session,
+        metadataResultSetBuilder::getProcedureColumnsResult);
   }
 
   @Override
@@ -359,8 +888,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LOGGER.debug("SQL command to fetch primary keys: {}", SQL);
     try {
-      return metadataResultSetBuilder.getPrimaryKeysResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_PRIMARY_KEYS));
+      return convertSynchronousMetadata(
+          getResultSet(SQL, session, MetadataOperationType.GET_PRIMARY_KEYS),
+          session,
+          metadataResultSetBuilder::getPrimaryKeysResult);
     } catch (SQLException e) {
       if (isObjectNotFoundException(e)) {
         LOGGER.debug("Object not found for getPrimaryKeys, returning empty result");
@@ -394,8 +925,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
             .setTable(resolvedTable);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
-      return metadataResultSetBuilder.getImportedKeysResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE));
+      return convertSynchronousMetadata(
+          getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE),
+          session,
+          metadataResultSetBuilder::getImportedKeysResult);
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) || isObjectNotFoundException(e)) {
         LOGGER.debug(
@@ -478,11 +1011,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
             .setTable(resolvedForeignTable);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
-      return metadataResultSetBuilder.getCrossReferenceKeysResult(
+      return convertSynchronousMetadata(
           getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE),
-          resolvedParentCatalog,
-          resolvedParentSchema,
-          resolvedParentTable);
+          session,
+          source ->
+              metadataResultSetBuilder.getCrossReferenceKeysResult(
+                  source, resolvedParentCatalog, resolvedParentSchema, resolvedParentTable));
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) || isObjectNotFoundException(e)) {
         LOGGER.debug(
@@ -604,6 +1138,21 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       IDatabricksSession session,
       MetadataOperationType metadataOperationType)
       throws SQLException {
+    if (!params.isEmpty()
+        && (metadataOperationType == MetadataOperationType.GET_PROCEDURES
+            || metadataOperationType == MetadataOperationType.GET_PROCEDURE_COLUMNS)
+        && ApcParameterCapabilities.isApcSea(session)
+        && !ApcParameterCapabilities.supportsNativeParameters(session)) {
+      String reason = ApcParameterCapabilities.downgradeReason(session);
+      LOGGER.warn("APC procedure metadata parameter downgrade: {}", reason);
+      TelemetryHelper.exportFailureLog(
+          queryExecutionClient.getConnectionContext(),
+          "APC_PARAMETER_DOWNGRADE",
+          reason,
+          TelemetryLogLevel.WARN);
+      SQL = SQLInterpolator.interpolateApcSQL(SQL, params);
+      params = java.util.Collections.emptyMap();
+    }
     return queryExecutionClient.executeStatement(
         SQL,
         session.getComputeResource(),

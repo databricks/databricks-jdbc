@@ -143,6 +143,16 @@ public interface IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
+  DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      StatementType statementType,
+      MetadataOperationType metadataOperationType)
+      throws SQLException;
+
   /**
    * Closes a statement in Databricks server
    *
@@ -184,6 +194,13 @@ public interface IDatabricksClient {
       StatementId statementId,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
+      throws SQLException;
+
+  DatabricksResultSet getStatementResult(
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      StatementType statementType)
       throws SQLException;
 
   /**

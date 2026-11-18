@@ -129,7 +129,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
 
     LOGGER.debug(
         "SeaInlineArrowChunkProvider created: statement={}, maxBatches={}, endOfStream={}",
-        statementId.toSQLExecStatementId(),
+        StatementId.loggableStatementId(statementId),
         maxBatchesInMemory,
         endOfStream);
   }

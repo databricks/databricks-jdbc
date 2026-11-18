@@ -18,6 +18,7 @@ public class TimeoutHandler {
   private final Runnable onTimeoutAction; // do something on timeout
   private final DatabricksDriverErrorCode
       internalErrorCode; // internal error code to be used for timeout error (if any)
+  private final boolean includeVendorCode;
 
   /**
    * Creates a new timeout handler with the provided parameters.
@@ -37,7 +38,23 @@ public class TimeoutHandler {
         System.currentTimeMillis(),
         operationDescription,
         onTimeoutAction,
-        internalErrorCode);
+        internalErrorCode,
+        false);
+  }
+
+  public TimeoutHandler(
+      int timeoutSeconds,
+      String operationDescription,
+      Runnable onTimeoutAction,
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean includeVendorCode) {
+    this(
+        timeoutSeconds,
+        System.currentTimeMillis(),
+        operationDescription,
+        onTimeoutAction,
+        internalErrorCode,
+        includeVendorCode);
   }
 
   /**
@@ -50,11 +67,28 @@ public class TimeoutHandler {
       String operationDescription,
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode) {
+    this(
+        timeoutSeconds,
+        startTimeMillis,
+        operationDescription,
+        onTimeoutAction,
+        internalErrorCode,
+        false);
+  }
+
+  public TimeoutHandler(
+      int timeoutSeconds,
+      long startTimeMillis,
+      String operationDescription,
+      Runnable onTimeoutAction,
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean includeVendorCode) {
     this.startTimeMillis = startTimeMillis;
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
     this.internalErrorCode = internalErrorCode;
+    this.includeVendorCode = includeVendorCode;
   }
 
   /**
@@ -86,7 +120,8 @@ public class TimeoutHandler {
               "Statement execution timed-out after %d seconds. Operation: %s",
               timeoutSeconds, operationDescription);
       LOGGER.error(timeoutErrorMessage);
-      throw new DatabricksTimeoutException(timeoutErrorMessage, /*cause*/ null, internalErrorCode);
+      throw new DatabricksTimeoutException(
+          timeoutErrorMessage, /*cause*/ null, internalErrorCode, includeVendorCode);
     }
   }
 
@@ -106,7 +141,28 @@ public class TimeoutHandler {
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
     return forStatement(
-        timeoutSeconds, System.currentTimeMillis(), statementId, client, internalErrorCode);
+        timeoutSeconds,
+        System.currentTimeMillis(),
+        statementId,
+        client,
+        internalErrorCode,
+        false);
+  }
+
+  /** Creates a timeout handler that omits sensitive statement details from diagnostics. */
+  public static TimeoutHandler forStatement(
+      int timeoutSeconds,
+      StatementId statementId,
+      IDatabricksClient client,
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean redactDetails) {
+    return forStatement(
+        timeoutSeconds,
+        System.currentTimeMillis(),
+        statementId,
+        client,
+        internalErrorCode,
+        redactDetails);
   }
 
   /** Like the overload above, with the timeout clock starting at {@code startTimeMillis}. */
@@ -116,15 +172,33 @@ public class TimeoutHandler {
       StatementId statementId,
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
+    return forStatement(timeoutSeconds, startTimeMillis, statementId, client, internalErrorCode, false);
+  }
+
+  /**
+   * Creates a timeout handler whose clock starts at {@code startTimeMillis} and that omits
+   * sensitive statement details from diagnostics when {@code redactDetails} is set.
+   */
+  public static TimeoutHandler forStatement(
+      int timeoutSeconds,
+      long startTimeMillis,
+      StatementId statementId,
+      IDatabricksClient client,
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean redactDetails) {
     return new TimeoutHandler(
         timeoutSeconds,
         startTimeMillis,
-        "Statement ID: " + StatementId.loggableStatementId(statementId),
+        "Statement ID: "
+            + (redactDetails ? "[REDACTED]" : StatementId.loggableStatementId(statementId)),
         () -> {
           try {
             client.cancelStatement(statementId);
           } catch (Exception e) {
-            LOGGER.warn("Cancel statement on timeout failed: " + e.getMessage());
+            LOGGER.warn(
+                redactDetails
+                    ? "Cancel statement on timeout failed"
+                    : "Cancel statement on timeout failed: " + e.getMessage());
           }
         },
         internalErrorCode);

@@ -19,15 +19,20 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
@@ -202,6 +207,66 @@ public class DatabricksMetadataQueryClientTest {
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), GET_CATALOGS_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 2);
+  }
+
+  @Test
+  void synchronousConversionFailureClosesSourceAndServerOperation() throws SQLException {
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    when(session.getComputeResource()).thenReturn(cluster);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .clientType(DatabricksClientType.SEA)
+                .sessionId("session")
+                .computeResource(cluster)
+                .build());
+    when(mockClient.executeStatement(
+            eq("SHOW CATALOGS"),
+            eq(cluster),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_CATALOGS)))
+        .thenReturn(mockedCatalogResultSet);
+    when(mockedCatalogResultSet.getStatementId()).thenReturn("server-operation");
+    when(mockedCatalogResultSet.next()).thenThrow(new SQLException("conversion failed"));
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    SQLException error =
+        assertThrows(SQLException.class, () -> metadataClient.listCatalogs(session));
+    assertEquals("conversion failed", error.getMessage());
+    verify(mockedCatalogResultSet).close();
+    verify(mockClient).closeStatement(new StatementId("server-operation"));
+  }
+
+  @Test
+  void warehouseSynchronousMetadataDoesNotCloseServerOperation() throws SQLException {
+    Warehouse warehouse = new Warehouse("warehouse");
+    when(session.getComputeResource()).thenReturn(warehouse);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .clientType(DatabricksClientType.SEA)
+                .sessionId("session")
+                .computeResource(warehouse)
+                .build());
+    when(mockClient.executeStatement(
+            eq("SHOW CATALOGS"),
+            eq(warehouse),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_CATALOGS)))
+        .thenReturn(mockedCatalogResultSet);
+    when(mockedCatalogResultSet.getStatementId()).thenReturn("warehouse-operation");
+    when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
+
+    new DatabricksMetadataQueryClient(mockClient).listCatalogs(session);
+
+    verify(mockedCatalogResultSet).close();
+    verify(mockClient, never()).closeStatement(any(StatementId.class));
   }
 
   @Test

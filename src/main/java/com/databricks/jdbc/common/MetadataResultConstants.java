@@ -15,6 +15,25 @@ public class MetadataResultConstants {
   /** SQL state for object-not-found errors (catalog, schema, table). */
   public static final String OBJECT_NOT_FOUND_SQL_STATE = "42704";
 
+  private static final String[] OBJECT_NOT_FOUND_INDICATORS = {
+    "NO_SUCH_CATALOG_EXCEPTION",
+    "TABLE_OR_VIEW_NOT_FOUND",
+    "SCHEMA_NOT_FOUND",
+    "INVALID_PARAMETER_VALUE"
+  };
+
+  /** Returns only a recognized error class, safe to retain when server details are redacted. */
+  public static String objectNotFoundIndicator(String message) {
+    if (message != null) {
+      for (String indicator : OBJECT_NOT_FOUND_INDICATORS) {
+        if (message.contains(indicator)) {
+          return indicator;
+        }
+      }
+    }
+    return null;
+  }
+
   /**
    * Returns true if the exception indicates a catalog, schema, or table was not found. Per JDBC
    * spec, metadata methods should return empty result sets for non-existent objects rather than
@@ -24,12 +43,7 @@ public class MetadataResultConstants {
     if (OBJECT_NOT_FOUND_SQL_STATE.equals(e.getSQLState())) {
       return true;
     }
-    String msg = e.getMessage();
-    return msg != null
-        && (msg.contains("NO_SUCH_CATALOG_EXCEPTION")
-            || msg.contains("TABLE_OR_VIEW_NOT_FOUND")
-            || msg.contains("SCHEMA_NOT_FOUND")
-            || msg.contains("INVALID_PARAMETER_VALUE"));
+    return objectNotFoundIndicator(e.getMessage()) != null;
   }
 
   public static final String[] DEFAULT_TABLE_TYPES = {

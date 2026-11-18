@@ -24,6 +24,8 @@ import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.MetadataAsyncHandle;
+import com.databricks.jdbc.dbclient.MetadataAsyncRequest;
 import com.databricks.jdbc.dbclient.impl.common.CommandConstants;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -48,6 +50,24 @@ import java.util.stream.Collectors;
 import org.apache.thrift.TException;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
+
+  @Override
+  public MetadataAsyncHandle executeMetadataAsync(
+      MetadataAsyncRequest request, IDatabricksSession session) throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Asynchronous Thrift metadata is unsupported",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+  }
+
+  @Override
+  public DatabricksResultSet getMetadataExecutionResult(
+      MetadataAsyncHandle handle, IDatabricksSession session) throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Asynchronous Thrift metadata is unsupported",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+  }
 
   @Override
   public long[] executeNativeBatch(
@@ -232,6 +252,22 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         getRequest(sql, parameters, session, parentStatement, true, StatementType.SQL);
 
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
+  }
+
+  @Override
+  public DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      StatementType statementType,
+      MetadataOperationType metadataOperationType)
+      throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Asynchronous Thrift metadata is unsupported",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
   }
 
   @VisibleForTesting
@@ -423,6 +459,19 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     return thriftAccessor.getStatementResult(
         getOperationHandle(statementId), parentStatement, session);
+  }
+
+  @Override
+  public DatabricksResultSet getStatementResult(
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      StatementType statementType)
+      throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Typed Thrift metadata completion is unsupported",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
   }
 
   @Override
