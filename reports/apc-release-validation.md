@@ -5,6 +5,7 @@ Validation target: JDBC commit `07a50400` on `jay-xiao/factory/apc-sea/apc-relea
 ## Local results
 
 - `mvn -q spotless:apply`: passed in both validation rounds; no driver source files changed.
+- On 2026-11-18, `mvn -q spotless:apply` and `mvn -q test -pl jdbc-core -am -Dtest=ApcRoutingTest,ConnectionRoutingOpenTest,ApcRunningPollFakeServiceTest,DatabricksSdkClientTest,ApcArrowBatchChunkProviderTest -Dsurefire.failIfNoSpecifiedTests=false` passed on the round-two evidence commit: 202 tests, zero failures, zero errors, zero skipped. The 29 AC rows and the AC27 raw-response record were also checked for completeness and consistency.
 - `mvn -q test -pl jdbc-core -am -Dtest=ApcRoutingTest,ApcRunningPollFakeServiceTest,DatabricksSdkClientTest -Dsurefire.failIfNoSpecifiedTests=false`: passed in round 2; 168 tests, zero failures, zero errors, zero skipped across the three selected suites.
 - `mvn -q test -pl jdbc-core -am -Dtest=ConnectionRoutingOpenTest -Dsurefire.failIfNoSpecifiedTests=false`: passed in round 2; 6 tests, zero failures, zero errors, zero skipped.
 - `mvn test -pl jdbc-core -am`: passed again on 2026-11-18, 4,371 tests, zero failures, zero errors, 88 skipped across 226 suites; reactor build success in 19:11. The refreshed [Surefire evidence](apc-release-validation-surefire.json) records the AC-specific test cases and suite totals.
