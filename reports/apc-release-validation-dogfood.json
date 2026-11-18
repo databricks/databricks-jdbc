@@ -79,18 +79,55 @@
       "exception_type": "DatabricksTimeoutException"
     }
   },
-  "ac27_live_running_poll_count": 5,
+  "ac27_live_running_poll_count": 4,
   "ac27_live_pending_poll_count": 0,
   "ac27_live_terminal_poll_count": 1,
   "ac27_live_running_result_payload_fields": 0,
   "ac27_live_running_result_payload_bytes": 0,
   "ac27_live_terminal_row_count": 100000,
   "ac27_live_terminal_checksum": 4999950000,
-  "ac27_measurement_method": "temporary Java 11 ApiClient delegate counted deserialized GetStatementResult states and payload fields; driver ResultSet checked every ordered row and checksum",
+  "ac27_measurement_method": "Driver SDK HttpClient captured GET request metadata and raw HTTP response entity bytes before ApiClient deserialization; four sanitized RUNNING response bodies and raw-body hashes are in apc-release-validation-ac27-wire.json.",
   "pending_gates": {
-    "flag_assignment": "live SAFE found=false; no flag ON/OFF assignment dogfood authorized",
-    "sc_deployment": "SC fixes not yet deployed; AC5, AC8, and AC3 TerminateSession dogfood pending"
+    "flag_assignment": "SAFE flags.get_config returned found=false on 2026-11-18; flag-ON no-override assignment is unavailable. Flag-absent no-override dogfood passed.",
+    "sc_deployment": "SC-256188 and SC-254478 both remained TO DO at read-only Jira lookup on 2026-11-18; server-dependent AC5, AC8 inline-only, and AC3 TerminateSession dogfood await deployed fixes."
   },
   "release_ready": false,
-  "ac27_query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled"
+  "ac27_query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled",
+  "round2_captured_utc": "2026-11-18T08:35:02.183877+00:00",
+  "safe_flag_live_lookup_round2_found": false,
+  "flag_absent_no_override": {
+    "observed_protocol": "THRIFT",
+    "client_class": "DatabricksThriftServiceClient",
+    "sea_client_instantiated": false,
+    "query": "SELECT 1 AS validation_value",
+    "outcome": "pass"
+  },
+  "ac8_unaffected_live_checks": [
+    {
+      "UseThriftClient": "0",
+      "EnableQueryResultDownload": "0",
+      "UseBoundedSeaApi": "0",
+      "observed_protocol": "SEA_APC",
+      "client_class": "DatabricksSdkClient",
+      "connection_context_cloud_fetch_enabled": false,
+      "connection_context_bounded_sea_api_enabled": false,
+      "select_one": "pass"
+    },
+    {
+      "UseThriftClient": "0",
+      "EnableQueryResultDownload": "0",
+      "UseBoundedSeaApi": "1",
+      "observed_protocol": "SEA_APC",
+      "client_class": "DatabricksSdkClient",
+      "connection_context_cloud_fetch_enabled": false,
+      "connection_context_bounded_sea_api_enabled": true,
+      "select_one": "pass"
+    }
+  ],
+  "ac27_prior_deserialized_measurement": {
+    "running_poll_count": 5,
+    "running_result_payload_bytes_reported": 0,
+    "limitation": "SDK response objects were inspected after JSON deserialization; this is superseded by the raw HTTP response entity capture."
+  },
+  "ac27_wire_evidence": "apc-release-validation-ac27-wire.json"
 }
