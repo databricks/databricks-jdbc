@@ -2,23 +2,30 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -27,6 +34,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,6 +45,7 @@ class PreparedStatementBatchExecutorTest {
   private static final String UPDATE_SQL = "UPDATE target SET name = ? WHERE id = ?";
 
   @Mock private DatabricksConnection connection;
+  @Mock private IDatabricksSession session;
   @Mock private IDatabricksConnectionContext connectionContext;
   @Mock private PreparedStatementBatchExecutor.StatementExecutor statementExecutor;
   @Mock private PreparedStatementBatchExecutor.NativeBatchExecutor nativeBatchExecutor;
@@ -100,6 +109,75 @@ class PreparedStatementBatchExecutorTest {
     assertEquals(List.of(1, 2), indexes(batch.get(1)));
     verify(nativeBatchExecutor).execute(INSERT_SQL, batch);
     verifyNoInteractions(statementExecutor);
+  }
+
+  @Test
+  void literalQuestionMarkWithoutBindingsDoesNotEnableNativeBatching() throws Exception {
+    String sql = "INSERT INTO target VALUES ('?')";
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    List<BatchParameterSet> batch = List.of(BatchParameterSet.from(Map.of()));
+    when(statementExecutor.execute(sql, Map.of(), StatementType.UPDATE, false))
+        .thenReturn(firstResultSet);
+    when(firstResultSet.getUpdateCount()).thenReturn(1L);
+
+    assertArrayEquals(
+        new long[] {1L}, newExecutor(sql, false, nativeBatchExecutor).executeBatch(batch));
+    verifyNoInteractions(nativeBatchExecutor);
+  }
+
+  @Test
+  void nativeBatchFailurePreservesServerSqlStateVendorCodeAndCause() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    SQLException serverError = new SQLException("retry later", "40001", 1287);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(serverError);
+
+    DatabricksBatchUpdateException error =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+    assertEquals("40001", error.getSQLState());
+    assertEquals(1287, error.getErrorCode());
+    assertEquals(serverError, error.getCause());
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        error.getLargeUpdateCounts());
+  }
+
+  @Test
+  void nativeBatchUncheckedFailureHasDriverErrorNameAndNumber() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .clientType(DatabricksClientType.SEA)
+                .negotiatedProtocolVersion(42250L)
+                .liveProtocolVersion(true)
+                .build());
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch))
+        .thenThrow(new IllegalStateException("unexpected native failure"));
+
+    DatabricksBatchUpdateException error =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertEquals(DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.getCode(), error.getErrorCode());
+    assertEquals("APC native batch execution failed: [REDACTED]", error.getMessage());
+    assertNull(error.getCause());
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        error.getLargeUpdateCounts());
   }
 
   @Test
@@ -321,6 +399,107 @@ class PreparedStatementBatchExecutorTest {
     assertArrayEquals(
         new long[] {4, Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
         exception.getLargeUpdateCounts());
+    verify(firstResultSet, never()).closeForNativeBatch();
+  }
+
+  @Test
+  void warehouseIndividualBatchDoesNotAddCloseRequests() throws Exception {
+    setBatchedInsertsEnabled(false);
+    List<BatchParameterSet> batch = createBatch(2);
+    when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenReturn(firstResultSet, secondResultSet);
+    when(firstResultSet.getUpdateCount()).thenReturn(3L);
+    when(secondResultSet.getUpdateCount()).thenReturn(5L);
+
+    assertArrayEquals(new long[] {3, 5}, newExecutor(INSERT_SQL, false).executeBatch(batch));
+
+    InOrder order = inOrder(statementExecutor, firstResultSet, secondResultSet);
+    order
+        .verify(statementExecutor)
+        .execute(INSERT_SQL, batch.get(0).getParameterBindings(), StatementType.UPDATE, false);
+    order.verify(firstResultSet).getUpdateCount();
+    order
+        .verify(statementExecutor)
+        .execute(INSERT_SQL, batch.get(1).getParameterBindings(), StatementType.UPDATE, false);
+    order.verify(secondResultSet).getUpdateCount();
+    verify(firstResultSet, never()).closeForNativeBatch();
+    verify(secondResultSet, never()).closeForNativeBatch();
+  }
+
+  @Test
+  void warehouseIndividualBatchDoesNotCloseResultWhenReadingCountFails() throws Exception {
+    setBatchedInsertsEnabled(false);
+    when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenReturn(firstResultSet);
+    when(firstResultSet.getUpdateCount()).thenThrow(new RuntimeException("count failed"));
+
+    DatabricksBatchUpdateException error =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false).executeBatch(createBatch(2)));
+
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        error.getLargeUpdateCounts());
+    verify(firstResultSet, never()).closeForNativeBatch();
+  }
+
+  @Test
+  void apcBatchCleanupFailureDoesNotTurnSuccessfulWritesIntoFailures() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .clientType(DatabricksClientType.SEA)
+                .negotiatedProtocolVersion(42247L)
+                .liveProtocolVersion(true)
+                .build());
+    when(statementExecutor.execute(anyString(), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenReturn(firstResultSet, secondResultSet);
+    when(firstResultSet.getUpdateCount()).thenReturn(1L);
+    when(secondResultSet.getUpdateCount()).thenReturn(1L);
+    org.mockito.Mockito.doThrow(new RuntimeException("cleanup failed"))
+        .when(firstResultSet)
+        .closeForNativeBatch();
+
+    assertArrayEquals(
+        new long[] {1, 1}, newExecutor(INSERT_SQL, false).executeBatch(createBatch(2)));
+    verify(firstResultSet).closeForNativeBatch();
+    verify(secondResultSet).closeForNativeBatch();
+  }
+
+  @Test
+  void interpolatedApcBatchUnexpectedFailureRedactsValue() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .clientType(DatabricksClientType.SEA)
+                .liveProtocolVersion(true)
+                .build());
+    when(statementExecutor.execute(anyString(), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenThrow(new RuntimeException("unexpected failure on name-1"));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksBatchUpdateException error =
+          assertThrows(
+              DatabricksBatchUpdateException.class,
+              () -> newExecutor(INSERT_SQL, true).executeBatch(createBatch(1)));
+
+      assertFalse(error.getMessage().contains("name-1"));
+      assertNull(error.getCause());
+      assertEquals(DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.name(), error.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.getCode(), error.getErrorCode());
+      assertArrayEquals(new long[0], error.getLargeUpdateCounts());
+      assertFalse(logs.getOutput().contains("name-1"));
+    }
   }
 
   private PreparedStatementBatchExecutor newExecutor(String sql, boolean interpolateParameters) {

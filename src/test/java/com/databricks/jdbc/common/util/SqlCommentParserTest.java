@@ -27,6 +27,14 @@ public class SqlCommentParserTest {
     assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
   }
 
+  @Test
+  public void testApcCommentStrippingPreservesEscapedQuoteAndLiteralCommentMarker() {
+    String sql = "/* tag */ INSERT INTO t VALUES ('it\\'s -- literal', ?) -- trailing";
+    assertEquals(
+        "INSERT INTO t VALUES ('it\\'s -- literal', ?)",
+        SqlCommentParser.stripApcCommentsAndWhitespaces(sql));
+  }
+
   // --- Line comments ---
 
   @Test

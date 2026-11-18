@@ -26,8 +26,13 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
   }
 
   public DatabricksParameterMetaData(String sql) {
+    this(sql, false);
+  }
+
+  DatabricksParameterMetaData(String sql, boolean apc) {
     this.parameterBindings = new HashMap<>();
-    this.parameterCount = countParameters(sql);
+    this.parameterCount =
+        apc ? SqlCommentParser.findApcPlaceholderPositions(sql).length : countParameters(sql);
   }
 
   public void put(int param, ImmutableSqlParameter value) {

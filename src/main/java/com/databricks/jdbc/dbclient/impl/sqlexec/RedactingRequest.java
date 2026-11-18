@@ -67,6 +67,16 @@ class RedactingRequest extends Request {
       JsonNode cluster = root.path("backend_compute").path("all_purpose_cluster_compute");
       if (cluster instanceof ObjectNode) {
         ((ObjectNode) cluster).put("cluster_id", "[REDACTED]");
+        if (root instanceof ObjectNode && root.has("statement")) {
+          ObjectNode request = (ObjectNode) root;
+          request.put("statement", "[REDACTED]");
+          if (request.has("parameters")) {
+            request.put("parameters", "[REDACTED]");
+          }
+          if (request.has("parameter_sets")) {
+            request.put("parameter_sets", "[REDACTED]");
+          }
+        }
       }
       return MAPPER.writeValueAsString(root);
     } catch (Exception e) {

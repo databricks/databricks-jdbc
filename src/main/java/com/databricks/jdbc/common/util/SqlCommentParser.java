@@ -50,13 +50,23 @@ public class SqlCommentParser {
    * characters back to positions in the original SQL (e.g. parameter placeholder discovery).
    */
   public static void forEachNonCommentChar(String sql, IndexedSqlCharConsumer consumer) {
+    forEachNonCommentChar(sql, consumer, false);
+  }
+
+  /** Iterate APC SQL using the same escaped-quote and raw-literal rules as placeholder parsing. */
+  public static void forEachApcNonCommentChar(String sql, IndexedSqlCharConsumer consumer) {
+    forEachNonCommentChar(sql, consumer, true);
+  }
+
+  private static void forEachNonCommentChar(
+      String sql, IndexedSqlCharConsumer consumer, boolean apcPlaceholders) {
     if (sql == null || sql.isEmpty()) {
       return;
     }
 
     State state = State.NORMAL;
     int blockCommentDepth = 0;
-    boolean rawString = false;
+    boolean rawLiteral = false;
 
     for (int i = 0; i < sql.length(); i++) {
       char c = sql.charAt(i);
@@ -72,11 +82,11 @@ public class SqlCommentParser {
             blockCommentDepth = 1;
             i++; // skip '*'
           } else if (c == '\'') {
-            rawString = hasRawStringPrefix(sql, i);
+            rawLiteral = apcPlaceholders ? isRawLiteralPrefix(sql, i) : hasRawStringPrefix(sql, i);
             state = State.IN_SINGLE_QUOTE;
             consumer.accept(state, c, i);
           } else if (c == '"') {
-            rawString = hasRawStringPrefix(sql, i);
+            rawLiteral = apcPlaceholders ? isRawLiteralPrefix(sql, i) : hasRawStringPrefix(sql, i);
             state = State.IN_DOUBLE_QUOTE;
             consumer.accept(state, c, i);
           } else if (c == '`') {
@@ -89,29 +99,29 @@ public class SqlCommentParser {
 
         case IN_SINGLE_QUOTE:
           consumer.accept(state, c, i);
-          if (!rawString && c == '\\' && next != '\0') {
+          if (!rawLiteral && c == '\\' && next != '\0') {
             consumer.accept(state, next, i + 1);
-            i++;
-          } else if (!rawString && c == '\'' && next == '\'') {
+            i++; // skip backslash-escaped character
+          } else if (!rawLiteral && c == '\'' && next == '\'') {
             consumer.accept(state, next, i + 1);
             i++; // skip escaped quote
           } else if (c == '\'') {
             state = State.NORMAL;
-            rawString = false;
+            rawLiteral = false;
           }
           break;
 
         case IN_DOUBLE_QUOTE:
           consumer.accept(state, c, i);
-          if (!rawString && c == '\\' && next != '\0') {
+          if (!rawLiteral && c == '\\' && next != '\0') {
             consumer.accept(state, next, i + 1);
-            i++;
-          } else if (!rawString && c == '"' && next == '"') {
+            i++; // skip backslash-escaped character
+          } else if (!rawLiteral && c == '"' && next == '"') {
             consumer.accept(state, next, i + 1);
             i++; // skip escaped quote
           } else if (c == '"') {
             state = State.NORMAL;
-            rawString = false;
+            rawLiteral = false;
           }
           break;
 
@@ -176,6 +186,15 @@ public class SqlCommentParser {
    * @return source-string indices of placeholder '?' characters, in order
    */
   public static int[] findPlaceholderPositions(String sql) {
+    return findPlaceholderPositions(sql, false);
+  }
+
+  /** Finds APC placeholders, accounting for escaped quotes and raw string literals. */
+  public static int[] findApcPlaceholderPositions(String sql) {
+    return findPlaceholderPositions(sql, true);
+  }
+
+  private static int[] findPlaceholderPositions(String sql, boolean apc) {
     List<Integer> positions = new ArrayList<>();
     forEachNonCommentChar(
         sql,
@@ -183,12 +202,23 @@ public class SqlCommentParser {
           if (state == State.NORMAL && c == '?') {
             positions.add(sourceIndex);
           }
-        });
+        },
+        apc);
     int[] out = new int[positions.size()];
     for (int k = 0; k < out.length; k++) {
       out[k] = positions.get(k);
     }
     return out;
+  }
+
+  private static boolean isRawLiteralPrefix(String sql, int quoteIndex) {
+    int prefixIndex = quoteIndex - 1;
+    if (prefixIndex < 0 || (sql.charAt(prefixIndex) != 'r' && sql.charAt(prefixIndex) != 'R')) {
+      return false;
+    }
+    return prefixIndex == 0
+        || (!Character.isLetterOrDigit(sql.charAt(prefixIndex - 1))
+            && sql.charAt(prefixIndex - 1) != '_');
   }
 
   /**
@@ -198,6 +228,15 @@ public class SqlCommentParser {
    * @return the SQL string with all comments and extra whitespace removed
    */
   public static String stripCommentsAndWhitespaces(String sql) {
+    return stripCommentsAndWhitespaces(sql, false);
+  }
+
+  /** Removes comments and extra whitespace using APC's escaped-quote and raw-literal rules. */
+  public static String stripApcCommentsAndWhitespaces(String sql) {
+    return stripCommentsAndWhitespaces(sql, true);
+  }
+
+  private static String stripCommentsAndWhitespaces(String sql, boolean apc) {
     if (sql == null || sql.isEmpty()) {
       return sql;
     }
@@ -206,14 +245,15 @@ public class SqlCommentParser {
     boolean[] lastWasSpace = {false};
     forEachNonCommentChar(
         sql,
-        (state, c) -> {
+        (state, c, sourceIndex) -> {
           boolean isNormalWhitespace = state == State.NORMAL && Character.isWhitespace(c);
           if (isNormalWhitespace && lastWasSpace[0]) {
             return;
           }
           lastWasSpace[0] = isNormalWhitespace;
           result.append(c);
-        });
+        },
+        apc);
     return result.toString().trim();
   }
 }

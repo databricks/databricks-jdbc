@@ -3,7 +3,9 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.InsertStatementParser;
+import com.databricks.jdbc.common.util.SqlCommentParser;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -72,11 +74,12 @@ class PreparedStatementBatchExecutor {
     if (batchParameterSets.isEmpty()) {
       return new long[0];
     }
-    if (!InsertStatementParser.isParametrizedInsert(sql)) {
+    boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
+    String sqlForDetection = apc ? SqlCommentParser.stripApcCommentsAndWhitespaces(sql) : sql;
+    if (!InsertStatementParser.isParametrizedInsert(sqlForDetection)) {
       return legacyExecutor.executeIndividualStatements(batchParameterSets);
     }
-    if (!connection.getConnectionContext().isNativeBatchingEnabled()
-        || !nativeExecutor.isSupported()) {
+    if (!canUseNativeBatching(batchParameterSets, apc)) {
       return legacyExecutor.executeBatch(batchParameterSets);
     }
     try {
@@ -90,7 +93,20 @@ class PreparedStatementBatchExecutor {
       long[] failedCounts = new long[batchParameterSets.size()];
       Arrays.fill(failedCounts, Statement.EXECUTE_FAILED);
       throw new DatabricksBatchUpdateException(
-          e.getMessage(), e.getSQLState(), e.getErrorCode(), failedCounts, e);
+          apc ? "APC native batch execution failed: [REDACTED]" : e.getMessage(),
+          e.getSQLState(),
+          e.getErrorCode(),
+          failedCounts,
+          apc ? null : e);
+    } catch (RuntimeException e) {
+      long[] failedCounts = new long[batchParameterSets.size()];
+      Arrays.fill(failedCounts, Statement.EXECUTE_FAILED);
+      throw new DatabricksBatchUpdateException(
+          apc ? "APC native batch execution failed: [REDACTED]" : e.getMessage(),
+          DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.name(),
+          DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.getCode(),
+          failedCounts,
+          apc ? null : e);
     }
   }
 
@@ -99,5 +115,17 @@ class PreparedStatementBatchExecutor {
         && "42P02".equals(exception.getSQLState())
         && exception.getMessage() != null
         && exception.getMessage().contains("[UNBOUND_SQL_PARAMETER]");
+  }
+
+  private boolean canUseNativeBatching(List<BatchParameterSet> batchParameterSets, boolean apc) {
+    return connection.getConnectionContext().isNativeBatchingEnabled()
+        && (apc
+                    ? SqlCommentParser.findApcPlaceholderPositions(sql)
+                    : SqlCommentParser.findPlaceholderPositions(sql))
+                .length
+            > 0
+        && batchParameterSets.stream().allMatch(set -> !set.isEmpty())
+        && (!apc || ApcParameterCapabilities.supportsNativeBatch(connection.getSession()))
+        && nativeExecutor.isSupported();
   }
 }

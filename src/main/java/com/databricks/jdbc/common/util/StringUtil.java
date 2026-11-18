@@ -4,20 +4,35 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class StringUtil {
+  /** Preserve the historical rewrite for warehouse and Thrift requests. */
+  public static String convertJdbcEscapeSequencesLegacy(String sql) {
+    return sql.replaceAll("\\{d '([0-9]{4}-[0-9]{2}-[0-9]{2})'\\}", "DATE '$1'")
+        .replaceAll("\\{t '([0-9]{2}:[0-9]{2}:[0-9]{2})'\\}", "TIME '$1'")
+        .replaceAll(
+            "\\{ts '([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?)'\\}",
+            "TIMESTAMP '$1'")
+        .replaceAll("\\{fn ([^}]*)\\}", "$1")
+        .replaceAll("\\{oj ([^}]*)\\}", "$1")
+        .replaceAll("\\{call ([^}]*)\\}", "CALL $1");
+  }
+
   public static String convertJdbcEscapeSequences(String sql) {
     // Replace JDBC escape sequences;
+    sql = replaceInSqlCode(sql, "\\{d '([0-9]{4}-[0-9]{2}-[0-9]{2})'\\}", "DATE '$1'");
+    sql = replaceInSqlCode(sql, "\\{t '([0-9]{2}:[0-9]{2}:[0-9]{2})'\\}", "TIME '$1'");
     sql =
-        sql.replaceAll("\\{d '([0-9]{4}-[0-9]{2}-[0-9]{2})'\\}", "DATE '$1'") // DATE
-            .replaceAll("\\{t '([0-9]{2}:[0-9]{2}:[0-9]{2})'\\}", "TIME '$1'") // TIME
-            .replaceAll(
-                "\\{ts '([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?)'\\}",
-                "TIMESTAMP '$1'") // TIMESTAMP
-            .replaceAll("\\{fn ([^}]*)\\}", "$1") // JDBC function escape sequence
-            .replaceAll("\\{oj ([^}]*)\\}", "$1") // OUTER JOIN escape sequence
-            .replaceAll("\\{call ([^}]*)\\}", "CALL $1"); // Stored Procedure escape sequence
+        replaceInSqlCode(
+            sql,
+            "\\{ts '([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?)'\\}",
+            "TIMESTAMP '$1'");
+    sql = replaceJdbcEscapeBody(sql, "fn ", "");
+    sql = replaceJdbcEscapeBody(sql, "oj ", "");
+    sql = replaceJdbcEscapeBody(sql, "call ", "CALL ");
     return sql;
   }
 
@@ -89,7 +104,65 @@ public class StringUtil {
     }
     // Match whitespace + ESCAPE + whitespace + empty string ('') or ("")
     // followed by delimiter (whitespace, semicolon, end-of-string, closing paren, or comma)
+    return replaceInSqlCode(sql, "(?i)\\s+ESCAPE\\s+['\"]['\"](?=\\s|;|$|\\)|,)", "");
+  }
+
+  /** Preserve the historical rewrite for warehouse and Thrift requests. */
+  public static String removeRedundantEscapeClauseLegacy(String sql) {
+    if (sql == null) {
+      return null;
+    }
     return sql.replaceAll("(?i)\\s+ESCAPE\\s+['\"]['\"](?=\\s|;|$|\\)|,)", "");
+  }
+
+  /** Apply an SQL rewrite only when its match starts in code, outside values and comments. */
+  private static String replaceInSqlCode(String sql, String regex, String replacement) {
+    boolean[] code = sqlCodePositions(sql);
+    Matcher matcher = Pattern.compile(regex).matcher(sql);
+    StringBuffer result = new StringBuffer(sql.length());
+    while (matcher.find()) {
+      matcher.appendReplacement(
+          result, code[matcher.start()] ? replacement : Matcher.quoteReplacement(matcher.group()));
+    }
+    matcher.appendTail(result);
+    return result.toString();
+  }
+
+  /** Find the closing escape brace in SQL code, preserving braces inside values and comments. */
+  private static String replaceJdbcEscapeBody(
+      String sql, String keyword, String replacementPrefix) {
+    boolean[] code = sqlCodePositions(sql);
+    Matcher opener = Pattern.compile("\\{" + keyword).matcher(sql);
+    StringBuilder result = new StringBuilder(sql.length());
+    int last = 0;
+    while (opener.find()) {
+      if (opener.start() < last || !code[opener.start()]) {
+        continue;
+      }
+      int close = opener.end();
+      while (close < sql.length() && (sql.charAt(close) != '}' || !code[close])) {
+        close++;
+      }
+      if (close == sql.length()) {
+        continue;
+      }
+      result.append(sql, last, opener.start());
+      result.append(replacementPrefix).append(sql, opener.end(), close);
+      last = close + 1;
+    }
+    return result.append(sql, last, sql.length()).toString();
+  }
+
+  private static boolean[] sqlCodePositions(String sql) {
+    boolean[] code = new boolean[sql.length()];
+    SqlCommentParser.forEachApcNonCommentChar(
+        sql,
+        (state, c, index) -> {
+          if (index < code.length && state == SqlCommentParser.State.NORMAL) {
+            code[index] = true;
+          }
+        });
+    return code;
   }
 
   /**
