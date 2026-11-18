@@ -21,6 +21,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
@@ -86,6 +87,45 @@ public class ArrowStreamResultTest {
   @BeforeEach
   public void setup() throws Exception {
     setupChunks();
+  }
+
+  @Test
+  public void apcMetadataResultPathsRedactDiagnosticId() throws Exception {
+    String rawId = "private-apc-metadata-result-id";
+    StatementId statementId = new StatementId(rawId).withRedactedDiagnostics();
+    for (String mode : List.of("empty", "inline", "bounded-inline", "remote")) {
+      Properties properties = new Properties();
+      if (mode.equals("bounded-inline")) {
+        properties.setProperty("UseBoundedSeaApi", "1");
+      } else if (mode.equals("remote")) {
+        properties.setProperty("EnableStreamingChunkProvider", "1");
+      }
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContextFactory.create(JDBC_URL, properties);
+      when(session.getConnectionContext()).thenReturn(context);
+      ResultManifest manifest =
+          new ResultManifest()
+              .setTotalChunkCount(mode.equals("remote") ? null : mode.equals("empty") ? 0L : 1L)
+              .setTotalRowCount(mode.equals("empty") ? 0L : 2L)
+              .setResultCompression(CompressionCodec.NONE)
+              .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+      ResultData data = new ResultData();
+      if (mode.contains("inline")) {
+        data.setAttachment(TemporalArrowTestData.create());
+        data.setRowCount(2L);
+      } else if (mode.equals("remote")) {
+        data.setExternalLinks(new ArrayList<>());
+      }
+
+      try (LogCapture logs = new LogCapture()) {
+        ArrowStreamResult result =
+            new ArrowStreamResult(manifest, data, statementId, session, mockHttpClient);
+        result.close();
+        assertFalse(logs.getOutput().contains(rawId), mode);
+        assertTrue(logs.getOutput().contains("[REDACTED]"), mode);
+      }
+    }
+    assertEquals(rawId, statementId.toSQLExecStatementId());
   }
 
   @Test

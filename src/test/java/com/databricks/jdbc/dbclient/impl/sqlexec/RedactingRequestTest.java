@@ -89,6 +89,7 @@ class RedactingRequestTest {
   @Test
   void sdkDebugLogHidesApcTargetWhileTransportReceivesIt() throws Exception {
     String cluster = "secret-cluster-918273";
+    String statementId = "secret-statement-918273";
     String body =
         "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
             + cluster
@@ -98,6 +99,12 @@ class RedactingRequestTest {
         "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
             + cluster
             + "\"}},\"statement\":\"SELECT 'interpolated-secret'\"}";
+    String cancelBody =
+        "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
+            + cluster
+            + "\"}},\"statementId\":\""
+            + statementId
+            + "\"}";
     List<String> wireBodies = new ArrayList<>();
     List<String> wireUrls = new ArrayList<>();
     ApiClient client =
@@ -144,14 +151,36 @@ class RedactingRequestTest {
           new RedactingRequest(Request.POST, "/api/2.0/sql/statements/", interpolatedBody),
           Void.class);
       client.execute(
-          new RedactingRequest(Request.POST, "/api/2.0/sql/statements/id/cancel", body),
+          new RedactingRequest(
+              Request.POST, "/api/2.0/sql/statements/" + statementId + "/cancel", cancelBody),
           Void.class);
       client.execute(
           new RedactingRequest(Request.DELETE, "/api/2.0/sql/sessions/id", body), Void.class);
       client.execute(
           new RedactingRequest(
               Request.GET,
-              "/api/2.0/sql/statements/id?backend_compute.all_purpose_cluster_compute.cluster_id="
+              "/api/2.0/sql/statements/"
+                  + statementId
+                  + "?backend_compute.all_purpose_cluster_compute.cluster_id="
+                  + cluster,
+              null),
+          Void.class);
+      client.execute(
+          new RedactingRequest(
+              Request.GET,
+              "/api/2.0/sql/statements/"
+                  + statementId
+                  + "/result/chunks/2?row_offset=3&"
+                  + "backend_compute.all_purpose_cluster_compute.cluster_id="
+                  + cluster,
+              null),
+          Void.class);
+      client.execute(
+          new RedactingRequest(
+              Request.DELETE,
+              "/api/2.0/sql/statements/"
+                  + statementId
+                  + "?backend_compute.all_purpose_cluster_compute.cluster_id="
                   + cluster,
               null),
           Void.class);
@@ -159,14 +188,19 @@ class RedactingRequestTest {
       logger.removeHandler(handler);
       logger.setLevel(previousLevel);
     }
-    assertEquals(6, wireBodies.size());
-    for (int i : List.of(0, 1, 3, 4)) {
+    assertEquals(8, wireBodies.size());
+    for (int i : List.of(0, 1, 4)) {
       assertEquals(body, wireBodies.get(i));
     }
     assertEquals(interpolatedBody, wireBodies.get(2));
+    assertEquals(cancelBody, wireBodies.get(3));
     assertTrue(wireUrls.get(5).contains(cluster));
+    assertTrue(wireUrls.get(5).contains(statementId));
+    assertTrue(wireUrls.get(6).contains(statementId));
+    assertTrue(wireUrls.get(7).contains(statementId));
     assertTrue(logged.toString().contains("[REDACTED]"));
     assertFalse(logged.toString().contains(cluster));
+    assertFalse(logged.toString().contains(statementId));
     assertFalse(logged.toString().contains("native-secret"));
     assertFalse(logged.toString().contains("batch-secret"));
     assertFalse(logged.toString().contains("interpolated-secret"));

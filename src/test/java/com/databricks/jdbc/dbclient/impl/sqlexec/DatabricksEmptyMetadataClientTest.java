@@ -5,8 +5,11 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.dbclient.MetadataAsyncRequest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +26,19 @@ public class DatabricksEmptyMetadataClientTest {
   @BeforeEach
   void setUp() {
     mockClient = new DatabricksEmptyMetadataClient(ctx);
+  }
+
+  @Test
+  void asyncMetadataIsExplicitlyUnsupported() {
+    SQLFeatureNotSupportedException error =
+        assertThrows(
+            SQLFeatureNotSupportedException.class,
+            () -> mockClient.executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), session));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), error.getErrorCode());
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> mockClient.getMetadataExecutionResult(null, session));
   }
 
   @Test

@@ -25,6 +25,7 @@ public class StatementId {
   private final String sessionId;
   private final String warehouseId;
   private final AllPurposeCluster apc;
+  private final boolean redactDiagnostics;
 
   StatementId(DatabricksClientType clientType, String guid, String secret) {
     this(clientType, guid, secret, null, null, null);
@@ -37,12 +38,24 @@ public class StatementId {
       String sessionId,
       String warehouseId,
       AllPurposeCluster apc) {
+    this(clientType, guid, secret, sessionId, warehouseId, apc, false);
+  }
+
+  private StatementId(
+      DatabricksClientType clientType,
+      String guid,
+      String secret,
+      String sessionId,
+      String warehouseId,
+      AllPurposeCluster apc,
+      boolean redactDiagnostics) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
     this.sessionId = sessionId;
     this.warehouseId = warehouseId;
     this.apc = apc;
+    this.redactDiagnostics = redactDiagnostics;
   }
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
@@ -84,6 +97,11 @@ public class StatementId {
 
   public IDatabricksComputeResource computeResource() {
     return apc;
+  }
+
+  /** Retains the real ID for requests while hiding it from result-path diagnostics. */
+  public StatementId withRedactedDiagnostics() {
+    return new StatementId(clientType, guid, secret, sessionId, warehouseId, apc, true);
   }
 
   public DatabricksClientType clientType() {
@@ -173,7 +191,9 @@ public class StatementId {
 
   /** Returns the public identifier for diagnostics, without the serialized Thrift secret. */
   public static String loggableStatementId(StatementId statementId) {
-    return statementId == null ? null : statementId.toSQLExecStatementId();
+    return statementId == null
+        ? null
+        : statementId.redactDiagnostics ? "[REDACTED]" : statementId.toSQLExecStatementId();
   }
 
   @Override

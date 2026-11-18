@@ -125,7 +125,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     this.executionStatus = new ExecutionStatus(statementStatus);
-    this.statementId = statementId;
+    this.statementId =
+        statementId != null
+                && statementType == StatementType.METADATA
+                && statementId.computeResource() != null
+            ? statementId.withRedactedDiagnostics()
+            : statementId;
     this.thriftNativeMetadataResult =
         resultManifest != null && Boolean.TRUE.equals(resultManifest.getIsNativeMetadataResult());
     // APC polling may return the manifest before it includes a result page. Its provider
@@ -135,10 +140,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
             && resultManifest.getFormat() == SqlExecResultFormat.ARROW_BATCH)) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(
-              resultData, resultManifest, statementId, session, parentStatement);
+              resultData, resultManifest, this.statementId, session, parentStatement);
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
-              statementId,
+              this.statementId,
               resultManifest,
               resultData != null && resultData.getExternalLinks() != null,
               session.getConnectionContext());

@@ -11,7 +11,15 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
 
   public DatabricksTimeoutException(
       String reason, Throwable cause, DatabricksDriverErrorCode internalError) {
-    super(reason, internalError.toString(), cause);
+    this(reason, cause, internalError, false);
+  }
+
+  public DatabricksTimeoutException(
+      String reason,
+      Throwable cause,
+      DatabricksDriverErrorCode internalError,
+      boolean includeVendorCode) {
+    super(reason, internalError.toString(), includeVendorCode ? internalError.getCode() : 0, cause);
     TelemetryHelper.exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         internalError.name(),
