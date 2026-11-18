@@ -121,6 +121,26 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void supportsBatchUpdates_returnsTrueWhenNativeBatchingEnabled() throws Exception {
+    String urlWithNativeBatching =
+        WAREHOUSE_JDBC_URL + ";EnableNativeBatching=1;EnableBatchedInserts=0";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithNativeBatching, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsTrueWhenBothStrategiesEnabled() throws Exception {
+    String urlWithBothStrategies =
+        WAREHOUSE_JDBC_URL + ";EnableNativeBatching=1;EnableBatchedInserts=1";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithBothStrategies, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
+  }
+
+  @Test
   public void getDatabaseMajorVersion_returnsCorrectVersion() throws Exception {
     int majorVersion = metaData.getDatabaseMajorVersion();
     assertEquals(3, majorVersion);
