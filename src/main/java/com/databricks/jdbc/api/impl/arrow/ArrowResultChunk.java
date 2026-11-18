@@ -21,6 +21,7 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Map;
@@ -188,7 +189,11 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     // HTTP client exceptions can embed the presigned URL. Keep both the public exception chain
     // and driver logs free of the bearer path and query.
     Exception safeCause =
-        chunkLink == null ? exception : new IOException(exception.getClass().getSimpleName());
+        chunkLink == null
+            ? exception
+            : exception instanceof SocketTimeoutException
+                ? new SocketTimeoutException("SocketTimeoutException")
+                : new IOException(exception.getClass().getSimpleName());
     errorMessage =
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
