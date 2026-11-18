@@ -1,11 +1,12 @@
 {
-  "captured_utc_date": "2026-11-15",
+  "captured_utc": "2026-11-18T08:20:49.296636+00:00",
   "target_http_path_kind": "APC",
-  "target_region": null,
-  "target_runtime": null,
+  "target_region": "aws-us-west-2 staging",
+  "target_runtime": "19.x-photon-scala2.13",
+  "target_profile": "benchmarking-staging-aws-us-west-2",
   "safe_flag_name": "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
   "live_safe_flags_get_config_found": false,
-  "connection_attempts": [
+  "prior_2026_11_15_connection_attempts": [
     {
       "UseThriftClient": "0",
       "observed_protocol": null,
@@ -25,8 +26,71 @@
       "vendor_code": 0
     }
   ],
-  "ac27_live_running_poll_count": null,
-  "ac27_live_running_result_payload_bytes": null,
-  "ac27_live_terminal_row_count": null,
-  "release_ready": false
+  "connection_attempts": [
+    {
+      "UseThriftClient": "0",
+      "observed_protocol": "SEA_APC",
+      "query": "SELECT 1 AS validation_value",
+      "outcome": "pass"
+    },
+    {
+      "UseThriftClient": "1",
+      "observed_protocol": "THRIFT",
+      "query": "SELECT 1 AS validation_value",
+      "outcome": "pass"
+    }
+  ],
+  "live_checks": {
+    "type_parity": {
+      "result": "pass",
+      "columns": 10,
+      "jdbc_type_codes_and_value_classes_match": true,
+      "matching_jdbc_type_code_and_value_class_sequence": [
+        "16:Boolean",
+        "4:Integer",
+        "-5:Long",
+        "3:BigDecimal",
+        "12:String",
+        "91:Date",
+        "93:Timestamp",
+        "2003:String",
+        "12:String",
+        "2002:String"
+      ]
+    },
+    "prepared_scalar": {
+      "result": "pass",
+      "protocols": [
+        "SEA_APC",
+        "THRIFT"
+      ],
+      "bound_value": 987654321
+    },
+    "large_sea_result": {
+      "result": "pass",
+      "rows": 100000,
+      "ordered_ids": true,
+      "checksum": 4999950000,
+      "direct_results": false
+    },
+    "sea_query_timeout": {
+      "result": "pass",
+      "sql_state": "STATEMENT_EXECUTION_TIMEOUT",
+      "exception_type": "DatabricksTimeoutException"
+    }
+  },
+  "ac27_live_running_poll_count": 5,
+  "ac27_live_pending_poll_count": 0,
+  "ac27_live_terminal_poll_count": 1,
+  "ac27_live_running_result_payload_fields": 0,
+  "ac27_live_running_result_payload_bytes": 0,
+  "ac27_live_terminal_row_count": 100000,
+  "ac27_live_terminal_checksum": 4999950000,
+  "ac27_measurement_method": "temporary Java 11 ApiClient delegate counted deserialized GetStatementResult states and payload fields; driver ResultSet checked every ordered row and checksum",
+  "pending_gates": {
+    "flag_assignment": "live SAFE found=false; no flag ON/OFF assignment dogfood authorized",
+    "sc_deployment": "SC fixes not yet deployed; AC5, AC8, and AC3 TerminateSession dogfood pending"
+  },
+  "release_ready": false,
+  "ac27_query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled"
 }

@@ -1,7 +1,7 @@
 {
   "command": "mvn test -pl jdbc-core -am",
   "commit_under_test": "07a50400",
-  "captured_utc": "2026-11-15T07:08:02.593817+00:00",
+  "captured_utc": "2026-11-18T08:26:57.312897+00:00",
   "summary": {
     "tests": 4371,
     "failures": 0,
