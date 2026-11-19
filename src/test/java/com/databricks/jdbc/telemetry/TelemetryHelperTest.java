@@ -120,6 +120,10 @@ public class TelemetryHelperTest {
       when(connectionContext.getComputeResource()).thenReturn(new Warehouse("private-warehouse"));
       when(connectionContext.getClientType()).thenReturn(DatabricksClientType.THRIFT);
       TelemetryHelper.exportConnectionRouting(connectionContext, true);
+      when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.ERROR);
+      TelemetryHelper.exportConnectionRouting(connectionContext, true);
+      verify(client, times(2)).exportEvent(any());
+      when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.DEBUG);
       when(connectionContext.getComputeResource())
           .thenReturn(new AllPurposeCluster("private-org", "private-cluster"));
       when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);

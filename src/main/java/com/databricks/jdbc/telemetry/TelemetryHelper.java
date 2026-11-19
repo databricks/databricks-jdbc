@@ -95,7 +95,8 @@ public class TelemetryHelper {
       return;
     }
     try {
-      if (!isTelemetryAllowedForConnection(connectionContext)) {
+      if (!isTelemetryAllowedForConnection(connectionContext)
+          || TelemetryLogLevel.INFO.toInt() > connectionContext.getTelemetryLogLevel().toInt()) {
         return;
       }
       String reason =

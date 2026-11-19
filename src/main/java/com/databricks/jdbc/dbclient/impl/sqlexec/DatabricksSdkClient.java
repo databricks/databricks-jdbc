@@ -883,11 +883,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
     StatementState responseState = response.getStatus().getState();
     try {
-      if (apc) {
-        timeoutHandler.checkTimeout();
-      }
+      // Only enforce the deadline while the statement is still in flight. A already-SUCCEEDED APC
+      // response (for example a committed write) must not be reported as a timeout.
       while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
-        // Check for timeout
         timeoutHandler.checkTimeout();
 
         if (pollCount > 0) { // First poll happens without a delay
