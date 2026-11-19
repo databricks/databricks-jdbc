@@ -183,7 +183,9 @@ including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` valu
 absent, or lookup failure → Thrift). The explicit setting's precedence over the metadata parameter
 matches warehouse behavior, but Arrow-first is APC-specific: warehouse routing remains unchanged
 and still lets explicit `UseThriftClient=0` select SEA before its Arrow check.
-`enableSqlExecForJdbc` has no effect on APC routing. This applies to HTTP paths with a concrete
+`enableSqlExecForJdbc` has no effect on APC routing. When explicit `UseThriftClient=0` selects SEA
+alongside `TreatMetadataCatalogNameAsPattern=1`, the Thrift-only property is ignored and metadata uses
+normal SEA SHOW-command semantics. This applies to HTTP paths with a concrete
 `/o/<org>/<cluster>` target; the legacy `cliservice` path has only placeholder `default` ids and
 continues on Thrift rather than sending an invalid APC SEA target.
 - R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
@@ -333,7 +335,9 @@ an APC routing decision either.
 - R8: Telemetry and logs identify the compute type (APC vs warehouse) and the chosen protocol for
 each connection attempt, including its routing reason and success or failure outcome. Emit a
 routing event even when APC SEA CreateSession, APC Thrift OpenSession, warehouse SEA CreateSession,
-or warehouse Thrift OpenSession fails. APC SEA diagnostics,
+or warehouse Thrift OpenSession fails. When explicit `UseThriftClient=0` selects SEA alongside
+`TreatMetadataCatalogNameAsPattern=1`, the driver logs that the Thrift-only metadata property has no
+effect under SEA. APC SEA diagnostics,
 including existing execute logs and session stringification, must not print org/cluster ids or
 compound session/statement ids; use a redacted compute-type label instead.
 - R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient`, `SessionId`, and
@@ -341,9 +345,12 @@ compound session/statement ids; use a redacted compute-type label instead.
 client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
 SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
 id: sessions use `s|a|orgId|clusterId|sessionId|protocolVersion-or--`, and statements use
-`s|a|orgId|clusterId|statementId`. The `-` marker preserves an absent protocol version. Parsing
-remains backward-compatible with existing warehouse `s|warehouseId|sessionId[|r]` and raw SEA
-statement ids. The compound session form is also returned by the public
+`s|a|orgId|clusterId|statementId`. The `-` marker preserves an absent protocol version. Dispatch
+is by prefix: any identifier whose first two segments are exactly `s|a` uses the APC grammar only,
+never the warehouse grammar. Session ids must have exactly six segments and statement ids exactly
+five; any other count, or an empty segment, raises the malformed-id error (`SESSION_ID_PARSING_EXCEPTION`
+for sessions). Parsing of all other identifiers remains backward-compatible with existing warehouse
+`s|warehouseId|sessionId[|r]` and raw SEA statement ids. The compound session form is also returned by the public
 `IDatabricksConnection.getConnectionId()` API so callers can later close that session; the
 compound statement form is internal routing serialization only: use a separate
 internal statement-id serializer. `StatementId.toString()`, `toSQLExecStatementId()`, and public
@@ -846,7 +853,7 @@ propagate without fallback.
    `EnableQueryResultDownload=0` by setting CreateSession session config
    `can_cloud_download=false`. Select the APC format/disposition and set this session config via
    an explicit APC compute-type check, not `isBoundedSeaApiEnabled`. Gate the inline-only
-   dogfood inline-only assertion on deployment of the external SC fix.
+   dogfood assertion on deployment of the external SC fix.
 5. APC result decoding: add `ArrowBatch { batch, row_count }` and repeated
    `ResultData.arrow_batches` for inline chunks, plus an `ArrowBatchSchemaBuilder` that converts
    `manifest.schema` (`type_text`/`type_json`) into an Arrow `Schema`. Decompress each LZ4 batch
@@ -909,8 +916,8 @@ propagate without fallback.
    native parameters at ≥ 42248, and `parameter_sets` for parameterized INSERTs only at ≥ 42250
    with `EnableNativeBatching=1` and an APC-capable `NativeBatchExecutor`. Wire that executor into
    `DatabricksPreparedStatement` through an `IDatabricksClient` method that accepts ordered
-   `List<BatchParameterSet>` with the current session/statement context and returns one `long`
-   update count per set. Call it through `session.getDatabricksClient()` so the
+   `List<BatchParameterSet>` with the current session/statement context and returns the JDBC count
+   array with one `Statement.SUCCESS_NO_INFO` per set (the native response has no per-set counts). Call it through `session.getDatabricksClient()` so the
    `DatabricksSession` proxy exposes it; implement its SEA behavior and a clear unsupported
    Thrift behavior. Native request serialization puts each set in a nested
    `parameter_sets[].parameters` array and omits top-level `parameters`. For one successful native
@@ -1141,8 +1148,9 @@ implementation review; its completion includes external dogfood gates.
 - [ ] T4: Replace the `AllPurposeCluster → THRIFT` early return in `getClientTypeFromContext`
   with Arrow prerequisite > explicit `UseThriftClient` >
   `TreatMetadataCatalogNameAsPattern=1` > APC flag routing. Keep `UseBoundedSeaApi` out of APC
-  protocol selection; preserve Thrift for the legacy `cliservice` placeholder path (R1, R7;
-  AC1, AC7, AC8, AC19, AC20, AC21).
+  protocol selection. When explicit `UseThriftClient=0` selects SEA, ignore the Thrift-only property
+  and log that it has no effect. Preserve Thrift for the legacy `cliservice` placeholder path (R1, R7,
+  R8; AC1, AC7, AC8, AC19, AC20, AC21).
 - [ ] T5: Persist client type and `negotiated_protocol_version` from CreateSession into
   `SessionInfo`, including through APC `SessionId` reconstruction. Keep the reconstructed
   version diagnostic only; use the live CreateSession response for native capability decisions and
@@ -1168,7 +1176,8 @@ implementation review; its completion includes external dogfood gates.
 - [ ] T9: Gate APC native parameters at ≥ 42248 and `parameter_sets` for parameterized INSERTs
   at ≥ 42250 with `EnableNativeBatching=1` and a supported `NativeBatchExecutor`; wire that
   executor into `DatabricksPreparedStatement` through a callable `IDatabricksClient` method
-  accepting ordered `List<BatchParameterSet>` and returning per-set counts, available on the
+  accepting ordered `List<BatchParameterSet>` and returning the per-set count array (all
+  `SUCCESS_NO_INFO` on success, per R6), available on the
   `DatabricksSession` proxy; test the proxy call, implement SEA `parameter_sets` behavior and an
   explicit unsupported Thrift implementation. Model and serialize `parameter_sets` as an ordered
   array of `{"parameters":[...]}` objects, and ensure the native request builder does not
