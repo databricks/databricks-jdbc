@@ -231,6 +231,26 @@ class ColumnarDataResultTest {
   }
 
   @Test
+  void presentValuesWrapperWithOmittedListIsEmpty() throws Exception {
+    ColumnarDataResult result =
+        new ColumnarDataResult(
+            null, chunk(new ColumnVector().setI32Values(new ColumnVector.Values<>())));
+    assertEquals(0, result.getRowCount());
+    assertFalse(result.next());
+    result.close();
+  }
+
+  @Test
+  void multiChunkColumnarResultIsRejected() {
+    ResultData data =
+        chunk(new ColumnVector().setI32Values(values(List.of(1)))).setNextChunkIndex(1L);
+    DatabricksSQLException error =
+        assertThrows(DatabricksSQLException.class, () -> new ColumnarDataResult(null, data));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+    assertTrue(error.getMessage().contains("Multi-chunk"));
+  }
+
+  @Test
   void logicalStringVectorsMatchJdbcTypesAndValues() throws Exception {
     when(session.getConnectionContext()).thenReturn(context);
     when(context.isComplexDatatypeSupportEnabled()).thenReturn(true);

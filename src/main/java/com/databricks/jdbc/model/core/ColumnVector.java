@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -155,15 +156,20 @@ public class ColumnVector {
   /** Returns the sole physical values arm, or null for an unsupported or missing arm. */
   @JsonIgnore
   public List<?> getValues() {
-    if (boolValues != null) return boolValues.getValues();
-    if (byteValues != null) return byteValues.getValues();
-    if (i16Values != null) return i16Values.getValues();
-    if (i32Values != null) return i32Values.getValues();
-    if (i64Values != null) return i64Values.getValues();
-    if (doubleValues != null) return doubleValues.getValues();
-    if (stringValues != null) return stringValues.getValues();
-    if (binaryValues != null) return binaryValues.getValues();
+    // Proto3 JSON omits empty repeated fields, so a present wrapper can have null values.
+    if (boolValues != null) return emptyIfNull(boolValues.getValues());
+    if (byteValues != null) return emptyIfNull(byteValues.getValues());
+    if (i16Values != null) return emptyIfNull(i16Values.getValues());
+    if (i32Values != null) return emptyIfNull(i32Values.getValues());
+    if (i64Values != null) return emptyIfNull(i64Values.getValues());
+    if (doubleValues != null) return emptyIfNull(doubleValues.getValues());
+    if (stringValues != null) return emptyIfNull(stringValues.getValues());
+    if (binaryValues != null) return emptyIfNull(binaryValues.getValues());
     return null;
+  }
+
+  private static <T> List<T> emptyIfNull(List<T> values) {
+    return values == null ? Collections.emptyList() : values;
   }
 
   public Object getValue(int row) {

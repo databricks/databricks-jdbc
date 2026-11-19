@@ -22,6 +22,14 @@ public class ColumnarDataResult implements IExecutionResult {
     if (columnarData == null) {
       throw invalid("Missing columnar_data in SEA result");
     }
+    // Inline columnar reading covers a single chunk only; refuse silent truncation.
+    if (data.getNextChunkIndex() != null
+        || (data.getNextChunkInternalLink() != null && !data.getNextChunkInternalLink().isEmpty())
+        || (manifest != null
+            && manifest.getTotalChunkCount() != null
+            && manifest.getTotalChunkCount() > 1)) {
+      throw invalid("Multi-chunk columnar results are not supported");
+    }
     columns =
         columnarData.getColumns() == null ? Collections.emptyList() : columnarData.getColumns();
     if (manifest != null
