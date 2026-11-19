@@ -48,6 +48,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
           });
   private ArrowResultChunk current;
   private ArrowResultChunk downloadWorkerChunk;
+  private Future<Void> inFlightDownload;
   private DatabricksSQLException terminalFailure;
   private Long nextChunkIndex;
   private long nextRowOffset;
@@ -195,6 +196,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
                     }
                   }
                 });
+        inFlightDownload = download;
       }
     }
     if (download != null) {
@@ -217,6 +219,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
+        download.cancel(true);
         throw failDownload(
             new DatabricksSQLException(
                 "Interrupted downloading APC result chunk",
@@ -384,6 +387,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   public void close() {
     ArrowResultChunk active;
     ArrayDeque<ArrowResultChunk> abandoned;
+    Future<Void> download;
     synchronized (stateLock) {
       if (closed) {
         return;
@@ -393,6 +397,13 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
       current = null;
       abandoned = new ArrayDeque<>(pending);
       pending.clear();
+      download = inFlightDownload;
+      inFlightDownload = null;
+    }
+    // shutdownNow() drops a queued task without completing its future, which would leave a
+    // concurrent next() blocked in get().
+    if (download != null) {
+      download.cancel(true);
     }
     downloadExecutor.shutdownNow();
     try {

@@ -37,6 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -448,6 +449,106 @@ class ApcArrowBatchChunkProviderTest {
       }
       assertEquals(ChunkStatus.CHUNK_RELEASED, chunk.getStatus());
       assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
+    } finally {
+      finish.countDown();
+      provider.close();
+    }
+  }
+
+  @Test
+  void interruptedNextCancelsTheInFlightDownload() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    CountDownLatch started = new CountDownLatch(1);
+    CountDownLatch workerInterrupted = new CountDownLatch(1);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              try {
+                TimeUnit.SECONDS.sleep(30);
+              } catch (InterruptedException e) {
+                workerInterrupted.countDown();
+                Thread.currentThread().interrupt();
+              }
+              throw new IOException("download interrupted");
+            });
+    ResultData initial =
+        new ResultData()
+            .setExternalLinks(
+                List.of(link("https://storage.example.test/chunk?sig=secret", 0, 0, 1, null)));
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(initial, manifest(CompressionCodec.NONE), ID, session, http);
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    Thread caller =
+        new Thread(
+            () -> {
+              try {
+                provider.next();
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            });
+    try {
+      caller.start();
+      assertTrue(started.await(5, TimeUnit.SECONDS));
+      caller.interrupt();
+      caller.join(5000);
+
+      assertTrue(workerInterrupted.await(5, TimeUnit.SECONDS));
+      assertEquals(
+          DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.name(),
+          ((DatabricksSQLException) failure.get()).getSQLState());
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void closeUnblocksNextWhenTheDownloadIgnoresInterrupts() throws Exception {
+    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
+    CountDownLatch started = new CountDownLatch(1);
+    CountDownLatch finish = new CountDownLatch(1);
+    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
+    when(http.execute(any(HttpUriRequest.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              boolean released = false;
+              while (!released) {
+                try {
+                  finish.await();
+                  released = true;
+                } catch (InterruptedException ignored) {
+                  // Simulates a download that does not stop on cancellation.
+                }
+              }
+              throw new IOException("late download failure");
+            });
+    ResultData initial =
+        new ResultData()
+            .setExternalLinks(
+                List.of(link("https://storage.example.test/chunk?sig=secret", 0, 0, 1, null)));
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(initial, manifest(CompressionCodec.NONE), ID, session, http);
+    AtomicReference<Boolean> hasRow = new AtomicReference<>();
+    Thread caller =
+        new Thread(
+            () -> {
+              try {
+                hasRow.set(provider.next());
+              } catch (Exception e) {
+                hasRow.set(null);
+              }
+            });
+    try {
+      caller.start();
+      assertTrue(started.await(5, TimeUnit.SECONDS));
+      provider.close();
+      caller.join(5000);
+
+      assertFalse(caller.isAlive());
+      assertEquals(Boolean.FALSE, hasRow.get());
     } finally {
       finish.countDown();
       provider.close();

@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -23,7 +24,10 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.input.CloseShieldInputStream;
 import org.apache.commons.io.input.CountingInputStream;
@@ -34,6 +38,7 @@ import org.apache.http.client.utils.URIBuilder;
 public class ArrowResultChunk extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
   private final IDatabricksConnectionContext connectionContext;
+  private volatile int failedHttpStatus;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     super(
@@ -83,6 +88,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
       throws DatabricksParsingException, IOException {
     CloseableHttpResponse response = null;
+    failedHttpStatus = 0;
     long startTime = System.nanoTime();
     try {
       HttpGet getRequest;
@@ -95,7 +101,12 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
-      checkHTTPError(response);
+      try {
+        checkHTTPError(response);
+      } catch (DatabricksHttpException e) {
+        failedHttpStatus = response.getStatusLine().getStatusCode();
+        throw e;
+      }
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
 
       // Record chunk download latency telemetry
@@ -193,7 +204,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
             ? exception
             : exception instanceof SocketTimeoutException
                 ? new SocketTimeoutException("SocketTimeoutException")
-                : new IOException(exception.getClass().getSimpleName());
+                : new IOException(sanitizedDescription(exception));
     errorMessage =
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
@@ -201,6 +212,29 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(errorMessage, safeCause, failedStatus.toString());
+  }
+
+  // Exception messages can embed the presigned URL, so only the class name and numeric codes
+  // survive.
+  private String sanitizedDescription(Exception exception) {
+    StringBuilder description = new StringBuilder(exception.getClass().getSimpleName());
+    List<String> details = new ArrayList<>();
+    if (failedHttpStatus != 0) {
+      details.add("httpStatus=" + failedHttpStatus);
+    }
+    if (exception instanceof SQLException) {
+      SQLException sqlException = (SQLException) exception;
+      if (sqlException.getSQLState() != null) {
+        details.add("sqlState=" + sqlException.getSQLState());
+      }
+      if (sqlException.getErrorCode() != 0) {
+        details.add("errorCode=" + sqlException.getErrorCode());
+      }
+    }
+    if (!details.isEmpty()) {
+      description.append(" [").append(String.join(", ", details)).append("]");
+    }
+    return description.toString();
   }
 
   private static InterruptedIOException cancellation(Exception cause) {

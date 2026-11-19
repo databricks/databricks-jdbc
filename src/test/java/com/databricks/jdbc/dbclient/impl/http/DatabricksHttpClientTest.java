@@ -89,6 +89,21 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  void genericFailureNamesExceptionTypeWithoutExposingPath() throws Exception {
+    String secret = "org-secret/cluster-secret/path-token";
+    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
+    when(mockHttpClient.execute(request))
+        .thenThrow(new java.net.SocketException("reset at " + secret));
+
+    DatabricksHttpException error =
+        assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
+
+    assertTrue(error.getMessage().contains("SocketException"));
+    assertFalse(error.getMessage().contains(secret));
+    assertFalse(error.getMessage().contains("query-secret"));
+  }
+
+  @Test
   void presignedRetryFailureDoesNotReturnPath() throws Exception {
     String secret = "org-secret/cluster-secret/path-token";
     HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");

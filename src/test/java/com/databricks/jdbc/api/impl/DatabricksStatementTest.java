@@ -102,6 +102,88 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void sessionTimeZoneSetByAcceptsSparkIntervalForms() {
+    for (String interval :
+        new String[] {
+          "INTERVAL '08:00' HOUR TO MINUTE",
+          "INTERVAL '-8' HOUR",
+          "interval 2 hours",
+          "INTERVAL -8 HOURS",
+          "INTERVAL 5 HOURS 30 MINUTES",
+          "INTERVAL\n2 HOURS"
+        }) {
+      assertEquals(
+          interval,
+          DatabricksStatement.sessionTimeZoneSetBy("SET TIME ZONE " + interval + ";"),
+          interval);
+    }
+    assertEquals("UTC", DatabricksStatement.sessionTimeZoneSetBy("SET TIME ZONE UTC"));
+  }
+
+  @Test
+  public void setTimeZoneIntervalWithoutQuotesReadsTheEffectiveServerZone() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    DatabricksConnection connection = spy(new DatabricksConnection(context, client));
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    Statement zoneStatement = mock(Statement.class);
+    ResultSet zoneResult = mock(ResultSet.class);
+    doReturn(zoneStatement).when(connection).createStatement();
+    when(zoneStatement.executeQuery("SELECT current_timezone()")).thenReturn(zoneResult);
+    when(zoneResult.next()).thenReturn(true);
+    when(zoneResult.getString(1)).thenReturn("+02:00");
+    String sql = "SET TIME ZONE INTERVAL 2 HOURS";
+    when(client.executeStatement(
+            eq(sql),
+            eq(APC_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    assertEquals("+02:00", connection.getSession().getSessionConfigs().get("timezone"));
+    verify(zoneStatement).executeQuery("SELECT current_timezone()");
+  }
+
+  @Test
+  public void openResolvesServerTimeZoneWhenNoneIsConfigured() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    DatabricksConnection connection = spy(new DatabricksConnection(context, client));
+    Statement zoneStatement = mock(Statement.class);
+    ResultSet zoneResult = mock(ResultSet.class);
+    doReturn(zoneStatement).when(connection).createStatement();
+    when(zoneStatement.executeQuery("SELECT current_timezone()")).thenReturn(zoneResult);
+    when(zoneResult.next()).thenReturn(true);
+    when(zoneResult.getString(1)).thenReturn("America/Los_Angeles");
+
+    connection.resolveApcSessionTimeZone();
+
+    assertEquals(
+        "America/Los_Angeles", connection.getSession().getSessionConfigs().get("timezone"));
+  }
+
+  @Test
+  public void openKeepsConfiguredTimeZoneAndToleratesLookupFailure() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    DatabricksConnection configured = spy(new DatabricksConnection(context, client));
+    configured.getSession().setSessionConfig("TIMEZONE", "Asia/Tokyo");
+
+    configured.resolveApcSessionTimeZone();
+
+    verify(configured, never()).createStatement();
+
+    DatabricksConnection failing = spy(new DatabricksConnection(context, client));
+    doThrow(new SQLException("boom")).when(failing).createStatement();
+
+    failing.resolveApcSessionTimeZone();
+
+    assertNull(failing.getSession().getSessionConfigs().get("timezone"));
+  }
+
+  @Test
   public void setTimeZoneLocalReadsTheEffectiveServerZone() throws Exception {
     IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
