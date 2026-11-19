@@ -60,6 +60,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
@@ -2535,7 +2536,7 @@ public class DatabricksSdkClientTest {
                 .sessionId("session")
                 .computeResource(new AllPurposeCluster("org", "cluster"))
                 .build());
-    assertFalse(client.checkStatementAlive(id));
+    assertThrows(SQLFeatureNotSupportedException.class, () -> client.checkStatementAlive(id));
     verifyNoInteractions(apiClient);
   }
 
