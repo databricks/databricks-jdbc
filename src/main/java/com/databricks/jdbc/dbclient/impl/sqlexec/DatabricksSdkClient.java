@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -394,13 +395,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         suppliedRequest != null
             ? suppliedRequest
             : getRequest(
-                statementType,
-                sql,
-                computeResource,
-                session,
-                parameters,
-                parentStatement,
-                false);
+                statementType, sql, computeResource, session, parameters, parentStatement, false);
     ExecuteStatementResponse response;
     try {
       Request req =
@@ -576,12 +571,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         computeResource);
     ExecuteStatementRequest request =
         getBatchRequest(
-            statementType,
-            sql,
-            ((Warehouse) computeResource).getWarehouseId(),
-            session,
-            parameterSets,
-            parentStatement);
+            statementType, sql, computeResource, session, parameterSets, parentStatement);
     return executeStatement(
         sql,
         computeResource,
@@ -654,8 +644,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public boolean checkStatementAlive(StatementId typedStatementId) throws SQLException {
     if (typedStatementId.computeResource() != null) {
-      LOGGER.debug("Result heartbeat is unsupported for all-purpose cluster SEA statements");
-      return false;
+      // Returning false would be read as a terminal state; callers stop the heartbeat on
+      // SQLFeatureNotSupportedException instead.
+      throw new SQLFeatureNotSupportedException(
+          "Result heartbeat is unsupported for all-purpose cluster SEA statements");
     }
     String statementId = typedStatementId.toSQLExecStatementId();
     // Use lightweight /status endpoint (~100 bytes) instead of full GetStatement (~21KB)
@@ -1045,7 +1037,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private ExecuteStatementRequest getBatchRequest(
       StatementType statementType,
       String sql,
-      String warehouseId,
+      IDatabricksComputeResource computeResource,
       IDatabricksSession session,
       List<BatchParameterSet> parameterSets,
       IDatabricksStatementInternal parentStatement)
@@ -1054,7 +1046,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         getRequest(
             statementType,
             sql,
-            warehouseId,
+            computeResource,
             session,
             Collections.emptyMap(),
             parentStatement,
