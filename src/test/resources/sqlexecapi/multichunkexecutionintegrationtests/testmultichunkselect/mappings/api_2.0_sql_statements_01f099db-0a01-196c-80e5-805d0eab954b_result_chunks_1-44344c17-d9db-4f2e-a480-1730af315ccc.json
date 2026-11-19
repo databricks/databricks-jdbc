@@ -2,7 +2,16 @@
   "id" : "44344c17-d9db-4f2e-a480-1730af315ccc",
   "name" : "api_2.0_sql_statements_01f099db-0a01-196c-80e5-805d0eab954b_result_chunks_1",
   "request" : {
-    "url" : "/api/2.0/sql/statements/01f099db-0a01-196c-80e5-805d0eab954b/result/chunks/1",
+    "urlPath" : "/api/2.0/sql/statements/01f099db-0a01-196c-80e5-805d0eab954b/result/chunks/1",
+    "queryParameters" : {
+      "row_offset" : {
+        "or" : [ {
+          "equalTo" : "122880"
+        }, {
+          "absent" : true
+        } ]
+      }
+    },
     "method" : "GET"
   },
   "response" : {
