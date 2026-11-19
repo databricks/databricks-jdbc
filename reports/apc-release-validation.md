@@ -2,6 +2,16 @@
 
 Validation target: JDBC commit `07a50400` on `jay-xiao/factory/apc-sea/apc-release-validation`, checked on 2026-11-15 and 2026-11-18 UTC. This is evidence only; no driver behavior changed in this package.
 
+## Post-review integration gate, 2026-11-19
+
+The throwaway integration tree merged `origin/main` (`5d2d5c5f`), the v2 validation leaf (`ec310015`), and the pushed spec head (`321fa349`). All seven JDBC package heads were clean, matched their remote tips, and contained `origin/main`; each child contained its parent head. No implementation rebase or conflict resolution was needed.
+
+- `mvn -q spotless:check` passed, and `git diff --check origin/main` found no whitespace errors.
+- `mvn -q test` ran the complete JDBC core suite: 4,487 tests in 228 suites, zero failures, zero errors, and 88 skipped. The root reactor then stopped in `test-databricks-jdbc-thin` test compilation because the relocated Arrow class is produced during package-phase shading.
+- `mvn -q install -DskipTests -Ddependency-check.skip=true` passed, creating and installing the current thin and uber artifacts. The dependency-check skip avoids an external NVD wait; it does not skip compilation or packaging.
+- `mvn -q test -pl test-assembly-thin` and `mvn -q test -pl test-assembly-uber` each passed both packaging tests with zero failures or errors. Each `executeLargeQuery` method queried and checked all 100,000 ordered rows through the packaged driver. The named `benchmarking-staging-aws-us-west-2` profile was valid, the configured APC cluster was `RUNNING`, and the environment host matched that staging workspace. The earlier APC CreateSession HTTP 403/503 failures did not recur.
+- Universe `runtests --test_type lint --force_gazelle` passed for the rebased, one-file SAFE definition branch; [draft PR #3149548](https://github.com/databricks-eng/universe/pull/3149548) remains default OFF and unassigned. The server fixes [SC-256188](https://databricks.atlassian.net/browse/SC-256188), [SC-258787](https://databricks.atlassian.net/browse/SC-258787), and [SC-258842](https://databricks.atlassian.net/browse/SC-258842) were still TO DO when checked on 2026-11-19, so their dependent live cases remain gated. Flag-on dogfood still needs SAFE approval and an assigned test region.
+
 ## Local results
 
 - `mvn -q spotless:apply`: passed in both validation rounds; no driver source files changed.
