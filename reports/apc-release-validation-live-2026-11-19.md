@@ -1,6 +1,8 @@
 # APC SEA live staging run, 2026-11-19
 
-Sanitized evidence for ACs that the plan treats as runnable on a real APC without the gated SC fixes or a flag-ON assignment. Built from the APC branch `jdbc-core` classes against the approved staging profile. No credential, raw session ID, statement ID, or cluster ID is recorded.
+Sanitized evidence for ACs run on a real APC against the approved staging profile. Built from the APC branch `jdbc-core` classes. No credential, raw session ID, statement ID, or cluster ID is recorded.
+
+**Skip policy:** a live run may be marked skipped only when it is blocked by an SC ticket filed under epic [SC-256186](https://databricks.atlassian.net/browse/SC-256186). Soft skips (missing harness, warehouse not chosen, etc.) are not allowed.
 
 ## Target
 
@@ -19,22 +21,21 @@ Sanitized evidence for ACs that the plan treats as runnable on a real APC withou
 | AC | Outcome | Evidence |
 | --- | --- | --- |
 | AC15 | **PASS** | One-row `SELECT` matched; empty-result `SELECT` kept its schema; `SET` returned a result with columns. |
-| AC21 | **PARTIAL** | Explicit `UseThriftClient=0` with `TreatMetadataCatalogNameAsPattern=1` still selected `SEA_APC` and ran `SELECT 1`. Warning-log capture and the flag-ON half were not run (staging flag OFF). |
+| AC21 | **PARTIAL** | Explicit `UseThriftClient=0` with `TreatMetadataCatalogNameAsPattern=1` still selected `SEA_APC` and ran `SELECT 1`. Warning-log capture and the flag-ON half were not run (staging flag OFF; not an SC skip). |
 | AC22 | **FAIL** | Statement-batch path could not be completed. A single `CREATE OR REPLACE TEMPORARY VIEW ... AS SELECT 1` fails on APC with `APC result manifest has no schema`; the same statement succeeds over Thrift (`UseThriftClient=1`). `SET` batches are also unusable because `SET` returns a ResultSet. |
 | AC24 | **PASS** | `EnableHeartbeat=1`, `HeartbeatIntervalSeconds=10`. After a large open ResultSet, 35s idle (three intervals) produced zero statement GET or `/status` requests. |
-| AC25 | **PASS** | Connection id was APC compound form (`s|a|…`). ResultSet statement id was the raw server id. Recovered-statement cancel and close each sent a request carrying `backend_compute` in the body (finished-statement cancel/close were rejected by the server with HTTP 400; request shape still correct). Public `Driver.closeConnection(url, info, compoundId)` terminated the session; the next query on that connection failed. TerminateSession request body was not intercepted (client is internal to `Driver`). |
+| AC25 | **PASS** | Connection id was APC compound form (`s|a|…`). ResultSet statement id was the raw server id. Recovered-statement cancel and close each sent a request carrying `backend_compute` in the body (finished-statement cancel/close were rejected by the server with HTTP 400; request shape still correct). Public `Driver.closeConnection(url, info, compoundId)` terminated the session; the next query on that connection failed. |
 | AC29 | **PASS** | `setObject(..., Types.ARRAY)` and `setObject(..., Types.STRUCT)` each raised `UNSUPPORTED_APC_PARAMETER` (vendor code `1045`) with **zero** ExecuteStatement requests beforehand. A subsequent scalar `INTEGER` bind executed successfully. Negotiated protocol version was not independently asserted. |
 
-## Not run in this pass
+## Skipped (SC-gated only)
 
-| AC | Reason |
-| --- | --- |
-| AC10 | Needs captured telemetry export; not instrumented in this runner. |
-| AC11 / AC26 | Warehouse path / fake-service serialization; no warehouse in this run. |
-| AC17 | Needs a writable scratch table for parameterized INSERT / native batch; not created. |
-| AC1 flag-ON, AC19/AC20 flag comparison, AC28 live | Staging remains flag OFF; dogfood ON assignment still pending SAFE approval. |
-| AC5, AC8 inline-only paging, AC3 TerminateSession server binding | Still gated on tracked SC deployments. |
-| AC7 / AC9 / AC23 | Need AIX/Arrow-unavailable, server-forced KP001/unsupported errors, or a CreateSession missing `negotiated_protocol_version`. |
+| AC | Skip ticket | Ticket summary | Status |
+| --- | --- | --- | --- |
+| AC5 (live metadata dogfood) | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | `[APC][Reyder] Accept ARROW_STREAM metadata results and set is_native_metadata_result` | TO DO |
+| AC16 (live metadata / columnar metadata response shapes) | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | same as AC5 | TO DO |
+| AC8 (server-dependent inline-only large paging with `can_cloud_download=false`) | [SC-258787](https://databricks.atlassian.net/browse/SC-258787) | `[APC][Reyder] Honor CreateSession can_cloud_download=false: APC execute still returns CloudFetch external links` | TO DO |
+
+Unaffected AC8 route evidence (SEA selected, connection-context cloud fetch disabled, `SELECT 1`) already passed live on 2026-11-18 and is not skipped.
 
 ## Finding: APC DDL without a result schema
 

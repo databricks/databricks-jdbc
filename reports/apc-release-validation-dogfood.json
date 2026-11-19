@@ -89,7 +89,7 @@
   "ac27_measurement_method": "Driver SDK HttpClient captured GET request metadata and raw HTTP response entity bytes before ApiClient deserialization; four sanitized RUNNING response bodies and raw-body hashes are in apc-release-validation-ac27-wire.json.",
   "pending_gates": {
     "flag_assignment": "SAFE flags.get_config returned found=false on 2026-11-18; flag-ON no-override assignment is unavailable. Flag-absent no-override dogfood passed.",
-    "sc_deployment": "SC-256188 and SC-254478 both remained TO DO at read-only Jira lookup on 2026-11-18; server-dependent AC5, AC8 inline-only, and AC3 TerminateSession dogfood await deployed fixes."
+    "sc_deployment": "SC-gated live skips only: AC5/AC16 await SC-256188 (TO DO); AC8 inline-only large paging awaits SC-258787 (TO DO). AC3 TerminateSession is not SC-skipped."
   },
   "release_ready": false,
   "ac27_query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled",
