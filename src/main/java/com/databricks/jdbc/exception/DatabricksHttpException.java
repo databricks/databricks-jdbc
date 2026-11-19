@@ -7,7 +7,8 @@ public class DatabricksHttpException extends DatabricksSQLException {
 
   public DatabricksHttpException(
       String message, Throwable cause, DatabricksDriverErrorCode sqlCode) {
-    super(message, cause, sqlCode);
+    // Keep the driver error code and the original cause for telemetry and callers.
+    super(message, sqlCode.name(), sqlCode.getCode(), cause);
   }
 
   public DatabricksHttpException(String message, DatabricksDriverErrorCode internalCode) {

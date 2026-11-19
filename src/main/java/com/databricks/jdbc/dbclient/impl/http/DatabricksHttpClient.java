@@ -30,7 +30,6 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -190,16 +189,13 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
         DatabricksRetryHandlerException retry = (DatabricksRetryHandlerException) cause;
+        // Keep historical INVALID_STATE + cause chain for every HTTP path; only sanitize the URL.
         String errorMsg =
             String.format(
                 "Retry handler failed for http request: [%s]. HTTP error code: %d",
                 RequestSanitizer.sanitizeRequest(request), retry.getErrCode());
         LOGGER.error(errorMsg);
-        DatabricksDriverErrorCode code =
-            retry.getErrCode() == HttpStatus.SC_TOO_MANY_REQUESTS
-                ? DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED
-                : DatabricksDriverErrorCode.SDK_CLIENT_ERROR;
-        throw new DatabricksHttpException(errorMsg, code.name(), code);
+        throw new DatabricksHttpException(errorMsg, retry, DatabricksDriverErrorCode.INVALID_STATE);
       }
       cause = cause.getCause();
     }
@@ -207,8 +203,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         String.format(
             "Caught error while executing http request: [%s]. Exception [%s]",
             RequestSanitizer.sanitizeRequest(request), e.getClass().getSimpleName());
-    LOGGER.error(errorMsg);
-    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    LOGGER.error(e, errorMsg);
+    throw new DatabricksHttpException(errorMsg, e, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   @VisibleForTesting

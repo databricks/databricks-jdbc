@@ -114,12 +114,13 @@ public class DatabricksHttpClientTest {
     assertFalse(error.getMessage().contains(secret));
     assertFalse(error.getMessage().contains("query-secret"));
     assertTrue(error.getMessage().contains("/REDACTED"));
-    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), error.getErrorCode());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+    assertNotNull(error.getCause());
   }
 
   @Test
-  void rateLimitRetryFailureUsesRateLimitErrorCode() throws Exception {
+  void rateLimitRetryFailureKeepsHistoricalInvalidState() throws Exception {
     HttpGet request = new HttpGet("https://storage.example.test/chunk");
     when(mockHttpClient.execute(request))
         .thenThrow(new DatabricksRetryHandlerException("rate limited", 429));
@@ -127,8 +128,9 @@ public class DatabricksHttpClientTest {
     DatabricksHttpException error =
         assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
 
-    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), error.getErrorCode());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+    assertNotNull(error.getCause());
   }
 
   @BeforeEach

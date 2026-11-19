@@ -25,8 +25,9 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -39,13 +40,7 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   private final byte[] schemaMessage;
   private final Object stateLock = new Object();
   private final ArrayDeque<ArrowResultChunk> pending = new ArrayDeque<>();
-  private final ExecutorService downloadExecutor =
-      Executors.newSingleThreadExecutor(
-          task -> {
-            Thread thread = new Thread(task, "apc-arrow-batch-downloader");
-            thread.setDaemon(true);
-            return thread;
-          });
+  private final ExecutorService downloadExecutor = newDownloadExecutor();
   private ArrowResultChunk current;
   private ArrowResultChunk downloadWorkerChunk;
   private Future<Void> inFlightDownload;
@@ -55,6 +50,24 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
   private long rowCount;
   private long chunkCount;
   private volatile boolean closed;
+
+  private static ExecutorService newDownloadExecutor() {
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            1,
+            1,
+            60L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(),
+            task -> {
+              Thread thread = new Thread(task, "apc-arrow-batch-downloader");
+              thread.setDaemon(true);
+              return thread;
+            });
+    // Idle unclosed result sets should not pin a live core thread forever.
+    executor.allowCoreThreadTimeOut(true);
+    return executor;
+  }
 
   ApcArrowBatchChunkProvider(
       ResultData initialData,

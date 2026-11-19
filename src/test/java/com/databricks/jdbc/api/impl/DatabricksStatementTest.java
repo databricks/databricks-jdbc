@@ -166,7 +166,7 @@ public class DatabricksStatementTest {
   }
 
   @Test
-  public void openKeepsConfiguredTimeZoneAndToleratesLookupFailure() throws Exception {
+  public void openKeepsConfiguredTimeZoneAndFailsWhenLookupFails() throws Exception {
     IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection configured = spy(new DatabricksConnection(context, client));
     configured.getSession().setSessionConfig("TIMEZONE", "Asia/Tokyo");
@@ -178,8 +178,7 @@ public class DatabricksStatementTest {
     DatabricksConnection failing = spy(new DatabricksConnection(context, client));
     doThrow(new SQLException("boom")).when(failing).createStatement();
 
-    failing.resolveApcSessionTimeZone();
-
+    assertThrows(SQLException.class, failing::resolveApcSessionTimeZone);
     assertNull(failing.getSession().getSessionConfigs().get("timezone"));
   }
 
