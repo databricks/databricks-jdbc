@@ -44,6 +44,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
               + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+)"
               + "|(INTERVAL\\s+[^;]+?))"
               + "\\s*;?\\s*$");
+  private static final Pattern RESET_TIME_ZONE =
+      Pattern.compile(
+          "(?is)^\\s*RESET\\s+(?:TIME\\s*ZONE|spark\\.sql\\.session\\.timeZone)\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -726,7 +729,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             Collections.emptyMap(),
             connection.getSession(),
             this);
-    pendingAsyncTimeZoneSql = sessionTimeZoneSetBy(sql) == null ? null : sql;
+    pendingAsyncTimeZoneSql = isApcSea(connection) && isTimeZoneAffecting(sql) ? sql : null;
     updateAsyncTimeZoneIfSucceeded(result);
     return result;
   }
@@ -978,6 +981,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return resultSet;
   }
 
+  static boolean isTimeZoneAffecting(String sql) {
+    String stripped = SqlCommentParser.stripCommentsAndWhitespaces(sql);
+    return SET_TIME_ZONE.matcher(stripped).matches() || RESET_TIME_ZONE.matcher(stripped).matches();
+  }
+
   static String sessionTimeZoneSetBy(String sql) {
     Matcher match = SET_TIME_ZONE.matcher(SqlCommentParser.stripCommentsAndWhitespaces(sql));
     if (!match.matches()) {
@@ -985,8 +993,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     }
     for (int i = 1; i <= 4; i++) {
       if (match.group(i) != null) {
-        String zone = match.group(i);
-        return zone;
+        return match.group(i);
       }
     }
     return null;
@@ -1005,11 +1012,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   private void updateSessionTimeZone(String sql) throws SQLException {
-    String zone = sessionTimeZoneSetBy(sql);
-    if (zone == null) {
+    if (!isApcSea(connection)) {
       return;
     }
-    if (!isApcSea(connection)) {
+    String stripped = SqlCommentParser.stripCommentsAndWhitespaces(sql);
+    if (RESET_TIME_ZONE.matcher(stripped).matches()) {
+      publishSessionTimeZone(connection, readEffectiveSessionTimeZone(connection));
+      return;
+    }
+    String zone = sessionTimeZoneSetBy(sql);
+    if (zone == null) {
       return;
     }
     // LOCAL and INTERVAL offsets are resolved by the server, so read back what it applied.
