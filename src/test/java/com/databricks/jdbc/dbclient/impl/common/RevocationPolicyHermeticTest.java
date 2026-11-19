@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.RevocationTestFixture.Responder;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateRevokedException;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -299,6 +300,65 @@ class RevocationPolicyHermeticTest {
     }
   }
 
+  /**
+   * Chain: root, then intermediate one (no OCSP access location, unreachable CRL), then
+   * intermediate two (OCSP REVOKED, CRL GOOD), then the leaf. The first pass stops at intermediate
+   * one, before it reaches intermediate two, so soft mode must still check intermediate two's OCSP
+   * answer, which is the mapping this test pins down.
+   */
+  @Test
+  void soft_twoIntermediates_ocspRevokedIntermediateTwoRejected() throws Exception {
+    try (RevocationChainFixture chain =
+        new RevocationChainFixture(
+            Map.of(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO, Responder.REVOKED))) {
+      chain.installDefaultTrustStore();
+      assertOutcome(fetchChain(chain, SOFT), Expect.REVOKED);
+      assertTrue(
+          chain.requestCount(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO) >= 1,
+          "intermediate two's OCSP responder must be consulted");
+    }
+  }
+
+  @Test
+  void strict_twoIntermediates_intermediateOneUndeterminedRejected() throws Exception {
+    try (RevocationChainFixture chain =
+        new RevocationChainFixture(
+            Map.of(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO, Responder.REVOKED))) {
+      chain.installDefaultTrustStore();
+      // Strict stops at intermediate one, whose status cannot be determined, as before the fix.
+      assertOutcome(fetchChain(chain, STRICT), Expect.REJECTED);
+    }
+  }
+
+  /**
+   * With every responder unreachable, each endpoint of the chain is fetched exactly once in the
+   * handshake: the first pass does not repeat the endpoints it already tried, and the
+   * per-certificate check does not fetch the same endpoint twice.
+   */
+  @Test
+  void soft_twoIntermediates_allEndpointsUnavailable_fetchesEachOnce() throws Exception {
+    Map<RevocationChainFixture.Endpoint, Responder> unavailable =
+        Map.of(
+            RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO, Responder.UNAVAILABLE,
+            RevocationChainFixture.Endpoint.CRL_INTERMEDIATE_TWO, Responder.UNAVAILABLE,
+            RevocationChainFixture.Endpoint.OCSP_LEAF, Responder.UNAVAILABLE,
+            RevocationChainFixture.Endpoint.CRL_LEAF, Responder.UNAVAILABLE);
+    try (RevocationChainFixture chain = new RevocationChainFixture(unavailable)) {
+      chain.installDefaultTrustStore();
+      assertOutcome(fetchChain(chain, SOFT), Expect.ACCEPTED);
+      for (RevocationChainFixture.Endpoint endpoint : RevocationChainFixture.Endpoint.values()) {
+        assertEquals(1, chain.requestCount(endpoint), endpoint + " must be fetched once");
+      }
+    }
+  }
+
+  private static Outcome fetchChain(RevocationChainFixture chain, String settings)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(chain.jdbcUrl(settings), new Properties());
+    return fetch(ConfiguratorUtils.getBaseConnectionManager(context), chain.httpsUrl());
+  }
+
   private static boolean sslFailure(Throwable failure) {
     for (Throwable t = failure; t != null; t = t.getCause()) {
       if (t instanceof javax.net.ssl.SSLException) {
@@ -337,9 +397,13 @@ class RevocationPolicyHermeticTest {
 
   private static Outcome fetch(
       PoolingHttpClientConnectionManager manager, RevocationTestFixture fixture) {
+    return fetch(manager, fixture.httpsUrl());
+  }
+
+  private static Outcome fetch(PoolingHttpClientConnectionManager manager, String url) {
     try (org.apache.http.impl.client.CloseableHttpClient client =
         HttpClients.custom().setConnectionManager(manager).build()) {
-      try (CloseableHttpResponse response = client.execute(new HttpGet(fixture.httpsUrl()))) {
+      try (CloseableHttpResponse response = client.execute(new HttpGet(url))) {
         return new Outcome(response.getStatusLine().getStatusCode() == 200, null);
       }
     } catch (Exception e) {

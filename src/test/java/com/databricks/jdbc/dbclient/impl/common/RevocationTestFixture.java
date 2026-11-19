@@ -307,16 +307,17 @@ public final class RevocationTestFixture implements AutoCloseable {
    * the path, while JDK 11 sends a POST body. Both forms are accepted so the responder works on
    * every JDK under test.
    */
-  private static byte[] ocspRequestBytes(HttpExchange exchange) throws IOException {
+  static byte[] ocspRequestBytes(HttpExchange exchange) throws IOException {
     if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
       return exchange.getRequestBody().readAllBytes();
     }
+    // The JDK appends the URL-encoded request to the responder's own path, so the request is the
+    // last segment, whatever the responder path is (for example /ocsp or /ocsp-leaf).
     String path = exchange.getRequestURI().getRawPath();
-    int start = path.indexOf("/ocsp/");
-    if (start < 0) {
+    String encoded = path.substring(path.lastIndexOf('/') + 1);
+    if (encoded.isEmpty()) {
       throw new IOException("OCSP GET request has no encoded request in path: " + path);
     }
-    String encoded = path.substring(start + "/ocsp/".length());
     return Base64.getDecoder().decode(URLDecoder.decode(encoded, StandardCharsets.UTF_8.name()));
   }
 
@@ -449,17 +450,17 @@ public final class RevocationTestFixture implements AutoCloseable {
     return new X500Name("CN=Revocation Test CA " + id);
   }
 
-  private static ContentSigner contentSigner(KeyPair keys) throws Exception {
+  static ContentSigner contentSigner(KeyPair keys) throws Exception {
     return new JcaContentSignerBuilder("SHA256withRSA").build(keys.getPrivate());
   }
 
-  private static KeyPair newKeyPair() throws Exception {
+  static KeyPair newKeyPair() throws Exception {
     KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
     generator.initialize(2048);
     return generator.generateKeyPair();
   }
 
-  private static void respond(HttpExchange exchange, int status, byte[] body) throws IOException {
+  static void respond(HttpExchange exchange, int status, byte[] body) throws IOException {
     exchange.sendResponseHeaders(status, body.length == 0 ? -1 : body.length);
     try (OutputStream out = exchange.getResponseBody()) {
       out.write(body);

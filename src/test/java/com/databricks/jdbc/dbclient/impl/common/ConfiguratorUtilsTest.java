@@ -707,7 +707,7 @@ public class ConfiguratorUtilsTest {
     X509TrustManager plain = new PlainTrustManager();
     TrustManager[] ocspFirst = new TrustManager[] {plain};
     // A plain X509TrustManager cannot run the CRL-only pass, so the OCSP-first managers are kept.
-    assertSame(ocspFirst, ConfiguratorUtils.softFailTrustManagers(plain, plain, plain, ocspFirst));
+    assertSame(ocspFirst, ConfiguratorUtils.softFailTrustManagers(plain, Set.of(), ocspFirst));
   }
 
   @Test
@@ -718,8 +718,7 @@ public class ConfiguratorUtilsTest {
     X509ExtendedTrustManager extended = (X509ExtendedTrustManager) factory.getTrustManagers()[0];
     TrustManager[] ocspFirst = new TrustManager[] {extended};
 
-    TrustManager[] result =
-        ConfiguratorUtils.softFailTrustManagers(extended, extended, extended, ocspFirst);
+    TrustManager[] result = ConfiguratorUtils.softFailTrustManagers(extended, Set.of(), ocspFirst);
     assertEquals(1, result.length);
     assertNotSame(ocspFirst, result);
     assertTrue(result[0] instanceof X509ExtendedTrustManager);
