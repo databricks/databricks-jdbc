@@ -35,12 +35,12 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 | AC14 | **PASS** | Ordered 100k-row SEA result (2026-11-18). Multi-page cursor wire local. |
 | AC15 | **PASS** | One-row, empty-result (schema retained), and `SET` result (2026-11-19). |
 | AC16 | **SKIP** | Same gate as AC5: [SC-256188](https://databricks.atlassian.net/browse/SC-256188). Local columnar/metadata matrix pass. |
-| AC17 | **BLOCKED** | Parameterized INSERT batch needs a writable scratch table. `CREATE TABLE` failed on APC and Thrift with insufficient permissions (`42501` on Thrift). No SC ticket. Local native-batch unit/fake-service pass. |
+| AC17 | **PASS** | Thrift-created scratch table under writable UC schema; APC `EnableNativeBatching=1` 3-row parameterized INSERT batch + count check (2026-11-19 follow-up). Schema dropped after run. |
 | AC18 | **PASS** | Live SEA `setQueryTimeout(1)` → `DatabricksTimeoutException` / `STATEMENT_EXECUTION_TIMEOUT` (2026-11-18). |
 | AC19 | **PASS** (overrides); flag-ON **BLOCKED** | Live `UseThriftClient=0/1` overrides (2026-11-18). Flag-ON comparison awaits SAFE (not SC). |
 | AC20 | **PARTIAL** | Flag-OFF warehouse live `SEA_WAREHOUSE` + `SELECT 1` (2026-11-19). Flag-ON comparison awaits SAFE. |
 | AC21 | **PARTIAL** | Explicit `UseThriftClient=0` + `TreatMetadataCatalogNameAsPattern=1` selected SEA + `SELECT 1` (2026-11-19). Flag-ON half awaits SAFE. |
-| AC22 | **FAIL** / **BLOCKED** | DDL/`SET` batch vehicle fails: APC `CREATE TEMPORARY VIEW` → `APC result manifest has no schema` (Thrift control OK). INSERT-batch vehicle blocked by `CREATE TABLE` permissions (APC+Thrift). Local sequential-batch unit pass. |
+| AC22 | **PASS** (INSERT) / **FAIL** (DDL vehicle) | INSERT statement batch success + stop-on-failure on Thrift-created scratch table (2026-11-19 follow-up). DDL/`SET` vehicle still **FAIL**: APC `CREATE TEMPORARY VIEW` → `APC result manifest has no schema` (Thrift control OK). |
 | AC23 | **BLOCKED** | Needs CreateSession without `negotiated_protocol_version`; not injectable from client. No SC ticket. Local missing-version fake-service pass. |
 | AC24 | **PASS** | Heartbeat on, 35s idle (3×10s), zero statement GET/`/status` (2026-11-19). |
 | AC25 | **PASS** | Compound connection id, raw statement id, recovered cancel/close carry `backend_compute`, `closeConnection` terminates session (2026-11-19). |
@@ -63,21 +63,20 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 | APC SEA (`UseThriftClient=0`) | `CREATE OR REPLACE TEMPORARY VIEW … AS SELECT 1` | Fail: `APC result manifest has no schema` |
 | Thrift (`UseThriftClient=1`) | Same | Pass |
 
-## Finding: scratch-table permissions
+## Finding: scratch-table permissions (resolved for INSERT ACs)
 
 | Route | Statement | Outcome |
 | --- | --- | --- |
-| APC SEA | `CREATE TABLE default.jay_apc_create_probe (id INT)` | Fail (redacted BAD_REQUEST) |
-| Thrift | Same | Fail: `INSUFFICIENT_PERMISSIONS` / SQLState `42501` |
-
-Blocks live AC17 and INSERT-based AC22 on this staging workspace until a writable schema is granted or provided.
+| APC SEA | `CREATE TABLE default.…` | Fail (redacted BAD_REQUEST / no-schema) |
+| Thrift | `CREATE TABLE default.…` | Fail: `INSUFFICIENT_PERMISSIONS` / SQLState `42501` |
+| Thrift | `CREATE TABLE` under temporary UC schema with `CREATE_SCHEMA` on `main` | Pass; used to unblock AC17 / INSERT-AC22, then schema dropped |
 
 ## Counts
 
 | Outcome | ACs |
 | --- | --- |
-| PASS (live) | AC1 (absent), AC2, AC3, AC4, AC6, AC12, AC13, AC14, AC15, AC18, AC19 (overrides), AC24, AC25, AC27, AC29 |
+| PASS (live) | AC1 (absent), AC2, AC3, AC4, AC6, AC12, AC13, AC14, AC15, AC17, AC18, AC19 (overrides), AC22 (INSERT), AC24, AC25, AC27, AC29 |
 | PARTIAL | AC8 (route), AC10, AC11, AC20, AC21, AC26 |
 | SKIP (SC) | AC5, AC16, AC8 inline-only |
-| FAIL | AC22 (DDL vehicle) |
-| BLOCKED (not SC) | AC1/AC19/AC20/AC21/AC28 flag-ON or SAFE; AC7; AC9; AC17; AC23 |
+| FAIL | AC22 (DDL vehicle only) |
+| BLOCKED (not SC) | AC1/AC19/AC20/AC21/AC28 flag-ON or SAFE; AC7; AC9; AC23 |
