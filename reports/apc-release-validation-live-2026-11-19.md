@@ -19,7 +19,7 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 
 | AC | Live outcome | Evidence / gate |
 | --- | --- | --- |
-| AC1 | **PASS** (flag-absent); flag-ON **BLOCKED** | Flag-absent no-override → Thrift + `SELECT 1` (2026-11-18 / 2026-11-19). Flag-ON awaits SAFE assignment (not an SC skip). |
+| AC1 | **PASS** (flag-absent); flag-ON **BLOCKED** | Flag-absent no-override → Thrift + `SELECT 1` (2026-11-18 / 2026-11-19). Flag-ON needs the dogfood workspace (SAFE `override-dogfood` partition); the `dogfood` CLI profile's refresh token is invalid (not an SC skip). |
 | AC2 | **PASS** | SEA APC open + `SELECT 1` (2026-11-18 dogfood). |
 | AC3 | **PASS** | SEA execute/poll/fetch/close/timeout live (2026-11-18). `closeConnection(compound id)` terminated the session (2026-11-19). No SC skip. |
 | AC4 | **PASS** | Ten live JDBC types matched Thrift; 100k SEA rows ordered + checksum (2026-11-18). Compressed/external-link shapes remain local. |
@@ -37,16 +37,16 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 | AC16 | **SKIP** | Same gate as AC5: [SC-256188](https://databricks.atlassian.net/browse/SC-256188). Local columnar/metadata matrix pass. |
 | AC17 | **PASS** | Thrift-created scratch table under writable UC schema; APC `EnableNativeBatching=1` 3-row parameterized INSERT batch + count check (2026-11-19 follow-up). Schema dropped after run. |
 | AC18 | **PASS** | Live SEA `setQueryTimeout(1)` → `DatabricksTimeoutException` / `STATEMENT_EXECUTION_TIMEOUT` (2026-11-18). |
-| AC19 | **PASS** (overrides); flag-ON **BLOCKED** | Live `UseThriftClient=0/1` overrides (2026-11-18). Flag-ON comparison awaits SAFE (not SC). |
-| AC20 | **PARTIAL** | Flag-OFF warehouse live `SEA_WAREHOUSE` + `SELECT 1` (2026-11-19). Flag-ON comparison awaits SAFE. |
-| AC21 | **PARTIAL** | Explicit `UseThriftClient=0` + `TreatMetadataCatalogNameAsPattern=1` selected SEA + `SELECT 1` (2026-11-19). Flag-ON half awaits SAFE. |
+| AC19 | **PASS** (overrides); flag-ON **BLOCKED** | Live `UseThriftClient=0/1` overrides (2026-11-18). Flag-ON comparison awaits the dogfood run (see AC28). |
+| AC20 | **PARTIAL** | Flag-OFF warehouse live `SEA_WAREHOUSE` + `SELECT 1` (2026-11-19). Flag-ON comparison awaits the dogfood run (see AC28). |
+| AC21 | **PARTIAL** | Explicit `UseThriftClient=0` + `TreatMetadataCatalogNameAsPattern=1` selected SEA + `SELECT 1` (2026-11-19). Flag-ON half awaits the dogfood run (see AC28). |
 | AC22 | **PASS** (INSERT) / **SKIP** (DDL vehicle) | INSERT statement batch success + stop-on-failure on Thrift-created scratch table (2026-11-19 follow-up). DDL/`SET` vehicle **SKIP** → [SC-258842](https://databricks.atlassian.net/browse/SC-258842): APC `CREATE TEMPORARY VIEW` → `APC result manifest has no schema` (Thrift control OK). |
 | AC23 | **BLOCKED** | Needs CreateSession without `negotiated_protocol_version`; not injectable from client. No SC ticket. Local missing-version fake-service pass. |
 | AC24 | **PASS** | Heartbeat on, 35s idle (3×10s), zero statement GET/`/status` (2026-11-19). |
 | AC25 | **PASS** | Compound connection id, raw statement id, recovered cancel/close carry `backend_compute`, `closeConnection` terminates session (2026-11-19). |
 | AC26 | **PARTIAL** | Warehouse live open covered under AC11. Format enum / fixture regression remains local (by design for wire fixtures). |
 | AC27 | **PASS** | Four RUNNING polls, zero result-payload bytes; 100k ordered rows ([wire JSON](apc-release-validation-ac27-wire.json), 2026-11-18). |
-| AC28 | **BLOCKED** | Live SAFE `flags.get_config` was `found=false` (2026-11-18). Awaits SAFE proposal approval/deployment (not an SC skip). T17 definition review approved source default OFF. |
+| AC28 | **PARTIAL** | Live SAFE `flags.get_config` on 2026-11-19 returns `databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc` (proposal `66d7c328-df08-493b-a693-388fecef6844`, not deleted). Default is OFF (`rampup-1`, `activeStage` NULL); `override-dogfood` is ON for workspace `6051921418418893@aws@staging`. The 2026-11-18 `found=false` is superseded. Flag-ON runtime proof is blocked on dogfood CLI re-login (not an SC skip). T17 definition review approved source default OFF. |
 | AC29 | **PASS** | ARRAY/STRUCT rejected with `UNSUPPORTED_APC_PARAMETER` / code 1045 and zero ExecuteStatement requests; scalar bind OK (2026-11-19). |
 
 ## SC-gated skips only
@@ -79,6 +79,6 @@ Skipped for AC22's DDL vehicle; tracked by [SC-258842](https://databricks.atlass
 | Outcome | ACs |
 | --- | --- |
 | PASS (live) | AC1 (absent), AC2, AC3, AC4, AC6, AC12, AC13, AC14, AC15, AC17, AC18, AC19 (overrides), AC22 (INSERT path), AC24, AC25, AC27, AC29 |
-| PARTIAL | AC8 (route), AC10, AC11, AC20, AC21, AC26 |
-| SKIP (SC) | AC5, AC16, AC8 inline-only, AC22 DDL vehicle |
-| BLOCKED (not SC) | AC1/AC19/AC20/AC21/AC28 flag-ON or SAFE; AC7; AC9; AC23 |
+| PARTIAL | AC8 (route), AC10, AC11, AC20, AC21, AC26, AC28 (SAFE config live; runtime flag-ON pending) |
+| SKIP (SC) | AC5, AC16, AC8 inline-only, AC22 DDL vehicle (SC tickets still TO DO on 2026-11-19) |
+| BLOCKED (not SC) | AC1/AC19/AC20/AC21 flag-ON (dogfood CLI re-login); AC7; AC9; AC23 |

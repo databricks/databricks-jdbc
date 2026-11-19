@@ -95,6 +95,11 @@
   "ac27_query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled",
   "round2_captured_utc": "2026-11-18T08:35:02.183877+00:00",
   "safe_flag_live_lookup_round2_found": false,
+  "safe_flag_live_lookup_2026_11_19_found": true,
+  "safe_flag_2026_11_19_proposal_id": "66d7c328-df08-493b-a693-388fecef6844",
+  "safe_flag_2026_11_19_dogfood_override_workspace": "6051921418418893@aws@staging",
+  "dogfood_profile_auth_2026_11_19": "refresh token invalid; run databricks auth login --profile dogfood",
+  "sc_status_2026_11_19": {"SC-256188": "TO DO", "SC-258787": "TO DO", "SC-258842": "TO DO"},
   "flag_absent_no_override": {
     "observed_protocol": "THRIFT",
     "client_class": "DatabricksThriftServiceClient",
