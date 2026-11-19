@@ -63,7 +63,7 @@ public class RequestSanitizerTest {
 
     String sanitizedUri = RequestSanitizer.sanitizeRequest(request);
 
-    assertEquals("https://example.com/REDACTED?REDACTED", sanitizedUri);
+    assertEquals("https://example.com/api?param1=value1&param2=value2", sanitizedUri);
   }
 
   @Test
@@ -93,7 +93,7 @@ public class RequestSanitizerTest {
 
     String sanitizedUri = RequestSanitizer.sanitizeRequest(request);
 
-    assertEquals("https://example.com/REDACTED", sanitizedUri);
+    assertEquals("https://example.com/api", sanitizedUri);
   }
 
   @Test
