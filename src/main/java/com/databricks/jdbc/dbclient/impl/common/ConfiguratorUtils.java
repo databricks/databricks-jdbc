@@ -466,15 +466,29 @@ public class ConfiguratorUtils {
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
       crlTmf.init(buildCrlOnlyTrustManagerParameters(trustAnchors));
       X509TrustManager crlOnly = findX509TrustManager(crlTmf.getTrustManagers());
-      if (ocspFirst instanceof X509ExtendedTrustManager
-          && crlOnly instanceof X509ExtendedTrustManager) {
-        return new TrustManager[] {
-          new SoftFailTrustManager(
-              (X509ExtendedTrustManager) ocspFirst, (X509ExtendedTrustManager) crlOnly)
-        };
-      }
+      return softFailTrustManagers(ocspFirst, crlOnly, customTmf.getTrustManagers());
     }
     return customTmf.getTrustManagers();
+  }
+
+  /**
+   * Returns the soft-fail trust manager when both passes are extended trust managers. Otherwise the
+   * CRL-only pass cannot run, so the OCSP-first managers are returned and the degraded policy is
+   * logged rather than applied silently.
+   */
+  static TrustManager[] softFailTrustManagers(
+      X509TrustManager ocspFirst, X509TrustManager crlOnly, TrustManager[] ocspFirstManagers) {
+    if (ocspFirst instanceof X509ExtendedTrustManager
+        && crlOnly instanceof X509ExtendedTrustManager) {
+      return new TrustManager[] {
+        new SoftFailTrustManager(
+            (X509ExtendedTrustManager) ocspFirst, (X509ExtendedTrustManager) crlOnly)
+      };
+    }
+    LOGGER.warn(
+        "Soft-fail revocation: the CRL-only pass needs X509ExtendedTrustManager, which this JVM"
+            + " does not provide. Revocation runs OCSP-first without the CRL-only pass.");
+    return ocspFirstManagers;
   }
 
   /** Builds trust manager parameters that check revocation with CRLs only, soft-fail. */

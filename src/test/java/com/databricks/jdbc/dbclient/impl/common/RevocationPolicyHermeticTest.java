@@ -179,6 +179,24 @@ class RevocationPolicyHermeticTest {
             true,
             "CheckCertRevocation=0",
             false,
+            Expect.ACCEPTED),
+        // A definitive OCSP GOOD answers the check, so a conflicting CRL entry is not consulted.
+        // Strict and soft must agree on this input.
+        Arguments.of(
+            "strict: OCSP good overrides CRL revoked, accepted",
+            Responder.REVOKED,
+            Responder.GOOD,
+            true,
+            STRICT,
+            true,
+            Expect.ACCEPTED),
+        Arguments.of(
+            "soft: OCSP good overrides CRL revoked, accepted",
+            Responder.REVOKED,
+            Responder.GOOD,
+            true,
+            SOFT,
+            true,
             Expect.ACCEPTED));
   }
 
@@ -233,6 +251,21 @@ class RevocationPolicyHermeticTest {
               ConfiguratorUtils.getBaseConnectionManager(context(fixture, "CheckCertRevocation=0")),
               fixture);
       assertFalse(outcome.accepted, "an unanchored chain must be refused with revocation off");
+      assertTrue(
+          sslFailure(outcome.failure), "expected a TLS chain failure, got: " + outcome.failure);
+    }
+  }
+
+  @Test
+  void soft_unanchoredChainRejected() throws Exception {
+    try (RevocationTestFixture fixture =
+        new RevocationTestFixture(Responder.GOOD, Responder.GOOD, true)) {
+      // Soft mode builds SoftFailTrustManager here, so this covers the path that rethrows the
+      // first-pass failure when neither pass determines a revoked status.
+      fixture.installDefaultTrustStoreWithUnrelatedCa();
+      Outcome outcome =
+          fetch(ConfiguratorUtils.getBaseConnectionManager(context(fixture, SOFT)), fixture);
+      assertFalse(outcome.accepted, "an unanchored chain must be refused in soft mode");
       assertTrue(
           sslFailure(outcome.failure), "expected a TLS chain failure, got: " + outcome.failure);
     }
