@@ -1,53 +1,83 @@
-# APC SEA live staging run, 2026-11-19
+# APC SEA live staging matrix, AC1–AC29 (2026-11-18 / 2026-11-19)
 
-Sanitized evidence for ACs run on a real APC against the approved staging profile. Built from the APC branch `jdbc-core` classes. No credential, raw session ID, statement ID, or cluster ID is recorded.
+Sanitized live evidence against the approved staging APC. Combines the 2026-11-18 dogfood/AC27 wire run with the 2026-11-19 follow-up and supplemental probes. No credential, raw session ID, statement ID, or cluster ID is recorded.
 
-**Skip policy:** a live run may be marked skipped only when it is blocked by an SC ticket filed under epic [SC-256186](https://databricks.atlassian.net/browse/SC-256186). Soft skips (missing harness, warehouse not chosen, etc.) are not allowed.
+**Skip policy:** a live run may be marked **SKIP** only when blocked by an SC ticket filed under epic [SC-256186](https://databricks.atlassian.net/browse/SC-256186). Other gaps are **PASS** / **PARTIAL** / **FAIL** / **BLOCKED** (not skipped).
 
 ## Target
 
 | Field | Value |
 | --- | --- |
-| Captured UTC | 2026-11-19T00:42Z–00:45Z |
 | Profile | `benchmarking-staging-aws-us-west-2` |
 | Region | AWS us-west-2 staging |
 | Runtime | `19.x-photon-scala2.13` |
-| Cluster state | `RUNNING` |
-| Client path | Explicit `UseThriftClient=0` (staging SAFE lookup remains flag OFF / `found=false`) |
-| Driver under test | Compiled `jdbc-core` classes from the integrated APC stack |
+| APC cluster | `RUNNING` (`UseThriftClient=0` forces SEA while SAFE flag is OFF) |
+| Warehouse (AC11/AC20) | Existing `RUNNING` warehouse; `SELECT 1` only |
+| Driver under test | Compiled APC-stack `jdbc-core` classes |
 
-## Results
+## AC1–AC29 matrix
 
-| AC | Outcome | Evidence |
+| AC | Live outcome | Evidence / gate |
 | --- | --- | --- |
-| AC15 | **PASS** | One-row `SELECT` matched; empty-result `SELECT` kept its schema; `SET` returned a result with columns. |
-| AC21 | **PARTIAL** | Explicit `UseThriftClient=0` with `TreatMetadataCatalogNameAsPattern=1` still selected `SEA_APC` and ran `SELECT 1`. Warning-log capture and the flag-ON half were not run (staging flag OFF; not an SC skip). |
-| AC22 | **FAIL** | Statement-batch path could not be completed. A single `CREATE OR REPLACE TEMPORARY VIEW ... AS SELECT 1` fails on APC with `APC result manifest has no schema`; the same statement succeeds over Thrift (`UseThriftClient=1`). `SET` batches are also unusable because `SET` returns a ResultSet. |
-| AC24 | **PASS** | `EnableHeartbeat=1`, `HeartbeatIntervalSeconds=10`. After a large open ResultSet, 35s idle (three intervals) produced zero statement GET or `/status` requests. |
-| AC25 | **PASS** | Connection id was APC compound form (`s|a|…`). ResultSet statement id was the raw server id. Recovered-statement cancel and close each sent a request carrying `backend_compute` in the body (finished-statement cancel/close were rejected by the server with HTTP 400; request shape still correct). Public `Driver.closeConnection(url, info, compoundId)` terminated the session; the next query on that connection failed. |
-| AC29 | **PASS** | `setObject(..., Types.ARRAY)` and `setObject(..., Types.STRUCT)` each raised `UNSUPPORTED_APC_PARAMETER` (vendor code `1045`) with **zero** ExecuteStatement requests beforehand. A subsequent scalar `INTEGER` bind executed successfully. Negotiated protocol version was not independently asserted. |
+| AC1 | **PASS** (flag-absent); flag-ON **BLOCKED** | Flag-absent no-override → Thrift + `SELECT 1` (2026-11-18 / 2026-11-19). Flag-ON awaits SAFE assignment (not an SC skip). |
+| AC2 | **PASS** | SEA APC open + `SELECT 1` (2026-11-18 dogfood). |
+| AC3 | **PASS** | SEA execute/poll/fetch/close/timeout live (2026-11-18). `closeConnection(compound id)` terminated the session (2026-11-19). No SC skip. |
+| AC4 | **PASS** | Ten live JDBC types matched Thrift; 100k SEA rows ordered + checksum (2026-11-18). Compressed/external-link shapes remain local. |
+| AC5 | **SKIP** | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) — Reyder ARROW_STREAM metadata / `is_native_metadata_result` (TO DO). Local/fake-service pass. |
+| AC6 | **PASS** | Prepared scalar bind on SEA and Thrift (2026-11-18 / 2026-11-19). Below-V8 downgrade remains local. |
+| AC7 | **BLOCKED** | Needs AIX/PowerPC with Arrow unavailable. No SC ticket; not available on this host. Local routing unit pass. |
+| AC8 | **PARTIAL** + inline-only **SKIP** | Route/session live: `EnableQueryResultDownload=0` + `UseBoundedSeaApi=0/1` → SEA, cloud fetch disabled, `SELECT 1` (2026-11-18). Inline-only large paging **SKIP** → [SC-258787](https://databricks.atlassian.net/browse/SC-258787) (TO DO). |
+| AC9 | **BLOCKED** | Needs server APC-unsupported / KP001 responses; not injectable from client. No SC ticket. Local open-outcome unit pass. |
+| AC10 | **PARTIAL** | SEA open with `TelemetryLogLevel=INFO`; connection/session strings have no pwd/token (2026-11-19). Routing-event export sink not captured. Local telemetry unit pass. |
+| AC11 | **PARTIAL** | Warehouse live `SEA_WAREHOUSE` + `SELECT 1` (2026-11-19). Request-body byte fixtures remain local. |
+| AC12 | **PASS** | Direct-results-disabled SEA large query passed (2026-11-18). Request shapes remain local. |
+| AC13 | **PASS** | Live 10-column type codes/value classes matched Thrift (2026-11-18). Full 21-column matrix local. |
+| AC14 | **PASS** | Ordered 100k-row SEA result (2026-11-18). Multi-page cursor wire local. |
+| AC15 | **PASS** | One-row, empty-result (schema retained), and `SET` result (2026-11-19). |
+| AC16 | **SKIP** | Same gate as AC5: [SC-256188](https://databricks.atlassian.net/browse/SC-256188). Local columnar/metadata matrix pass. |
+| AC17 | **BLOCKED** | Parameterized INSERT batch needs a writable scratch table. `CREATE TABLE` failed on APC and Thrift with insufficient permissions (`42501` on Thrift). No SC ticket. Local native-batch unit/fake-service pass. |
+| AC18 | **PASS** | Live SEA `setQueryTimeout(1)` → `DatabricksTimeoutException` / `STATEMENT_EXECUTION_TIMEOUT` (2026-11-18). |
+| AC19 | **PASS** (overrides); flag-ON **BLOCKED** | Live `UseThriftClient=0/1` overrides (2026-11-18). Flag-ON comparison awaits SAFE (not SC). |
+| AC20 | **PARTIAL** | Flag-OFF warehouse live `SEA_WAREHOUSE` + `SELECT 1` (2026-11-19). Flag-ON comparison awaits SAFE. |
+| AC21 | **PARTIAL** | Explicit `UseThriftClient=0` + `TreatMetadataCatalogNameAsPattern=1` selected SEA + `SELECT 1` (2026-11-19). Flag-ON half awaits SAFE. |
+| AC22 | **FAIL** / **BLOCKED** | DDL/`SET` batch vehicle fails: APC `CREATE TEMPORARY VIEW` → `APC result manifest has no schema` (Thrift control OK). INSERT-batch vehicle blocked by `CREATE TABLE` permissions (APC+Thrift). Local sequential-batch unit pass. |
+| AC23 | **BLOCKED** | Needs CreateSession without `negotiated_protocol_version`; not injectable from client. No SC ticket. Local missing-version fake-service pass. |
+| AC24 | **PASS** | Heartbeat on, 35s idle (3×10s), zero statement GET/`/status` (2026-11-19). |
+| AC25 | **PASS** | Compound connection id, raw statement id, recovered cancel/close carry `backend_compute`, `closeConnection` terminates session (2026-11-19). |
+| AC26 | **PARTIAL** | Warehouse live open covered under AC11. Format enum / fixture regression remains local (by design for wire fixtures). |
+| AC27 | **PASS** | Four RUNNING polls, zero result-payload bytes; 100k ordered rows ([wire JSON](apc-release-validation-ac27-wire.json), 2026-11-18). |
+| AC28 | **BLOCKED** | Live SAFE `flags.get_config` was `found=false` (2026-11-18). Awaits SAFE proposal approval/deployment (not an SC skip). T17 definition review approved source default OFF. |
+| AC29 | **PASS** | ARRAY/STRUCT rejected with `UNSUPPORTED_APC_PARAMETER` / code 1045 and zero ExecuteStatement requests; scalar bind OK (2026-11-19). |
 
-## Skipped (SC-gated only)
+## SC-gated skips only
 
-| AC | Skip ticket | Ticket summary | Status |
+| AC | Ticket | Summary | Status |
 | --- | --- | --- | --- |
-| AC5 (live metadata dogfood) | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | `[APC][Reyder] Accept ARROW_STREAM metadata results and set is_native_metadata_result` | TO DO |
-| AC16 (live metadata / columnar metadata response shapes) | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | same as AC5 | TO DO |
-| AC8 (server-dependent inline-only large paging with `can_cloud_download=false`) | [SC-258787](https://databricks.atlassian.net/browse/SC-258787) | `[APC][Reyder] Honor CreateSession can_cloud_download=false: APC execute still returns CloudFetch external links` | TO DO |
-
-Unaffected AC8 route evidence (SEA selected, connection-context cloud fetch disabled, `SELECT 1`) already passed live on 2026-11-18 and is not skipped.
+| AC5, AC16 | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | `[APC][Reyder] Accept ARROW_STREAM metadata results and set is_native_metadata_result` | TO DO |
+| AC8 inline-only paging | [SC-258787](https://databricks.atlassian.net/browse/SC-258787) | `[APC][Reyder] Honor CreateSession can_cloud_download=false` | TO DO |
 
 ## Finding: APC DDL without a result schema
 
-Control comparison for the AC22 failure:
+| Route | Statement | Outcome |
+| --- | --- | --- |
+| APC SEA (`UseThriftClient=0`) | `CREATE OR REPLACE TEMPORARY VIEW … AS SELECT 1` | Fail: `APC result manifest has no schema` |
+| Thrift (`UseThriftClient=1`) | Same | Pass |
+
+## Finding: scratch-table permissions
 
 | Route | Statement | Outcome |
 | --- | --- | --- |
-| APC SEA (`UseThriftClient=0`) | `CREATE OR REPLACE TEMPORARY VIEW jay_apc_ddl_control AS SELECT 1 AS v` | Fail: `APC result manifest has no schema` |
-| Thrift (`UseThriftClient=1`) | Same statement | Pass |
+| APC SEA | `CREATE TABLE default.jay_apc_create_probe (id INT)` | Fail (redacted BAD_REQUEST) |
+| Thrift | Same | Fail: `INSUFFICIENT_PERMISSIONS` / SQLState `42501` |
 
-This blocks using DDL (and `SET`) as the live AC22 batch vehicle. It is also relevant to the “manifest without result data” half of AC15: empty SELECT results still passed, but DDL responses without a schema fail on APC.
+Blocks live AC17 and INSERT-based AC22 on this staging workspace until a writable schema is granted or provided.
 
-## Runner
+## Counts
 
-Ad-hoc runner used for this pass (not committed as a packaged test): Java 11, classpath = `jdbc-core/target/classes` plus `mvn -pl jdbc-core dependency:build-classpath`, credentials from the Databricks CLI profile via env (`DATABRICKS_HOST`, `DATABRICKS_HTTP_PATH`, `DATABRICKS_TOKEN`). Token and identifiers were never written to this report.
+| Outcome | ACs |
+| --- | --- |
+| PASS (live) | AC1 (absent), AC2, AC3, AC4, AC6, AC12, AC13, AC14, AC15, AC18, AC19 (overrides), AC24, AC25, AC27, AC29 |
+| PARTIAL | AC8 (route), AC10, AC11, AC20, AC21, AC26 |
+| SKIP (SC) | AC5, AC16, AC8 inline-only |
+| FAIL | AC22 (DDL vehicle) |
+| BLOCKED (not SC) | AC1/AC19/AC20/AC21/AC28 flag-ON or SAFE; AC7; AC9; AC17; AC23 |
