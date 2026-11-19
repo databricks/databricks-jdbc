@@ -359,6 +359,19 @@ class RevocationPolicyHermeticTest {
     return fetch(ConfiguratorUtils.getBaseConnectionManager(context), chain.httpsUrl());
   }
 
+  /**
+   * A leaf whose extended key usage is not serverAuth is not a valid TLS server certificate, even
+   * with good revocation information. Soft mode must reject it: the structural JSSE check that
+   * follows the OCSP-first pass enforces the usage, and revocation fallback must not skip it.
+   */
+  @Test
+  void soft_wrongLeafUsageRejected() throws Exception {
+    try (RevocationChainFixture chain = new RevocationChainFixture(Map.of(), true)) {
+      chain.installDefaultTrustStore();
+      assertOutcome(fetchChain(chain, SOFT), Expect.REJECTED);
+    }
+  }
+
   private static boolean sslFailure(Throwable failure) {
     for (Throwable t = failure; t != null; t = t.getCause()) {
       if (t instanceof javax.net.ssl.SSLException) {

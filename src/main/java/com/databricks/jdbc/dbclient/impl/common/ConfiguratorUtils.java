@@ -20,7 +20,6 @@ import java.security.cert.*;
 import java.security.cert.CertPathValidator;
 import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -465,10 +464,16 @@ public class ConfiguratorUtils {
 
     LOGGER.info("Certificate revocation check: " + checkCertificateRevocation);
     if (checkCertificateRevocation && acceptUndeterminedCertificateRevocation) {
-      // Soft-fail: OCSP first. Certificates the OCSP-first pass never reaches are checked one at a
-      // time.
+      // Soft-fail: OCSP first. A JSSE trust manager with revocation off re-checks the whole chain
+      // (EKU and algorithm constraints included) without any fetch, and the certificates the
+      // OCSP-first pass never reached get their own revocation check.
       X509TrustManager ocspFirst = findX509TrustManager(customTmf.getTrustManagers());
-      return softFailTrustManagers(ocspFirst, trustAnchors, customTmf.getTrustManagers());
+      TrustManagerFactory structuralTmf =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      structuralTmf.init(buildTrustManagerParameters(trustAnchors, false, false));
+      X509TrustManager structural = findX509TrustManager(structuralTmf.getTrustManagers());
+      return softFailTrustManagers(
+          ocspFirst, structural, trustAnchors, customTmf.getTrustManagers());
     }
     return customTmf.getTrustManagers();
   }
@@ -479,10 +484,17 @@ public class ConfiguratorUtils {
    * logged rather than applied silently.
    */
   static TrustManager[] softFailTrustManagers(
-      X509TrustManager ocspFirst, Set<TrustAnchor> trustAnchors, TrustManager[] ocspFirstManagers) {
-    if (ocspFirst instanceof X509ExtendedTrustManager) {
+      X509TrustManager ocspFirst,
+      X509TrustManager structural,
+      Set<TrustAnchor> trustAnchors,
+      TrustManager[] ocspFirstManagers) {
+    if (ocspFirst instanceof X509ExtendedTrustManager
+        && structural instanceof X509ExtendedTrustManager) {
       return new TrustManager[] {
-        new SoftFailTrustManager((X509ExtendedTrustManager) ocspFirst, trustAnchors)
+        new SoftFailTrustManager(
+            (X509ExtendedTrustManager) ocspFirst,
+            (X509ExtendedTrustManager) structural,
+            trustAnchors)
       };
     }
     LOGGER.warn(
@@ -520,19 +532,23 @@ public class ConfiguratorUtils {
   }
 
   /**
-   * Soft-fail trust manager. The OCSP-first pass runs first. When it fails without a revoked
-   * result, the certificate it stopped at is checked for structure only, since its own endpoints
-   * were already tried. The certificates closer to the end-entity were never reached, so each one
-   * is checked for structure and then for its own revocation status. Only a REVOKED answer rejects
-   * an unreached certificate; an endpoint that cannot answer leaves that certificate undetermined.
+   * Soft-fail trust manager. When the OCSP-first pass fails without a revoked result, the whole
+   * chain is re-validated by JSSE with revocation off, so every structural check (EKU, algorithms,
+   * names, validity) still applies and nothing is fetched. Then each certificate the OCSP-first
+   * pass never reached gets its own revocation check. Only a REVOKED answer rejects. An endpoint
+   * that cannot answer leaves that certificate undetermined, as in the first pass.
    */
   private static final class SoftFailTrustManager extends X509ExtendedTrustManager {
     private final X509ExtendedTrustManager ocspFirst;
+    private final X509ExtendedTrustManager structural;
     private final Set<TrustAnchor> trustAnchors;
 
     private SoftFailTrustManager(
-        X509ExtendedTrustManager ocspFirst, Set<TrustAnchor> trustAnchors) {
+        X509ExtendedTrustManager ocspFirst,
+        X509ExtendedTrustManager structural,
+        Set<TrustAnchor> trustAnchors) {
       this.ocspFirst = ocspFirst;
+      this.structural = structural;
       this.trustAnchors = trustAnchors;
     }
 
@@ -549,37 +565,26 @@ public class ConfiguratorUtils {
         if (isRevoked(firstFailure)) {
           throw firstFailure;
         }
+        try {
+          trustCheck.run(structural);
+        } catch (CertificateException structuralFailure) {
+          firstFailure.addSuppressed(structuralFailure);
+          throw firstFailure;
+        }
         int failedIndex = failureIndex(firstFailure);
-        if (failedIndex < 0) {
-          // The failure does not say where it stopped, so every certificate is checked here.
-          for (int index = 0; index < chain.length; index++) {
-            checkUnreached(chain, index);
-          }
-          return;
-        }
-        checkPath(chain, failedIndex, false);
-        for (int index = 0; index < failedIndex; index++) {
-          checkUnreached(chain, index);
-        }
-      }
-    }
-
-    /** Structure and then revocation for one certificate the OCSP-first pass never reached. */
-    private void checkUnreached(X509Certificate[] chain, int index) throws CertificateException {
-      checkPath(chain, index, false);
-      try {
-        checkOwnRevocation(chain, index);
-      } catch (CertificateException undetermined) {
-        if (isRevoked(undetermined)) {
-          throw undetermined;
+        // With no index, every certificate gets its own check; the one the pass stopped at is
+        // then checked again, which costs at most one repeated fetch.
+        int unreached = failedIndex < 0 ? chain.length : failedIndex;
+        for (int index = 0; index < unreached; index++) {
+          checkOwnRevocation(chain, index);
         }
       }
     }
 
     /**
-     * Checks one certificate's own revocation status. The certificate is validated alone, against
-     * its issuer as the trust anchor, so no other certificate's status is fetched. Without
-     * ONLY_END_ENTITY, which would skip a CA certificate such as an intermediate.
+     * Checks one certificate's own revocation status: it is validated alone, against its issuer as
+     * the trust anchor, so no other certificate's endpoint is fetched. Only REVOKED rejects; any
+     * other outcome leaves the certificate undetermined, since the structure was checked above.
      */
     private void checkOwnRevocation(X509Certificate[] chain, int index)
         throws CertificateException {
@@ -598,51 +603,13 @@ public class ConfiguratorUtils {
         validator.validate(
             CertificateFactory.getInstance("X.509").generateCertPath(List.of(chain[index])),
             parameters);
+      } catch (CertPathValidatorException e) {
+        if (isRevoked(e)) {
+          throw new CertificateException(e.getMessage(), e);
+        }
       } catch (GeneralSecurityException e) {
         throw new CertificateException(e.getMessage(), e);
       }
-    }
-
-    /**
-     * Validates the path from {@code chain[index]} upward. With {@code revocation}, only that
-     * certificate's own status is checked, OCSP first with a CRL fallback, and a failure is
-     * reported to the caller.
-     */
-    private void checkPath(X509Certificate[] chain, int index, boolean revocation)
-        throws CertificateException {
-      List<X509Certificate> path = new ArrayList<>();
-      for (int k = index; k < chain.length; k++) {
-        if (!isTrustAnchorCertificate(chain[k])) {
-          path.add(chain[k]);
-        }
-      }
-      try {
-        CertPathValidator validator = CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX);
-        PKIXParameters parameters = new PKIXParameters(trustAnchors);
-        parameters.setRevocationEnabled(revocation);
-        if (revocation) {
-          PKIXRevocationChecker revocationChecker =
-              (PKIXRevocationChecker) validator.getRevocationChecker();
-          revocationChecker.setOptions(
-              Set.of(
-                  PKIXRevocationChecker.Option.SOFT_FAIL,
-                  PKIXRevocationChecker.Option.ONLY_END_ENTITY));
-          parameters.addCertPathChecker(revocationChecker);
-        }
-        validator.validate(
-            CertificateFactory.getInstance("X.509").generateCertPath(path), parameters);
-      } catch (GeneralSecurityException e) {
-        throw new CertificateException(e.getMessage(), e);
-      }
-    }
-
-    private boolean isTrustAnchorCertificate(X509Certificate certificate) {
-      for (TrustAnchor anchor : trustAnchors) {
-        if (certificate.equals(anchor.getTrustedCert())) {
-          return true;
-        }
-      }
-      return false;
     }
 
     @Override

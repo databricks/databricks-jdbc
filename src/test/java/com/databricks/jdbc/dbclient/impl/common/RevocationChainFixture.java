@@ -83,6 +83,9 @@ public final class RevocationChainFixture implements AutoCloseable {
       new X500Name("CN=Chain Test Intermediate Two");
   private static final X500Name LEAF_NAME = new X500Name("CN=" + SERVER_HOST);
 
+  /** The server certificate extended key usage. */
+  private final KeyPurposeId leafPurpose;
+
   private final String id = UUID.randomUUID().toString();
   private final KeyPair rootKeys = RevocationTestFixture.newKeyPair();
   private final KeyPair intermediateOneKeys = RevocationTestFixture.newKeyPair();
@@ -113,6 +116,15 @@ public final class RevocationChainFixture implements AutoCloseable {
    */
   public RevocationChainFixture(Map<Endpoint, RevocationTestFixture.Responder> behaviour)
       throws Exception {
+    this(behaviour, false);
+  }
+
+  /** As above; {@code wrongLeafUsage} makes the server certificate clientAuth, not serverAuth. */
+  public RevocationChainFixture(
+      Map<Endpoint, RevocationTestFixture.Responder> behaviour, boolean wrongLeafUsage)
+      throws Exception {
+    this.leafPurpose =
+        wrongLeafUsage ? KeyPurposeId.id_kp_clientAuth : KeyPurposeId.id_kp_serverAuth;
     this.behaviour.putAll(behaviour);
     for (Endpoint endpoint : Endpoint.values()) {
       requests.put(endpoint, new AtomicInteger());
@@ -216,7 +228,8 @@ public final class RevocationChainFixture implements AutoCloseable {
   }
 
   private X509Certificate buildRoot() throws Exception {
-    return issue(ROOT_NAME, ROOT_NAME, rootKeys, rootKeys, BigInteger.ONE, true, null, null, null);
+    return issue(
+        ROOT_NAME, ROOT_NAME, rootKeys, rootKeys, BigInteger.ONE, true, null, null, null, null);
   }
 
   private X509Certificate buildIntermediateOne() throws Exception {
@@ -229,6 +242,7 @@ public final class RevocationChainFixture implements AutoCloseable {
         BigInteger.TWO,
         true,
         UNREACHABLE_CRL,
+        null,
         null,
         null);
   }
@@ -243,6 +257,7 @@ public final class RevocationChainFixture implements AutoCloseable {
         true,
         crlUrl,
         ocspUrl,
+        null,
         null);
   }
 
@@ -256,7 +271,8 @@ public final class RevocationChainFixture implements AutoCloseable {
         false,
         crlUrl,
         ocspUrl,
-        SERVER_HOST);
+        SERVER_HOST,
+        leafPurpose);
   }
 
   /**
@@ -272,7 +288,8 @@ public final class RevocationChainFixture implements AutoCloseable {
       boolean isCa,
       String crlUrl,
       String ocspUrl,
-      String serverHost)
+      String serverHost,
+      KeyPurposeId serverPurpose)
       throws Exception {
     Date now = new Date();
     JcaX509v3CertificateBuilder builder =
@@ -293,8 +310,7 @@ public final class RevocationChainFixture implements AutoCloseable {
           Extension.subjectAlternativeName,
           false,
           new GeneralNames(new GeneralName(GeneralName.iPAddress, serverHost)));
-      builder.addExtension(
-          Extension.extendedKeyUsage, false, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+      builder.addExtension(Extension.extendedKeyUsage, false, new ExtendedKeyUsage(serverPurpose));
     }
     if (crlUrl != null) {
       builder.addExtension(
