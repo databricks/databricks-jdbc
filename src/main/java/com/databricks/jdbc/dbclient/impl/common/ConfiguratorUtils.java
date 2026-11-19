@@ -22,7 +22,6 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -522,6 +521,37 @@ public class ConfiguratorUtils {
    * result, the CRL-only pass. A revoked certificate is rejected by either pass. A status neither
    * pass can determine is accepted.
    */
+  /**
+   * True when {@code issuer} issued {@code subject}: the names match and the signature verifies.
+   */
+  private static boolean issues(X509Certificate issuer, X509Certificate subject) {
+    if (!subject.getIssuerX500Principal().equals(issuer.getSubjectX500Principal())) {
+      return false;
+    }
+    try {
+      subject.verify(issuer.getPublicKey());
+      return true;
+    } catch (GeneralSecurityException e) {
+      return false;
+    }
+  }
+
+  /**
+   * True when, for every position before {@code failedIndex}, the next presented certificate issued
+   * the one before it. Only then does the failure index map onto the presented order.
+   */
+  private static boolean pathOrderHolds(X509Certificate[] chain, int failedIndex) {
+    if (failedIndex < 0 || failedIndex > chain.length) {
+      return false;
+    }
+    for (int i = 0; i < failedIndex; i++) {
+      if (i + 1 >= chain.length || !issues(chain[i + 1], chain[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /** The chain index the failing validation stopped at, or -1 when the failure does not say. */
   private static int failureIndex(Throwable failure) {
     for (Throwable t = failure; t != null; t = t.getCause()) {
@@ -573,9 +603,9 @@ public class ConfiguratorUtils {
           throw firstFailure;
         }
         int failedIndex = failureIndex(firstFailure);
-        // With no index, every certificate gets its own check; the one the pass stopped at is
-        // then checked again, which costs at most one repeated fetch.
-        int unreached = failedIndex < 0 ? chain.length : failedIndex;
+        // The index is trusted only when the presented order holds up to it. Otherwise it says
+        // nothing about which certificates were reached, so every certificate gets its own check.
+        int unreached = pathOrderHolds(chain, failedIndex) ? failedIndex : chain.length;
         for (int index = 0; index < unreached; index++) {
           checkOwnRevocation(chain, index);
         }
@@ -593,20 +623,7 @@ public class ConfiguratorUtils {
       if (isTrustAnchorCertificate(certificate)) {
         return; // a trust anchor is not revocation checked
       }
-      Set<TrustAnchor> issuerAnchors;
-      if (index + 1 < chain.length) {
-        issuerAnchors = Set.of(new TrustAnchor(chain[index + 1], null));
-      } else {
-        // The last presented certificate needs its issuer among the anchors. Otherwise its
-        // revocation cannot be checked, which is rejected rather than skipped.
-        issuerAnchors = anchorsIssuing(certificate);
-        if (issuerAnchors.isEmpty()) {
-          throw new CertificateException(
-              "Revocation cannot be checked: the issuer of "
-                  + certificate.getSubjectX500Principal()
-                  + " is neither in the presented chain nor a trust anchor");
-        }
-      }
+      Set<TrustAnchor> issuerAnchors = issuerAnchorFor(chain, index);
       try {
         CertPathValidator validator = CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX);
         PKIXRevocationChecker revocationChecker =
@@ -636,16 +653,29 @@ public class ConfiguratorUtils {
       return false;
     }
 
-    private Set<TrustAnchor> anchorsIssuing(X509Certificate certificate) {
-      Set<TrustAnchor> issuing = new HashSet<>();
-      for (TrustAnchor anchor : trustAnchors) {
-        X509Certificate root = anchor.getTrustedCert();
-        if (root != null
-            && root.getSubjectX500Principal().equals(certificate.getIssuerX500Principal())) {
-          issuing.add(anchor);
+    /**
+     * Returns the issuer of {@code chain[index]} as the single trust anchor for its own check. The
+     * issuer is found by name and signature, never by position: first among the presented
+     * certificates, then among the trust anchors. Nothing found rejects, since the certificate's
+     * revocation status cannot be checked.
+     */
+    private Set<TrustAnchor> issuerAnchorFor(X509Certificate[] chain, int index)
+        throws CertificateException {
+      X509Certificate certificate = chain[index];
+      for (int i = 0; i < chain.length; i++) {
+        if (i != index && issues(chain[i], certificate)) {
+          return Set.of(new TrustAnchor(chain[i], null));
         }
       }
-      return issuing;
+      for (TrustAnchor anchor : trustAnchors) {
+        X509Certificate root = anchor.getTrustedCert();
+        if (root != null && issues(root, certificate)) {
+          return Set.of(new TrustAnchor(root, null));
+        }
+      }
+      throw new CertificateException(
+          "Revocation cannot be checked: no presented certificate or trust anchor issued "
+              + certificate.getSubjectX500Principal());
     }
 
     @Override

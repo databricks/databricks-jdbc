@@ -186,6 +186,13 @@ public final class RevocationChainFixture implements AutoCloseable {
     return requests.get(endpoint).get();
   }
 
+  /** The chain in presentation order: server, intermediate two, intermediate one, root. */
+  public X509Certificate[] certificates() {
+    return new X509Certificate[] {
+      leafCertificate, intermediateTwoCertificate, intermediateOneCertificate, rootCertificate
+    };
+  }
+
   /** Points the JVM default trust store at a store that holds only the root. */
   public void installDefaultTrustStore() throws Exception {
     KeyStore store = KeyStore.getInstance("PKCS12");
