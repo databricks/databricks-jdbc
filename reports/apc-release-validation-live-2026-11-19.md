@@ -40,7 +40,7 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 | AC19 | **PASS** (overrides); flag-ON **BLOCKED** | Live `UseThriftClient=0/1` overrides (2026-11-18). Flag-ON comparison awaits SAFE (not SC). |
 | AC20 | **PARTIAL** | Flag-OFF warehouse live `SEA_WAREHOUSE` + `SELECT 1` (2026-11-19). Flag-ON comparison awaits SAFE. |
 | AC21 | **PARTIAL** | Explicit `UseThriftClient=0` + `TreatMetadataCatalogNameAsPattern=1` selected SEA + `SELECT 1` (2026-11-19). Flag-ON half awaits SAFE. |
-| AC22 | **PASS** (INSERT) / **FAIL** (DDL vehicle) | INSERT statement batch success + stop-on-failure on Thrift-created scratch table (2026-11-19 follow-up). DDL/`SET` vehicle still **FAIL**: APC `CREATE TEMPORARY VIEW` → `APC result manifest has no schema` (Thrift control OK). |
+| AC22 | **PASS** (INSERT) / **SKIP** (DDL vehicle) | INSERT statement batch success + stop-on-failure on Thrift-created scratch table (2026-11-19 follow-up). DDL/`SET` vehicle **SKIP** → [SC-258842](https://databricks.atlassian.net/browse/SC-258842): APC `CREATE TEMPORARY VIEW` → `APC result manifest has no schema` (Thrift control OK). |
 | AC23 | **BLOCKED** | Needs CreateSession without `negotiated_protocol_version`; not injectable from client. No SC ticket. Local missing-version fake-service pass. |
 | AC24 | **PASS** | Heartbeat on, 35s idle (3×10s), zero statement GET/`/status` (2026-11-19). |
 | AC25 | **PASS** | Compound connection id, raw statement id, recovered cancel/close carry `backend_compute`, `closeConnection` terminates session (2026-11-19). |
@@ -55,8 +55,11 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 | --- | --- | --- | --- |
 | AC5, AC16 | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | `[APC][Reyder] Accept ARROW_STREAM metadata results and set is_native_metadata_result` | TO DO |
 | AC8 inline-only paging | [SC-258787](https://databricks.atlassian.net/browse/SC-258787) | `[APC][Reyder] Honor CreateSession can_cloud_download=false` | TO DO |
+| AC22 DDL vehicle | [SC-258842](https://databricks.atlassian.net/browse/SC-258842) | `[APC][Reyder] DDL statements fail on APC SEA with 'APC result manifest has no schema'` | TO DO |
 
-## Finding: APC DDL without a result schema
+## Finding: APC DDL without a result schema (SC-258842)
+
+Skipped for AC22's DDL vehicle; tracked by [SC-258842](https://databricks.atlassian.net/browse/SC-258842) under [SC-256186](https://databricks.atlassian.net/browse/SC-256186).
 
 | Route | Statement | Outcome |
 | --- | --- | --- |
@@ -75,8 +78,7 @@ Sanitized live evidence against the approved staging APC. Combines the 2026-11-1
 
 | Outcome | ACs |
 | --- | --- |
-| PASS (live) | AC1 (absent), AC2, AC3, AC4, AC6, AC12, AC13, AC14, AC15, AC17, AC18, AC19 (overrides), AC22 (INSERT), AC24, AC25, AC27, AC29 |
+| PASS (live) | AC1 (absent), AC2, AC3, AC4, AC6, AC12, AC13, AC14, AC15, AC17, AC18, AC19 (overrides), AC22 (INSERT path), AC24, AC25, AC27, AC29 |
 | PARTIAL | AC8 (route), AC10, AC11, AC20, AC21, AC26 |
-| SKIP (SC) | AC5, AC16, AC8 inline-only |
-| FAIL | AC22 (DDL vehicle only) |
+| SKIP (SC) | AC5, AC16, AC8 inline-only, AC22 DDL vehicle |
 | BLOCKED (not SC) | AC1/AC19/AC20/AC21/AC28 flag-ON or SAFE; AC7; AC9; AC23 |
