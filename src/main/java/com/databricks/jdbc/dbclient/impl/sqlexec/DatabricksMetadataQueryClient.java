@@ -222,6 +222,31 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       StatementId id =
           StatementId.forCurrentSession(submitted.getStatementId(), session.getSessionInfo());
       return new MetadataAsyncHandle(id, request, catalog, parent);
+    } catch (SQLException e) {
+      // Match getMetadataExecutionResult: submission can fail before a statement_id exists, but
+      // callers still expect parse-error fan-out and object-not-found empty results.
+      if (isTerminalMetadataError(e)) {
+        throw e;
+      }
+      if (catalog == null
+          && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())
+          && (request.getMethod() == MetadataAsyncRequest.Method.SCHEMAS
+              || request.getMethod() == MetadataAsyncRequest.Method.COLUMNS)) {
+        MetadataAsyncHandle failed = new MetadataAsyncHandle(null, request, catalog, parent);
+        TimeoutHandler timeout =
+            new TimeoutHandler(
+                queryExecutionClient.getConnectionContext().getMetadataOperationTimeout(),
+                "asynchronous metadata",
+                () -> {},
+                DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+                true);
+        return immediateHandle(
+            request, fallbackAcrossCatalogs(failed, session, timeout, new AtomicReference<>()));
+      }
+      if (shouldReturnEmpty(request, catalog, e)) {
+        return immediateHandle(request, emptyResult(request, catalog));
+      }
+      throw e;
     }
   }
 
