@@ -49,6 +49,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       JdbcLoggerFactory.getLogger(DatabricksMetadataQueryClient.class);
   private static final int DEFAULT_MAX_THREADS_METADATA_FETCH = 10;
   private static final int TASK_TIMEOUT_METADATA_FETCH_SEC = 90;
+  private static final long DEFAULT_METADATA_POLL_INTERVAL_MILLIS = 50;
   private static final Object THREAD_POOL_LOCK = new Object();
   private static ExecutorService metadataThreadPool = null;
   private final IDatabricksClient queryExecutionClient;
@@ -179,9 +180,14 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         if (emptyCatalogResult(request, session)) {
           return immediateHandle(request, emptyKeyResult(request));
         }
-        catalog =
-            autoFillCatalog(
-                catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        // Synchronous listCrossReferences passes the raw foreign catalog so that null catalog and
+        // schema are both resolved from the session; auto-filling here would make a null schema
+        // throw.
+        if (request.getMethod() != MetadataAsyncRequest.Method.CROSS_REFERENCES) {
+          catalog =
+              autoFillCatalog(
+                  catalog, isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null);
+        }
         if (key == null) {
           key = resolveKeyBasedParams(catalog, request.getSchema(), request.getTable(), session);
         }
@@ -327,6 +333,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
 
   private DatabricksResultSet awaitMetadata(
       StatementId id, IDatabricksSession session, TimeoutHandler timeout) throws SQLException {
+    long pollIntervalMillis = metadataPollIntervalMillis();
     while (true) {
       timeout.checkTimeout();
       DatabricksResultSet result =
@@ -362,7 +369,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         }
       }
       try {
-        Thread.sleep(50);
+        Thread.sleep(pollIntervalMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new DatabricksSQLException(
@@ -372,6 +379,16 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
             e);
       }
     }
+  }
+
+  /**
+   * Honours the same poll interval as statement execution so catalog fan-out does not hammer the
+   * server. Falls back to a short default when no positive interval is configured.
+   */
+  private long metadataPollIntervalMillis() throws SQLException {
+    IDatabricksConnectionContext context = queryExecutionClient.getConnectionContext();
+    int configured = context == null ? 0 : context.getAsyncExecPollInterval();
+    return configured > 0 ? configured : DEFAULT_METADATA_POLL_INTERVAL_MILLIS;
   }
 
   private MetadataAsyncHandle immediateHandle(

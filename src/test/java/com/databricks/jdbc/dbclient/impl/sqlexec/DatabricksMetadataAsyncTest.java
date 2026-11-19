@@ -377,6 +377,70 @@ class DatabricksMetadataAsyncTest {
   }
 
   @Test
+  void pollsMetadataCompletionAtConfiguredAsyncInterval() throws SQLException {
+    when(context.getAsyncExecPollInterval()).thenReturn(200);
+    MetadataAsyncHandle handle =
+        metadata.executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), session);
+    DatabricksResultSet stillRunning = mock(DatabricksResultSet.class);
+    when(stillRunning.getStatementStatus())
+        .thenReturn(new StatementStatus().setState(StatementState.RUNNING));
+    DatabricksResultSet finished = nativeRows(List.of(List.of("main")));
+    when(client.getStatementResult(
+            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
+        .thenReturn(stillRunning, finished);
+
+    long start = System.nanoTime();
+    metadata.getMetadataExecutionResult(handle, session);
+    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+    // Only a lower bound is asserted: the default 50ms poll would finish well under this.
+    assertTrue(elapsedMillis >= 150, "polled faster than configured interval: " + elapsedMillis);
+    verify(client, times(2))
+        .getStatementResult(
+            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA));
+  }
+
+  @Test
+  void crossReferencesResolveNullCatalogAndSchemaLikeSynchronousWhenMultipleCatalogsDisabled()
+      throws SQLException {
+    when(context.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(session.getCurrentCatalog()).thenReturn("main");
+    when(client.executeStatement(
+            anyString(), any(), anyMap(), any(), any(), any(), any(MetadataOperationType.class)))
+        .thenThrow(new DatabricksSQLException("syntax", "42601"));
+
+    metadata.listCrossReferences(session, null, null, "p", null, null, "t");
+    MetadataAsyncHandle handle =
+        metadata.executeMetadataAsync(
+            MetadataAsyncRequest.forCrossReferences(null, null, "p", null, null, "t"), session);
+
+    org.mockito.ArgumentCaptor<String> syncSql = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(client)
+        .executeStatement(
+            syncSql.capture(),
+            any(),
+            anyMap(),
+            any(),
+            any(),
+            any(),
+            any(MetadataOperationType.class));
+    org.mockito.ArgumentCaptor<String> asyncSql = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(client)
+        .executeStatementAsync(
+            asyncSql.capture(),
+            any(),
+            anyMap(),
+            any(),
+            any(),
+            any(),
+            any(MetadataOperationType.class));
+    assertEquals(
+        "SHOW FOREIGN KEYS IN CATALOG `main` IN SCHEMA `s` IN TABLE `t`", syncSql.getValue());
+    assertEquals(syncSql.getValue(), asyncSql.getValue());
+    assertEquals("main", handle.getResolvedCatalog());
+  }
+
+  @Test
   void metadataTimeoutCancelsActiveStatement() throws SQLException {
     when(context.getMetadataOperationTimeout()).thenReturn(1);
     MetadataAsyncHandle handle =
