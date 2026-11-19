@@ -98,7 +98,19 @@
   "safe_flag_live_lookup_2026_11_19_found": true,
   "safe_flag_2026_11_19_proposal_id": "66d7c328-df08-493b-a693-388fecef6844",
   "safe_flag_2026_11_19_dogfood_override_workspace": "6051921418418893@aws@staging",
-  "dogfood_profile_auth_2026_11_19": "refresh token invalid; run databricks auth login --profile dogfood",
+  "dogfood_profile_auth_2026_11_19": "refresh token invalid before re-login; valid after databricks auth login --profile dogfood",
+  "flag_on_dogfood_2026_11_19": {
+    "runner": "reports/validation/ApcFlagOnRoutes.java",
+    "jar": "databricks-jdbc-3.4.5 uber jar (round-2 artifact)",
+    "cluster_access_modes_tried": ["SINGLE_USER", "USER_ISOLATION"],
+    "modes": {
+      "flag-default": {"protocol": "THRIFT", "reason": "apc_flag", "select_one": "pass"},
+      "thrift-override": {"protocol": "THRIFT", "reason": "explicit_thrift", "select_one": "pass"},
+      "sea-override": {"protocol": null, "outcome": "fail", "error": "APC SEA CreateSession failed (server error 403)", "reason": "explicit_sea"},
+      "sea-pattern": {"protocol": "THRIFT", "reason": "catalog_pattern", "select_one": "pass"}
+    },
+    "control_staging_sea_override": {"protocol": "SEA_APC", "client": "DatabricksSdkClient", "reason": "explicit_sea", "select_one": "pass"}
+  },
   "sc_status_2026_11_19": {"SC-256188": "TO DO", "SC-258787": "TO DO", "SC-258842": "TO DO"},
   "flag_absent_no_override": {
     "observed_protocol": "THRIFT",
