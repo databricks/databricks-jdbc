@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,8 +17,10 @@ import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.KeyManagerFactory;
@@ -87,6 +90,8 @@ public final class RevocationTestFixture implements AutoCloseable {
   private final AtomicInteger revocationRequests = new AtomicInteger();
   private final HttpServer revocationServer;
   private final HttpsServer tlsServer;
+  private final ExecutorService revocationExecutor = Executors.newCachedThreadPool();
+  private final ExecutorService tlsExecutor = Executors.newCachedThreadPool();
   private final String[] savedProperties = new String[TRUST_STORE_PROPERTIES.length];
   private Path trustStoreFile;
 
@@ -114,7 +119,7 @@ public final class RevocationTestFixture implements AutoCloseable {
         buildLeafCertificate(base + "/crl.crl", withOcspAccessLocation ? base + "/ocsp" : null);
     revocationServer.createContext("/" + id + "/crl.crl", this::serveCrl);
     revocationServer.createContext("/" + id + "/ocsp", this::serveOcsp);
-    revocationServer.setExecutor(Executors.newCachedThreadPool());
+    revocationServer.setExecutor(revocationExecutor);
     revocationServer.start();
 
     tlsServer = HttpsServer.create(new InetSocketAddress(SERVER_HOST, 0), 0);
@@ -128,7 +133,7 @@ public final class RevocationTestFixture implements AutoCloseable {
             out.write(body);
           }
         });
-    tlsServer.setExecutor(Executors.newCachedThreadPool());
+    tlsServer.setExecutor(tlsExecutor);
     tlsServer.start();
   }
 
@@ -157,10 +162,22 @@ public final class RevocationTestFixture implements AutoCloseable {
    * at an empty store when trustThisCa is false. The default trust store path reads this property.
    */
   public void installDefaultTrustStore(boolean trustThisCa) throws Exception {
+    installTrustStore(trustThisCa ? caCertificate : null);
+  }
+
+  /**
+   * Points the JVM default trust store at a store that holds an unrelated self-signed CA, so the
+   * server certificate chains to no trust anchor and the handshake must fail.
+   */
+  public void installDefaultTrustStoreWithUnrelatedCa() throws Exception {
+    installTrustStore(unrelatedCaCertificate());
+  }
+
+  private void installTrustStore(X509Certificate anchor) throws Exception {
     KeyStore store = KeyStore.getInstance("PKCS12");
     store.load(null, null);
-    if (trustThisCa) {
-      store.setCertificateEntry("revocation-test-ca", caCertificate);
+    if (anchor != null) {
+      store.setCertificateEntry("revocation-test-ca", anchor);
     }
     trustStoreFile = Files.createTempFile("revocation-test-trust-", ".p12");
     try (OutputStream out = Files.newOutputStream(trustStoreFile)) {
@@ -178,6 +195,8 @@ public final class RevocationTestFixture implements AutoCloseable {
   public void close() throws IOException {
     tlsServer.stop(0);
     revocationServer.stop(0);
+    tlsExecutor.shutdownNow();
+    revocationExecutor.shutdownNow();
     if (trustStoreFile != null) {
       for (int i = 0; i < TRUST_STORE_PROPERTIES.length; i++) {
         if (savedProperties[i] == null) {
@@ -218,7 +237,7 @@ public final class RevocationTestFixture implements AutoCloseable {
       return;
     }
     try {
-      OCSPReq request = new OCSPReq(exchange.getRequestBody().readAllBytes());
+      OCSPReq request = new OCSPReq(ocspRequestBytes(exchange));
       DigestCalculator sha1 =
           new JcaDigestCalculatorProviderBuilder().build().get(CertificateID.HASH_SHA1);
       BasicOCSPRespBuilder builder =
@@ -237,6 +256,24 @@ public final class RevocationTestFixture implements AutoCloseable {
     } catch (Exception e) {
       respond(exchange, 500, new byte[0]);
     }
+  }
+
+  /**
+   * Returns the DER OCSP request. JDK 17+ sends it as a GET with the base64 request URL-encoded in
+   * the path, while JDK 11 sends a POST body. Both forms are accepted so the responder works on
+   * every JDK under test.
+   */
+  private static byte[] ocspRequestBytes(HttpExchange exchange) throws IOException {
+    if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+      return exchange.getRequestBody().readAllBytes();
+    }
+    String path = exchange.getRequestURI().getRawPath();
+    int start = path.indexOf("/ocsp/");
+    if (start < 0) {
+      throw new IOException("OCSP GET request has no encoded request in path: " + path);
+    }
+    String encoded = path.substring(start + "/ocsp/".length());
+    return Base64.getDecoder().decode(URLDecoder.decode(encoded, StandardCharsets.UTF_8.name()));
   }
 
   private X509Certificate buildCaCertificate() throws Exception {
@@ -308,6 +345,25 @@ public final class RevocationTestFixture implements AutoCloseable {
     SSLContext sslContext = SSLContext.getInstance("TLS");
     sslContext.init(kmf.getKeyManagers(), null, null);
     return sslContext;
+  }
+
+  private X509Certificate unrelatedCaCertificate() throws Exception {
+    KeyPair keys = newKeyPair();
+    X500Name name = new X500Name("CN=Unrelated Revocation Test CA");
+    Date now = new Date();
+    JcaX509v3CertificateBuilder builder =
+        new JcaX509v3CertificateBuilder(
+            name,
+            BigInteger.ONE,
+            new Date(now.getTime() - 60_000L),
+            new Date(now.getTime() + 86_400_000L),
+            name,
+            keys.getPublic());
+    builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+    builder.addExtension(
+        Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+    ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keys.getPrivate());
+    return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
   }
 
   private X500Name caName() {

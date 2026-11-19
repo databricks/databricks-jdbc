@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.RevocationTestFixture.Responder;
-import com.databricks.jdbc.exception.DatabricksSSLException;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateRevokedException;
 import java.util.Properties;
@@ -226,14 +225,26 @@ class RevocationPolicyHermeticTest {
   void checkRevocationOff_chainValidationStillEnforced() throws Exception {
     try (RevocationTestFixture fixture =
         new RevocationTestFixture(Responder.GOOD, Responder.GOOD, true)) {
-      fixture.installDefaultTrustStore(false);
-      // An empty default trust store has no anchors, so the driver refuses to build trust.
-      assertThrows(
-          DatabricksSSLException.class,
-          () ->
-              ConfiguratorUtils.getBaseConnectionManager(
-                  context(fixture, "CheckCertRevocation=0")));
+      // The trust store holds only an unrelated CA, so the server chain anchors nowhere. The
+      // handshake must fail even with revocation off, which proves chain validation still runs.
+      fixture.installDefaultTrustStoreWithUnrelatedCa();
+      Outcome outcome =
+          fetch(
+              ConfiguratorUtils.getBaseConnectionManager(context(fixture, "CheckCertRevocation=0")),
+              fixture);
+      assertFalse(outcome.accepted, "an unanchored chain must be refused with revocation off");
+      assertTrue(
+          sslFailure(outcome.failure), "expected a TLS chain failure, got: " + outcome.failure);
     }
+  }
+
+  private static boolean sslFailure(Throwable failure) {
+    for (Throwable t = failure; t != null; t = t.getCause()) {
+      if (t instanceof javax.net.ssl.SSLException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static void assertOutcome(Outcome outcome, Expect expected) {
