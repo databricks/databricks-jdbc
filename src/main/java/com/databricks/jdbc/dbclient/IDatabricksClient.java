@@ -80,6 +80,7 @@ public interface IDatabricksClient {
   }
 
   /** Executes an ordered prepared INSERT batch using APC parameter_sets. */
+  @DatabricksMetricsTimed
   default long[] executeNativeBatch(
       String sql,
       List<BatchParameterSet> parameterSets,

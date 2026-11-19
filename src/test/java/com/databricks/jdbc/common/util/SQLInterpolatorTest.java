@@ -318,6 +318,17 @@ public class SQLInterpolatorTest {
   }
 
   @Test
+  public void testApcNonFiniteFloatingPointUsesCastLiterals() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, Double.NaN, DatabricksTypeUtil.DOUBLE));
+    params.put(2, getSqlParam(2, Float.POSITIVE_INFINITY, DatabricksTypeUtil.FLOAT));
+    params.put(3, getSqlParam(3, Double.NEGATIVE_INFINITY, DatabricksTypeUtil.DOUBLE));
+    assertEquals(
+        "SELECT CAST('NaN' AS DOUBLE), CAST('Infinity' AS FLOAT), CAST('-Infinity' AS DOUBLE)",
+        SQLInterpolator.interpolateApcSQL("SELECT ?, ?, ?", params));
+  }
+
+  @Test
   public void testApcParameterMismatchNeverIncludesSqlText() {
     String secret = "private-sql-literal";
     DatabricksValidationException error =

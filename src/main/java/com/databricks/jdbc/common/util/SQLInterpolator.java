@@ -72,6 +72,10 @@ public class SQLInterpolator {
         || object.type() == ColumnInfoTypeName.DATE
         || (apc && object.type() == ColumnInfoTypeName.TIMESTAMP_NTZ)) {
       return apc ? escapeInputs(object.value().toString()) : "'" + object.value() + "'";
+    } else if (apc && object.value() instanceof Float) {
+      return formatApcFloating(((Float) object.value()).doubleValue(), "FLOAT");
+    } else if (apc && object.value() instanceof Double) {
+      return formatApcFloating((Double) object.value(), "DOUBLE");
     } else if (!apc || isTrustedScalar(object.value())) {
       return object.value().toString();
     } else {
@@ -79,6 +83,19 @@ public class SQLInterpolator {
       // even when the declared type is numeric or boolean.
       return escapeInputs(object.value().toString());
     }
+  }
+
+  private static String formatApcFloating(double value, String sqlType) {
+    if (Double.isNaN(value)) {
+      return "CAST('NaN' AS " + sqlType + ")";
+    }
+    if (value == Double.POSITIVE_INFINITY) {
+      return "CAST('Infinity' AS " + sqlType + ")";
+    }
+    if (value == Double.NEGATIVE_INFINITY) {
+      return "CAST('-Infinity' AS " + sqlType + ")";
+    }
+    return Double.toString(value);
   }
 
   /** Returns an SQL hex literal for client-side binary interpolation. */
