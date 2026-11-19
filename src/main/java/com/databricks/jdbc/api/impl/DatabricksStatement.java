@@ -42,7 +42,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       Pattern.compile(
           "(?is)^\\s*SET\\s+(?:TIME\\s*ZONE\\s*(?:=\\s*)?|spark\\.sql\\.session\\.timeZone\\s*=\\s*)"
               + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+)"
-              + "|(INTERVAL\\s+'[+-]?\\d{1,2}(?::\\d{2})?'\\s+HOUR(?:\\s+TO\\s+MINUTE)?))"
+              + "|(INTERVAL\\s+[^;]+?))"
               + "\\s*;?\\s*$");
 
   /**
@@ -1009,24 +1009,38 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (zone == null) {
       return;
     }
-    boolean apcSea =
-        connection.getConnectionContext().isAllPurposeCluster()
-            && connection.getConnectionContext().getClientType() == DatabricksClientType.SEA;
-    if (!apcSea) {
+    if (!isApcSea(connection)) {
       return;
     }
-    if ("LOCAL".equalsIgnoreCase(zone) || zone.regionMatches(true, 0, "INTERVAL ", 0, 9)) {
-      try (Statement zoneStatement = connection.createStatement();
-          ResultSet zoneResult = zoneStatement.executeQuery("SELECT current_timezone()")) {
-        if (!zoneResult.next()) {
-          throw new DatabricksSQLException(
-              "Unable to read effective session time zone",
-              DatabricksDriverErrorCode.INVALID_STATE.name(),
-              DatabricksDriverErrorCode.INVALID_STATE);
-        }
-        zone = zoneResult.getString(1);
-      }
+    // LOCAL and INTERVAL offsets are resolved by the server, so read back what it applied.
+    if ("LOCAL".equalsIgnoreCase(zone)
+        || (zone.regionMatches(true, 0, "INTERVAL", 0, 8)
+            && zone.length() > 8
+            && Character.isWhitespace(zone.charAt(8)))) {
+      zone = readEffectiveSessionTimeZone(connection);
     }
+    publishSessionTimeZone(connection, zone);
+  }
+
+  static boolean isApcSea(DatabricksConnection connection) {
+    return connection.getConnectionContext().isAllPurposeCluster()
+        && connection.getConnectionContext().getClientType() == DatabricksClientType.SEA;
+  }
+
+  static String readEffectiveSessionTimeZone(DatabricksConnection connection) throws SQLException {
+    try (Statement zoneStatement = connection.createStatement();
+        ResultSet zoneResult = zoneStatement.executeQuery("SELECT current_timezone()")) {
+      if (!zoneResult.next()) {
+        throw new DatabricksSQLException(
+            "Unable to read effective session time zone",
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      return zoneResult.getString(1);
+    }
+  }
+
+  static void publishSessionTimeZone(DatabricksConnection connection, String zone) {
     Map<String, String> configs = connection.getSession().getSessionConfigs();
     connection.getSession().setSessionConfig("timezone", zone);
     connection.getSession().setSessionConfig("spark.sql.session.timezone", zone);

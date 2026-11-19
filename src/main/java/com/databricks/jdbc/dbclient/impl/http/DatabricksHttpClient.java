@@ -205,8 +205,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
     String errorMsg =
         String.format(
-            "Caught error while executing http request: [%s]",
-            RequestSanitizer.sanitizeRequest(request));
+            "Caught error while executing http request: [%s]. Exception [%s]",
+            RequestSanitizer.sanitizeRequest(request), e.getClass().getSimpleName());
     LOGGER.error(errorMsg);
     throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
