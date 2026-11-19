@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_EN
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.SocketFactoryUtil;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -12,6 +13,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.Socket;
 import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
@@ -87,6 +89,7 @@ public class ConfiguratorUtils {
     if (connectionContext.getSSLTrustStore() == null
         && connectionContext.checkCertificateRevocation()
         && !connectionContext.acceptUndeterminedCertificateRevocation()
+        && !isRevocationSettingProvided(connectionContext)
         && !connectionContext.useSystemTrustStore()
         && !connectionContext.allowSelfSignedCerts()) {
       return new PoolingHttpClientConnectionManager();
@@ -114,6 +117,16 @@ public class ConfiguratorUtils {
   }
 
   /**
+   * Returns true when CheckCertRevocation or AcceptUndeterminedRevocation is explicitly set. An
+   * explicit setting must use the PKIX trust path, so it takes effect on the default trust store.
+   */
+  static boolean isRevocationSettingProvided(IDatabricksConnectionContext connectionContext) {
+    return connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION)
+        || connectionContext.isPropertyPresent(
+            DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION);
+  }
+
+  /**
    * Identifies the settings {@link #getBaseConnectionManager} feeds into the TLS context: which
    * servers to trust and which client certificate to present. Keep it in sync with that method.
    */
@@ -134,7 +147,8 @@ public class ConfiguratorUtils {
             connectionContext.getSSLKeyStoreProvider(),
             connectionContext.allowSelfSignedCerts(),
             connectionContext.checkCertificateRevocation(),
-            connectionContext.acceptUndeterminedCertificateRevocation()));
+            connectionContext.acceptUndeterminedCertificateRevocation(),
+            isRevocationSettingProvided(connectionContext)));
   }
 
   /**
@@ -445,7 +459,138 @@ public class ConfiguratorUtils {
     customTmf.init(trustManagerParams);
 
     LOGGER.info("Certificate revocation check: " + checkCertificateRevocation);
+    if (checkCertificateRevocation && acceptUndeterminedCertificateRevocation) {
+      // Soft-fail: OCSP first, then a CRL-only pass for certificates with no OCSP responder.
+      X509TrustManager ocspFirst = findX509TrustManager(customTmf.getTrustManagers());
+      TrustManagerFactory crlTmf =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      crlTmf.init(buildCrlOnlyTrustManagerParameters(trustAnchors));
+      X509TrustManager crlOnly = findX509TrustManager(crlTmf.getTrustManagers());
+      if (ocspFirst instanceof X509ExtendedTrustManager
+          && crlOnly instanceof X509ExtendedTrustManager) {
+        return new TrustManager[] {
+          new SoftFailTrustManager(
+              (X509ExtendedTrustManager) ocspFirst, (X509ExtendedTrustManager) crlOnly)
+        };
+      }
+    }
     return customTmf.getTrustManagers();
+  }
+
+  /** Builds trust manager parameters that check revocation with CRLs only, soft-fail. */
+  private static CertPathTrustManagerParameters buildCrlOnlyTrustManagerParameters(
+      Set<TrustAnchor> trustAnchors) throws DatabricksSSLException {
+    try {
+      PKIXBuilderParameters pkixBuilderParameters =
+          new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
+      pkixBuilderParameters.setRevocationEnabled(true);
+      PKIXRevocationChecker revocationChecker =
+          (PKIXRevocationChecker)
+              CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX).getRevocationChecker();
+      revocationChecker.setOptions(
+          Set.of(
+              PKIXRevocationChecker.Option.SOFT_FAIL,
+              PKIXRevocationChecker.Option.NO_FALLBACK,
+              PKIXRevocationChecker.Option.PREFER_CRLS));
+      pkixBuilderParameters.addCertPathChecker(revocationChecker);
+      return new CertPathTrustManagerParameters(pkixBuilderParameters);
+    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
+      handleError("Error while building CRL-only trust manager parameters: " + e.getMessage(), e);
+    }
+    return null;
+  }
+
+  /** Returns true when the failure chain reports a revoked certificate, from OCSP or a CRL. */
+  private static boolean isRevoked(Throwable failure) {
+    for (Throwable t = failure; t != null; t = t.getCause()) {
+      if (t instanceof CertificateRevokedException
+          || (t instanceof CertPathValidatorException
+              && ((CertPathValidatorException) t).getReason()
+                  == CertPathValidatorException.BasicReason.REVOKED)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Soft-fail trust manager. It runs the OCSP-first pass, and if that fails without a revoked
+   * result, the CRL-only pass. A revoked certificate is rejected by either pass. A status neither
+   * pass can determine is accepted.
+   */
+  private static final class SoftFailTrustManager extends X509ExtendedTrustManager {
+    private final X509ExtendedTrustManager ocspFirst;
+    private final X509ExtendedTrustManager crlOnly;
+
+    private SoftFailTrustManager(
+        X509ExtendedTrustManager ocspFirst, X509ExtendedTrustManager crlOnly) {
+      this.ocspFirst = ocspFirst;
+      this.crlOnly = crlOnly;
+    }
+
+    /** One trust check, run against a given trust manager. */
+    private interface TrustCheck {
+      void run(X509ExtendedTrustManager trustManager) throws CertificateException;
+    }
+
+    private void checkWithFallback(TrustCheck trustCheck) throws CertificateException {
+      try {
+        trustCheck.run(ocspFirst);
+      } catch (CertificateException firstFailure) {
+        if (isRevoked(firstFailure)) {
+          throw firstFailure;
+        }
+        try {
+          trustCheck.run(crlOnly);
+        } catch (CertificateException secondFailure) {
+          if (isRevoked(secondFailure)) {
+            throw secondFailure;
+          }
+          throw firstFailure;
+        }
+      }
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket)
+        throws CertificateException {
+      checkWithFallback(tm -> tm.checkServerTrusted(chain, authType, socket));
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
+        throws CertificateException {
+      checkWithFallback(tm -> tm.checkServerTrusted(chain, authType, engine));
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType)
+        throws CertificateException {
+      checkWithFallback(tm -> tm.checkServerTrusted(chain, authType));
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket)
+        throws CertificateException {
+      checkWithFallback(tm -> tm.checkClientTrusted(chain, authType, socket));
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
+        throws CertificateException {
+      checkWithFallback(tm -> tm.checkClientTrusted(chain, authType, engine));
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType)
+        throws CertificateException {
+      checkWithFallback(tm -> tm.checkClientTrusted(chain, authType));
+    }
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+      return ocspFirst.getAcceptedIssuers();
+    }
   }
 
   /**
@@ -661,11 +806,8 @@ public class ConfiguratorUtils {
             (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
 
         if (acceptUndeterminedCertificateRevocation) {
-          revocationChecker.setOptions(
-              Set.of(
-                  PKIXRevocationChecker.Option.SOFT_FAIL,
-                  PKIXRevocationChecker.Option.NO_FALLBACK,
-                  PKIXRevocationChecker.Option.PREFER_CRLS));
+          // OCSP first with CRL fallback. The CRL-only pass is in createTrustManagers.
+          revocationChecker.setOptions(Set.of(PKIXRevocationChecker.Option.SOFT_FAIL));
         }
         LOGGER.info(
             "Certificate revocation enabled. Undetermined revocation accepted: "
