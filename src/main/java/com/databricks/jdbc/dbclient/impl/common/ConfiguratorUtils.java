@@ -22,6 +22,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -588,20 +589,34 @@ public class ConfiguratorUtils {
      */
     private void checkOwnRevocation(X509Certificate[] chain, int index)
         throws CertificateException {
-      if (index + 1 >= chain.length) {
-        return; // the trust anchor itself is not revocation checked
+      X509Certificate certificate = chain[index];
+      if (isTrustAnchorCertificate(certificate)) {
+        return; // a trust anchor is not revocation checked
+      }
+      Set<TrustAnchor> issuerAnchors;
+      if (index + 1 < chain.length) {
+        issuerAnchors = Set.of(new TrustAnchor(chain[index + 1], null));
+      } else {
+        // The last presented certificate needs its issuer among the anchors. Otherwise its
+        // revocation cannot be checked, which is rejected rather than skipped.
+        issuerAnchors = anchorsIssuing(certificate);
+        if (issuerAnchors.isEmpty()) {
+          throw new CertificateException(
+              "Revocation cannot be checked: the issuer of "
+                  + certificate.getSubjectX500Principal()
+                  + " is neither in the presented chain nor a trust anchor");
+        }
       }
       try {
         CertPathValidator validator = CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX);
         PKIXRevocationChecker revocationChecker =
             (PKIXRevocationChecker) validator.getRevocationChecker();
         revocationChecker.setOptions(Set.of(PKIXRevocationChecker.Option.SOFT_FAIL));
-        PKIXParameters parameters =
-            new PKIXParameters(Set.of(new TrustAnchor(chain[index + 1], null)));
+        PKIXParameters parameters = new PKIXParameters(issuerAnchors);
         parameters.setRevocationEnabled(true);
         parameters.addCertPathChecker(revocationChecker);
         validator.validate(
-            CertificateFactory.getInstance("X.509").generateCertPath(List.of(chain[index])),
+            CertificateFactory.getInstance("X.509").generateCertPath(List.of(certificate)),
             parameters);
       } catch (CertPathValidatorException e) {
         if (isRevoked(e)) {
@@ -610,6 +625,27 @@ public class ConfiguratorUtils {
       } catch (GeneralSecurityException e) {
         throw new CertificateException(e.getMessage(), e);
       }
+    }
+
+    private boolean isTrustAnchorCertificate(X509Certificate certificate) {
+      for (TrustAnchor anchor : trustAnchors) {
+        if (certificate.equals(anchor.getTrustedCert())) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private Set<TrustAnchor> anchorsIssuing(X509Certificate certificate) {
+      Set<TrustAnchor> issuing = new HashSet<>();
+      for (TrustAnchor anchor : trustAnchors) {
+        X509Certificate root = anchor.getTrustedCert();
+        if (root != null
+            && root.getSubjectX500Principal().equals(certificate.getIssuerX500Principal())) {
+          issuing.add(anchor);
+        }
+      }
+      return issuing;
     }
 
     @Override
