@@ -87,6 +87,15 @@ public final class RevocationTestFixture implements AutoCloseable {
   private final BigInteger leafSerial = BigInteger.valueOf(System.nanoTime() & Long.MAX_VALUE);
   private final Responder crl;
   private final Responder ocsp;
+
+  /**
+   * Revocation time for the REVOKED answers. It must precede the validation time: the JDK ignores a
+   * revocation dated at or after the time it validates the chain. Encoded revocation times have
+   * whole-second precision, so a timestamp taken during the request can share a second with, or
+   * fall after, the validation start.
+   */
+  private final Date revokedAt = new Date(System.currentTimeMillis() - 3_600_000L);
+
   private final AtomicInteger revocationRequests = new AtomicInteger();
   private final HttpServer revocationServer;
   private final HttpsServer tlsServer;
@@ -221,7 +230,7 @@ public final class RevocationTestFixture implements AutoCloseable {
       X509v2CRLBuilder builder = new X509v2CRLBuilder(caName(), now);
       builder.setNextUpdate(new Date(now.getTime() + 86_400_000L));
       if (crl == Responder.REVOKED) {
-        builder.addCRLEntry(leafSerial, now, CRLReason.keyCompromise);
+        builder.addCRLEntry(leafSerial, revokedAt, CRLReason.keyCompromise);
       }
       X509CRLHolder holder = builder.build(contentSigner());
       respond(exchange, 200, holder.getEncoded());
@@ -246,7 +255,7 @@ public final class RevocationTestFixture implements AutoCloseable {
       for (Req req : request.getRequestList()) {
         CertificateStatus status =
             ocsp == Responder.REVOKED
-                ? new RevokedStatus(new Date(), CRLReason.keyCompromise)
+                ? new RevokedStatus(revokedAt, CRLReason.keyCompromise)
                 : CertificateStatus.GOOD;
         builder.addResponse(req.getCertID(), status);
       }
