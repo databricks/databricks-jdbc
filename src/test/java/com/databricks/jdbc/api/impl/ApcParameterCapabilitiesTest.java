@@ -794,6 +794,104 @@ class ApcParameterCapabilitiesTest {
   }
 
   @Test
+  void repeatedDowngradedExecutionsEmitOneWarningAndTelemetryEvent() throws Exception {
+    Logger logger = Logger.getLogger(DatabricksPreparedStatement.class.getName());
+    Level previousLevel = logger.getLevel();
+    List<LogRecord> warnings = new ArrayList<>();
+    Handler handler =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            if (record.getLevel() == Level.WARNING) {
+              warnings.add(record);
+            }
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    logger.addHandler(handler);
+    logger.setLevel(Level.WARNING);
+    try {
+      TestConnection test = testConnection(null);
+      DatabricksPreparedStatement prepared =
+          new DatabricksPreparedStatement(test.connection, "SELECT ?");
+      prepared.setString(1, "safe");
+      when(test.client.executeStatement(
+              anyString(),
+              eq(CLUSTER),
+              anyMap(),
+              eq(StatementType.QUERY),
+              any(),
+              eq(prepared),
+              isNull()))
+          .thenReturn(mock(DatabricksResultSet.class));
+      try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+        prepared.executeQuery();
+        prepared.executeQuery();
+        prepared.executeQuery();
+        telemetry.verify(
+            () ->
+                TelemetryHelper.exportFailureLog(
+                    test.context,
+                    "APC_PARAMETER_DOWNGRADE",
+                    "missing version",
+                    TelemetryLogLevel.WARN),
+            times(1));
+      }
+      assertEquals(1, warnings.size());
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(previousLevel);
+    }
+  }
+
+  @Test
+  void warehouseNativeBatchRetainsHistoricalEscapeProcessing() throws Exception {
+    TestConnection test = testConnection(42250L);
+    Warehouse warehouse = new Warehouse("warehouse");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .sessionId("session")
+            .computeResource(warehouse)
+            .clientType(DatabricksClientType.SEA)
+            .build();
+    when(test.connection.getSession().getSessionInfo()).thenReturn(info);
+    when(test.connection.getSession().getComputeResource()).thenReturn(warehouse);
+    DatabricksStatement statement = new DatabricksStatement(test.connection);
+    statement.setEscapeProcessing(true);
+    DatabricksResultSet result = mock(DatabricksResultSet.class);
+    when(result.getBatchUpdateCounts(1)).thenReturn(new long[] {1});
+    when(test.client.executeStatementBatch(
+            anyString(), eq(warehouse), anyList(), eq(StatementType.UPDATE), any(), eq(statement)))
+        .thenReturn(result);
+
+    statement.executeNativeBatchInternal(
+        "INSERT INTO t VALUES ('{fn UCASE(a)}', ?) /* ESCAPE '' */",
+        List.of(
+            BatchParameterSet.from(
+                Map.of(
+                    1,
+                    ImmutableSqlParameter.builder()
+                        .type(ColumnInfoTypeName.INT)
+                        .value(1)
+                        .cardinal(1)
+                        .build()))));
+
+    verify(test.client)
+        .executeStatementBatch(
+            eq("INSERT INTO t VALUES ('UCASE(a)', ?) /* */"),
+            eq(warehouse),
+            anyList(),
+            eq(StatementType.UPDATE),
+            any(),
+            eq(statement));
+  }
+
+  @Test
   void unsupportedNativeBatchPathsEmitDriverErrorCode() {
     IDatabricksClient defaultClient = mock(IDatabricksClient.class, CALLS_REAL_METHODS);
     DatabricksThriftServiceClient thriftClient =

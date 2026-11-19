@@ -451,10 +451,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
                                     mapToParameterListItem(parameter, true, mixedBinaryPositions))
                             .collect(Collectors.toList())))
             .collect(Collectors.toList());
-    DatabricksResultSet result = null;
+    AwaitedStatement awaited = null;
     try {
-      result =
-          executeStatementInternal(
+      // The aggregate result is never decoded: a decoding failure after the server reported
+      // SUCCEEDED would surface as EXECUTE_FAILED for rows that are already committed.
+      awaited =
+          awaitStatement(
               sql,
               session.getComputeResource(),
               Collections.emptyMap(),
@@ -465,20 +467,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
               wireSets,
               null);
     } finally {
-      // A successful INSERT must remain successful even when result cleanup fails. Reporting
+      // A successful INSERT must remain successful even when cleanup fails. Reporting
       // EXECUTE_FAILED here could make callers retry and duplicate committed rows.
       try {
-        if (result != null) {
-          try {
-            result.closeForNativeBatch();
-          } finally {
-            if (parentStatement == null) {
-              closeStatement(
-                  StatementId.forCurrentSession(result.getStatementId(), session.getSessionInfo()));
-            }
+        if (awaited != null && awaited.state == StatementState.CLOSED) {
+          // The server already closed the operation; there is nothing left to release.
+          if (parentStatement != null) {
+            parentStatement.markDirectResultsReceived();
           }
         } else if (parentStatement != null) {
           parentStatement.closeServerOperation();
+        } else if (awaited != null) {
+          closeStatement(awaited.statementId);
         }
       } catch (Exception cleanupFailure) {
         LOGGER.warn("Could not close APC native batch operation");
@@ -489,7 +489,72 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return counts;
   }
 
+  /** A statement that was submitted and reached SUCCEEDED or CLOSED, before result decoding. */
+  private static final class AwaitedStatement {
+    final StatementId statementId;
+    final ExecuteStatementResponse response;
+    final StatementState state;
+
+    AwaitedStatement(
+        StatementId statementId, ExecuteStatementResponse response, StatementState state) {
+      this.statementId = statementId;
+      this.response = response;
+      this.state = state;
+    }
+  }
+
   private DatabricksResultSet executeStatementInternal(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      MetadataOperationType metadataOperationType,
+      List<StatementParameterSet> parameterSets,
+      ExecuteStatementRequest suppliedRequest)
+      throws SQLException {
+    AwaitedStatement awaited =
+        awaitStatement(
+            sql,
+            computeResource,
+            parameters,
+            statementType,
+            session,
+            parentStatement,
+            metadataOperationType,
+            parameterSets,
+            suppliedRequest);
+    StatementId typedStatementId = awaited.statementId;
+    ExecuteStatementResponse response = awaited.response;
+
+    // Defer markDirectResultsReceived until AFTER ResultSet construction.
+    // VolumeOperationResult (created during ResultSet construction) accesses
+    // statement properties that require the statement to be in a valid state.
+    boolean shouldMarkDirectResults =
+        awaited.state == StatementState.CLOSED && parentStatement != null;
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            response.getStatus(),
+            typedStatementId,
+            response.getResult(),
+            response.getManifest(),
+            statementType,
+            session,
+            parentStatement);
+
+    if (shouldMarkDirectResults) {
+      LOGGER.debug(
+          "Statement {} returned CLOSED status with direct results, marking as direct results received",
+          response.getStatementId());
+      parentStatement.markDirectResultsReceived();
+    }
+
+    return resultSet;
+  }
+
+  private AwaitedStatement awaitStatement(
       String sql,
       IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
@@ -715,31 +780,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         }
       }
     }
-
-    // Defer markDirectResultsReceived until AFTER ResultSet construction.
-    // VolumeOperationResult (created during ResultSet construction) accesses
-    // statement properties that require the statement to be in a valid state.
-    boolean shouldMarkDirectResults =
-        responseState == StatementState.CLOSED && parentStatement != null;
-
-    DatabricksResultSet resultSet =
-        new DatabricksResultSet(
-            response.getStatus(),
-            typedStatementId,
-            response.getResult(),
-            response.getManifest(),
-            statementType,
-            session,
-            parentStatement);
-
-    if (shouldMarkDirectResults) {
-      LOGGER.debug(
-          "Statement {} returned CLOSED status with direct results, marking as direct results received",
-          statementId);
-      parentStatement.markDirectResultsReceived();
-    }
-
-    return resultSet;
+    return new AwaitedStatement(typedStatementId, response, responseState);
   }
 
   private void closeFailedApcOperation(

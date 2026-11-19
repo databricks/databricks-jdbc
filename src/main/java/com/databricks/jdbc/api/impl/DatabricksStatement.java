@@ -1152,9 +1152,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            String sqlString = escapeProcessing ? StringUtil.convertJdbcEscapeSequences(sql) : sql;
-            sqlString = StringUtil.removeRedundantEscapeClause(sqlString);
-            return getBatchResultFromClient(sqlString, parameterSets, statementType);
+            return getBatchResultFromClient(processJdbcEscapes(sql), parameterSets, statementType);
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }

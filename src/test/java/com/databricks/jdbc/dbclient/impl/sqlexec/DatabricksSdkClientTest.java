@@ -2794,7 +2794,6 @@ public class DatabricksSdkClientTest {
     when(session.getSessionInfo()).thenReturn(info);
     when(session.getSessionId()).thenReturn("session");
     when(session.getComputeResource()).thenReturn(cluster);
-    when(session.getConnectionContext()).thenReturn(context);
     when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
     when(apiClient.serialize(any()))
         .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
@@ -2973,7 +2972,6 @@ public class DatabricksSdkClientTest {
     when(session.getSessionInfo()).thenReturn(info);
     when(session.getSessionId()).thenReturn("session");
     when(session.getComputeResource()).thenReturn(cluster);
-    when(session.getConnectionContext()).thenReturn(context);
     when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
     when(apiClient.serialize(any()))
         .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
@@ -2991,6 +2989,49 @@ public class DatabricksSdkClientTest {
             List.of(
                 BatchParameterSet.from(
                     Map.of(1, getSqlParam(1, "secret", DatabricksTypeUtil.STRING)))),
+            session,
+            null);
+
+    assertArrayEquals(new long[] {java.sql.Statement.SUCCESS_NO_INFO}, counts);
+    verify(apiClient).execute(any(Request.class), eq(Void.class));
+  }
+
+  @Test
+  public void testNativeBatchSucceedsWhenAggregateResultCannotBeDecoded() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(cluster)
+            .negotiatedProtocolVersion(42250L)
+            .liveProtocolVersion(true)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("session");
+    when(session.getComputeResource()).thenReturn(cluster);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+    // A manifest without a format cannot be decoded into a result set.
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("statement")
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+                .setManifest(new ResultManifest().setTotalRowCount(1L))
+                .setResult(new ResultData().setRowCount(1L)));
+
+    long[] counts =
+        client.executeNativeBatch(
+            "INSERT INTO t VALUES (?)",
+            List.of(
+                BatchParameterSet.from(Map.of(1, getSqlParam(1, "v", DatabricksTypeUtil.STRING)))),
             session,
             null);
 

@@ -43,6 +43,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private List<BatchParameterSet> batchParameterSets;
   private final boolean interpolateParameters;
   private final int CHUNK_SIZE = 8192;
+  private boolean parameterDowngradeRecorded;
 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql)
       throws DatabricksValidationException {
@@ -980,6 +981,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   private void recordParameterDowngrade() {
     String reason = ApcParameterCapabilities.downgradeReason(connection.getSession());
+    // Bound executions often run in hot loops; one WARN and telemetry event per statement is
+    // enough to surface the downgrade without flooding logs and telemetry.
+    if (parameterDowngradeRecorded) {
+      LOGGER.debug("APC parameter downgrade: {}", reason);
+      return;
+    }
+    parameterDowngradeRecorded = true;
     LOGGER.warn("APC parameter downgrade: {}", reason);
     TelemetryHelper.exportFailureLog(
         connection.getConnectionContext(),
