@@ -118,6 +118,37 @@ public class ArrowResultChunkTest {
   }
 
   @Test
+  public void testHttpFailureKeepsSanitizedStatusInCause() throws Exception {
+    String url = "https://storage.example.test/private/chunk?sig=secret";
+    ArrowResultChunk chunk =
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkMetadata(0, 1, 0)
+            .build();
+    chunk.setChunkLink(
+        new ExternalLink().setExternalLink(url).setExpiration("2099-01-01T00:00:00Z"));
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine())
+        .thenReturn(
+            new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 503, "Unavailable " + url));
+    when(httpClient.execute(any(HttpUriRequest.class), eq(true))).thenReturn(response);
+
+    DatabricksParsingException failure =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(httpClient, CompressionCodec.NONE, 0.1));
+
+    String cause = failure.getCause().getMessage();
+    assertTrue(cause.startsWith("DatabricksHttpException ["), cause);
+    assertTrue(cause.contains("httpStatus=503"), cause);
+    assertTrue(cause.contains("sqlState="), cause);
+    assertFalse(failure.toString().contains(url));
+    assertFalse(failure.getCause().toString().contains(url));
+    chunk.releaseChunkAndAllocator();
+  }
+
+  @Test
   public void testReleaseUnusedChunk() throws Exception {
     // Arrange
     BaseChunkInfo chunkInfo =
