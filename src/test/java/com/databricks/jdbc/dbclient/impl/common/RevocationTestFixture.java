@@ -75,6 +75,11 @@ public final class RevocationTestFixture implements AutoCloseable {
   }
 
   private static final String PASSWORD = "changeit";
+  private static final X500Name INTERMEDIATE_NAME = new X500Name("CN=Revocation Test Intermediate");
+
+  /** Closed port: the intermediate's CRL fetch fails, so its status cannot be determined. */
+  private static final String UNREACHABLE_CRL_URL = "http://127.0.0.1:1/unreachable.crl";
+
   private static final String SERVER_HOST = "127.0.0.1";
   private static final String[] TRUST_STORE_PROPERTIES = {
     "javax.net.ssl.trustStore", "javax.net.ssl.trustStoreType", "javax.net.ssl.trustStorePassword"
@@ -83,6 +88,16 @@ public final class RevocationTestFixture implements AutoCloseable {
   private final String id = UUID.randomUUID().toString();
   private final KeyPair caKeys;
   private final KeyPair leafKeys;
+
+  /** Intermediate key pair, present only when the chain has an intermediate. */
+  private final KeyPair intermediateKeys;
+
+  /**
+   * The key that signs the server certificate's CRL and OCSP answers: the intermediate or the CA.
+   */
+  private final KeyPair issuerKeys;
+
+  private final X500Name issuerName;
   private final X509Certificate caCertificate;
   private final BigInteger leafSerial = BigInteger.valueOf(System.nanoTime() & Long.MAX_VALUE);
   private final Responder crl;
@@ -114,16 +129,35 @@ public final class RevocationTestFixture implements AutoCloseable {
    */
   public RevocationTestFixture(Responder crl, Responder ocsp, boolean withOcspAccessLocation)
       throws Exception {
+    this(crl, ocsp, withOcspAccessLocation, false);
+  }
+
+  /**
+   * Starts the servers and builds the PKI, optionally with an intermediate CA between the trust
+   * anchor and the server certificate.
+   *
+   * @param withIntermediate when true, the chain is root, then an intermediate that has no OCSP
+   *     access location and an unreachable CRL distribution point, then the server certificate. The
+   *     revocation endpoints answer for the server certificate as issued by the intermediate.
+   */
+  public RevocationTestFixture(
+      Responder crl, Responder ocsp, boolean withOcspAccessLocation, boolean withIntermediate)
+      throws Exception {
     this.crl = crl;
     this.ocsp = ocsp;
     this.caKeys = newKeyPair();
     this.leafKeys = newKeyPair();
+    this.intermediateKeys = withIntermediate ? newKeyPair() : null;
+    this.issuerKeys = withIntermediate ? intermediateKeys : caKeys;
+    this.issuerName = withIntermediate ? INTERMEDIATE_NAME : caName();
 
     // The revocation endpoint is bound first, because the server certificate names its URLs.
     revocationServer = HttpServer.create(new InetSocketAddress(SERVER_HOST, 0), 0);
     String base =
         "http://" + SERVER_HOST + ":" + revocationServer.getAddress().getPort() + "/" + id;
     caCertificate = buildCaCertificate();
+    X509Certificate intermediateCertificate =
+        withIntermediate ? buildIntermediateCertificate() : null;
     X509Certificate leafCertificate =
         buildLeafCertificate(base + "/crl.crl", withOcspAccessLocation ? base + "/ocsp" : null);
     revocationServer.createContext("/" + id + "/crl.crl", this::serveCrl);
@@ -132,7 +166,8 @@ public final class RevocationTestFixture implements AutoCloseable {
     revocationServer.start();
 
     tlsServer = HttpsServer.create(new InetSocketAddress(SERVER_HOST, 0), 0);
-    tlsServer.setHttpsConfigurator(new HttpsConfigurator(buildSslContext(leafCertificate)));
+    tlsServer.setHttpsConfigurator(
+        new HttpsConfigurator(buildSslContext(leafCertificate, intermediateCertificate)));
     tlsServer.createContext(
         "/ping",
         exchange -> {
@@ -227,12 +262,12 @@ public final class RevocationTestFixture implements AutoCloseable {
     }
     try {
       Date now = new Date();
-      X509v2CRLBuilder builder = new X509v2CRLBuilder(caName(), now);
+      X509v2CRLBuilder builder = new X509v2CRLBuilder(issuerName, now);
       builder.setNextUpdate(new Date(now.getTime() + 86_400_000L));
       if (crl == Responder.REVOKED) {
         builder.addCRLEntry(leafSerial, revokedAt, CRLReason.keyCompromise);
       }
-      X509CRLHolder holder = builder.build(contentSigner());
+      X509CRLHolder holder = builder.build(contentSigner(issuerKeys));
       respond(exchange, 200, holder.getEncoded());
     } catch (Exception e) {
       respond(exchange, 500, new byte[0]);
@@ -251,7 +286,7 @@ public final class RevocationTestFixture implements AutoCloseable {
           new JcaDigestCalculatorProviderBuilder().build().get(CertificateID.HASH_SHA1);
       BasicOCSPRespBuilder builder =
           new BasicOCSPRespBuilder(
-              SubjectPublicKeyInfo.getInstance(caKeys.getPublic().getEncoded()), sha1);
+              SubjectPublicKeyInfo.getInstance(issuerKeys.getPublic().getEncoded()), sha1);
       for (Req req : request.getRequestList()) {
         CertificateStatus status =
             ocsp == Responder.REVOKED
@@ -259,7 +294,7 @@ public final class RevocationTestFixture implements AutoCloseable {
                 : CertificateStatus.GOOD;
         builder.addResponse(req.getCertID(), status);
       }
-      BasicOCSPResp basic = builder.build(contentSigner(), null, new Date());
+      BasicOCSPResp basic = builder.build(contentSigner(issuerKeys), null, new Date());
       OCSPResp response = new OCSPRespBuilder().build(OCSPRespBuilder.SUCCESSFUL, basic);
       respond(exchange, 200, response.getEncoded());
     } catch (Exception e) {
@@ -298,14 +333,14 @@ public final class RevocationTestFixture implements AutoCloseable {
     builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
     builder.addExtension(
         Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
-    return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner()));
+    return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner(caKeys)));
   }
 
   private X509Certificate buildLeafCertificate(String crlUrl, String ocspUrl) throws Exception {
     Date now = new Date();
     JcaX509v3CertificateBuilder builder =
         new JcaX509v3CertificateBuilder(
-            caName(),
+            issuerName,
             leafSerial,
             new Date(now.getTime() - 60_000L),
             new Date(now.getTime() + 86_400_000L),
@@ -338,17 +373,52 @@ public final class RevocationTestFixture implements AutoCloseable {
               X509ObjectIdentifiers.ocspAccessMethod,
               new GeneralName(GeneralName.uniformResourceIdentifier, ocspUrl)));
     }
-    return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner()));
+    return new JcaX509CertificateConverter()
+        .getCertificate(builder.build(contentSigner(issuerKeys)));
   }
 
-  private SSLContext buildSslContext(X509Certificate leafCertificate) throws Exception {
+  /**
+   * Builds the intermediate: issued by the CA, a CA certificate for the server certificate, with an
+   * unreachable CRL distribution point and no OCSP access location.
+   */
+  private X509Certificate buildIntermediateCertificate() throws Exception {
+    Date now = new Date();
+    JcaX509v3CertificateBuilder builder =
+        new JcaX509v3CertificateBuilder(
+            caName(),
+            BigInteger.TWO,
+            new Date(now.getTime() - 60_000L),
+            new Date(now.getTime() + 86_400_000L),
+            INTERMEDIATE_NAME,
+            intermediateKeys.getPublic());
+    builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+    builder.addExtension(
+        Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+    builder.addExtension(
+        Extension.cRLDistributionPoints,
+        false,
+        new CRLDistPoint(
+            new DistributionPoint[] {
+              new DistributionPoint(
+                  new DistributionPointName(
+                      new GeneralNames(
+                          new GeneralName(
+                              GeneralName.uniformResourceIdentifier, UNREACHABLE_CRL_URL))),
+                  null,
+                  null)
+            }));
+    return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner(caKeys)));
+  }
+
+  private SSLContext buildSslContext(
+      X509Certificate leafCertificate, X509Certificate intermediateCertificate) throws Exception {
     KeyStore keyStore = KeyStore.getInstance("PKCS12");
     keyStore.load(null, null);
-    keyStore.setKeyEntry(
-        "server",
-        leafKeys.getPrivate(),
-        PASSWORD.toCharArray(),
-        new Certificate[] {leafCertificate, caCertificate});
+    Certificate[] chain =
+        intermediateCertificate == null
+            ? new Certificate[] {leafCertificate, caCertificate}
+            : new Certificate[] {leafCertificate, intermediateCertificate, caCertificate};
+    keyStore.setKeyEntry("server", leafKeys.getPrivate(), PASSWORD.toCharArray(), chain);
     KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
     kmf.init(keyStore, PASSWORD.toCharArray());
     SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -379,8 +449,8 @@ public final class RevocationTestFixture implements AutoCloseable {
     return new X500Name("CN=Revocation Test CA " + id);
   }
 
-  private ContentSigner contentSigner() throws Exception {
-    return new JcaContentSignerBuilder("SHA256withRSA").build(caKeys.getPrivate());
+  private static ContentSigner contentSigner(KeyPair keys) throws Exception {
+    return new JcaContentSignerBuilder("SHA256withRSA").build(keys.getPrivate());
   }
 
   private static KeyPair newKeyPair() throws Exception {

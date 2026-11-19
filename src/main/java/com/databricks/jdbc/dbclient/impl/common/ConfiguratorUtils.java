@@ -466,7 +466,11 @@ public class ConfiguratorUtils {
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
       crlTmf.init(buildCrlOnlyTrustManagerParameters(trustAnchors));
       X509TrustManager crlOnly = findX509TrustManager(crlTmf.getTrustManagers());
-      return softFailTrustManagers(ocspFirst, crlOnly, customTmf.getTrustManagers());
+      TrustManagerFactory ocspTmf =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      ocspTmf.init(buildOcspOnlyTrustManagerParameters(trustAnchors));
+      X509TrustManager ocspOnly = findX509TrustManager(ocspTmf.getTrustManagers());
+      return softFailTrustManagers(ocspFirst, crlOnly, ocspOnly, customTmf.getTrustManagers());
     }
     return customTmf.getTrustManagers();
   }
@@ -477,18 +481,52 @@ public class ConfiguratorUtils {
    * logged rather than applied silently.
    */
   static TrustManager[] softFailTrustManagers(
-      X509TrustManager ocspFirst, X509TrustManager crlOnly, TrustManager[] ocspFirstManagers) {
+      X509TrustManager ocspFirst,
+      X509TrustManager crlOnly,
+      X509TrustManager ocspOnly,
+      TrustManager[] ocspFirstManagers) {
     if (ocspFirst instanceof X509ExtendedTrustManager
-        && crlOnly instanceof X509ExtendedTrustManager) {
+        && crlOnly instanceof X509ExtendedTrustManager
+        && ocspOnly instanceof X509ExtendedTrustManager) {
       return new TrustManager[] {
         new SoftFailTrustManager(
-            (X509ExtendedTrustManager) ocspFirst, (X509ExtendedTrustManager) crlOnly)
+            (X509ExtendedTrustManager) ocspFirst,
+            (X509ExtendedTrustManager) crlOnly,
+            (X509ExtendedTrustManager) ocspOnly)
       };
     }
     LOGGER.warn(
         "Soft-fail revocation: the CRL-only pass needs X509ExtendedTrustManager, which this JVM"
             + " does not provide. Revocation runs OCSP-first without the CRL-only pass.");
     return ocspFirstManagers;
+  }
+
+  /**
+   * Builds trust manager parameters that check revocation with OCSP only, soft-fail. A certificate
+   * with no OCSP responder is left undetermined rather than checked against a CRL.
+   */
+  private static CertPathTrustManagerParameters buildOcspOnlyTrustManagerParameters(
+      Set<TrustAnchor> trustAnchors) throws DatabricksSSLException {
+    try {
+      PKIXBuilderParameters pkixBuilderParameters =
+          new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
+      pkixBuilderParameters.setRevocationEnabled(true);
+      PKIXRevocationChecker revocationChecker =
+          (PKIXRevocationChecker)
+              CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX).getRevocationChecker();
+      // ONLY_END_ENTITY: the intermediates were checked by the CRL-only pass. Without it, an
+      // intermediate with no OCSP responder aborts the path before the leaf is reached.
+      revocationChecker.setOptions(
+          Set.of(
+              PKIXRevocationChecker.Option.SOFT_FAIL,
+              PKIXRevocationChecker.Option.NO_FALLBACK,
+              PKIXRevocationChecker.Option.ONLY_END_ENTITY));
+      pkixBuilderParameters.addCertPathChecker(revocationChecker);
+      return new CertPathTrustManagerParameters(pkixBuilderParameters);
+    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
+      handleError("Error while building OCSP-only trust manager parameters: " + e.getMessage(), e);
+    }
+    return null;
   }
 
   /** Builds trust manager parameters that check revocation with CRLs only, soft-fail. */
@@ -535,11 +573,15 @@ public class ConfiguratorUtils {
   private static final class SoftFailTrustManager extends X509ExtendedTrustManager {
     private final X509ExtendedTrustManager ocspFirst;
     private final X509ExtendedTrustManager crlOnly;
+    private final X509ExtendedTrustManager ocspOnly;
 
     private SoftFailTrustManager(
-        X509ExtendedTrustManager ocspFirst, X509ExtendedTrustManager crlOnly) {
+        X509ExtendedTrustManager ocspFirst,
+        X509ExtendedTrustManager crlOnly,
+        X509ExtendedTrustManager ocspOnly) {
       this.ocspFirst = ocspFirst;
       this.crlOnly = crlOnly;
+      this.ocspOnly = ocspOnly;
     }
 
     /** One trust check, run against a given trust manager. */
@@ -547,6 +589,12 @@ public class ConfiguratorUtils {
       void run(X509ExtendedTrustManager trustManager) throws CertificateException;
     }
 
+    /**
+     * Runs the OCSP-first pass. If it fails without a revoked result, the CRL-only pass runs. The
+     * OCSP-first pass can stop at a certificate with no OCSP responder and an unreachable CRL,
+     * before it reaches a leaf whose OCSP answer is REVOKED, so the leaf's OCSP status is checked
+     * separately once the CRL-only pass accepts the chain.
+     */
     private void checkWithFallback(TrustCheck trustCheck) throws CertificateException {
       try {
         trustCheck.run(ocspFirst);
@@ -560,7 +608,17 @@ public class ConfiguratorUtils {
           if (isRevoked(secondFailure)) {
             throw secondFailure;
           }
+          firstFailure.addSuppressed(secondFailure);
           throw firstFailure;
+        }
+        try {
+          trustCheck.run(ocspOnly);
+        } catch (CertificateException ocspFailure) {
+          // Only a REVOKED answer rejects here. Any other failure means the end-entity has no
+          // determinable OCSP status, and the CRL-only pass already validated the chain.
+          if (isRevoked(ocspFailure)) {
+            throw ocspFailure;
+          }
         }
       }
     }

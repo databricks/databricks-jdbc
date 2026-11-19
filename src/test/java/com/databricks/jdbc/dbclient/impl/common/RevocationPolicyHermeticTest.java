@@ -271,6 +271,34 @@ class RevocationPolicyHermeticTest {
     }
   }
 
+  /**
+   * Chain root, then an intermediate with no OCSP URI and an unreachable CRL, then a leaf whose
+   * OCSP responder says REVOKED and whose CRL says GOOD. Soft mode must reject it, because the
+   * leaf's OCSP status is definitive, whatever the intermediate's status is.
+   */
+  @Test
+  void soft_intermediateWithUnreachableCrl_leafOcspRevokedRejected() throws Exception {
+    try (RevocationTestFixture fixture =
+        new RevocationTestFixture(Responder.GOOD, Responder.REVOKED, true, true)) {
+      fixture.installDefaultTrustStore(true);
+      Outcome outcome =
+          fetch(ConfiguratorUtils.getBaseConnectionManager(context(fixture, SOFT)), fixture);
+      assertOutcome(outcome, Expect.REVOKED);
+    }
+  }
+
+  @Test
+  void strict_intermediateWithUnreachableCrl_leafOcspRevokedRejected() throws Exception {
+    try (RevocationTestFixture fixture =
+        new RevocationTestFixture(Responder.GOOD, Responder.REVOKED, true, true)) {
+      fixture.installDefaultTrustStore(true);
+      Outcome outcome =
+          fetch(ConfiguratorUtils.getBaseConnectionManager(context(fixture, STRICT)), fixture);
+      // Strict refuses the intermediate, whose status cannot be determined, before the leaf.
+      assertOutcome(outcome, Expect.REJECTED);
+    }
+  }
+
   private static boolean sslFailure(Throwable failure) {
     for (Throwable t = failure; t != null; t = t.getCause()) {
       if (t instanceof javax.net.ssl.SSLException) {
