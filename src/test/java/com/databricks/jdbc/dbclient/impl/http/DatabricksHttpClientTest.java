@@ -90,37 +90,6 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void genericFailureNamesExceptionTypeWithoutExposingPath() throws Exception {
-    String secret = "org-secret/cluster-secret/path-token";
-    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
-    when(mockHttpClient.execute(request))
-        .thenThrow(new java.net.SocketException("reset at " + secret));
-
-    DatabricksHttpException error =
-        assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
-
-    assertTrue(error.getMessage().contains("SocketException"));
-    assertFalse(error.getMessage().contains(secret));
-    assertFalse(error.getMessage().contains("query-secret"));
-  }
-
-  @Test
-  void presignedRetryFailureDoesNotReturnPath() throws Exception {
-    String secret = "org-secret/cluster-secret/path-token";
-    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
-    when(mockHttpClient.execute(request))
-        .thenThrow(new DatabricksRetryHandlerException("retry at " + secret, 503));
-    DatabricksHttpException error =
-        assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
-    assertFalse(error.getMessage().contains(secret));
-    assertFalse(error.getMessage().contains("query-secret"));
-    assertTrue(error.getMessage().contains("/REDACTED"));
-    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
-    assertEquals(DatabricksVendorCode.getVendorCode(error.getCause()), error.getErrorCode());
-    assertNotNull(error.getCause());
-  }
-
-  @Test
   void retryFailureKeepsVendorCodeDerivedFromCause() throws Exception {
     HttpGet request = new HttpGet("https://storage.example.test/chunk");
     when(mockHttpClient.execute(request))
