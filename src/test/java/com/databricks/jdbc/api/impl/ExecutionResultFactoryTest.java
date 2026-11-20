@@ -16,6 +16,8 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ColumnVector;
 import com.databricks.jdbc.model.core.ColumnarData;
 import com.databricks.jdbc.model.core.ResultData;
@@ -62,6 +64,50 @@ public class ExecutionResultFactoryTest {
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
     assertInstanceOf(InlineJsonResult.class, result);
+  }
+
+  @Test
+  public void testApcManifestWithoutInitialResultCreatesFetchableResultSet() throws Exception {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    com.databricks.jdbc.dbclient.IDatabricksClient client =
+        org.mockito.Mockito.mock(com.databricks.jdbc.dbclient.IDatabricksClient.class);
+    when(session.getDatabricksClient()).thenReturn(client);
+    when(client.getResultChunksData(STATEMENT_ID, 0, 0)).thenReturn(new ResultData());
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(SqlExecResultFormat.ARROW_BATCH)
+            .setSchema(
+                new ResultSchema()
+                    .setColumnCount(1L)
+                    .setColumns(
+                        List.of(
+                            new ColumnInfo()
+                                .setName("v")
+                                .setTypeName(ColumnInfoTypeName.INT)
+                                .setTypeText("INT")
+                                .setTypeJson("integer"))));
+    manifest =
+        new ObjectMapper()
+            .readValue(new ObjectMapper().writeValueAsString(manifest), ResultManifest.class);
+    assertEquals(SqlExecResultFormat.ARROW_BATCH, manifest.getFormat());
+    IExecutionResult executionResult =
+        ExecutionResultFactory.getResultSet(null, manifest, STATEMENT_ID, session, null);
+    assertInstanceOf(ArrowStreamResult.class, executionResult);
+    executionResult.close();
+    DatabricksResultSet result =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            null,
+            manifest,
+            StatementType.QUERY,
+            session,
+            null);
+    assertEquals("v", result.getMetaData().getColumnName(1));
+    assertFalse(result.next());
+    org.mockito.Mockito.verify(client).getResultChunksData(STATEMENT_ID, 0, 0);
+    result.close();
   }
 
   @Test

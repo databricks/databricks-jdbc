@@ -201,8 +201,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (schema != null) {
       request.setSchema(schema);
     }
-    // Bounded SEA inline Arrow: tell server not to use cloud storage for results
-    if (connectionContext.isBoundedSeaApiEnabled() && !connectionContext.isCloudFetchEnabled()) {
+    // Inline-only SEA results must not be served from cloud storage.
+    if ((target.isApc() || connectionContext.isBoundedSeaApiEnabled())
+        && !connectionContext.isCloudFetchEnabled()) {
       if (sessionConf == null) {
         sessionConf = new java.util.HashMap<>();
       } else {
@@ -259,7 +260,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private String sessionPath(ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.realtimeSession()) {
+    if (sessionInfo.realtimeSession()
+        && !SeaComputeTarget.of(sessionInfo.computeResource()).isApc()) {
       return String.format(
           WAREHOUSE_SESSION_PATH_WITH_ID,
           SeaComputeTarget.of(sessionInfo.computeResource()).warehouseId(),
@@ -269,7 +271,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private String statementCollectionPath(ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.realtimeSession()) {
+    if (sessionInfo.realtimeSession()
+        && !SeaComputeTarget.of(sessionInfo.computeResource()).isApc()) {
       return String.format(
           WAREHOUSE_STATEMENT_PATH,
           SeaComputeTarget.of(sessionInfo.computeResource()).warehouseId(),
@@ -978,6 +981,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean cloudFetch = arrowEnabled && connectionContext.isCloudFetchEnabled();
     boolean boundedSeaInline =
         arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
+    boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    if (apc && !arrowEnabled) {
+      LOGGER.warn("EnableArrow=0 is ignored for all-purpose cluster SEA; Arrow batches are used");
+    }
     Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition;
     if (cloudFetch) {
@@ -993,7 +1000,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     long maxRows =
         (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
-    if (format.equals(Format.JSON_ARRAY)) {
+    if (!apc && format.equals(Format.JSON_ARRAY)) {
       LOGGER.debug("Results are inline JSON, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }
@@ -1002,12 +1009,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
             .setStatement(sql)
-            .setDisposition(disposition)
-            .setFormat(SqlExecResultFormat.fromSdkFormat(format))
+            .setDisposition(apc ? Disposition.INLINE_OR_EXTERNAL_LINKS : disposition)
+            .setFormat(
+                apc ? SqlExecResultFormat.ARROW_BATCH : SqlExecResultFormat.fromSdkFormat(format))
             .setResultCompression(compressionCodec)
             .setParameters(parameterListItems);
     SeaComputeTarget target = SeaComputeTarget.of(computeResource);
-    if (!session.getSessionInfo().realtimeSession()) {
+    if (target.isApc() || !session.getSessionInfo().realtimeSession()) {
       request.setSessionId(session.getSessionId());
       if (target.isApc()) {
         request.setBackendCompute(target.backendCompute());
