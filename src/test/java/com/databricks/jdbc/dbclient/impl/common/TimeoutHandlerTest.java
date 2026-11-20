@@ -3,6 +3,8 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -194,5 +196,71 @@ class TimeoutHandlerTest {
 
     // Verify DatabricksTimeoutException is still thrown
     assertTrue(exception.getMessage().contains("timed-out after 5 seconds"));
+  }
+
+  @Test
+  void apcTimeoutCancelsTargetedStatementWithoutLeakingIdentifiers() throws Exception {
+    StatementId id =
+        StatementId.forCurrentSession(
+            "raw-statement",
+            ImmutableSessionInfo.builder()
+                .sessionId("private-session")
+                .computeResource(new AllPurposeCluster("private-org", "private-cluster"))
+                .build());
+    TimeoutHandler handler =
+        TimeoutHandler.forStatement(
+            1, id, mockClient, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT, true);
+    Field start = TimeoutHandler.class.getDeclaredField("startTimeMillis");
+    start.setAccessible(true);
+    start.set(handler, System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(3));
+
+    DatabricksTimeoutException error =
+        assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+    verify(mockClient).cancelStatement(id);
+    assertFalse(error.getMessage().contains("private-org"));
+    assertFalse(error.getMessage().contains("private-cluster"));
+    assertFalse(error.getMessage().contains("private-session"));
+    assertTrue(error.getMessage().contains("Statement ID: raw-statement"));
+  }
+
+  @Test
+  void deadlineIncludesTimeBeforeStatementIdIsAvailable() throws Exception {
+    StatementId id =
+        StatementId.forCurrentSession(
+            "statement",
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .build());
+    TimeoutHandler handler =
+        TimeoutHandler.forStatement(
+            1,
+            id,
+            mockClient,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT,
+            true,
+            System.currentTimeMillis() - 1100);
+
+    assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+    verify(mockClient).cancelStatement(id);
+  }
+
+  @Test
+  void legacyTimeoutKeepsWholeSecondThreshold() throws Exception {
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            1,
+            "warehouse operation",
+            mockTimeoutAction,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+    Field start = TimeoutHandler.class.getDeclaredField("startTimeMillis");
+    start.setAccessible(true);
+    start.set(handler, System.currentTimeMillis() - 1100);
+
+    assertDoesNotThrow(handler::checkTimeout);
+    verifyNoInteractions(mockTimeoutAction);
+    start.set(handler, System.currentTimeMillis() - 2100);
+    assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+    verify(mockTimeoutAction).run();
   }
 }

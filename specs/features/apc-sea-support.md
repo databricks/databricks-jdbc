@@ -52,9 +52,13 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   `is_native_metadata_result=true`, ignores `X-Databricks-Require-Thrift-Native-Metadata`, and
   returns metadata inline in one of two response representations: Arrow IPC in
   `chunk.attachment` (the primary/majority case), or HIVE-shaped `chunk.columnar_data`
-  (`ColumnarData`/`ColumnVector` with little-endian null masks). The client must multiplex
-  between these representations for each response; it must not bind a connection to one decoder
-  based on the requested `ARROW_STREAM` format or an assumed DBR version.
+  (`ColumnarData`/`ColumnVector` with little-endian null masks). Either representation can span
+  multiple chunks; continuation is indicated only by a non-empty `next_chunk_index` (the same
+  signal used for `ARROW_BATCH` and `ARROW_STREAM` query results). The client follows
+  `next_chunk_index` / `row_offset` until `next_chunk_index` is absent and must not treat
+  `total_chunk_count` as authoritative. The client must multiplex between these representations
+  for each response; it must not bind a connection to one decoder based on the requested
+  `ARROW_STREAM` format or an assumed DBR version.
   - Capability: CreateSessionResponse `negotiated_protocol_version` (APC only): parameters at
   ≥ 42248 (V8), `parameter_sets` batch inserts at ≥ 42250 (V10); the latter remains gated by the
   existing `EnableNativeBatching=1` client opt-in.
@@ -208,11 +212,13 @@ APC-specific timeout override is needed.
 - R11: For APC `ARROW_BATCH` results, the driver builds the Arrow schema from
 `manifest.schema` (`type_text`/`type_json`, including nested types) and does not require
 `manifest.arrow_schema`.
-- R12: APC result fetching pages by `next_chunk_index` and `row_offset`, never relies on
-`total_chunk_count`, `chunks`, or `total_row_count`, and accepts a `GetStatementResult`
-response with or without inline result data.
+- R12: APC result fetching pages by `next_chunk_index` and `row_offset` for every result
+shape that can continue (`ARROW_BATCH`, `ARROW_STREAM` attachment, and HIVE
+`columnar_data`). It never relies on `total_chunk_count`, `chunks`, or `total_row_count`,
+and accepts a `GetStatementResult` response with or without inline result data.
 - R13: The driver can read the SEA `columnar_data` (HIVE) result shape — every `ColumnVector`
-value type used by metadata results, with null masks — into a JDBC ResultSet.
+value type used by metadata results, with null masks — into a JDBC ResultSet, including
+multi-chunk results that continue while `next_chunk_index` is present.
 - R14: APC query timeouts use the client-side `TimeoutHandler` + CancelStatement path, as for
 warehouses.
 - R15: `Statement.addBatch(String)` / `executeBatch` on APC executes SQL commands sequentially,
@@ -355,9 +361,13 @@ field exactly once, while each presigned external-link URL and its headers are u
 result data, and separately WHEN it returns a manifest with result data THEN both produce the
 full correct ResultSet.
 - AC16: GIVEN a `columnar_data` chunk with string and integer vectors and null masks WHEN it is
-read THEN nulls and values land at the right row positions; GIVEN the next metadata operation on
-the same connection returns Arrow IPC in `attachment` THEN it is decoded through the Arrow path,
-not the previously used `columnar_data` path.
+read THEN nulls and values land at the right row positions; GIVEN a `columnar_data` first chunk
+with `next_chunk_index` set and a second chunk returned from GetResultData WHEN the ResultSet is
+iterated THEN every row from both chunks is returned exactly once and no further fetch occurs
+after `next_chunk_index` is absent; GIVEN `total_chunk_count > 1` but no `next_chunk_index` WHEN
+the ResultSet is read THEN only the inline chunk is returned and GetResultData is not called;
+GIVEN the next metadata operation on the same connection returns Arrow IPC in `attachment` THEN
+it is decoded through the Arrow path, not the previously used `columnar_data` path.
 - AC17: GIVEN an APC-SEA session with `negotiated_protocol_version` ≥ 42250 (V10) AND
 `EnableNativeBatching=1` WHEN `executeBatch` runs a parameterized insert THEN the request uses
 `parameter_sets`; GIVEN V10 with `EnableNativeBatching=0` or version 42248–42249 (V8–V9) THEN each
@@ -512,7 +522,8 @@ propagate without fallback.
    and asynchronous calls omit it. Preserve the existing
    `X-Databricks-Require-Thrift-Native-Metadata: true` condition even though Reyder ignores it.
    Add a `ColumnarDataResult` reader for `chunk.columnar_data` (null masks,
-   string/integer/etc. vectors). For every metadata response, multiplex between
+   string/integer/etc. vectors) that pages by `next_chunk_index` / `row_offset` the same way
+   `ARROW_BATCH` and `ARROW_STREAM` do. For every metadata response, multiplex between
    `chunk.attachment` (Arrow IPC, primary path) and
    `chunk.columnar_data` (alternate path) using the returned payload representation; do not cache
    a decoder choice at connection scope or infer it solely from the requested format or DBR
@@ -601,6 +612,8 @@ needed, asking Reyder to populate `arrow_schema`.
 - The `columnar_data` reader is a new, alternate metadata path while Arrow IPC remains the
   primary/majority path. Keep it isolated and metadata-only, but select it per response rather
   than assuming all responses from a connection or DBR version use the same representation.
+  Do not assume a single chunk: `ARROW_BATCH`, `ARROW_STREAM`, and HIVE `columnar_data` can all
+  continue across chunks, with `next_chunk_index` as the only continuation signal.
 - Native metadata results have different columns than SHOW-command results; choosing the wrong
 decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_metadata_result`.
 - APC sessions below protocol V8 use client-side parameter interpolation. Reuse the existing

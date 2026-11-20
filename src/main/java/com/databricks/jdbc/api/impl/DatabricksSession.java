@@ -169,7 +169,31 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void open() throws SQLException {
+  public synchronized void open() throws SQLException {
+    if (isSessionOpen) {
+      return;
+    }
+    boolean opened = false;
+    try {
+      openSession();
+      opened = isSessionOpen;
+    } finally {
+      try {
+        LOGGER.info(
+            "Connection open: compute={}, protocol={}, reason={}, outcome={}",
+            computeResource instanceof AllPurposeCluster ? "apc" : "warehouse",
+            connectionContext.getClientType(),
+            connectionContext instanceof DatabricksConnectionContext
+                ? ((DatabricksConnectionContext) connectionContext).getRoutingReason()
+                : "unknown",
+            opened ? "success" : "failure");
+      } catch (RuntimeException ignored) {
+        LOGGER.debug("Connection route unavailable for diagnostic log");
+      }
+    }
+  }
+
+  private void openSession() throws SQLException {
     LOGGER.debug("public void open()");
 
     // Reyden pre-check: if warehouse is known to be Reyden and we're about to use Thrift,
@@ -211,7 +235,9 @@ public class DatabricksSession implements IDatabricksSession {
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
         } catch (DatabricksSQLException e) {
           // Reyden Thrift auto-recovery: detect KP001 SQLSTATE on Thrift OpenSession rejection
-          if (isReydenThriftRejection(e)) {
+          if (connectionContext.getClientType() == DatabricksClientType.THRIFT
+              && computeResource instanceof Warehouse
+              && isReydenThriftRejection(e)) {
             String warehouseId = getWarehouseId();
             if (warehouseId != null) {
               ReydenWarehouseCache.getInstance()
@@ -219,7 +245,7 @@ public class DatabricksSession implements IDatabricksSession {
             }
             // Only auto-recover on the default Thrift path; an explicit use_thrift_client=1 is
             // honored. Recovery is a single SEA attempt (no loop).
-            if (isDefaultThriftPath()) {
+            if (warehouseId != null && isDefaultThriftPath()) {
               LOGGER.info(
                   "Thrift OpenSession rejected with SQLSTATE KP001 (not supported for Thrift protocol). "
                       + "Attempting transparent fallback to SEA. warehouse_id={}",
@@ -278,8 +304,14 @@ public class DatabricksSession implements IDatabricksSession {
           // the finally block regardless.
           LOGGER.warn(
               "Session [{}] could not be deleted on server during close() – ignoring: {}",
-              sessionInfo.sessionId(),
-              e.getMessage());
+              computeResource instanceof AllPurposeCluster
+                      && connectionContext.getClientType() == DatabricksClientType.SEA
+                  ? REDACTED_TOKEN
+                  : sessionInfo.sessionId(),
+              computeResource instanceof AllPurposeCluster
+                      && connectionContext.getClientType() == DatabricksClientType.SEA
+                  ? "APC session close failed"
+                  : e.getMessage());
         } finally {
           // Always clean up local state
           this.sessionInfo = null;
@@ -339,7 +371,12 @@ public class DatabricksSession implements IDatabricksSession {
                 : this.computeResource.toString())
         .add("catalog", this.catalog)
         .add("schema", this.schema)
-        .add("sessionID", this.getSessionId())
+        .add(
+            "sessionID",
+            this.computeResource instanceof AllPurposeCluster
+                    && connectionContext.getClientType() == DatabricksClientType.SEA
+                ? REDACTED_TOKEN
+                : this.getSessionId())
         .toString();
   }
 

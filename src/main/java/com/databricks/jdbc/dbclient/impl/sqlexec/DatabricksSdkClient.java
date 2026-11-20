@@ -52,10 +52,19 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.service.sql.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.PortUnreachableException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Instant;
@@ -70,6 +79,7 @@ import org.apache.http.HttpStatus;
 public class DatabricksSdkClient implements IDatabricksClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final ObjectMapper ERROR_MAPPER = new ObjectMapper();
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private static final String FAST_SESSION_EXECUTION_MODE = "FAST";
@@ -103,10 +113,22 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private static final class CreateSessionHttpRequest extends RedactingRequest {
     boolean realtimeSession;
+    private final boolean apc;
 
-    CreateSessionHttpRequest(String path, String body) {
+    CreateSessionHttpRequest(String path, String body, boolean apc) {
       super(Request.POST, path, body);
+      this.apc = apc;
     }
+
+    @Override
+    boolean isRedactionActive() {
+      return apc;
+    }
+  }
+
+  /** Warehouse CreateSession reuses RedactingRequest, so the type alone does not imply APC. */
+  private static boolean isApcRedactedRequest(Request request) {
+    return request instanceof RedactingRequest && ((RedactingRequest) request).isRedactionActive();
   }
 
   private <T> T execute(Request request, Class<T> responseType) throws IOException {
@@ -171,14 +193,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
           if (!responseCompressionEnabled) {
             request.withHeader("Accept-Encoding", "identity");
           }
-          if (request instanceof RedactingRequest) {
+          boolean apcRequest = isApcRedactedRequest(request);
+          if (apcRequest) {
             ((RedactingRequest) request).showWireBody();
           }
           Response response;
           try {
             response = delegate.execute(request);
+          } catch (IOException e) {
+            if (apcRequest) {
+              // ApiClient logs transport failures before the driver can sanitize the exception.
+              throw sanitizeApcTransportFailure(e);
+            }
+            throw e;
           } finally {
-            if (request instanceof RedactingRequest) {
+            if (apcRequest) {
               ((RedactingRequest) request).hideWireBody();
             }
           }
@@ -193,13 +222,92 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport).build();
   }
 
+  /**
+   * Returns a message-free exception of the same retry-relevant class. The SDK's non-idempotent
+   * strategy retries POSTs only when the cause (or a nested cause) is one of these connect-phase
+   * types, so a plain IOException would silently disable retries for
+   * CreateSession/ExecuteStatement. The original is not chained because ApiClient logs the full
+   * cause chain.
+   */
+  @VisibleForTesting
+  static IOException sanitizeApcTransportFailure(IOException original) {
+    String message = "APC SEA transport request failed";
+    for (Throwable t = original; t != null; t = t.getCause()) {
+      if (t instanceof ConnectException) {
+        return new ConnectException(message);
+      } else if (t instanceof UnknownHostException) {
+        return new UnknownHostException(message);
+      } else if (t instanceof NoRouteToHostException) {
+        return new NoRouteToHostException(message);
+      } else if (t instanceof PortUnreachableException) {
+        return new PortUnreachableException(message);
+      }
+    }
+    if (original instanceof SocketTimeoutException) {
+      return new SocketTimeoutException(message);
+    }
+    return new IOException(message);
+  }
+
   @VisibleForTesting
   static Response redactApcResponseDebugBody(Request request, Response response) {
-    if (!(request instanceof RedactingRequest)) {
+    if (!isApcRedactedRequest(request)) {
       return response;
     }
-    // The SDK logs Response.getDebugBody() before it parses or throws on HTTP errors.
-    // Preserve the response stream for parsing while hiding any echoed binding from that log.
+    if (response.getStatusCode() >= 400) {
+      // ApiClient logs the parsed DatabricksError as a throwable on every retry. Scrub the
+      // response before the SDK parses it, including non-JSON errors and nested details.
+      String code = "SERVER_ERROR";
+      String detail = "APC SEA request failed";
+      ArrayNode safeDetails = ERROR_MAPPER.createArrayNode();
+      try {
+        if (response.getBody() != null) {
+          JsonNode error = ERROR_MAPPER.readTree(response.getBody());
+          if (error != null) {
+            code = safeServerErrorCode(error.path("error_code").asText());
+            // Keep only the enum-like ErrorInfo identifiers; message and metadata may echo SQL.
+            for (JsonNode item : error.path("details")) {
+              String type = item.path("@type").asText("");
+              String reason = item.path("reason").asText("");
+              String domain = item.path("domain").asText("");
+              if (type.endsWith("google.rpc.ErrorInfo")
+                  && reason.matches("[A-Z0-9_]{1,128}")
+                  && domain.matches("[A-Za-z0-9_.-]{0,128}")) {
+                safeDetails
+                    .addObject()
+                    .put("@type", "type.googleapis.com/google.rpc.ErrorInfo")
+                    .put("reason", reason)
+                    .put("domain", domain);
+              }
+            }
+            String message = error.path("message").asText("").toLowerCase(Locale.ROOT);
+            if (message.contains("all-purpose clusters are not supported")) {
+              detail = "all-purpose clusters are not supported";
+            } else if (message.contains("unsupported region")
+                || message.contains("region is not supported")) {
+              detail = "unsupported region";
+            }
+          }
+        }
+      } catch (IOException ignored) {
+        // Unknown response formats still get a safe, structured error.
+      }
+      ObjectNode safeError = ERROR_MAPPER.createObjectNode();
+      safeError.put("error_code", code).put("message", detail);
+      if (safeDetails.size() > 0) {
+        safeError.set("details", safeDetails);
+      }
+      String safeBody = safeError.toString();
+      return new Response(
+          request,
+          response.getUrl(),
+          response.getStatusCode(),
+          "APC request failed",
+          response.getAllHeaders(),
+          safeBody);
+    }
+    // Successful APC responses still need their full body for result decoding. Hide the body
+    // from the SDK debug view without changing the parser's input stream.
     return new Response(
         request,
         response.getUrl(),
@@ -226,9 +334,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     LOGGER.debug(
         "public Session createSession(compute = {}, catalog = {}, schema = {}, sessionConf = {})",
         computeLabel(computeResource),
-        catalog,
-        schema,
-        sessionConf);
+        target.isApc() ? "[REDACTED]" : catalog,
+        target.isApc() ? "[REDACTED]" : schema,
+        target.isApc() ? "[REDACTED]" : sessionConf);
     CreateSessionRequest request =
         new CreateSessionRequest().setExecutionMode(FAST_SESSION_EXECUTION_MODE);
     if (target.isApc()) {
@@ -258,12 +366,28 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean realtimeSession;
     try {
       CreateSessionHttpRequest req =
-          new CreateSessionHttpRequest(createPath, apiClient.serialize(request));
+          new CreateSessionHttpRequest(createPath, apiClient.serialize(request), target.isApc());
       req.withHeaders(getHeaders("createSession"));
       createSessionResponse = execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;
     } catch (DatabricksError e) {
+      if (target.isApc() && isSdkTransportError(e)) {
+        throw new DatabricksSQLException(
+            "APC SEA CreateSession request failed",
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       if (e.getStatusCode() == HttpStatus.SC_TOO_MANY_REQUESTS) {
+        if (target.isApc()) {
+          String code = safeServerErrorCode(e.getErrorCode());
+          String safeMessage =
+              "APC SEA CreateSession rate limited (server error " + code + ", HTTP 429)";
+          throw new DatabricksRateLimitException(
+              safeMessage,
+              new DatabricksError(code, safeMessage, HttpStatus.SC_TOO_MANY_REQUESTS),
+              HttpStatus.SC_TOO_MANY_REQUESTS,
+              DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED);
+        }
         String errorMessage =
             String.format(
                 "createSession failed with HTTP %d (rate limit exceeded) after retries. "
@@ -274,12 +398,46 @@ public class DatabricksSdkClient implements IDatabricksClient {
         LOGGER.warn(errorMessage, e);
         throw new DatabricksRateLimitException(errorMessage, e, HttpStatus.SC_TOO_MANY_REQUESTS);
       }
+      if (target.isApc()) {
+        throw apcServerFailure("CreateSession", e, DatabricksDriverErrorCode.CONNECTION_ERROR);
+      }
       String errorReason = buildErrorMessage(e);
       throw new DatabricksSQLException(errorReason, e, DatabricksDriverErrorCode.CONNECTION_ERROR);
     } catch (IOException e) {
       String errorMessage = "Error while processing the request via the sdk client";
+      if (target.isApc()) {
+        LOGGER.error("APC SEA CreateSession request failed");
+        throw new DatabricksSQLException(
+            "APC SEA CreateSession request failed",
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    } catch (RuntimeException e) {
+      if (!target.isApc()) {
+        throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        if (serverError.getStatusCode() == HttpStatus.SC_TOO_MANY_REQUESTS) {
+          String code = safeServerErrorCode(serverError.getErrorCode());
+          String safeMessage =
+              "APC SEA CreateSession rate limited (server error " + code + ", HTTP 429)";
+          throw new DatabricksRateLimitException(
+              safeMessage,
+              new DatabricksError(code, safeMessage, HttpStatus.SC_TOO_MANY_REQUESTS),
+              HttpStatus.SC_TOO_MANY_REQUESTS,
+              DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED);
+        }
+        throw apcServerFailure(
+            "CreateSession", serverError, DatabricksDriverErrorCode.CONNECTION_ERROR);
+      }
+      LOGGER.error("APC SEA CreateSession request failed");
+      throw new DatabricksSQLException(
+          "APC SEA CreateSession request failed",
+          DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
+          DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
     String sessionId = createSessionResponse.getSessionId();
     DatabricksThreadContextHolder.setSessionId(sessionId);
@@ -360,9 +518,62 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return resource instanceof AllPurposeCluster ? "all-purpose cluster" : resource.toString();
   }
 
+  private static DatabricksError findServerError(Throwable failure) {
+    for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+      if (cause instanceof DatabricksError) {
+        DatabricksError error = (DatabricksError) cause;
+        return isSdkTransportError(error) ? null : error;
+      }
+    }
+    return null;
+  }
+
+  private static boolean isSdkTransportError(DatabricksError error) {
+    // ApiClient wraps an IOException as IO_ERROR/523, including after exhausting retries.
+    // Require the IOException cause so a server response with those fields remains a server error.
+    return "IO_ERROR".equals(error.getErrorCode())
+        && error.getStatusCode() == 523
+        && error.getCause() instanceof IOException;
+  }
+
+  private static DatabricksSQLException apcServerFailure(
+      String operation, DatabricksError error, DatabricksDriverErrorCode driverCode) {
+    // Server messages can echo the request URL, SQL, and bound values. Keep only structured
+    // server fields and recognized error categories in the exception, its cause, and telemetry.
+    String code = safeServerErrorCode(error.getErrorCode());
+    int status = error.getStatusCode();
+    String rawMessage = error.getMessage();
+    String normalized = rawMessage == null ? "" : rawMessage.toLowerCase(Locale.ROOT);
+    String detail = "";
+    if (normalized.contains("all-purpose clusters are not supported")) {
+      detail = ": all-purpose clusters are not supported";
+    } else if (normalized.contains("unsupported region")
+        || normalized.contains("region is not supported")
+        || code.contains("UNSUPPORTED_REGION")) {
+      detail = ": unsupported region";
+    }
+    String safeMessage =
+        String.format(
+            "APC SEA %s failed%s (server error %s, HTTP %d)", operation, detail, code, status);
+    DatabricksError safeCause = new DatabricksError(code, safeMessage, status);
+    LOGGER.error(safeMessage);
+    return driverCode == null
+        ? new DatabricksSQLException(safeMessage, code, status, safeCause)
+        : new DatabricksSQLException(
+            safeMessage, driverCode.name(), driverCode.getCode(), safeCause);
+  }
+
+  private static String safeServerErrorCode(String rawCode) {
+    return rawCode != null && rawCode.matches("[A-Z0-9_]{1,128}") ? rawCode : "SERVER_ERROR";
+  }
+
   @Override
   public void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException {
-    LOGGER.debug("public void deleteSession(String sessionId = {})", sessionInfo.sessionId());
+    LOGGER.debug(
+        "public void deleteSession(String sessionId = {})",
+        SeaComputeTarget.of(sessionInfo.computeResource()).isApc()
+            ? "[REDACTED]"
+            : sessionInfo.sessionId());
     DatabricksThreadContextHolder.setSessionId(sessionInfo.sessionId());
     DeleteSessionRequest request = new DeleteSessionRequest().setSessionId(sessionInfo.sessionId());
     SeaComputeTarget target = SeaComputeTarget.of(sessionInfo.computeResource());
@@ -384,8 +595,28 @@ public class DatabricksSdkClient implements IDatabricksClient {
       execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while performing the deleting session operation";
+      if (target.isApc()) {
+        LOGGER.error("APC SEA TerminateSession request failed");
+        throw new DatabricksSQLException(
+            "APC SEA TerminateSession request failed",
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
+            DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    } catch (RuntimeException e) {
+      if (!target.isApc()) {
+        throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("TerminateSession", serverError, null);
+      }
+      LOGGER.error("APC SEA TerminateSession request failed");
+      throw new DatabricksSQLException(
+          "APC SEA TerminateSession request failed",
+          DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
+          DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
   }
 
@@ -596,24 +827,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementRequest suppliedRequest)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
-    boolean redactApcDetails =
-        apc
-            && (statementType == StatementType.METADATA
-                || !parameters.isEmpty()
-                || parameterSets != null
-                || parentStatement instanceof DatabricksPreparedStatement
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURES
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURE_COLUMNS);
+    boolean redactApcError =
+        redactApcServerErrorText(apc, statementType, parameters, parameterSets);
     String logSql = apc ? "[REDACTED]" : sql;
-    String errorSql = redactApcDetails ? "[REDACTED]" : sql;
+    String errorSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, parameterCount = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
         logSql,
         computeLabel(computeResource),
         parameters.size(),
         statementType,
-        session,
-        parentStatement,
+        apc ? "[REDACTED]" : session,
+        apc ? "[REDACTED]" : parentStatement,
         metadataOperationType);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     long pollCount = 0;
@@ -669,7 +894,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       updateSessionVersion(session, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
-      if (redactApcDetails) {
+      if (apc) {
         // SDK exceptions can include the server response, which may echo bound values.
         LOGGER.error(errorMessage);
         throw new DatabricksSQLException(
@@ -680,8 +905,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (DatabricksException e) {
-      if (!redactApcDetails) {
+      if (!apc) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("ExecuteStatement", serverError, null);
       }
       String errorMessage = "Error while processing the execute statement request";
       LOGGER.error(errorMessage);
@@ -690,8 +919,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
           DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
           DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (RuntimeException e) {
-      if (!redactApcDetails) {
+      if (!apc) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("ExecuteStatement", serverError, null);
       }
       // SDK retries may wrap an HTTP error in another unchecked exception.
       LOGGER.error("Error while processing the execute statement request");
@@ -707,7 +940,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           logSql,
           statementType,
           computeLabel(computeResource));
-      handleFailedExecution(response, "", errorSql, redactApcDetails);
+      handleFailedExecution(response, "", errorSql, redactApcError);
     }
     LOGGER.debug(
         "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
@@ -740,16 +973,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
     TimeoutHandler timeoutHandler =
         TimeoutHandler.forStatement(
             timeoutInSeconds,
-            apc ? submitStartMillis : System.currentTimeMillis(),
             typedStatementId,
             this,
             timeoutErrorCode,
-            redactApcDetails);
+            apc,
+            apc ? submitStartMillis : System.currentTimeMillis());
 
     StatementState responseState = response.getStatus().getState();
     try {
+      // Only enforce the deadline while the statement is still in flight. A already-SUCCEEDED APC
+      // response (for example a committed write) must not be reported as a timeout.
       while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
-        // Check for timeout
         timeoutHandler.checkTimeout();
 
         if (pollCount > 0) { // First poll happens without a delay
@@ -758,8 +992,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           } catch (InterruptedException e) {
             String timeoutErrorMessage =
                 String.format(
-                    "Thread interrupted due to statement timeout. StatementID %s",
-                    statementId);
+                    "Thread interrupted due to statement timeout. StatementID %s", statementId);
             LOGGER.error(timeoutErrorMessage);
             throw new DatabricksTimeoutException(
                 timeoutErrorMessage, null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
@@ -776,7 +1009,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           updateSessionVersion(session, response.getStatus());
         } catch (IOException e) {
           String errorMessage = "Error while processing the get statement response";
-          if (redactApcDetails) {
+          if (apc) {
             LOGGER.error(errorMessage);
             throw new DatabricksSQLException(
                 errorMessage,
@@ -787,8 +1020,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
           throw new DatabricksSQLException(
               errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
         } catch (RuntimeException e) {
-          if (!redactApcDetails) {
+          if (!apc) {
             throw e;
+          }
+          DatabricksError serverError = findServerError(e);
+          if (serverError != null) {
+            throw apcServerFailure("GetStatementResult", serverError, null);
           }
           LOGGER.error("Error while processing the get statement response");
           throw new DatabricksSQLException(
@@ -797,6 +1034,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
               DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
         }
         responseState = response.getStatus().getState();
+        // A poll that returns a terminal state after the deadline must keep that state; cancelling
+        // here would report a committed write as a timeout.
+        if (apc
+            && (responseState == StatementState.PENDING
+                || responseState == StatementState.RUNNING)) {
+          timeoutHandler.checkTimeout();
+        }
         LOGGER.debug(
             "Executed sql {} with status {} with retry count {}", logSql, responseState, pollCount);
         pollCount++;
@@ -834,7 +1078,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
       try {
-        handleFailedExecution(response, statementId, errorSql, redactApcDetails);
+        handleFailedExecution(response, statementId, errorSql, redactApcError);
       } finally {
         if (apc) {
           closeFailedApcOperation(typedStatementId, parentStatement);
@@ -982,20 +1226,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       MetadataOperationType metadataOperationType)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
-    boolean redactApcDetails =
-        apc
-            && (statementType == StatementType.METADATA
-                || !parameters.isEmpty()
-                || parentStatement instanceof DatabricksPreparedStatement
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURES
-                || metadataOperationType == MetadataOperationType.GET_PROCEDURE_COLUMNS);
     String logSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
         "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
         logSql,
         computeLabel(computeResource),
-        session,
-        parentStatement);
+        apc ? "[REDACTED]" : session,
+        apc ? "[REDACTED]" : parentStatement);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     ExecuteStatementRequest request =
         getRequest(
@@ -1028,7 +1265,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       response = execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement async request";
-      if (redactApcDetails) {
+      if (apc) {
         LOGGER.error(errorMessage);
         throw new DatabricksSQLException(
             errorMessage,
@@ -1038,8 +1275,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (DatabricksException e) {
-      if (!redactApcDetails) {
+      if (!apc) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("ExecuteStatement", serverError, null);
       }
       String errorMessage = "Error while processing the execute statement async request";
       LOGGER.error(errorMessage);
@@ -1048,8 +1289,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
           DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(),
           DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (RuntimeException e) {
-      if (!redactApcDetails) {
+      if (!apc) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("ExecuteStatement", serverError, null);
       }
       LOGGER.error("Error while processing the execute statement async request");
       throw new DatabricksSQLException(
@@ -1061,7 +1306,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (statementId == null) {
       LOGGER.error(
           "Empty Statement ID for sql {}, compute {}", logSql, computeLabel(computeResource));
-      handleFailedExecution(response, "", redactApcDetails ? "[REDACTED]" : sql, redactApcDetails);
+      handleFailedExecution(
+          response,
+          "",
+          apc ? "[REDACTED]" : sql,
+          redactApcServerErrorText(apc, statementType, parameters, null));
     }
     StatementId typedStatementId =
         StatementId.forCurrentSession(statementId, session.getSessionInfo());
@@ -1129,13 +1378,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       StatementType statementType)
       throws SQLException {
-    boolean redactApcDetails =
-        typedStatementId.computeResource() != null
-            && (statementType == StatementType.METADATA
-                || parentStatement instanceof DatabricksPreparedStatement);
+    boolean apc = typedStatementId.computeResource() != null;
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     String statementId = typedStatementId.toSQLExecStatementId();
+    LOGGER.debug("Getting statement result for statementId={}", statementId);
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = targetStatementPath(typedStatementId, statementPath(typedStatementId));
     GetStatementResponse response;
@@ -1147,7 +1394,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       response = execute(req, GetStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the get statement result request";
-      if (redactApcDetails) {
+      if (typedStatementId.computeResource() != null) {
         LOGGER.error(errorMessage);
         throw new DatabricksSQLException(
             errorMessage,
@@ -1157,8 +1404,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (RuntimeException e) {
-      if (!redactApcDetails) {
+      if (typedStatementId.computeResource() == null) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("GetStatementResult", serverError, null);
       }
       LOGGER.error("Error while processing the get statement result request");
       throw new DatabricksSQLException(
@@ -1178,15 +1429,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
           DatabricksDriverErrorCode.EXECUTE_STATEMENT_CANCELLED,
           true);
     }
-    if (statementType == StatementType.METADATA
+    if ((statementType == StatementType.METADATA || apc)
         && response.getStatus() != null
         && response.getStatus().getState() == StatementState.FAILED) {
-      handleFailedExecution(
-          wrapGetStatementResponse(response),
-          statementId,
-          "[metadata statement]",
-          redactApcDetails,
-          true);
+      try {
+        handleFailedExecution(
+            wrapGetStatementResponse(response),
+            statementId,
+            statementType == StatementType.METADATA ? "[metadata statement]" : "[REDACTED]",
+            redactApcServerErrorText(apc, statementType, null, null),
+            true);
+      } finally {
+        if (apc) {
+          closeFailedApcOperation(typedStatementId, parentStatement);
+        }
+      }
     }
 
     return new DatabricksResultSet(
@@ -1203,7 +1460,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public void closeStatement(StatementId typedStatementId) throws DatabricksSQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
-    LOGGER.debug("public void closeStatement()");
+    LOGGER.debug("public void closeStatement(statementId={})", statementId);
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = targetStatementPath(typedStatementId, statementPath(typedStatementId));
     try {
@@ -1226,6 +1483,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (typedStatementId.computeResource() == null) {
         throw e;
       }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("CloseStatement", serverError, null);
+      }
       LOGGER.error("Error while processing the close statement request");
       throw new DatabricksSQLException(
           "Error while processing the close statement request",
@@ -1239,8 +1500,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statementId = typedStatementId.toSQLExecStatementId();
     boolean apc = typedStatementId.computeResource() != null;
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
-    LOGGER.debug(
-        "public void cancelStatement(String statementId = {})", apc ? "[REDACTED]" : statementId);
+    LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     if (apc) {
       request.setBackendCompute(
@@ -1272,6 +1532,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (!apc) {
         throw e;
       }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("CancelStatement", serverError, null);
+      }
       LOGGER.error("Error while processing the cancel statement request");
       throw new DatabricksSQLException(
           "Error while processing the cancel statement request",
@@ -1287,9 +1551,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
-        "getResultChunks(statementId={}, chunkIndex={}) using SEA client",
-        typedStatementId.computeResource() != null ? "[REDACTED]" : statementId,
-        chunkIndex);
+        "getResultChunks(statementId={}, chunkIndex={}) using SEA client", statementId, chunkIndex);
     GetStatementResultChunkNRequest request =
         new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
     String path = statementPath(typedStatementId) + "/result/chunks/" + chunkIndex;
@@ -1309,6 +1571,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       return buildChunkLinkFetchResult(resultData.getExternalLinks());
     } catch (DatabricksException e) {
       if (typedStatementId.computeResource() != null) {
+        DatabricksError serverError = findServerError(e);
+        if (serverError != null) {
+          throw apcServerFailure("GetResultData", serverError, null);
+        }
         LOGGER.error("Error fetching APC result chunks");
         throw new DatabricksSQLException(
             "Error fetching APC result chunks",
@@ -1335,6 +1601,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
     } catch (RuntimeException e) {
       if (typedStatementId.computeResource() == null) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("GetResultData", serverError, null);
       }
       LOGGER.error("Error fetching APC result chunks");
       throw new DatabricksSQLException(
@@ -1390,7 +1660,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
         "getResultChunksData(statementId={}, chunkIndex={}, rowOffset={})",
-        typedStatementId.computeResource() != null ? "[REDACTED]" : statementId,
+        statementId,
         chunkIndex,
         rowOffset);
     GetStatementResultChunkNRequest request =
@@ -1411,6 +1681,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       return execute(req, ResultData.class);
     } catch (DatabricksException e) {
       if (typedStatementId.computeResource() != null) {
+        DatabricksError serverError = findServerError(e);
+        if (serverError != null) {
+          throw apcServerFailure("GetResultData", serverError, null);
+        }
         LOGGER.error("Error fetching APC result data");
         throw new DatabricksSQLException(
             "Error fetching APC result data",
@@ -1437,6 +1711,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
     } catch (RuntimeException e) {
       if (typedStatementId.computeResource() == null) {
         throw e;
+      }
+      DatabricksError serverError = findServerError(e);
+      if (serverError != null) {
+        throw apcServerFailure("GetResultData", serverError, null);
       }
       LOGGER.error("Error fetching APC result data");
       throw new DatabricksSQLException(
@@ -1707,6 +1985,27 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .setValue(value != null ? value.toString() : null);
   }
 
+  /**
+   * Server error text can echo SQL or bound values. Strip it only for APC metadata and
+   * parameterized statements.
+   */
+  static boolean redactApcServerErrorText(
+      boolean apc,
+      StatementType statementType,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      List<StatementParameterSet> parameterSets) {
+    if (!apc) {
+      return false;
+    }
+    if (statementType == StatementType.METADATA) {
+      return true;
+    }
+    if (parameters != null && !parameters.isEmpty()) {
+      return true;
+    }
+    return parameterSets != null && !parameterSets.isEmpty();
+  }
+
   /** Handles a failed execution and throws appropriate exception */
   void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
@@ -1751,12 +2050,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     // SQL-state classification; callers and logs receive a redacted message.
     String rawErrorMessage = errorMessage;
     if (error != null) {
+      String safeCode = safeServerErrorCode(String.valueOf(error.getErrorCode()));
       rawErrorMessage +=
           String.format(
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
       errorMessage +=
           redactApcDetails
-              ? String.format(" Error code: %s", error.getErrorCode())
+              ? String.format(" Error code: %s", safeCode)
               : String.format(
                   " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
       if (redactApcDetails) {
@@ -1814,15 +2114,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
         Stream.iterate(e.getCause(), Objects::nonNull, Throwable::getCause)
             .anyMatch(cause -> cause instanceof SSLHandshakeException);
 
+    String detail = e.getMessage();
     boolean isCertificatePathError =
-        e.getMessage().contains("PKIX path building failed")
-            || e.getMessage().contains("unable to find valid certification path");
+        detail != null
+            && (detail.contains("PKIX path building failed")
+                || detail.contains("unable to find valid certification path"));
 
     if (isSSLException && isCertificatePathError) {
       return buildSSLCertificatePathErrorMessage(e);
     }
 
-    String detail = e.getMessage();
     if (detail == null || detail.isEmpty()) {
       return "Error while establishing a connection in databricks";
     }
