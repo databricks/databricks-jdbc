@@ -1,7 +1,6 @@
 package com.databricks.jdbc.model.telemetry;
 
 import com.databricks.sdk.support.ToStringer;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TelemetryEvent {
@@ -32,19 +31,6 @@ public class TelemetryEvent {
 
   @JsonProperty("operation_latency_ms")
   Long latency;
-
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonProperty("connection_routing")
-  ConnectionRoutingEvent connectionRouting;
-
-  public ConnectionRoutingEvent getConnectionRouting() {
-    return connectionRouting;
-  }
-
-  public TelemetryEvent setConnectionRouting(ConnectionRoutingEvent connectionRouting) {
-    this.connectionRouting = connectionRouting;
-    return this;
-  }
 
   public TelemetryEvent() {}
 

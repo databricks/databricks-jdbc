@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.HTTP_CLUSTER_PA
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
-import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.arrow.ArrowBufferAllocator;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -86,45 +85,6 @@ public class TelemetryHelper {
       StatementTelemetryDetails telemetryDetails,
       TelemetryLogLevel logLevel) {
     exportTelemetryEvent(connectionContext, telemetryDetails, null, null, logLevel);
-  }
-
-  /** Emits one identifier-free route outcome after a session open attempt. */
-  public static void exportConnectionRouting(
-      IDatabricksConnectionContext connectionContext, boolean succeeded) {
-    if (connectionContext == null) {
-      return;
-    }
-    try {
-      if (!isTelemetryAllowedForConnection(connectionContext)
-          || TelemetryLogLevel.INFO.toInt() > connectionContext.getTelemetryLogLevel().toInt()) {
-        return;
-      }
-      String reason =
-          connectionContext instanceof DatabricksConnectionContext
-              ? ((DatabricksConnectionContext) connectionContext).getRoutingReason()
-              : "unknown";
-      ConnectionRoutingEvent routing =
-          new ConnectionRoutingEvent(
-              connectionContext.getComputeResource() instanceof AllPurposeCluster
-                  ? "apc"
-                  : "warehouse",
-              connectionContext.getClientType().toString(),
-              reason,
-              succeeded ? "success" : "failure");
-      TelemetryEvent event =
-          new TelemetryEvent()
-              .setDriverSystemConfiguration(DRIVER_SYSTEM_CONFIGURATION)
-              .setConnectionRouting(routing);
-      TelemetryClientFactory.getInstance()
-          .getTelemetryClient(connectionContext)
-          .exportEvent(
-              new TelemetryFrontendLog(TelemetryLogLevel.INFO)
-                  .setFrontendLogEventId(getEventUUID())
-                  .setContext(getLogContext())
-                  .setEntry(new FrontendLogEntry().setSqlDriverLog(event)));
-    } catch (RuntimeException e) {
-      LOGGER.debug("Connection routing telemetry unavailable");
-    }
   }
 
   private static void exportTelemetryEvent(

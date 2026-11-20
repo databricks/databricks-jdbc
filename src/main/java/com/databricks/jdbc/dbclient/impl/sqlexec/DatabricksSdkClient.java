@@ -59,7 +59,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.PortUnreachableException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Instant;
@@ -185,7 +190,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           } catch (IOException e) {
             if (request instanceof RedactingRequest) {
               // ApiClient logs transport failures before the driver can sanitize the exception.
-              throw new IOException("APC SEA transport request failed");
+              throw sanitizeApcTransportFailure(e);
             }
             throw e;
           } finally {
@@ -202,6 +207,33 @@ public class DatabricksSdkClient implements IDatabricksClient {
           return response;
         };
     return new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport).build();
+  }
+
+  /**
+   * Returns a message-free exception of the same retry-relevant class. The SDK's non-idempotent
+   * strategy retries POSTs only when the cause (or a nested cause) is one of these connect-phase
+   * types, so a plain IOException would silently disable retries for
+   * CreateSession/ExecuteStatement. The original is not chained because ApiClient logs the full
+   * cause chain.
+   */
+  @VisibleForTesting
+  static IOException sanitizeApcTransportFailure(IOException original) {
+    String message = "APC SEA transport request failed";
+    for (Throwable t = original; t != null; t = t.getCause()) {
+      if (t instanceof ConnectException) {
+        return new ConnectException(message);
+      } else if (t instanceof UnknownHostException) {
+        return new UnknownHostException(message);
+      } else if (t instanceof NoRouteToHostException) {
+        return new NoRouteToHostException(message);
+      } else if (t instanceof PortUnreachableException) {
+        return new PortUnreachableException(message);
+      }
+    }
+    if (original instanceof SocketTimeoutException) {
+      return new SocketTimeoutException(message);
+    }
+    return new IOException(message);
   }
 
   @VisibleForTesting

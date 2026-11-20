@@ -31,8 +31,9 @@ Opening an APC SEA session fails directly if the server rejects CreateSession; t
 not retry on Thrift. Server failures retain the HTTP status and server error code. The driver
 redacts server message text that may echo cluster IDs, SQL, or bound values; recognized
 unsupported-cluster and unsupported-region errors keep a clear category in the message.
-Connection diagnostics and routing telemetry report compute type,
-protocol, routing reason, and outcome without cluster, org, or session IDs. APC statement IDs
+Connection-open diagnostics log compute type, protocol, routing reason, and outcome without
+cluster, org, or session IDs. The driver does not export routing telemetry because the backend
+`OssSqlDriverTelemetryLog` schema has no routing field. APC statement IDs
 use the raw server statement ID in statement ID fields in logs and operation telemetry. The
 internal compound statement ID, org ID, and cluster ID are not logged. Server error text that
 may echo SQL or bound values is redacted before the SDK retries a request.

@@ -190,7 +190,6 @@ public class DatabricksSession implements IDatabricksSession {
       } catch (RuntimeException ignored) {
         LOGGER.debug("Connection route unavailable for diagnostic log");
       }
-      TelemetryHelper.exportConnectionRouting(connectionContext, opened);
     }
   }
 

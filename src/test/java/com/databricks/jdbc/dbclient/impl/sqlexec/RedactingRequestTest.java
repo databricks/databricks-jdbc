@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,8 +12,14 @@ import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.PortUnreachableException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +28,10 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class RedactingRequestTest {
@@ -103,6 +112,88 @@ class RedactingRequestTest {
       logger.removeHandler(handler);
       logger.setLevel(previousLevel);
     }
+  }
+
+  private static final String TRANSPORT_SECRET = "private-org-private-cluster-host";
+
+  static Stream<IOException> connectPhaseFailures() {
+    return Stream.of(
+        new ConnectException(TRANSPORT_SECRET),
+        new UnknownHostException(TRANSPORT_SECRET),
+        new NoRouteToHostException(TRANSPORT_SECRET),
+        new PortUnreachableException(TRANSPORT_SECRET),
+        new IOException("wrapped " + TRANSPORT_SECRET, new ConnectException(TRANSPORT_SECRET)));
+  }
+
+  private static ApiClient apcApiClientFailingFirstStatementPost(
+      IOException failure, AtomicInteger attempts) {
+    return DatabricksSdkClient.buildApiClient(
+        new DatabricksConfig()
+            .setHost("https://example.com")
+            .setAuthType("pat")
+            .setToken("test-token")
+            .setHttpClient(
+                request -> {
+                  if (request.getUri().getPath().startsWith("/oidc/")) {
+                    return new Response(request, 200, "OK", Map.of(), "{}");
+                  }
+                  if (attempts.incrementAndGet() == 1) {
+                    throw failure;
+                  }
+                  return new Response(request, 200, "OK", Map.of(), "{}");
+                }),
+        null,
+        true);
+  }
+
+  private static RedactingRequest apcExecuteStatementRequest() {
+    return new RedactingRequest(
+        Request.POST,
+        "/api/2.0/sql/statements/",
+        "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\"c\"}},"
+            + "\"statement\":\"SELECT 1\"}");
+  }
+
+  // ExecuteStatement is a non-idempotent POST: the SDK retries it only when the IOException (or a
+  // nested cause) is a connect-phase class, so sanitizing must not collapse them to IOException.
+  @ParameterizedTest
+  @MethodSource("connectPhaseFailures")
+  void sanitizedConnectPhaseFailureStillRetriesApcExecuteStatement(IOException failure)
+      throws Exception {
+    AtomicInteger attempts = new AtomicInteger();
+    ApiClient client = apcApiClientFailingFirstStatementPost(failure, attempts);
+
+    client.execute(apcExecuteStatementRequest(), Void.class);
+
+    assertEquals(2, attempts.get());
+  }
+
+  @Test
+  void sanitizedNonConnectFailureIsNotRetriedForApcExecuteStatement() {
+    AtomicInteger attempts = new AtomicInteger();
+    ApiClient client =
+        apcApiClientFailingFirstStatementPost(
+            new SocketTimeoutException(TRANSPORT_SECRET), attempts);
+
+    DatabricksError failure =
+        assertThrows(
+            DatabricksError.class, () -> client.execute(apcExecuteStatementRequest(), Void.class));
+
+    assertEquals(1, attempts.get());
+    assertFalse(String.valueOf(failure.getMessage()).contains(TRANSPORT_SECRET));
+    assertTrue(failure.getCause() instanceof SocketTimeoutException);
+  }
+
+  @ParameterizedTest
+  @MethodSource("connectPhaseFailures")
+  void sanitizedTransportFailureKeepsRetryClassButDropsMessageAndCause(IOException original) {
+    IOException sanitized = DatabricksSdkClient.sanitizeApcTransportFailure(original);
+
+    assertFalse(sanitized.getMessage().contains(TRANSPORT_SECRET));
+    assertNull(sanitized.getCause());
+    Class<?> expected =
+        original.getCause() != null ? original.getCause().getClass() : original.getClass();
+    assertEquals(expected, sanitized.getClass());
   }
 
   @Test
