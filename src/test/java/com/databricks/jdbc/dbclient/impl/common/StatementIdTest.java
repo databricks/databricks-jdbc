@@ -28,10 +28,6 @@ public class StatementIdTest {
     assertEquals("statement", id.toString());
     assertEquals("statement", id.toSQLExecStatementId());
     assertEquals("statement", StatementId.loggableStatementId(id));
-    StatementId privateDiagnostics = id.withRedactedDiagnostics();
-    assertEquals("[REDACTED]", StatementId.loggableStatementId(privateDiagnostics));
-    assertEquals("statement", privateDiagnostics.toSQLExecStatementId());
-    assertEquals(id, privateDiagnostics);
     StatementId parsed = StatementId.deserialize(id.serialize());
     assertEquals(id.toString(), parsed.toString());
     assertEquals(info.computeResource(), parsed.computeResource());

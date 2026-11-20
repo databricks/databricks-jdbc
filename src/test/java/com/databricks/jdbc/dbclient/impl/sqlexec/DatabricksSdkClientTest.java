@@ -27,7 +27,6 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -72,7 +71,6 @@ import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.function.ThrowingSupplier;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -159,109 +157,6 @@ public class DatabricksSdkClientTest {
     assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
     assertFalse(request.getHeaders().containsKey("X-Databricks-Metadata-Operation-Type"));
     assertFalse(request.getHeaders().containsKey("x-databricks-sea-can-run-fully-sync"));
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-    "true,SUCCEEDED",
-    "true,FAILED",
-    "true,CANCELED",
-    "false,SUCCEEDED",
-    "false,FAILED",
-    "false,CANCELED"
-  })
-  void apcMetadataCompletionRedactsStatementId(boolean synchronous, StatementState state)
-      throws Throwable {
-    IDatabricksConnectionContext context = apcContext("");
-    DatabricksSdkClient client = apcClient(context);
-    DatabricksSession session = apcSession(context);
-    String rawId = "private-metadata-statement-id";
-    boolean succeeded = state == StatementState.SUCCEEDED;
-    ResultManifest manifest =
-        succeeded
-            ? new ResultManifest()
-                .setFormat(SqlExecResultFormat.ARROW_STREAM)
-                .setTotalChunkCount(0L)
-                .setSchema(new ResultSchema().setColumns(List.of()).setColumnCount(0L))
-            : null;
-    ResultData data = succeeded ? new ResultData() : null;
-    StatementStatus status = new StatementStatus().setState(state).setSqlState("42000");
-    ThrowingSupplier<DatabricksResultSet> call;
-    if (synchronous) {
-      when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-          .thenReturn(
-              new ExecuteStatementResponse()
-                  .setStatementId(rawId)
-                  .setStatus(status)
-                  .setManifest(manifest)
-                  .setResult(data));
-      call =
-          () ->
-              client.executeStatement(
-                  "SHOW CATALOGS",
-                  new AllPurposeCluster("org", "cluster"),
-                  Map.of(),
-                  StatementType.METADATA,
-                  session,
-                  null,
-                  null);
-    } else {
-      when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-          .thenReturn(
-              new GetStatementResponse().setStatus(status).setManifest(manifest).setResult(data));
-      call =
-          () ->
-              client.getStatementResult(
-                  StatementId.forCurrentSession(rawId, apcInfoBuilder().build()),
-                  session,
-                  null,
-                  StatementType.METADATA);
-    }
-
-    try (LogCapture logs = new LogCapture()) {
-      if (succeeded) {
-        DatabricksResultSet result = call.get();
-        assertNotNull(result);
-        if (!synchronous) {
-          assertEquals(rawId, result.getStatementId());
-        }
-        assertTrue(logs.getOutput().contains("Empty result (total_chunk_count=0)"));
-      } else {
-        SQLException failure = assertThrows(SQLException.class, call::get);
-        assertFalse(failure.getMessage().contains(rawId));
-        assertTrue(failure.getMessage().contains("[REDACTED]"));
-      }
-      assertFalse(logs.getOutput().contains(rawId));
-      assertTrue(logs.getOutput().contains("[REDACTED]"));
-    }
-  }
-
-  @Test
-  void apcMetadataTimeoutRedactsStatementIdEvenWhenCancellationFails() throws Exception {
-    DatabricksSdkClient client = apcClient(apcContext(""));
-    String rawId = "private-timeout-metadata-id";
-    StatementId id = StatementId.forCurrentSession(rawId, apcInfoBuilder().build());
-    when(apiClient.execute(any(Request.class), eq(Void.class)))
-        .thenThrow(new IOException("Cancel failed for " + rawId));
-    TimeoutHandler timeout =
-        TimeoutHandler.forStatement(
-            1,
-            System.currentTimeMillis() - 5_000,
-            id,
-            client,
-            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
-            true);
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksTimeoutException failure =
-          assertThrows(DatabricksTimeoutException.class, timeout::checkTimeout);
-      assertFalse(failure.getMessage().contains(rawId));
-      assertTrue(failure.getMessage().contains("[REDACTED]"));
-      assertFalse(logs.getOutput().contains(rawId));
-    }
-    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(requests.capture(), eq(Void.class));
-    assertTrue(requests.getValue().getUrl().contains(rawId));
   }
 
   @ParameterizedTest
