@@ -141,12 +141,7 @@ public class TimeoutHandler {
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
     return forStatement(
-        timeoutSeconds,
-        System.currentTimeMillis(),
-        statementId,
-        client,
-        internalErrorCode,
-        false);
+        timeoutSeconds, System.currentTimeMillis(), statementId, client, internalErrorCode, false);
   }
 
   /** Creates a timeout handler that omits sensitive statement details from diagnostics. */
@@ -172,7 +167,8 @@ public class TimeoutHandler {
       StatementId statementId,
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
-    return forStatement(timeoutSeconds, startTimeMillis, statementId, client, internalErrorCode, false);
+    return forStatement(
+        timeoutSeconds, startTimeMillis, statementId, client, internalErrorCode, false);
   }
 
   /**

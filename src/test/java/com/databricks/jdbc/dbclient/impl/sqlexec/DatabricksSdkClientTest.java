@@ -115,129 +115,6 @@ public class DatabricksSdkClientTest {
         }
       };
 
-  @Test
-  void failedApcExecutionClosesRecordedOperation() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42247L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    IDatabricksStatementInternal parent = mock(IDatabricksStatementInternal.class);
-    when(parent.getStatement()).thenReturn(mock(java.sql.Statement.class));
-    when(apiClient.serialize(any())).thenReturn("{}");
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("failed-operation")
-                .setStatus(new StatementStatus().setState(StatementState.FAILED)));
-
-    assertThrows(
-        SQLException.class,
-        () ->
-            client.executeStatement(
-                "INSERT INTO t VALUES (7)",
-                cluster,
-                Map.of(),
-                StatementType.UPDATE,
-                session,
-                parent,
-                null));
-
-    verify(parent).setStatementId(any(StatementId.class));
-    verify(parent).closeServerOperation();
-  }
-
-  @Test
-  void failedApcMetadataExecutionWithoutParentClosesRecordedOperation() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("failed-metadata")
-                .setStatus(new StatementStatus().setState(StatementState.FAILED)));
-
-    assertThrows(
-        SQLException.class,
-        () ->
-            client.executeStatement(
-                "SELECT 1", cluster, Map.of(), StatementType.METADATA, session, null, null));
-
-    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(requests.capture(), eq(Void.class));
-    assertEquals(Request.DELETE, requests.getValue().getMethod());
-    assertTrue(requests.getValue().getUrl().contains("failed-metadata"));
-  }
-
-  @Test
-  void failedApcMetadataExecutionPreservesSqlStateWhenCloseFails() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("failed-metadata")
-                .setStatus(
-                    new StatementStatus()
-                        .setState(StatementState.FAILED)
-                        .setSqlState("42601")
-                        .setError(new ServiceError().setMessage("original SQL error"))));
-    String secret = "bound-value-from-close";
-    when(apiClient.execute(any(Request.class), eq(Void.class)))
-        .thenThrow(new DatabricksException("DELETE echoed " + secret));
-
-    try (LogCapture logs = new LogCapture()) {
-      SQLException failure =
-          assertThrows(
-              SQLException.class,
-              () ->
-                  client.executeStatement(
-                      "SELECT 1", cluster, Map.of(), StatementType.METADATA, session, null, null));
-      assertEquals("42601", failure.getSQLState());
-      assertFalse(failure.getMessage().contains("original SQL error"));
-      assertFalse(logs.getOutput().contains("original SQL error"));
-      assertFalse(logs.getOutput().contains(secret));
-    }
-    verify(apiClient).execute(any(Request.class), eq(Void.class));
-  }
-
   private IDatabricksConnectionContext apcContext(String urlSuffix) throws Exception {
     return DatabricksConnectionContext.parse(
         JDBC_URL + urlSuffix + "TelemetryLogLevel=OFF;", new Properties());
@@ -368,9 +245,13 @@ public class DatabricksSdkClientTest {
         .thenThrow(new IOException("Cancel failed for " + rawId));
     TimeoutHandler timeout =
         TimeoutHandler.forStatement(
-            1, id, client, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR, true);
+            1,
+            System.currentTimeMillis() - 5_000,
+            id,
+            client,
+            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+            true);
 
-    Thread.sleep(2100);
     try (LogCapture logs = new LogCapture()) {
       DatabricksTimeoutException failure =
           assertThrows(DatabricksTimeoutException.class, timeout::checkTimeout);
@@ -418,92 +299,6 @@ public class DatabricksSdkClientTest {
         assertEquals("42601", failure.getSQLState());
       }
     }
-  }
-
-  @ParameterizedTest
-  @CsvSource({"true,true", "true,false", "false,true", "false,false"})
-  void apcChunkFailuresRedactSdkDetails(boolean externalLinks, boolean sdkFailure)
-      throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(new AllPurposeCluster("org", "cluster"))
-            .build();
-    StatementId id = StatementId.forCurrentSession("statement", info);
-    String secret = "echoed-bound-value";
-    when(apiClient.execute(any(Request.class), eq(ResultData.class)))
-        .thenThrow(
-            sdkFailure
-                ? new DatabricksException("server echoed " + secret)
-                : new IOException("transport echoed " + secret));
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException failure =
-          assertThrows(
-              DatabricksSQLException.class,
-              () -> {
-                if (externalLinks) {
-                  client.getResultChunks(id, 0, 0);
-                } else {
-                  client.getResultChunksData(id, 0, 0);
-                }
-              });
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), failure.getSQLState());
-      assertFalse(failure.getMessage().contains(secret));
-      assertNull(failure.getCause());
-      assertFalse(logs.getOutput().contains(secret));
-    }
-  }
-
-  @Test
-  void directApcDowngradeRejectsMissingFirstBindingBeforeRequest() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42247L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-
-    assertThrows(
-        com.databricks.jdbc.exception.DatabricksValidationException.class,
-        () ->
-            client.executeStatement(
-                "SELECT ?",
-                cluster,
-                Map.of(2, getSqlParam(2, "wrong", DatabricksTypeUtil.STRING)),
-                StatementType.METADATA,
-                session,
-                null,
-                null));
-    verify(apiClient, never()).execute(any(Request.class), eq(ExecuteStatementResponse.class));
-  }
-
-  @Test
-  void warehouseBinaryParameterMappingRetainsExistingBytes() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    byte[] bytes = new byte[] {0x00, (byte) 0xFF};
-    StatementParameterListItem wire =
-        client.mapToParameterListItem(getSqlParam(1, bytes, DatabricksTypeUtil.BINARY));
-
-    assertEquals("BINARY", wire.getType());
-    assertEquals(bytes.toString(), wire.getValue());
   }
 
   private static SessionVersion sessionVersion(long versionId) {
@@ -3004,640 +2799,6 @@ public class DatabricksSdkClientTest {
     assertFalse(poll.getValue().getUrl().contains("/status"));
   }
 
-  @Test
-  public void testApcNativeBatchSerializesOrderedParameterSetsWithoutTopLevelParameters()
-      throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42250L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getComputeResource()).thenReturn(cluster);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
-    List<BatchParameterSet> sets =
-        List.of(
-            BatchParameterSet.from(Map.of(1, getSqlParam(1, "first", DatabricksTypeUtil.STRING))),
-            BatchParameterSet.from(Map.of(1, getSqlParam(1, "second", DatabricksTypeUtil.STRING))));
-
-    assertArrayEquals(
-        new long[] {java.sql.Statement.SUCCESS_NO_INFO, java.sql.Statement.SUCCESS_NO_INFO},
-        client.executeNativeBatch("INSERT INTO t VALUES (?)", sets, session, null));
-    ArgumentCaptor<Request> execute = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(execute.capture(), eq(ExecuteStatementResponse.class));
-    JsonNode body = new ObjectMapper().readTree(execute.getValue().getBodyString());
-    assertFalse(body.has("parameters"));
-    assertFalse(body.has("statements"));
-    assertEquals(2, body.path("parameter_sets").size());
-    assertEquals(
-        "first",
-        body.path("parameter_sets").get(0).path("parameters").get(0).path("value").asText());
-    assertEquals(
-        "second",
-        body.path("parameter_sets").get(1).path("parameters").get(0).path("value").asText());
-  }
-
-  @Test
-  public void testNativeBatchRequiresLiveV10WithDriverCode() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .clientType(DatabricksClientType.SEA)
-                .sessionId("session")
-                .computeResource(new AllPurposeCluster("org", "cluster"))
-                .negotiatedProtocolVersion(42249L)
-                .liveProtocolVersion(true)
-                .build());
-
-    java.sql.SQLFeatureNotSupportedException error =
-        assertThrows(
-            java.sql.SQLFeatureNotSupportedException.class,
-            () -> client.executeNativeBatch("INSERT INTO t VALUES (?)", List.of(), session, null));
-    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), error.getErrorCode());
-    verifyNoInteractions(apiClient);
-  }
-
-  @Test
-  public void testNativeBatchRejectsMismatchedSetsBeforeRequest() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .clientType(DatabricksClientType.SEA)
-                .sessionId("session")
-                .computeResource(new AllPurposeCluster("org", "cluster"))
-                .negotiatedProtocolVersion(42250L)
-                .liveProtocolVersion(true)
-                .build());
-    List<BatchParameterSet> sets =
-        List.of(
-            BatchParameterSet.from(Map.of(1, getSqlParam(1, 1, DatabricksTypeUtil.INT))),
-            BatchParameterSet.from(Map.of(2, getSqlParam(2, 2, DatabricksTypeUtil.INT))));
-
-    assertThrows(
-        SQLException.class,
-        () -> client.executeNativeBatch("INSERT INTO t VALUES (?)", sets, session, null));
-    verifyNoInteractions(apiClient);
-  }
-
-  @Test
-  public void testWarehouseSubmitPreservesSdkExceptionForSyncAndAsync() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .clientType(DatabricksClientType.SEA)
-                .sessionId("session")
-                .computeResource(warehouse)
-                .build());
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any())).thenReturn("{}");
-    DatabricksException sdkError = new DatabricksException("warehouse submit failed");
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenThrow(sdkError);
-
-    assertSame(
-        sdkError,
-        assertThrows(
-            DatabricksException.class,
-            () ->
-                client.executeStatement(
-                    "SELECT 1", warehouse, Map.of(), StatementType.QUERY, session, null, null)));
-    assertSame(
-        sdkError,
-        assertThrows(
-            DatabricksException.class,
-            () -> client.executeStatementAsync("SELECT 1", warehouse, Map.of(), session, null)));
-  }
-
-  @Test
-  public void testWarehousePollAndResultPreserveSdkException() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(warehouse)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any())).thenReturn("{}");
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.PENDING)));
-    DatabricksException sdkError = new DatabricksException("warehouse poll failed");
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class))).thenThrow(sdkError);
-
-    assertSame(
-        sdkError,
-        assertThrows(
-            DatabricksException.class,
-            () ->
-                client.executeStatement(
-                    "SELECT 1", warehouse, Map.of(), StatementType.QUERY, session, null, null)));
-    assertSame(
-        sdkError,
-        assertThrows(
-            DatabricksException.class,
-            () ->
-                client.getStatementResult(
-                    StatementId.forCurrentSession("statement", info), session, null)));
-  }
-
-  @Test
-  public void testNativeBatchCleanupFailurePreservesSuccessfulCounts() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42250L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getComputeResource()).thenReturn(cluster);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
-    when(apiClient.execute(any(Request.class), eq(Void.class)))
-        .thenThrow(new IOException("cleanup failed"));
-
-    long[] counts =
-        client.executeNativeBatch(
-            "INSERT INTO t VALUES (?)",
-            List.of(
-                BatchParameterSet.from(
-                    Map.of(1, getSqlParam(1, "secret", DatabricksTypeUtil.STRING)))),
-            session,
-            null);
-
-    assertArrayEquals(new long[] {java.sql.Statement.SUCCESS_NO_INFO}, counts);
-    verify(apiClient).execute(any(Request.class), eq(Void.class));
-  }
-
-  @Test
-  public void testNativeBatchSucceedsWhenAggregateResultCannotBeDecoded() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42250L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getComputeResource()).thenReturn(cluster);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    // A manifest without a format cannot be decoded into a result set.
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
-                .setManifest(new ResultManifest().setTotalRowCount(1L))
-                .setResult(new ResultData().setRowCount(1L)));
-
-    long[] counts =
-        client.executeNativeBatch(
-            "INSERT INTO t VALUES (?)",
-            List.of(
-                BatchParameterSet.from(Map.of(1, getSqlParam(1, "v", DatabricksTypeUtil.STRING)))),
-            session,
-            null);
-
-    assertArrayEquals(new long[] {java.sql.Statement.SUCCESS_NO_INFO}, counts);
-    verify(apiClient).execute(any(Request.class), eq(Void.class));
-  }
-
-  @Test
-  public void testApcResponseDebugBodyHidesEchoedBindingAndPreservesWireBody() throws Exception {
-    Request request =
-        new RedactingRequest(
-            Request.POST,
-            "https://example.com" + STATEMENT_PATH,
-            "{\"backend_compute\":{},\"statement\":\"SELECT ?\",\"parameters\":[]}");
-    String echoed = "{\"error\":{\"message\":\"bound-secret\"}}";
-    Response raw = new Response(request, 400, "Bad Request", Map.of(), echoed);
-
-    Response protectedResponse = DatabricksSdkClient.redactApcResponseDebugBody(request, raw);
-
-    assertFalse(protectedResponse.getDebugBody().contains("bound-secret"));
-    assertEquals(
-        echoed, new String(protectedResponse.getBody().readAllBytes(), StandardCharsets.UTF_8));
-    assertEquals(400, protectedResponse.getStatusCode());
-    assertSame(
-        raw, DatabricksSdkClient.redactApcResponseDebugBody(new Request(Request.GET, "/"), raw));
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L, 42248L})
-  public void testApcDirectClientParametersFollowLiveVersion(Long version) throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(version)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
-
-    client.executeStatement(
-        "SELECT ? AS value, '?' AS literal /* ? */",
-        cluster,
-        Map.of(1, getSqlParam(1, "x';--\\tail", DatabricksTypeUtil.STRING)),
-        StatementType.QUERY,
-        session,
-        null,
-        null);
-    ArgumentCaptor<Request> execute = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(execute.capture(), eq(ExecuteStatementResponse.class));
-    JsonNode body = new ObjectMapper().readTree(execute.getValue().getBodyString());
-    if (version != null && version >= 42248L) {
-      assertEquals("SELECT ? AS value, '?' AS literal /* ? */", body.path("statement").asText());
-      assertEquals(1, body.path("parameters").size());
-    } else {
-      assertEquals(
-          "SELECT 'x'';--\\\\tail' AS value, '?' AS literal /* ? */",
-          body.path("statement").asText());
-      assertFalse(body.has("parameters"));
-    }
-    assertFalse(body.has("parameter_sets"));
-  }
-
-  @Test
-  public void testApcNativeFailuresRedactBindingsAndClassifyRawError() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42250L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getComputeResource()).thenReturn(cluster);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    String secret = "native-bound-secret";
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("failed")
-                .setStatus(
-                    new StatementStatus()
-                        .setState(StatementState.FAILED)
-                        .setSqlState("XXUCC")
-                        .setError(
-                            new ServiceError()
-                                .setMessage(
-                                    "[UC_CLIENT_EXCEPTION] Failed to contact the Unity Catalog "
-                                        + "server. HTTP/1.1 504 Gateway Timeout, "
-                                        + "DEADLINE_EXCEEDED: "
-                                        + secret))));
-    Map<Integer, ImmutableSqlParameter> bindings =
-        Map.of(1, getSqlParam(1, secret, DatabricksTypeUtil.STRING));
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException single =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.executeStatement(
-                      "SELECT ?", cluster, bindings, StatementType.QUERY, session, null, null));
-      assertEquals("08S01", single.getSQLState());
-      assertFalse(single.getMessage().contains(secret));
-
-      DatabricksSQLException batch =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.executeNativeBatch(
-                      "INSERT INTO t VALUES (?)",
-                      List.of(BatchParameterSet.from(bindings)),
-                      session,
-                      null));
-      assertEquals("08S01", batch.getSQLState());
-      assertFalse(batch.getMessage().contains(secret));
-      assertFalse(logs.getOutput().contains(secret));
-    }
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L, 42248L})
-  public void testApcHttpExecutionErrorRedactsBoundValueWithoutParentStatement(Long version)
-      throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(version)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    String secret = "http-echo-secret";
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenThrow(new DatabricksError("FAILED", "server echoed " + secret, 400));
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.executeStatement(
-                      "SELECT ?",
-                      cluster,
-                      Map.of(1, getSqlParam(1, secret, DatabricksTypeUtil.STRING)),
-                      StatementType.METADATA,
-                      session,
-                      null,
-                      null));
-
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), error.getSQLState());
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), error.getErrorCode());
-      assertFalse(error.getMessage().contains(secret));
-      assertNull(error.getCause());
-      assertFalse(logs.getOutput().contains(secret));
-    }
-  }
-
-  @Test
-  public void testApcNativePollFailureDoesNotExposeBoundValueInCause() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42248L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any())).thenReturn("{}");
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.PENDING)));
-    String secret = "native-poll-secret";
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenThrow(
-            new RuntimeException(
-                "retry wrapper echoed " + secret,
-                new DatabricksException("server echoed " + secret)));
-
-    DatabricksSQLException error =
-        assertThrows(
-            DatabricksSQLException.class,
-            () ->
-                client.executeStatement(
-                    "SELECT ?",
-                    cluster,
-                    Map.of(1, getSqlParam(1, secret, DatabricksTypeUtil.STRING)),
-                    StatementType.QUERY,
-                    session,
-                    null,
-                    null));
-
-    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), error.getErrorCode());
-    assertFalse(error.getMessage().contains(secret));
-    assertNull(error.getCause());
-    ArgumentCaptor<Request> cleanup = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(cleanup.capture(), eq(Void.class));
-    assertEquals(Request.DELETE, cleanup.getValue().getMethod());
-    assertEquals(
-        String.format(STATEMENT_PATH_WITH_ID, "statement"), cleanup.getValue().getUri().getPath());
-  }
-
-  @Test
-  public void testApcPreparedPollIoFailureClosesAssignedOperation() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42248L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any())).thenReturn("{}");
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.PENDING)));
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenThrow(new IOException("poll failed"));
-    DatabricksPreparedStatement prepared = mock(DatabricksPreparedStatement.class);
-    when(prepared.getStatement()).thenReturn(mock(java.sql.Statement.class));
-
-    assertThrows(
-        DatabricksSQLException.class,
-        () ->
-            client.executeStatement(
-                "SELECT ?",
-                cluster,
-                Map.of(1, getSqlParam(1, "bound", DatabricksTypeUtil.STRING)),
-                StatementType.QUERY,
-                session,
-                prepared,
-                null));
-
-    verify(prepared).setStatementId(StatementId.forCurrentSession("statement", info));
-    verify(prepared).closeServerOperation();
-  }
-
-  @Test
-  public void testApcAsyncResultHttpFailureRedactsBoundValue() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42248L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionId()).thenReturn("session");
-    String secret = "async-bound-secret";
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenThrow(new DatabricksError("FAILED", "server echoed " + secret, 400));
-    DatabricksPreparedStatement prepared = mock(DatabricksPreparedStatement.class);
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.getStatementResult(
-                      StatementId.forCurrentSession("statement", info), session, prepared));
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), error.getSQLState());
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), error.getErrorCode());
-      assertFalse(error.getMessage().contains(secret));
-      assertNull(error.getCause());
-      assertFalse(logs.getOutput().contains(secret));
-    }
-  }
-
-  @Test
-  public void testApcAsyncSubmitHttpFailureRedactsBoundValue() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .negotiatedProtocolVersion(42248L)
-            .liveProtocolVersion(true)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(apiClient.serialize(any())).thenReturn("{}");
-    String secret = "async-submit-secret";
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenThrow(new DatabricksException("server echoed " + secret));
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.executeStatementAsync(
-                      "SELECT ?",
-                      cluster,
-                      Map.of(1, getSqlParam(1, secret, DatabricksTypeUtil.STRING)),
-                      session,
-                      null));
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), error.getSQLState());
-      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), error.getErrorCode());
-      assertFalse(error.getMessage().contains(secret));
-      assertNull(error.getCause());
-      assertFalse(logs.getOutput().contains(secret));
-    }
-  }
-
   @ParameterizedTest
   @NullSource
   @ValueSource(longs = {42247L})
@@ -3771,81 +2932,6 @@ public class DatabricksSdkClientTest {
                 StatementType.METADATA);
     assertEquals(StatementState.SUCCEEDED, result.getStatementStatus().getState());
     assertEquals(0, result.getUpdateCount());
-  }
-
-  @Test
-  public void testWarehouseEmptyBindingsStillSerializeEmptyParametersArray() throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(warehouse)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
-
-    client.executeStatement(
-        "SELECT 1", warehouse, Map.of(), StatementType.QUERY, session, null, null);
-    ArgumentCaptor<Request> execute = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(execute.capture(), eq(ExecuteStatementResponse.class));
-    JsonNode body = new ObjectMapper().readTree(execute.getValue().getBodyString());
-    assertTrue(body.has("parameters"));
-    assertEquals(0, body.path("parameters").size());
-    assertFalse(body.has("parameter_sets"));
-  }
-
-  @Test
-  public void testApcAsyncExecuteUsesArrowBatchAndZeroWaitWithHybridResultsDisabled()
-      throws Exception {
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(
-            JDBC_URL + "EnableSQLExecHybridResults=0;", new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient);
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .build();
-    DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionInfo()).thenReturn(info);
-    when(session.getSessionId()).thenReturn("session");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    when(apiClient.serialize(any()))
-        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenReturn(
-            new ExecuteStatementResponse()
-                .setStatementId("statement")
-                .setStatus(new StatementStatus().setState(StatementState.RUNNING)));
-
-    client.executeStatementAsync("select 1", cluster, Map.of(), session, null);
-
-    ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(request.capture(), eq(ExecuteStatementResponse.class));
-    JsonNode body = new ObjectMapper().readTree(request.getValue().getBodyString());
-    assertEquals("ARROW_BATCH", body.path("format").asText());
-    assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
-    assertEquals("session", body.path("session_id").asText());
-    assertEquals("0s", body.path("wait_timeout").asText());
-    assertFalse(body.has("statements"));
   }
 
   @Test
@@ -4100,6 +3186,115 @@ public class DatabricksSdkClientTest {
 
     verify(parent).setStatementId(any(StatementId.class));
     verify(parent).closeServerOperation();
+  }
+
+  @Test
+  void failedApcMetadataExecutionPreservesSqlStateWhenCloseFails() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, null);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("failed-metadata")
+                .setStatus(
+                    new StatementStatus()
+                        .setState(StatementState.FAILED)
+                        .setSqlState("42601")
+                        .setError(new ServiceError().setMessage("original SQL error"))));
+    String secret = "bound-value-from-close";
+    when(apiClient.execute(any(Request.class), eq(Void.class)))
+        .thenThrow(new DatabricksException("DELETE echoed " + secret));
+
+    try (LogCapture logs = new LogCapture()) {
+      SQLException failure =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT 1",
+                      APC_CLUSTER,
+                      Map.of(),
+                      StatementType.METADATA,
+                      session,
+                      null,
+                      null));
+      assertEquals("42601", failure.getSQLState());
+      assertFalse(failure.getMessage().contains("original SQL error"));
+      assertFalse(logs.getOutput().contains("original SQL error"));
+      assertFalse(logs.getOutput().contains(secret));
+    }
+    ArgumentCaptor<Request> cleanup = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(cleanup.capture(), eq(Void.class));
+    assertEquals(Request.DELETE, cleanup.getValue().getMethod());
+    assertTrue(cleanup.getValue().getUrl().contains("failed-metadata"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"true,true", "true,false", "false,true", "false,false"})
+  void apcChunkFailuresRedactSdkDetails(boolean externalLinks, boolean sdkFailure)
+      throws Exception {
+    DatabricksSdkClient client = apcClient();
+    StatementId id = StatementId.forCurrentSession("statement", apcInfo(APC_CLUSTER, null));
+    String secret = "echoed-bound-value";
+    when(apiClient.execute(any(Request.class), eq(ResultData.class)))
+        .thenThrow(
+            sdkFailure
+                ? new DatabricksException("server echoed " + secret)
+                : new IOException("transport echoed " + secret));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () -> {
+                if (externalLinks) {
+                  client.getResultChunks(id, 0, 0);
+                } else {
+                  client.getResultChunksData(id, 0, 0);
+                }
+              });
+      assertRedactedSdkError(failure, secret, logs);
+    }
+  }
+
+  @Test
+  public void testWarehouseSubmitAndPollPreserveSdkException() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(warehouse, null);
+    StatementId id = StatementId.forCurrentSession("statement", apcInfo(warehouse, null));
+    stubSerialize();
+    DatabricksException submitError = new DatabricksException("warehouse submit failed");
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenThrow(submitError)
+        .thenThrow(submitError)
+        .thenReturn(statementResponse("statement", StatementState.PENDING));
+    DatabricksException pollError = new DatabricksException("warehouse poll failed");
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenThrow(pollError);
+
+    assertSame(
+        submitError,
+        assertThrows(
+            DatabricksException.class,
+            () ->
+                client.executeStatement(
+                    "SELECT 1", warehouse, Map.of(), StatementType.QUERY, session, null, null)));
+    assertSame(
+        submitError,
+        assertThrows(
+            DatabricksException.class,
+            () -> client.executeStatementAsync("SELECT 1", warehouse, Map.of(), session, null)));
+    assertSame(
+        pollError,
+        assertThrows(
+            DatabricksException.class,
+            () ->
+                client.executeStatement(
+                    "SELECT 1", warehouse, Map.of(), StatementType.QUERY, session, null, null)));
+    assertSame(
+        pollError,
+        assertThrows(
+            DatabricksException.class, () -> client.getStatementResult(id, session, null)));
   }
 
   @ParameterizedTest

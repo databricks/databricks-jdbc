@@ -37,6 +37,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -477,7 +478,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         return metadataResultSetBuilder.getCatalogsResult(result);
       case SCHEMAS:
         return metadataResultSetBuilder.getSchemasResult(
-            result, catalog == null ? null : WildcardUtil.stripJdbcEscapes(catalog).toLowerCase());
+            result,
+            catalog == null
+                ? null
+                : WildcardUtil.stripJdbcEscapes(catalog).toLowerCase(Locale.ROOT));
       case TABLES:
         String[] types = request.getTableTypes();
         return metadataResultSetBuilder.getTablesResult(
@@ -610,7 +614,13 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
           if (isTerminalMetadataError(e)) {
             throw e;
           }
-          LOGGER.warn("Error fetching metadata for catalog {}", catalog);
+          // Only the cause type is logged: APC exception messages are deliberately generic and
+          // underlying messages may echo request details.
+          LOGGER.warn(
+              "Error fetching metadata for catalog {} (SQLState {}, cause {})",
+              catalog,
+              e.getSQLState(),
+              e.getCause() == null ? "none" : e.getCause().getClass().getName());
         }
       }
     }
@@ -701,7 +711,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     // underscores (\_) would appear in the result (e.g., "comparator\_tests" instead
     // of "comparator_tests").
     String resultCatalog =
-        catalog != null ? WildcardUtil.stripJdbcEscapes(catalog).toLowerCase() : null;
+        catalog != null ? WildcardUtil.stripJdbcEscapes(catalog).toLowerCase(Locale.ROOT) : null;
     try {
       return convertSynchronousMetadata(
           getResultSet(SQL, session, MetadataOperationType.GET_SCHEMAS),
