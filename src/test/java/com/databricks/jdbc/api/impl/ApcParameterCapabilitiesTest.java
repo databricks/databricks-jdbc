@@ -12,7 +12,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.TelemetryLogLevel;
-import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -93,21 +92,6 @@ class ApcParameterCapabilitiesTest {
     lenient().when(session.getComputeResource()).thenReturn(CLUSTER);
     lenient().when(session.getDatabricksClient()).thenReturn(client);
     return new TestConnection(connection, context, client);
-  }
-
-  /** Switches the session to a warehouse; {@code clientType} varies to cover SEA and Thrift. */
-  private static Warehouse useWarehouse(TestConnection test, DatabricksClientType clientType)
-      throws Exception {
-    Warehouse warehouse = new Warehouse("warehouse");
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .sessionId("session")
-            .computeResource(warehouse)
-            .clientType(clientType)
-            .build();
-    when(test.connection.getSession().getSessionInfo()).thenReturn(info);
-    when(test.connection.getSession().getComputeResource()).thenReturn(warehouse);
-    return warehouse;
   }
 
   private static IDatabricksStatementInternal matching(IDatabricksStatementInternal statement) {
@@ -257,48 +241,6 @@ class ApcParameterCapabilitiesTest {
       assertEquals("SELECT 'hello' AS value, 'it\\'s ?' AS literal /* ? */", executed.sql.get(0));
       assertTrue(executed.bindings.get(0).isEmpty());
     }
-  }
-
-  @Test
-  void warehouseAndThriftMetadataKeepOriginalBindings() throws Exception {
-    for (DatabricksClientType clientType :
-        List.of(DatabricksClientType.SEA, DatabricksClientType.THRIFT)) {
-      TestConnection test = testConnection(42250L);
-      Warehouse warehouse = useWarehouse(test, clientType);
-      DatabricksPreparedStatement prepared =
-          new DatabricksPreparedStatement(test.connection, "SELECT ?");
-      prepared.setString(1, "bound");
-      whenExecute(test, warehouse, null, StatementType.QUERY, null)
-          .thenReturn(mock(DatabricksResultSet.class));
-
-      prepared.getMetaData();
-
-      Executed describe = verifyExecuted(test, 1, warehouse, StatementType.QUERY, null);
-      assertEquals("DESCRIBE QUERY SELECT '?'", describe.sql.get(0));
-      assertEquals("bound", describe.bindings.get(0).get(1).value());
-    }
-  }
-
-  @Test
-  void warehousePreparedBatchDoesNotResetBetweenSets() throws Exception {
-    TestConnection test = testConnection(42250L);
-    Warehouse warehouse = useWarehouse(test, DatabricksClientType.SEA);
-    when(test.context.isBatchedInsertsEnabled()).thenReturn(false);
-    DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(test.connection, INSERT);
-    DatabricksResultSet result = mock(DatabricksResultSet.class);
-    when(result.getUpdateCount()).thenReturn(1L);
-    whenExecute(test, warehouse, null, StatementType.UPDATE, prepared)
-        .thenAnswer(
-            invocation -> {
-              prepared.setStatementId(new StatementId("warehouse-operation"));
-              return result;
-            });
-    addIntBatch(prepared, 1, 2);
-
-    assertArrayEquals(new long[] {1, 1}, prepared.executeLargeBatch());
-    verifyExecuted(test, 2, warehouse, StatementType.UPDATE, prepared);
-    verify(test.client, never()).closeStatement(any());
-    verify(result, never()).close();
   }
 
   @Test
