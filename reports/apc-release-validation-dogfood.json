@@ -103,13 +103,15 @@
     "runner": "reports/validation/ApcFlagOnRoutes.java",
     "jar": "databricks-jdbc-3.4.5 uber jar (round-2 artifact)",
     "cluster_access_modes_tried": ["SINGLE_USER", "USER_ISOLATION"],
+    "org_id_header": "http.header.x-databricks-org-id=6051921418418893 (required on dogfood SPOG)",
+    "afternoon_fail_root_cause": "without X-Databricks-Org-Id, feature-flags GET returns 403 and driver cache is empty",
     "modes": {
-      "flag-default": {"protocol": "THRIFT", "reason": "apc_flag", "select_one": "pass"},
+      "flag-default": {"protocol": "SEA_APC", "client": "DatabricksSdkClient", "reason": "apc_flag", "select_one": "pass"},
       "thrift-override": {"protocol": "THRIFT", "reason": "explicit_thrift", "select_one": "pass"},
-      "sea-override": {"protocol": null, "outcome": "fail", "error": "APC SEA CreateSession failed (server error 403)", "reason": "explicit_sea"},
+      "sea-override": {"protocol": "SEA_APC", "client": "DatabricksSdkClient", "reason": "explicit_sea", "select_one": "pass"},
       "sea-pattern": {"protocol": "THRIFT", "reason": "catalog_pattern", "select_one": "pass"}
     },
-    "control_staging_sea_override": {"protocol": "SEA_APC", "client": "DatabricksSdkClient", "reason": "explicit_sea", "select_one": "pass"}
+    "eng_nephos_e2_attempt": "AUTH_OK and enableSqlExecForJdbcApc=true, but APC create fails capacity/ingress lockdown; not used for JDBC flag-ON"
   },
   "sc_status_2026_11_19": {"SC-256188": "TO DO", "SC-258787": "TO DO", "SC-258842": "TO DO"},
   "flag_absent_no_override": {
