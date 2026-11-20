@@ -19,6 +19,9 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.UserAgent;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -194,6 +197,79 @@ public class UserAgentManagerTest {
       userAgent.verify(() -> UserAgent.withOtherInfo("RepeatApp", "1.0"), times(1));
     }
     assertTrue(getUserAgentString().contains("RepeatApp/1.0"));
+  }
+
+  @Test
+  void testUserAgentStringsAreCachedUntilNextChange() {
+    when(connectionContext.getCustomerUserAgent()).thenReturn("CachedApp/1.0");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    try (MockedStatic<UserAgent> userAgent =
+        Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+      UserAgentManager.setUserAgent(connectionContext);
+      String http = getUserAgentString();
+      String sdk = UserAgentManager.getSdkUserAgentString();
+      for (int i = 0; i < 100; i++) {
+        assertEquals(http, getUserAgentString());
+        assertEquals(sdk, UserAgentManager.getSdkUserAgentString());
+      }
+      userAgent.verify(UserAgent::asString, times(1));
+
+      UserAgentManager.setUserAgent(connectionContext);
+      getUserAgentString();
+      userAgent.verify(UserAgent::asString, times(2));
+    }
+  }
+
+  @Test
+  void testSlowFillDoesNotReplaceNewerEntry() throws Exception {
+    CountDownLatch inSlowFill = new CountDownLatch(1);
+    CountDownLatch releaseSlowFill = new CountDownLatch(1);
+    AtomicInteger fills = new AtomicInteger();
+    try {
+      UserAgentManager.setSdkUserAgentSupplier(
+          () -> {
+            if (fills.incrementAndGet() == 1) {
+              inSlowFill.countDown();
+              try {
+                releaseSlowFill.await(10, TimeUnit.SECONDS);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+              return "Old/1.0";
+            }
+            return "New/1.0";
+          });
+      Thread slow = new Thread(UserAgentManager::getSdkUserAgentString);
+      slow.start();
+      assertTrue(inSlowFill.await(10, TimeUnit.SECONDS));
+
+      // A change while the slow fill is in progress; the next read fills the newer entry.
+      UserAgentManager.resetRegisteredOtherInfo();
+      assertEquals("New/1.0", UserAgentManager.getSdkUserAgentString());
+
+      releaseSlowFill.countDown();
+      slow.join(10_000);
+      assertFalse(slow.isAlive(), "slow fill did not finish");
+      assertEquals("New/1.0", UserAgentManager.getSdkUserAgentString());
+      assertEquals(2, fills.get());
+    } finally {
+      UserAgentManager.setSdkUserAgentSupplier(UserAgent::asString);
+      UserAgentManager.resetRegisteredOtherInfo();
+    }
+  }
+
+  @Test
+  void testCachedUserAgentReflectsLaterChanges() {
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    when(connectionContext.getCustomerUserAgent()).thenReturn("FirstCachedApp/1.0");
+    UserAgentManager.setUserAgent(connectionContext);
+    assertTrue(getUserAgentString().contains("FirstCachedApp/1.0"));
+    assertFalse(getUserAgentString().contains("SecondCachedApp/2.0"));
+
+    when(connectionContext.getCustomerUserAgent()).thenReturn("SecondCachedApp/2.0");
+    UserAgentManager.setUserAgent(connectionContext);
+    assertTrue(getUserAgentString().contains("SecondCachedApp/2.0"));
+    assertEquals(UserAgent.asString(), UserAgentManager.getSdkUserAgentString());
   }
 
   @Test

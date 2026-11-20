@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProcessNameUtil;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -25,7 +26,6 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
-import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
@@ -280,7 +280,7 @@ public class TelemetryHelper {
         .setClientContext(
             new TelemetryClientContext()
                 .setTimestampMillis(Instant.now().toEpochMilli())
-                .setUserAgent(UserAgent.asString()));
+                .setUserAgent(UserAgentManager.getSdkUserAgentString()));
   }
 
   private static HostDetails getHostDetails(
