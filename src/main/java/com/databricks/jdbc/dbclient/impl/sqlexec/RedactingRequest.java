@@ -6,11 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.net.URI;
 
-/** Keeps the wire request intact while hiding APC targets from SDK request logs. */
+/** Keeps the wire request intact while hiding APC targets, sessions, and SQL from SDK logs. */
 class RedactingRequest extends Request {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final String CLUSTER_QUERY =
       "backend_compute.all_purpose_cluster_compute.cluster_id=";
+  private static final String SESSION_PATH = "/api/2.0/sql/sessions/";
   private volatile boolean wireBodyVisible = true;
   private final String logBody;
 
@@ -44,9 +45,14 @@ class RedactingRequest extends Request {
   @Override
   public String getRequestLine() {
     URI uri = getUri();
+    String path = uri.getRawPath();
+    if (path.startsWith(SESSION_PATH) && path.length() > SESSION_PATH.length()) {
+      int idEnd = path.indexOf('/', SESSION_PATH.length());
+      path = SESSION_PATH + "[REDACTED]" + (idEnd < 0 ? "" : path.substring(idEnd));
+    }
     String query = uri.getRawQuery();
     if (query == null) {
-      return super.getRequestLine();
+      return getMethod() + " " + path;
     }
     StringBuilder redacted = new StringBuilder();
     for (String entry : query.split("&", -1)) {
@@ -55,7 +61,7 @@ class RedactingRequest extends Request {
       }
       redacted.append(entry.startsWith(CLUSTER_QUERY) ? CLUSTER_QUERY + "[REDACTED]" : entry);
     }
-    return getMethod() + " " + uri.getPath() + "?" + redacted;
+    return getMethod() + " " + path + "?" + redacted;
   }
 
   private static String redactBody(String body) {
@@ -67,14 +73,34 @@ class RedactingRequest extends Request {
       JsonNode cluster = root.path("backend_compute").path("all_purpose_cluster_compute");
       if (cluster instanceof ObjectNode) {
         ((ObjectNode) cluster).put("cluster_id", "[REDACTED]");
-        if (root instanceof ObjectNode && root.has("statement")) {
+        if (root instanceof ObjectNode) {
           ObjectNode request = (ObjectNode) root;
-          request.put("statement", "[REDACTED]");
-          if (request.has("parameters")) {
-            request.put("parameters", "[REDACTED]");
+          if (request.has("sessionId")) {
+            request.put("sessionId", "[REDACTED]");
           }
-          if (request.has("parameter_sets")) {
-            request.put("parameter_sets", "[REDACTED]");
+          if (request.has("session_id")) {
+            request.put("session_id", "[REDACTED]");
+          }
+          if (request.has("sessionConfigs")) {
+            request.put("sessionConfigs", "[REDACTED]");
+          }
+          if (request.has("session_configs")) {
+            request.put("session_configs", "[REDACTED]");
+          }
+          if (request.has("catalog")) {
+            request.put("catalog", "[REDACTED]");
+          }
+          if (request.has("schema")) {
+            request.put("schema", "[REDACTED]");
+          }
+          if (request.has("statement")) {
+            request.put("statement", "[REDACTED]");
+            if (request.has("parameters")) {
+              request.put("parameters", "[REDACTED]");
+            }
+            if (request.has("parameter_sets")) {
+              request.put("parameter_sets", "[REDACTED]");
+            }
           }
         }
       }

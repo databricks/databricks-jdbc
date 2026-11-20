@@ -494,6 +494,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (parentStatement == null || statementId == null) {
       return;
     }
+    if (statementId.computeResource() != null) {
+      LOGGER.info("Result heartbeat unsupported for APC SEA; no heartbeat scheduled");
+      return;
+    }
     if (!isHeartbeatEligible()) {
       return;
     }
@@ -642,6 +646,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    * </ul>
    */
   boolean isHeartbeatEligible() {
+    if (statementId != null && statementId.computeResource() != null) {
+      return false;
+    }
     // No execution result — nothing to fetch
     if (executionResult == null) {
       return false;

@@ -30,6 +30,7 @@ public class StatementIdTest {
     assertEquals("statement", StatementId.loggableStatementId(id));
     StatementId parsed = StatementId.deserialize(id.serialize());
     assertEquals(id.toString(), parsed.toString());
+    assertEquals("statement", StatementId.loggableStatementId(parsed));
     assertEquals(info.computeResource(), parsed.computeResource());
   }
 

@@ -94,6 +94,8 @@ public class DatabricksSessionTest {
 
   private void setupCluster() throws SQLException {
     connectionContext = DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties());
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionHandle(tSessionHandle)

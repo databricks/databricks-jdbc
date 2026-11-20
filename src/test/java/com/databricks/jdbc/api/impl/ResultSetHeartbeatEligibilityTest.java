@@ -3,8 +3,11 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
 import org.junit.jupiter.api.Test;
@@ -53,6 +56,36 @@ public class ResultSetHeartbeatEligibilityTest {
             DatabricksResultSet.ResultSetType.SEA_ARROW_ENABLED,
             true);
     assertTrue(rs.isHeartbeatEligible(), "SEA cloud fetch should be eligible");
+  }
+
+  @Test
+  void testApcSeaNeverRegistersResultHeartbeat() throws Exception {
+    DatabricksResultSet rs =
+        createResultSet(
+            StatementState.SUCCEEDED,
+            StatementType.QUERY,
+            DatabricksResultSet.ResultSetType.SEA_ARROW_ENABLED,
+            true);
+    setField(
+        rs,
+        "statementId",
+        StatementId.forCurrentSession(
+            "statement-1",
+            ImmutableSessionInfo.builder()
+                .sessionId("session-1")
+                .computeResource(new AllPurposeCluster("org-1", "cluster-1"))
+                .build()));
+    assertFalse(rs.isHeartbeatEligible());
+    IDatabricksStatementInternal parent = mock(IDatabricksStatementInternal.class);
+    setField(rs, "parentStatement", parent);
+    java.lang.reflect.Method start =
+        DatabricksResultSet.class.getDeclaredMethod("startHeartbeatIfEnabled");
+    start.setAccessible(true);
+    try (LogCapture logs = new LogCapture()) {
+      start.invoke(rs);
+      assertTrue(logs.getOutput().contains("Result heartbeat unsupported for APC SEA"));
+    }
+    verifyNoInteractions(parent);
   }
 
   @Test

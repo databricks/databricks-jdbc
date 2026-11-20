@@ -171,7 +171,7 @@ public class StatementId {
     return new StatementId(operationHandle.getOperationId()).toSQLExecStatementId();
   }
 
-  /** Returns the public identifier for diagnostics, without the serialized Thrift secret. */
+  /** Returns the raw server identifier, excluding APC routing fields and the Thrift secret. */
   public static String loggableStatementId(StatementId statementId) {
     return statementId == null ? null : statementId.toSQLExecStatementId();
   }

@@ -43,6 +43,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
+  private static final String APC_SQL_EXEC_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc";
 
   private final String host;
   @VisibleForTesting final int port;
@@ -51,6 +53,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final IDatabricksComputeResource computeResource;
   private final Map<String, String> customHeaders;
   private Supplier<DatabricksClientType> clientTypeSupplier;
+  private volatile String routingReason = "unresolved";
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
   private final boolean enableArrow;
@@ -508,13 +511,50 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
-      return DatabricksClientType.THRIFT;
+      AllPurposeCluster cluster = (AllPurposeCluster) computeResource;
+      if ("default".equals(cluster.getOrgId()) && "default".equals(cluster.getClusterId())) {
+        return route(DatabricksClientType.THRIFT, "legacy_cliservice");
+      }
+      // APC requires Arrow even when the user explicitly requests SEA.
+      if (!shouldEnableArrow()) {
+        return route(DatabricksClientType.THRIFT, "arrow_unavailable");
+      }
+      String explicit = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
+      if ("1".equals(explicit)) {
+        return route(DatabricksClientType.THRIFT, "explicit_thrift");
+      }
+      if ("0".equals(explicit)) {
+        if ("1"
+            .equals(
+                getParameterIgnoreDefault(
+                    DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN))) {
+          LOGGER.warn(
+              "UseThriftClient=0 selects APC SEA; TreatMetadataCatalogNameAsPattern=1 has no effect");
+        }
+        return route(DatabricksClientType.SEA, "explicit_sea");
+      }
+      if ("1"
+          .equals(
+              getParameterIgnoreDefault(
+                  DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN))) {
+        return route(DatabricksClientType.THRIFT, "catalog_pattern");
+      }
+      try {
+        return route(
+            DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+                    .getBoolean(APC_SQL_EXEC_FLAG_NAME)
+                ? DatabricksClientType.SEA
+                : DatabricksClientType.THRIFT,
+            "apc_flag");
+      } catch (RuntimeException e) {
+        return route(DatabricksClientType.THRIFT, "apc_flag_unavailable");
+      }
     }
     // First we will check if user as explicitly provided a client type, and we will honour that
     String useThriftClient = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
     if (useThriftClient != null) {
       if (useThriftClient.equals("1")) {
-        return DatabricksClientType.THRIFT;
+        return route(DatabricksClientType.THRIFT, "explicit_thrift");
       } else if (useThriftClient.equals("0")) {
         String explicitCatalogAsPattern =
             getParameterIgnoreDefault(
@@ -526,7 +566,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                   + "will have no effect.",
               explicitCatalogAsPattern);
         }
-        return DatabricksClientType.SEA;
+        return route(DatabricksClientType.SEA, "explicit_sea");
       }
     }
     // Now, user has not provided a value for UseThriftClient, we will decide based on our checks.
@@ -537,25 +577,40 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       LOGGER.info(
           "Forcing Thrift client: user requires TreatMetadataCatalogNameAsPattern={}",
           explicitTreatCatalogAsPattern);
-      return DatabricksClientType.THRIFT;
+      return route(DatabricksClientType.THRIFT, "catalog_pattern");
     }
 
     // Preserve legacy routing unless bounded SEA can return inline Arrow results.
     if (!isCloudFetchEnabled() && !(shouldEnableArrow() && isBoundedSeaApiEnabled())) {
-      return DatabricksClientType.THRIFT;
+      return route(DatabricksClientType.THRIFT, "cloud_fetch_unavailable");
     }
 
     // On AIX/PowerPC, Arrow may be disabled — check before routing to SEA
     if (isAixOrPowerPc() && !shouldEnableArrow()) {
-      return DatabricksClientType.THRIFT;
+      return route(DatabricksClientType.THRIFT, "arrow_unavailable");
     }
     // Check feature flag to determine if SEA client should be enabled
     if (DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
         .getBoolean(SQL_EXEC_FLAG_NAME)) {
-      return DatabricksClientType.SEA;
+      return route(DatabricksClientType.SEA, "warehouse_flag");
     }
     // Default to THRIFT if feature flag is not enabled or cannot be determined
-    return DatabricksClientType.THRIFT;
+    return route(DatabricksClientType.THRIFT, "warehouse_flag");
+  }
+
+  private DatabricksClientType route(DatabricksClientType type, String reason) {
+    routingReason = reason;
+    LOGGER.info(
+        "Connection route: compute={}, protocol={}, reason={}",
+        computeResource instanceof AllPurposeCluster ? "apc" : "warehouse",
+        type,
+        reason);
+    return type;
+  }
+
+  public String getRoutingReason() {
+    getClientType();
+    return routingReason;
   }
 
   @Override
@@ -565,6 +620,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public void setClientType(DatabricksClientType clientType) {
     this.clientTypeSupplier = () -> clientType;
+    this.routingReason = "warehouse_recovery";
   }
 
   @Override

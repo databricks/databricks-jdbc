@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -19,6 +20,7 @@ public class TimeoutHandler {
   private final DatabricksDriverErrorCode
       internalErrorCode; // internal error code to be used for timeout error (if any)
   private final boolean includeVendorCode;
+  private final boolean preciseDeadline;
 
   /**
    * Creates a new timeout handler with the provided parameters.
@@ -35,10 +37,11 @@ public class TimeoutHandler {
       DatabricksDriverErrorCode internalErrorCode) {
     this(
         timeoutSeconds,
-        System.currentTimeMillis(),
         operationDescription,
         onTimeoutAction,
         internalErrorCode,
+        false,
+        System.currentTimeMillis(),
         false);
   }
 
@@ -50,11 +53,12 @@ public class TimeoutHandler {
       boolean includeVendorCode) {
     this(
         timeoutSeconds,
-        System.currentTimeMillis(),
         operationDescription,
         onTimeoutAction,
         internalErrorCode,
-        includeVendorCode);
+        includeVendorCode,
+        System.currentTimeMillis(),
+        false);
   }
 
   /**
@@ -69,26 +73,29 @@ public class TimeoutHandler {
       DatabricksDriverErrorCode internalErrorCode) {
     this(
         timeoutSeconds,
-        startTimeMillis,
         operationDescription,
         onTimeoutAction,
         internalErrorCode,
+        false,
+        startTimeMillis,
         false);
   }
 
-  public TimeoutHandler(
+  private TimeoutHandler(
       int timeoutSeconds,
-      long startTimeMillis,
       String operationDescription,
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode,
-      boolean includeVendorCode) {
+      boolean includeVendorCode,
+      long startTimeMillis,
+      boolean preciseDeadline) {
     this.startTimeMillis = startTimeMillis;
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
     this.internalErrorCode = internalErrorCode;
     this.includeVendorCode = includeVendorCode;
+    this.preciseDeadline = preciseDeadline;
   }
 
   /**
@@ -103,9 +110,10 @@ public class TimeoutHandler {
     }
 
     long currentTimeMillis = System.currentTimeMillis();
-    long elapsedTimeSeconds = TimeUnit.MILLISECONDS.toSeconds(currentTimeMillis - startTimeMillis);
-
-    if (elapsedTimeSeconds > timeoutSeconds) {
+    long elapsedMillis = currentTimeMillis - startTimeMillis;
+    if (preciseDeadline
+        ? elapsedMillis >= TimeUnit.SECONDS.toMillis(timeoutSeconds)
+        : TimeUnit.MILLISECONDS.toSeconds(elapsedMillis) > timeoutSeconds) {
       // Attempt to execute the timeout action
       try {
         if (onTimeoutAction != null) {
@@ -140,11 +148,10 @@ public class TimeoutHandler {
       StatementId statementId,
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
-    return forStatement(
-        timeoutSeconds, System.currentTimeMillis(), statementId, client, internalErrorCode, false);
+    return forStatement(timeoutSeconds, statementId, client, internalErrorCode, false);
   }
 
-  /** Creates a timeout handler that omits sensitive statement details from diagnostics. */
+  /** Creates a timeout handler that omits sensitive cancellation failures from diagnostics. */
   public static TimeoutHandler forStatement(
       int timeoutSeconds,
       StatementId statementId,
@@ -153,11 +160,11 @@ public class TimeoutHandler {
       boolean redactDetails) {
     return forStatement(
         timeoutSeconds,
-        System.currentTimeMillis(),
         statementId,
         client,
         internalErrorCode,
-        redactDetails);
+        redactDetails,
+        System.currentTimeMillis());
   }
 
   /** Like the overload above, with the timeout clock starting at {@code startTimeMillis}. */
@@ -166,26 +173,24 @@ public class TimeoutHandler {
       long startTimeMillis,
       StatementId statementId,
       IDatabricksClient client,
-      DatabricksDriverErrorCode internalErrorCode) {
+      DatabricksDriverErrorCode internalErrorCode,
+      boolean redactDetails) {
     return forStatement(
-        timeoutSeconds, startTimeMillis, statementId, client, internalErrorCode, false);
+        timeoutSeconds, statementId, client, internalErrorCode, redactDetails, startTimeMillis);
   }
 
-  /**
-   * Creates a timeout handler whose clock starts at {@code startTimeMillis} and that omits
-   * sensitive statement details from diagnostics when {@code redactDetails} is set.
-   */
+  /** Starts the deadline at the initial ExecuteStatement request, before its response arrives. */
   public static TimeoutHandler forStatement(
       int timeoutSeconds,
-      long startTimeMillis,
       StatementId statementId,
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode,
-      boolean redactDetails) {
+      boolean redactDetails,
+      long startTimeMillis) {
+
     return new TimeoutHandler(
         timeoutSeconds,
-        startTimeMillis,
-        "Statement ID: " + StatementId.loggableStatementId(statementId),
+        "Statement ID: " + statementId.toSQLExecStatementId(),
         () -> {
           try {
             client.cancelStatement(statementId);
@@ -196,6 +201,9 @@ public class TimeoutHandler {
                     : "Cancel statement on timeout failed: " + e.getMessage());
           }
         },
-        internalErrorCode);
+        internalErrorCode,
+        false,
+        startTimeMillis,
+        statementId.computeResource() instanceof AllPurposeCluster);
   }
 }

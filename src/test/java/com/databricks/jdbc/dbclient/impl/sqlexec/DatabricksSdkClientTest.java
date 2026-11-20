@@ -27,6 +27,7 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -103,6 +104,563 @@ public class DatabricksSdkClientTest {
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
+  @Test
+  void apcCreateSessionFailureKeepsUnsupportedMessageWithoutIdentifiers() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(
+            new DatabricksError(
+                "UNSUPPORTED",
+                "all-purpose clusters are not supported for private-org/private-cluster",
+                400));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.createSession(
+                      new AllPurposeCluster("private-org", "private-cluster"),
+                      null,
+                      null,
+                      Map.of()));
+      assertTrue(failure.getMessage().contains("all-purpose clusters are not supported"));
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_ERROR.name(), failure.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_ERROR.getCode(), failure.getErrorCode());
+      DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+      assertEquals("UNSUPPORTED", cause.getErrorCode());
+      assertEquals(400, cause.getStatusCode());
+      assertFalse(cause.getMessage().contains("private-org"));
+      assertFalse(failure.getMessage().contains("private-org"));
+      assertFalse(failure.getMessage().contains("private-cluster"));
+      assertFalse(logs.getOutput().contains("private-org"));
+      assertFalse(logs.getOutput().contains("private-cluster"));
+    }
+  }
+
+  @Test
+  void apcCreateSessionRateLimitUsesDriverErrorCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new DatabricksError("RATE_LIMITED", "private-cluster", 429));
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("RATE_LIMITED", cause.getErrorCode());
+    assertEquals(429, cause.getStatusCode());
+    assertFalse(cause.getMessage().contains("private-cluster"));
+    assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcCreateSessionExhaustedRetryKeepsRateLimitDriverCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(
+            new DatabricksException(
+                "Request failed after retries",
+                new DatabricksError("RATE_LIMITED", "private-cluster", 429)));
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    assertEquals(429, failure.getStatusCode());
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("RATE_LIMITED", cause.getErrorCode());
+    assertFalse(failure.getMessage().contains("private-cluster"));
+    assertFalse(cause.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcCreateSessionRealSdkRetryKeepsRateLimitDriverCodeAndRedactsEcho() throws Exception {
+    String secret = "private-org-private-cluster";
+    int[] attempts = {0};
+    HttpClient transport =
+        request -> {
+          if (request.getUri().getPath().startsWith("/oidc/")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          attempts[0]++;
+          return new Response(
+              request,
+              429,
+              "Too Many Requests",
+              Map.of("retry-after", List.of("0")),
+              "{\"error_code\":\"RATE_LIMITED\",\"message\":\"" + secret + "\"}");
+        };
+    ApiClient realApiClient =
+        DatabricksSdkClient.buildApiClient(
+            new DatabricksConfig()
+                .setHost("https://example.com")
+                .setAuthType("pat")
+                .setToken("test-token")
+                .setHttpClient(transport),
+            null,
+            true);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(4, attempts[0]);
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    assertEquals(429, failure.getStatusCode());
+    assertEquals("RATE_LIMITED", ((DatabricksError) failure.getCause()).getErrorCode());
+    assertFalse(failure.getMessage().contains(secret));
+    assertFalse(failure.getCause().getMessage().contains(secret));
+  }
+
+  @Test
+  void apcRateLimitRedactsUnsafeServerCodeFromExceptionAndCause() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new DatabricksError("private-org/private-cluster", "private-secret", 429));
+
+    DatabricksRateLimitException failure =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("SERVER_ERROR", cause.getErrorCode());
+    assertEquals(DatabricksDriverErrorCode.RATE_LIMIT_EXCEEDED.getCode(), failure.getErrorCode());
+    for (String secret : List.of("private-org", "private-cluster", "private-secret")) {
+      assertFalse(failure.getMessage().contains(secret));
+      assertFalse(cause.getMessage().contains(secret));
+    }
+  }
+
+  @Test
+  void apcCreateSessionPreservesUnsupportedRegionWithoutEchoedIdentifiers() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(
+            new DatabricksError(
+                "UNSUPPORTED_REGION", "unsupported region for private-org/private-cluster", 400));
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, null));
+
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_ERROR.name(), failure.getSQLState());
+    assertTrue(failure.getMessage().contains("unsupported region"));
+    assertTrue(failure.getMessage().contains("UNSUPPORTED_REGION"));
+    assertTrue(failure.getMessage().contains("HTTP 400"));
+    assertFalse(failure.getMessage().contains("private-org"));
+    DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+    assertEquals("UNSUPPORTED_REGION", cause.getErrorCode());
+    assertEquals(400, cause.getStatusCode());
+    assertFalse(cause.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcCreateSessionHandlesMissingServerMessage() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new DatabricksError("PERMISSION_DENIED", null, 403));
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> client.createSession(new AllPurposeCluster("org", "cluster"), null, null, null));
+
+    assertTrue(failure.getMessage().contains("PERMISSION_DENIED"));
+    assertTrue(failure.getMessage().contains("HTTP 403"));
+    assertEquals(403, ((DatabricksError) failure.getCause()).getStatusCode());
+  }
+
+  @Test
+  void warehouseCreateSessionHandlesMissingServerMessage() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    DatabricksError serverError = new DatabricksError("FAILED", null, 500);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(serverError);
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class, () -> client.createSession(warehouse, null, null, null));
+
+    assertSame(serverError, failure.getCause());
+    assertTrue(failure.getMessage().contains("Error while establishing a connection"));
+  }
+
+  @Test
+  void apcTerminateSessionTransportFailureRedactsExceptionAndLogs() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .sessionId("private-session")
+            .computeResource(new AllPurposeCluster("private-org", "private-cluster"))
+            .clientType(DatabricksClientType.SEA)
+            .build();
+    when(apiClient.serialize(any())).thenReturn("{}");
+    when(apiClient.execute(any(Request.class), eq(Void.class)))
+        .thenThrow(new IOException("private-org private-cluster private-session"));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(DatabricksSQLException.class, () -> client.deleteSession(info));
+      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), failure.getSQLState());
+      assertNull(failure.getCause());
+      for (String secret : List.of("private-org", "private-cluster", "private-session")) {
+        assertFalse(failure.getMessage().contains(secret));
+        assertFalse(logs.getOutput().contains(secret));
+      }
+    }
+  }
+
+  @Test
+  void apcCreateSessionIoFailureUsesDriverErrorCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "UseThriftClient=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(new IOException("private-cluster"));
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.createSession(
+                    new AllPurposeCluster("private-org", "private-cluster"), null, null, Map.of()));
+    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), failure.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), failure.getErrorCode());
+    assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void realSdkTransportErrorsUseDriverCodeForApcCreateExecuteAndResult() throws Exception {
+    String secret = "private-org private-cluster private-session";
+    int[] attempts = {0};
+    HttpClient transport =
+        request -> {
+          if (request.getUri().getPath().startsWith("/oidc/")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          attempts[0]++;
+          throw new IOException(secret);
+        };
+    ApiClient realApiClient =
+        DatabricksSdkClient.buildApiClient(
+            new DatabricksConfig()
+                .setHost("https://example.com")
+                .setAuthType("pat")
+                .setToken("test-token")
+                .setDisableRetries(true)
+                .setHttpClient(transport),
+            null,
+            true);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("private-session");
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException createFailure =
+          assertThrows(
+              DatabricksSQLException.class, () -> client.createSession(cluster, null, null, null));
+      DatabricksSQLException executeFailure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
+      DatabricksSQLException resultFailure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.getStatementResult(
+                      StatementId.forCurrentSession("raw-statement", info), session, null));
+      assertEquals(3, attempts[0]);
+      for (DatabricksSQLException failure : List.of(createFailure, executeFailure, resultFailure)) {
+        assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), failure.getSQLState());
+        assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), failure.getErrorCode());
+        assertNull(failure.getCause());
+        assertFalse(failure.getMessage().contains(secret));
+      }
+      assertFalse(logs.getOutput().contains(secret));
+      assertFalse(logs.getOutput().contains("private-org"));
+      assertFalse(logs.getOutput().contains("private-cluster"));
+      assertFalse(logs.getOutput().contains("private-session"));
+    }
+  }
+
+  @Test
+  void exhaustedSdkTransportErrorKeepsDriverCodeForApcExecuteAndResult() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("private-session");
+    DatabricksException exhausted =
+        new DatabricksException(
+            "Request failed after retries",
+            new DatabricksError("IO_ERROR", 523, new IOException("private-org private-cluster")));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenThrow(exhausted);
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenThrow(exhausted);
+
+    DatabricksSQLException executeFailure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.executeStatement(
+                    "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
+    DatabricksSQLException resultFailure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.getStatementResult(
+                    StatementId.forCurrentSession("raw-statement", info), session, null));
+    for (DatabricksSQLException failure : List.of(executeFailure, resultFailure)) {
+      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), failure.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), failure.getErrorCode());
+      assertNull(failure.getCause());
+    }
+  }
+
+  @Test
+  void serverIoErrorWithoutTransportCauseKeepsServerCode() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("session");
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenThrow(new DatabricksError("IO_ERROR", "server-side I/O failure", 523));
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.executeStatement(
+                    "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
+    assertEquals("IO_ERROR", failure.getSQLState());
+    assertEquals(523, failure.getErrorCode());
+  }
+
+  @Test
+  void ordinaryApcSyncAndAsyncExecuteLogsOmitComputeAndSessionIds() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://sample-host.18.azuredatabricks.net:443/default;"
+                + "AuthMech=3;httpPath=/sql/protocolv1/o/private-org-541/private-cluster-612;"
+                + "UseThriftClient=0;TelemetryLogLevel=OFF;",
+            new Properties());
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org-541", "private-cluster-612");
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("private-session-725")
+                .computeResource(cluster)
+                .clientType(DatabricksClientType.SEA)
+                .build());
+    when(session.getSessionId()).thenReturn("private-session-725");
+    when(session.getConnectionContext()).thenReturn(context);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("private-statement-904")
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+
+    try (LogCapture logs = new LogCapture()) {
+      client.executeStatement(
+          "select 1", cluster, Map.of(), StatementType.QUERY, session, null, null);
+      client.executeStatementAsync("select 1", cluster, Map.of(), session, null);
+      assertFalse(logs.getOutput().contains("private-org-541"));
+      assertFalse(logs.getOutput().contains("private-cluster-612"));
+      assertFalse(logs.getOutput().contains("private-session-725"));
+      assertTrue(logs.getOutput().contains("private-statement-904"));
+      assertTrue(logs.getOutput().contains("all-purpose cluster"));
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = StatementState.class,
+      names = {"FAILED", "CANCELED"})
+  void ordinaryApcSyncFailureLogsRawStatementId(StatementState state) throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .clientType(DatabricksClientType.SEA)
+                .sessionId("private-session")
+                .computeResource(cluster)
+                .build());
+    when(session.getSessionId()).thenReturn("private-session");
+    String rawId = "private-ordinary-statement-id";
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(rawId)
+                .setStatus(new StatementStatus().setState(state).setSqlState("42000")));
+
+    try (LogCapture logs = new LogCapture()) {
+      SQLException failure =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
+      assertTrue(failure.getMessage().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
+      assertTrue(
+          logs.getOutput()
+              .contains(
+                  state == StatementState.FAILED
+                      ? "Statement execution failed " + rawId
+                      : "Statement [" + rawId + "] was cancelled"));
+      assertFalse(logs.getOutput().contains("private-org"));
+      assertFalse(logs.getOutput().contains("private-cluster"));
+      assertFalse(logs.getOutput().contains("private-session"));
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = StatementState.class,
+      names = {"FAILED", "CANCELED"})
+  void ordinaryApcAsyncResultFailureLogsRawStatementId(StatementState state) throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionId()).thenReturn("private-session");
+    String rawId = "private-ordinary-async-statement-id";
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId(rawId)
+                .setStatus(new StatementStatus().setState(state).setSqlState("42000")));
+
+    try (LogCapture logs = new LogCapture()) {
+      SQLException failure =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  client.getStatementResult(
+                      StatementId.forCurrentSession(rawId, info), session, null));
+      assertTrue(failure.getMessage().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
+      assertTrue(
+          logs.getOutput()
+              .contains(
+                  state == StatementState.FAILED
+                      ? "Statement execution failed " + rawId
+                      : "Statement [" + rawId + "] was cancelled"));
+      assertFalse(logs.getOutput().contains("private-org"));
+      assertFalse(logs.getOutput().contains("private-cluster"));
+      assertFalse(logs.getOutput().contains("private-session"));
+    }
+    if (state == StatementState.FAILED) {
+      verify(apiClient)
+          .execute(argThat(request -> Request.DELETE.equals(request.getMethod())), eq(Void.class));
+    }
+  }
+
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
       new HashMap<>() {
         {
@@ -157,6 +715,115 @@ public class DatabricksSdkClientTest {
     assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
     assertFalse(request.getHeaders().containsKey("X-Databricks-Metadata-Operation-Type"));
     assertFalse(request.getHeaders().containsKey("x-databricks-sea-can-run-fully-sync"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "true,SUCCEEDED",
+    "true,FAILED",
+    "true,CANCELED",
+    "false,SUCCEEDED",
+    "false,FAILED",
+    "false,CANCELED"
+  })
+  void apcMetadataCompletionLogsRawStatementId(boolean synchronous, StatementState state)
+      throws Throwable {
+    IDatabricksConnectionContext context = apcContext("");
+    DatabricksSdkClient client = apcClient(context);
+    DatabricksSession session = apcSession(context);
+    String rawId = "private-metadata-statement-id";
+    boolean succeeded = state == StatementState.SUCCEEDED;
+    ResultManifest manifest =
+        succeeded
+            ? new ResultManifest()
+                .setFormat(SqlExecResultFormat.ARROW_STREAM)
+                .setTotalChunkCount(0L)
+                .setSchema(new ResultSchema().setColumns(List.of()).setColumnCount(0L))
+            : null;
+    ResultData data = succeeded ? new ResultData() : null;
+    StatementStatus status = new StatementStatus().setState(state).setSqlState("42000");
+    ThrowingSupplier<DatabricksResultSet> call;
+    if (synchronous) {
+      when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+          .thenReturn(
+              new ExecuteStatementResponse()
+                  .setStatementId(rawId)
+                  .setStatus(status)
+                  .setManifest(manifest)
+                  .setResult(data));
+      call =
+          () ->
+              client.executeStatement(
+                  "SHOW CATALOGS",
+                  new AllPurposeCluster("org", "cluster"),
+                  Map.of(),
+                  StatementType.METADATA,
+                  session,
+                  null,
+                  null);
+    } else {
+      when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+          .thenReturn(
+              new GetStatementResponse().setStatus(status).setManifest(manifest).setResult(data));
+      call =
+          () ->
+              client.getStatementResult(
+                  StatementId.forCurrentSession(rawId, apcInfoBuilder().build()),
+                  session,
+                  null,
+                  StatementType.METADATA);
+    }
+
+    try (LogCapture logs = new LogCapture()) {
+      if (succeeded) {
+        DatabricksResultSet result = call.get();
+        assertNotNull(result);
+        if (!synchronous) {
+          assertEquals(rawId, result.getStatementId());
+        }
+        assertTrue(logs.getOutput().contains("Empty result (total_chunk_count=0)"));
+      } else {
+        SQLException failure = assertThrows(SQLException.class, call::get);
+        assertTrue(failure.getMessage().contains(rawId));
+      }
+      assertTrue(logs.getOutput().contains(rawId));
+      if (!succeeded) {
+        assertTrue(
+            logs.getOutput()
+                .contains(
+                    state == StatementState.FAILED
+                        ? "Statement execution failed " + rawId
+                        : "Statement [" + rawId + "] was cancelled"));
+      }
+    }
+  }
+
+  @Test
+  void apcMetadataTimeoutLogsRawStatementIdEvenWhenCancellationFails() throws Exception {
+    DatabricksSdkClient client = apcClient(apcContext(""));
+    String rawId = "private-timeout-metadata-id";
+    StatementId id = StatementId.forCurrentSession(rawId, apcInfoBuilder().build());
+    when(apiClient.execute(any(Request.class), eq(Void.class)))
+        .thenThrow(new IOException("Cancel failed for " + rawId));
+    TimeoutHandler timeout =
+        TimeoutHandler.forStatement(
+            1,
+            System.currentTimeMillis() - 5_000,
+            id,
+            client,
+            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+            true);
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksTimeoutException failure =
+          assertThrows(DatabricksTimeoutException.class, timeout::checkTimeout);
+      assertTrue(failure.getMessage().contains(rawId));
+      assertTrue(logs.getOutput().contains(rawId));
+      assertTrue(logs.getOutput().contains("Statement ID: " + rawId));
+    }
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(requests.capture(), eq(Void.class));
+    assertTrue(requests.getValue().getUrl().contains(rawId));
   }
 
   @ParameterizedTest
@@ -3286,6 +3953,240 @@ public class DatabricksSdkClientTest {
               TelemetryHelper.exportFailureLog(
                   eq(apcContext), eq("APC_PARAMETER_DOWNGRADE"), eq("below V8"), any()),
           times(1));
+    }
+  }
+
+  @Test
+  public void testApcErrorResponseScrubsSdkThrowableBeforeRetry() throws Exception {
+    Request request =
+        new RedactingRequest(
+            Request.POST,
+            "https://example.com" + STATEMENT_PATH,
+            "{\"backend_compute\":{},\"statement\":\"SELECT ?\",\"parameters\":[]}");
+    String echoed =
+        "{\"error_code\":\"BAD_REQUEST\",\"message\":\"bound-secret\","
+            + "\"details\":{\"sql\":\"SELECT secret\"}}";
+    Response raw = new Response(request, 400, "Bad Request", Map.of(), echoed);
+
+    Response protectedResponse = DatabricksSdkClient.redactApcResponseDebugBody(request, raw);
+
+    assertFalse(protectedResponse.getDebugBody().contains("bound-secret"));
+    String safeBody =
+        new String(protectedResponse.getBody().readAllBytes(), StandardCharsets.UTF_8);
+    assertFalse(safeBody.contains("bound-secret"));
+    assertFalse(safeBody.contains("SELECT secret"));
+    assertTrue(safeBody.contains("BAD_REQUEST"));
+    assertEquals(400, protectedResponse.getStatusCode());
+    Response success = new Response(request, 200, "OK", Map.of(), echoed);
+    Response safeSuccess = DatabricksSdkClient.redactApcResponseDebugBody(request, success);
+    assertEquals(echoed, new String(safeSuccess.getBody().readAllBytes(), StandardCharsets.UTF_8));
+    assertSame(
+        raw, DatabricksSdkClient.redactApcResponseDebugBody(new Request(Request.GET, "/"), raw));
+  }
+
+  @Test
+  public void testApcErrorResponseKeepsSafeErrorInfoIdentifiers() throws Exception {
+    Request request =
+        new RedactingRequest(Request.POST, "https://example.com" + STATEMENT_PATH, "{}");
+    String echoed =
+        "{\"error_code\":\"BAD_REQUEST\",\"message\":\"bound-secret\",\"details\":["
+            + "{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\","
+            + "\"reason\":\"APC_UNSUPPORTED\",\"domain\":\"apc.databricks.com\","
+            + "\"metadata\":{\"sql\":\"SELECT secret\"}},"
+            + "{\"@type\":\"type.googleapis.com/google.rpc.RequestInfo\","
+            + "\"request_id\":\"bound-secret\"}]}";
+    Response raw = new Response(request, 400, "Bad Request", Map.of(), echoed);
+
+    String safeBody =
+        new String(
+            DatabricksSdkClient.redactApcResponseDebugBody(request, raw).getBody().readAllBytes(),
+            StandardCharsets.UTF_8);
+
+    assertTrue(safeBody.contains("APC_UNSUPPORTED"));
+    assertTrue(safeBody.contains("apc.databricks.com"));
+    assertFalse(safeBody.contains("bound-secret"));
+    assertFalse(safeBody.contains("SELECT secret"));
+    assertFalse(safeBody.contains("RequestInfo"));
+  }
+
+  @Test
+  public void testApcSucceededPollAfterDeadlineIsNotTimedOut() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("session");
+    when(apiClient.serialize(any())).thenReturn("{}");
+    IDatabricksStatementInternal parent = mock(IDatabricksStatementInternal.class);
+    java.sql.Statement jdbcStatement = mock(java.sql.Statement.class);
+    when(parent.getStatement()).thenReturn(jdbcStatement);
+    when(jdbcStatement.getQueryTimeout()).thenReturn(1);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("statement")
+                .setStatus(new StatementStatus().setState(StatementState.PENDING)));
+    // The deadline expires while this poll is in flight, but it reports a committed write.
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(1200);
+              return new GetStatementResponse()
+                  .setStatementId("statement")
+                  .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+                  .setManifest(
+                      new ResultManifest()
+                          .setFormat(SqlExecResultFormat.JSON_ARRAY)
+                          .setTotalRowCount(0L)
+                          .setSchema(
+                              new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L)))
+                  .setResult(new ResultData().setRowCount(0L));
+            });
+
+    try {
+      client.executeStatement(
+          "UPDATE t SET c = 1", cluster, Map.of(), StatementType.UPDATE, session, parent, null);
+    } catch (DatabricksTimeoutException e) {
+      fail("A SUCCEEDED poll must not be reported as a timeout: " + e.getMessage());
+    } catch (Exception ignored) {
+      // Result materialization is not under test; only the timeout classification is.
+    }
+    verify(apiClient, never())
+        .execute(argThat(req -> Request.DELETE.equals(req.getMethod())), any());
+  }
+
+  @Test
+  void apcPollPreservesServerErrorCodeAndStatusWithoutEchoedValues() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    AllPurposeCluster cluster = new AllPurposeCluster("private-org", "private-cluster");
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(cluster)
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionInfo()).thenReturn(info);
+    when(session.getSessionId()).thenReturn("private-session");
+    when(apiClient.serialize(any())).thenReturn("{}");
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId("private-statement")
+                .setStatus(new StatementStatus().setState(StatementState.PENDING)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenThrow(
+            new DatabricksError(
+                "PERMISSION_DENIED", "private-org private-cluster private-bound-value", 403));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT 1", cluster, Map.of(), StatementType.QUERY, session, null, null));
+      assertEquals("PERMISSION_DENIED", failure.getSQLState());
+      assertEquals(403, failure.getErrorCode());
+      DatabricksError cause = assertInstanceOf(DatabricksError.class, failure.getCause());
+      assertEquals(403, cause.getStatusCode());
+      for (String secret :
+          List.of("private-org", "private-cluster", "private-session", "private-bound-value")) {
+        assertFalse(failure.getMessage().contains(secret));
+        assertFalse(cause.getMessage().contains(secret));
+        assertFalse(logs.getOutput().contains(secret));
+      }
+    }
+    verify(apiClient).execute(any(Request.class), eq(Void.class));
+  }
+
+  @Test
+  void apcInlineOnlyResultFailureDoesNotReturnPartialResultSet() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "EnableQueryResultDownload=0;TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(new AllPurposeCluster("private-org", "private-cluster"))
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionId()).thenReturn("private-session");
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId("private-statement")
+                .setStatus(
+                    new StatementStatus()
+                        .setState(StatementState.FAILED)
+                        .setSqlState("22000")
+                        .setError(
+                            new ServiceError()
+                                .setErrorCode(ServiceErrorCode.BAD_REQUEST)
+                                .setMessage("cannot serve all rows inline: private-cluster")))
+                .setResult(new ResultData()));
+
+    DatabricksSQLException failure =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                client.getStatementResult(
+                    StatementId.forCurrentSession("private-statement", info), session, null));
+
+    assertEquals("22000", failure.getSQLState());
+    assertTrue(failure.getMessage().contains("BAD_REQUEST"));
+    assertFalse(failure.getMessage().contains("private-cluster"));
+  }
+
+  @Test
+  void apcStatementFailureUsesSafeCodeWhenServerCodeIsMissing() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("private-session")
+            .computeResource(new AllPurposeCluster("private-org", "private-cluster"))
+            .build();
+    DatabricksSession session = mock(DatabricksSession.class);
+    when(session.getSessionId()).thenReturn("private-session");
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId("private-statement")
+                .setStatus(
+                    new StatementStatus()
+                        .setState(StatementState.FAILED)
+                        .setSqlState("22000")
+                        .setError(new ServiceError().setMessage("private-secret"))));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException failure =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.getStatementResult(
+                      StatementId.forCurrentSession("private-statement", info), session, null));
+      assertTrue(failure.getMessage().contains("SERVER_ERROR"));
+      assertFalse(failure.getMessage().contains("private-secret"));
+      assertFalse(logs.getOutput().contains("private-secret"));
     }
   }
 }
