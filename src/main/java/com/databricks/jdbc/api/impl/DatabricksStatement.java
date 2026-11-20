@@ -43,6 +43,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
    */
   private static final long UPDATE_COUNT_NOT_YET_EVALUATED = -2L;
 
+  private static final String EXECUTE_INTERNAL_LOG_FORMAT =
+      "DatabricksResultSet executeInternal(String sql = {}, Map<Integer, ImmutableSqlParameter> params = {{}}, StatementType statementType = {{}})";
+
   /** Same-Thread-ExecutorService for handling execution of statements. */
   private final ExecutorService executor = MoreExecutors.newDirectExecutorService();
 
@@ -900,11 +903,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       StatementType statementType,
       boolean closeStatement)
       throws SQLException {
-    String stackTraceMessage =
-        format(
-            "DatabricksResultSet executeInternal(String sql = %s, Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
-            sql, params, statementType);
-    LOGGER.debug(stackTraceMessage);
+    LOGGER.debug(EXECUTE_INTERNAL_LOG_FORMAT, sql, params, statementType);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
     return waitForExecutionResult(sql, stackTraceMessage, futureResultSet, closeStatement);
@@ -933,6 +932,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
                   StatementId.loggableStatementId(statementId)));
         }
       }
+      String stackTraceMessage =
+          format(EXECUTE_INTERNAL_LOG_FORMAT.replace("{}", "%s"), sql, params, statementType);
       String timeoutErrorMessage =
           String.format(
               "Statement execution timed-out. ErrorMessage %s, statementId %s",
@@ -957,7 +958,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throw new DatabricksSQLException(
           errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
-    LOGGER.debug("Result retrieved successfully {}", resultSet.toString());
+    LOGGER.debug("Result retrieved successfully {}", resultSet);
     return resultSet;
   }
 

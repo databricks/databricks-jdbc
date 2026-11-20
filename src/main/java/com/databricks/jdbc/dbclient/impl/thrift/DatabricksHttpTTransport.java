@@ -97,11 +97,9 @@ public class DatabricksHttpTTransport extends TTransport {
     long refreshHeadersEndTime = System.currentTimeMillis();
     long refreshHeadersLatency = refreshHeadersEndTime - refreshHeadersStartTime;
     LOGGER.trace(
-        "Connection ["
-            + connectionContext.getConnectionUuid()
-            + "] Header refresh latency: "
-            + refreshHeadersLatency
-            + "ms");
+        "Connection [{}] Header refresh latency: {}ms",
+        connectionContext.getConnectionUuid(),
+        refreshHeadersLatency);
 
     HttpPost request = new HttpPost(this.url);
     DEFAULT_HEADERS.forEach(request::addHeader);

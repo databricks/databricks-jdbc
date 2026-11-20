@@ -192,9 +192,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     LOGGER.debug(
-        String.format(
-            "Result manifest for statement {%s} has schema: {%s}",
-            StatementId.loggableStatementId(statementId), resultManifest.getSchema()));
+        "Result manifest for statement {{}} has schema: {{}}",
+        StatementId.loggableStatementId(statementId),
+        resultManifest.getSchema());
     int currIndex = 0;
     if (resultManifest.isSetIsStagingOperation() && resultManifest.isIsStagingOperation()) {
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
