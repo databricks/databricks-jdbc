@@ -1,6 +1,6 @@
 # Lessons
 
-<!-- distilled-through: none -->
+<!-- distilled-through: 2026-11-20 -->
 
 ## JDBC contracts and configuration
 - L-0001 (1×, log:2026-08-14): Types.FLOAT maps to DOUBLE and 8-byte wire values; only Types.REAL is single precision. The declared SQL target type drives wire typing.
@@ -22,6 +22,8 @@
 - L-0017 (1×, #1739): Strip type parameters before enum lookup, derive DECIMAL precision/scale from its declaration, and map TIMESTAMP_NTZ to JDBC TIMESTAMP.
 - L-0018 (1×, #1797): ResultSet configuration must reach session-less metadata, Array and in-memory results, or its documented scope must explicitly cover query results only.
 - L-0019 (1×, #1797): Call checkIfClosed before argument validation or early return in JDBC getters; closed objects must consistently report RESULT_SET_CLOSED.
+- L-0079 (1×, #1809): New serialized-ID forms need a prefix that selects their grammar with no fallback to older grammars, an explicit rule distinguishing each form, and a registered error code per malformed form.
+- L-0080 (1×, #1827): When flipping a connection property default, set it explicitly in non-default-path tests, test the default path both unset and explicit, and verify wire-level request differences between modes.
 
 ## Results and complex types
 - L-0020 (2×, #1659 #1700): Handle null ARRAY/MAP/STRUCT elements before type-specific dispatch, for every element type.
@@ -45,6 +47,7 @@
 - L-0038 (1×, #1784): After Arrow reads, check the interrupt flag before success. SocketTimeoutException remains retryable; purge partial buffers on IO/runtime failure and assert zero allocated memory.
 - L-0039 (1×, #1632): SEA polling should send a lightweight statement-id request; reusing a large execute request can resend its payload on every poll.
 - L-0040 (1×, #1813): SQL classification must handle WITH-prefixed DML and Spark lexical rules, including backslash escapes, raw strings and continued line comments.
+- L-0081 (1×, #1809): When the server returns only an aggregate batch count, return Statement.SUCCESS_NO_INFO per set or pass the aggregate up for the executor to map; never invent per-set update counts.
 
 ## Errors and telemetry
 - L-0041 (4×, #1629 #1739 #1752): Use registered DatabricksDriverErrorCode values and the SQLException constructor that preserves numeric vendor code. Assert SQLSTATE/name/code with a distinguishable cause and record telemetry classification.
@@ -80,9 +83,14 @@
 - L-0067 (1×, #1753): Before offline Maven tests, warm Surefire providers and matching junit-platform-launcher, normalize repository IDs, and keep bot warm-up checks best-effort.
 - L-0068 (2×, #1790 #1808 #1811): Performance regressions must fail on revert. Use warmed hot-path call assertions and differential tests against the old iterator/state machine, including random inputs and call orders.
 - L-0069 (1×, #1633): Ordering tests need ignoreArrayOrder=false and distinguishable per-element values; identical elements or update counts cannot detect reordering.
+- L-0082 (1×, #1827): After Thread.join(timeout), assert !thread.isAlive(); when WireMock request counts span several runs in one test, record a baseline before each run and assert only the delta.
 
 ## Bot workflow
 - L-0070 (1×, log:2026-08-14): Keep diagnosis/plan phases read-only; defer file creation and edits to the author_tests/fix phases.
 - L-0071 (3×, #1582 #1739 #1742): State agreed environment restrictions once. Stop repeated identical bot setup/commit failures, request human resolution, and label uncompiled or untested edits as unverified.
 - L-0072 (1×, log:2026-10-22): Author-run environments lack WebFetch/WebSearch; diagnose from repository context and available tools.
 - L-0073 (1×, log:2026-10-22): Carry exact file locations, signatures and helper findings from diagnosis into implementation prompts to avoid repeated discovery.
+
+## Specs
+- L-0077 (1×, #1809): When a spec revision removes or narrows a requirement, update every acceptance criterion and task referencing it in the same change; no AC may lack a backing requirement and task.
+- L-0078 (1×, #1827): When changing how a feature flag or connection property is resolved, grep specs/ for the method and property names and update every description of the old behavior in the same PR.
