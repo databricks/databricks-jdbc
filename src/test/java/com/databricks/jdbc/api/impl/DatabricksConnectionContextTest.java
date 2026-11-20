@@ -1730,6 +1730,37 @@ class DatabricksConnectionContextTest {
     assertFalse(disabledCtx.isThriftNativeMetadataEnabled());
   }
 
+  @Test
+  public void cloudFetchRequestAhead_onByDefault() throws DatabricksSQLException {
+    assertEquals("1", DatabricksJdbcUrlParams.CLOUD_FETCH_REQUEST_AHEAD.getDefaultValue());
+    assertTrue(
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties)
+            .isCloudFetchRequestAheadEnabled());
+    assertTrue(
+        DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties)
+            .isCloudFetchRequestAheadEnabled());
+  }
+
+  @Test
+  public void cloudFetchRequestAhead_onlyZeroTurnsItOff() throws DatabricksSQLException {
+    assertFalse(
+        DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";CloudFetchRequestAhead=0", properties)
+            .isCloudFetchRequestAheadEnabled());
+    assertFalse(
+        DatabricksConnectionContext.parse(
+                TestConstants.VALID_CLUSTER_URL + ";CloudFetchRequestAhead=0", properties)
+            .isCloudFetchRequestAheadEnabled());
+    assertTrue(
+        DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_2 + ";CloudFetchRequestAhead=1", properties)
+            .isCloudFetchRequestAheadEnabled());
+    assertTrue(
+        DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_2 + ";CloudFetchRequestAhead=true", properties)
+            .isCloudFetchRequestAheadEnabled());
+  }
+
   // ---------------------------------------------------------------------------
   // Geospatial flag independence from complex datatype flag
   // ---------------------------------------------------------------------------

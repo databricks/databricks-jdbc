@@ -1547,6 +1547,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isCloudFetchRequestAheadEnabled() {
+    return !"0".equals(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_REQUEST_AHEAD));
+  }
+
+  @Override
   public int getThriftMaxBatchesInMemory() {
     try {
       return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.THRIFT_MAX_BATCHES_IN_MEMORY));

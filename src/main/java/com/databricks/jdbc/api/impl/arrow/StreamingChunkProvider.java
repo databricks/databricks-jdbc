@@ -131,6 +131,14 @@ public class StreamingChunkProvider implements ChunkProvider {
   // Track chunks currently in memory (for sliding window)
   private final AtomicInteger chunksInMemory = new AtomicInteger(0);
 
+  // Non-null when downloads may request chunks ahead of the in-memory window. Chunk positions in
+  // consumption order are assigned under chunkOrderLock together with the queue inserts.
+  private final ChunkAdmissionWindow admissionWindow;
+  private final Object chunkOrderLock = new Object();
+  private long nextChunkPosition = 0;
+  // Requests run ahead of the window only while the reader is blocked on a download.
+  private volatile boolean readerWaiting = false;
+
   /**
    * Creates a new StreamingChunkProvider.
    *
@@ -166,6 +174,10 @@ public class StreamingChunkProvider implements ChunkProvider {
     this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
     this.cloudFetchSpeedThreshold = cloudFetchSpeedThreshold;
     this.connectionContext = connectionContext;
+    this.admissionWindow =
+        connectionContext != null && connectionContext.isCloudFetchRequestAheadEnabled()
+            ? new ChunkAdmissionWindow(maxChunksInMemory)
+            : null;
 
     LOGGER.info(
         "Creating StreamingChunkProvider for statement {}: maxChunksInMemory={}, linkPrefetchWindow={}",
@@ -268,6 +280,10 @@ public class StreamingChunkProvider implements ChunkProvider {
 
     // Wait for chunk to be ready (downloaded and processed)
     try {
+      if (admissionWindow != null && !chunk.getChunkReadyFuture().isDone()) {
+        readerWaiting = true;
+        triggerDownloads();
+      }
       chunk.waitForChunkReady();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -284,6 +300,8 @@ public class StreamingChunkProvider implements ChunkProvider {
       throw new DatabricksSQLException(
           "Timeout waiting for chunk " + chunkIdx + " (timeout: " + chunkReadyTimeoutSeconds + "s)",
           DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+    } finally {
+      readerWaiting = false;
     }
 
     return chunk;
@@ -544,8 +562,13 @@ public class StreamingChunkProvider implements ChunkProvider {
     }
 
     // Enqueue for consumption and download in server-provided order
-    consumptionOrder.add(chunkIndex);
-    downloadOrder.add(chunkIndex);
+    synchronized (chunkOrderLock) {
+      if (admissionWindow != null) {
+        chunk.setAdmissionWindow(admissionWindow, nextChunkPosition++);
+      }
+      consumptionOrder.add(chunkIndex);
+      downloadOrder.add(chunkIndex);
+    }
     highestKnownChunkIndex.updateAndGet(current -> Math.max(current, chunkIndex));
     totalRowCount.addAndGet(rowCount);
 
@@ -564,7 +587,13 @@ public class StreamingChunkProvider implements ChunkProvider {
   private void triggerDownloads() {
     downloadLock.lock();
     try {
-      while (!closed && chunksInMemory.get() < maxChunksInMemory) {
+      // While the reader waits on a download, submit up to MAX_REQUEST_LEAD chunks beyond the
+      // window: they send their requests now and are decoded once admitted.
+      int limit =
+          admissionWindow != null && readerWaiting
+              ? maxChunksInMemory + ChunkAdmissionWindow.MAX_REQUEST_LEAD
+              : maxChunksInMemory;
+      while (!closed && chunksInMemory.get() < limit) {
         Long downloadIdx = downloadOrder.peek();
         if (downloadIdx == null) {
           break;
@@ -737,6 +766,9 @@ public class StreamingChunkProvider implements ChunkProvider {
     if (chunk != null && chunk.releaseChunk()) {
       chunks.remove(chunkIndex);
       chunksInMemory.decrementAndGet();
+      if (admissionWindow != null) {
+        admissionWindow.release();
+      }
 
       LOGGER.debug("Released chunk {}, chunksInMemory={}", chunkIndex, chunksInMemory.get());
 

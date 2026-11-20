@@ -32,6 +32,9 @@ import org.apache.http.client.utils.URIBuilder;
 public class ArrowResultChunk extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
   private final IDatabricksConnectionContext connectionContext;
+  // Set before the download is submitted, when it may request this chunk ahead of the window.
+  private ChunkAdmissionWindow admissionWindow;
+  private long admissionPosition;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     super(
@@ -56,6 +59,16 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  /**
+   * Lets this chunk's download send its request before the chunk is admitted to {@code window}: it
+   * reads and decodes the body only once the chunk at {@code position} is admitted. Call before
+   * submitting it.
+   */
+  void setAdmissionWindow(ChunkAdmissionWindow window, long position) {
+    this.admissionWindow = window;
+    this.admissionPosition = position;
   }
 
   /**
@@ -84,6 +97,19 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+      if (admissionWindow != null
+          && !admissionWindow.await(
+              admissionPosition, admissionWindow.getMaxUnreadResponseMillis())) {
+        // The reader has not reached this chunk within the limit (it paused or reads slowly).
+        // Rather than keep a response stalled mid-body on its connection, close both (discarding
+        // any body the kernel received), wait for admission without them, and let the download
+        // task request the chunk again.
+        response.close();
+        response = null;
+        admissionWindow.await(admissionPosition, 0);
+        throw new ChunkAdmissionWindow.ResponseReleasedException(admissionPosition);
+      }
+      long bodyStartTime = System.nanoTime();
 
       // Record chunk download latency telemetry
       TelemetryHelper.recordChunkDownloadLatency(
@@ -127,7 +153,9 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           chunkIndex,
           size,
           downloadTimeMs,
-          (System.nanoTime() - startTime) / 1_000_000 - downloadTimeMs);
+          (System.nanoTime() - bodyStartTime) / 1_000_000);
+    } catch (ChunkAdmissionWindow.ResponseReleasedException e) {
+      throw e;
     } catch (Exception e) {
       if (Thread.currentThread().isInterrupted()) {
         // Cancellation (e.g. the result set was closed early), not a failure: skip

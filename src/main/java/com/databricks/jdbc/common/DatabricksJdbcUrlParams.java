@@ -251,6 +251,11 @@ public enum DatabricksJdbcUrlParams {
       "ThriftMaxBatchesInMemory",
       "Maximum number of batches to keep in memory for Thrift streaming (sliding window size)",
       "3"),
+  CLOUD_FETCH_REQUEST_AHEAD(
+      "CloudFetchRequestAhead",
+      "Let CloudFetch downloads request chunks before they fit in the in-memory window, reading each "
+          + "body only once it fits. Set to 0 to turn it off.",
+      "1"),
   LINK_PREFETCH_WINDOW(
       "LinkPrefetchWindow",
       "Number of chunk links to prefetch ahead of consumption. "
