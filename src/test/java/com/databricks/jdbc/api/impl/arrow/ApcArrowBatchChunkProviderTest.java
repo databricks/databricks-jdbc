@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -32,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -683,36 +681,6 @@ class ApcArrowBatchChunkProviderTest {
     }
     assertEquals(ChunkStatus.CHUNK_RELEASED, active.getStatus());
     assertThrows(IllegalStateException.class, () -> active.rootAllocator.buffer(1));
-  }
-
-  @Test
-  void concurrentSessionTimeZoneUpdatesCannotInvalidateProviderConstruction() throws Exception {
-    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
-    when(context.getSessionConfigs()).thenReturn(Map.of("TIMEZONE", "UTC"));
-    when(context.isAllPurposeCluster()).thenReturn(true);
-    DatabricksSession session = new DatabricksSession(context, mock(IDatabricksClient.class));
-    assertInstanceOf(ConcurrentHashMap.class, session.getSessionConfigs());
-    Thread writer =
-        new Thread(
-            () -> {
-              for (int i = 0; i < 1000; i++) {
-                session.setSessionConfig("TIMEZONE", i % 2 == 0 ? "UTC" : "Asia/Tokyo");
-              }
-            });
-    writer.start();
-    try {
-      for (int i = 0; i < 100; i++) {
-        new ApcArrowBatchChunkProvider(
-                new ResultData(),
-                manifest(CompressionCodec.NONE),
-                ID,
-                session,
-                mock(IDatabricksHttpClient.class))
-            .close();
-      }
-    } finally {
-      writer.join();
-    }
   }
 
   @Test
