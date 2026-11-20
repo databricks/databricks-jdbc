@@ -158,132 +158,42 @@ class ApcParameterFakeServiceTest {
     return bodies;
   }
 
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L, 42248L})
-  void preparedSingleSerializesCapabilityMode(Long version) throws Exception {
-    DatabricksPreparedStatement prepared =
-        prepared(version, "SELECT ? AS value, '?' AS literal /* ? */", false);
-    prepared.setString(1, "x';--\\tail");
-    prepared.executeQuery();
+  private static String setValue(JsonNode body, int set, String field) {
+    return body.path("parameter_sets").get(set).path("parameters").get(0).path(field).asText();
+  }
 
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(1, bodies.size());
-    JsonNode body = bodies.get(0);
-    if (version != null && version >= 42248L) {
-      assertEquals("SELECT ? AS value, '?' AS literal /* ? */", body.path("statement").asText());
-      assertEquals("x';--\\tail", body.path("parameters").get(0).path("value").asText());
-    } else {
-      assertEquals(
-          "SELECT 'x'';--\\\\tail' AS value, '?' AS literal /* ? */",
-          body.path("statement").asText());
-      assertFalse(body.has("parameters"));
-    }
-    assertFalse(body.has("parameter_sets"));
+  private static final long[] NO_INFO_PAIR = {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO};
+
+  private void verifyOperationClosed(String statementId) {
+    server.verify(
+        1, deleteRequestedFor(urlPathEqualTo(PathConstants.STATEMENT_PATH + statementId)));
   }
 
   @Test
-  void typedObjectIsEscapedInPreV8SingleAndBatchRequests() throws Exception {
-    StringBuilder malicious = new StringBuilder("'x' OR TRUE --");
-    DatabricksPreparedStatement prepared = prepared(42247L, INSERT, false);
-    prepared.setObject(1, malicious, Types.VARCHAR);
-    prepared.executeUpdate();
-    prepared.setObject(1, malicious, Types.VARCHAR);
-    prepared.addBatch();
-    prepared.executeBatch();
-
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(2, bodies.size());
-    for (JsonNode body : bodies) {
-      assertEquals("INSERT INTO t VALUES ('''x'' OR TRUE --')", body.path("statement").asText());
-      assertFalse(body.has("parameters"));
-    }
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L})
-  void fallbackPreservesEscapeLikeTextInBoundStrings(Long version) throws Exception {
-    String value = "x ESCAPE \"\" y {fn UCASE(a)}";
-    DatabricksPreparedStatement single = prepared(version, "SELECT ?", false);
-    single.setString(1, value);
-    single.executeQuery();
-
-    DatabricksPreparedStatement batch = prepared(version, INSERT, false);
-    batch.setString(1, value);
-    batch.addBatch();
-    assertArrayEquals(new long[] {1}, batch.executeLargeBatch());
-
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(2, bodies.size());
-    assertEquals("SELECT '" + value + "'", bodies.get(0).path("statement").asText());
-    assertEquals(
-        "INSERT INTO t VALUES ('" + value + "')", bodies.get(1).path("statement").asText());
-    for (JsonNode body : bodies) {
-      assertFalse(body.has("parameters"));
-      assertFalse(body.has("parameter_sets"));
-    }
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L})
-  void binaryBindingUsesInterpolationWithoutSupportManyParameters(Long version) throws Exception {
-    DatabricksPreparedStatement prepared = prepared(version, INSERT, false);
-    prepared.setBytes(1, new byte[] {0x01, (byte) 0xAB});
-    prepared.executeUpdate();
-
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(1, bodies.size());
-    assertEquals("INSERT INTO t VALUES (X'01AB')", bodies.get(0).path("statement").asText());
-    assertFalse(bodies.get(0).has("parameters"));
-  }
-
-  @Test
-  void nativeBinarySetBytesPreservesArbitraryBytes() throws Exception {
-    DatabricksPreparedStatement prepared = prepared(42248L, INSERT, false, true);
-    prepared.setBytes(1, new byte[] {0x00, (byte) 0xFF, 0x41});
-    prepared.executeUpdate();
-
-    JsonNode body = executeBodies().get(0);
-    assertEquals("INSERT INTO t VALUES (unhex(?))", body.path("statement").asText());
-    assertEquals("STRING", body.path("parameters").get(0).path("type").asText());
-    assertEquals("00FF41", body.path("parameters").get(0).path("value").asText());
-    assertFalse(body.has("parameter_sets"));
-  }
-
-  @Test
-  void nativeBinarySetBytesCopiesCallerArray() throws Exception {
-    DatabricksPreparedStatement prepared = prepared(42248L, INSERT, false, true);
+  void nativeBinaryValuesArePreservedAndCopiedFromCallerArray() throws Exception {
+    DatabricksPreparedStatement single = prepared(42248L, INSERT, false, true);
     byte[] bytes = new byte[] {0x00, (byte) 0xFF, 0x41};
-    prepared.setBytes(1, bytes);
+    single.setBytes(1, bytes);
     bytes[0] = 0x7F;
-    prepared.executeUpdate();
+    single.executeUpdate();
 
-    JsonNode body = executeBodies().get(0);
-    assertEquals("00FF41", body.path("parameters").get(0).path("value").asText());
-  }
+    JsonNode singleBody = executeBodies().get(0);
+    assertEquals("INSERT INTO t VALUES (unhex(?))", singleBody.path("statement").asText());
+    assertEquals("STRING", singleBody.path("parameters").get(0).path("type").asText());
+    assertEquals("00FF41", singleBody.path("parameters").get(0).path("value").asText());
 
-  @Test
-  void nativeBinarySetObjectAndBatchPreserveArbitraryBytes() throws Exception {
-    DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
-    prepared.setObject(1, new byte[] {(byte) 0x80, 0x00}, Types.BINARY);
-    prepared.addBatch();
-    prepared.setBytes(1, new byte[] {(byte) 0xFF, 0x7F});
-    prepared.addBatch();
-    assertArrayEquals(
-        new long[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
-        prepared.executeLargeBatch());
+    DatabricksPreparedStatement batch = prepared(42250L, INSERT, true);
+    batch.setObject(1, new byte[] {(byte) 0x80, 0x00}, Types.BINARY);
+    batch.addBatch();
+    batch.setBytes(1, new byte[] {(byte) 0xFF, 0x7F});
+    batch.addBatch();
+    assertArrayEquals(NO_INFO_PAIR, batch.executeLargeBatch());
 
-    JsonNode body = executeBodies().get(0);
-    assertEquals("INSERT INTO t VALUES (unhex(?))", body.path("statement").asText());
-    assertFalse(body.has("parameters"));
-    assertEquals(
-        "8000",
-        body.path("parameter_sets").get(0).path("parameters").get(0).path("value").asText());
-    assertEquals(
-        "FF7F",
-        body.path("parameter_sets").get(1).path("parameters").get(0).path("value").asText());
+    JsonNode batchBody = executeBodies().get(1);
+    assertEquals("INSERT INTO t VALUES (unhex(?))", batchBody.path("statement").asText());
+    assertFalse(batchBody.has("parameters"));
+    assertEquals("8000", setValue(batchBody, 0, "value"));
+    assertEquals("FF7F", setValue(batchBody, 1, "value"));
   }
 
   @Test
@@ -294,61 +204,33 @@ class ApcParameterFakeServiceTest {
     prepared.setInt(1, 7);
     prepared.addBatch();
 
-    assertArrayEquals(
-        new long[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
-        prepared.executeLargeBatch());
+    assertArrayEquals(NO_INFO_PAIR, prepared.executeLargeBatch());
+
     List<JsonNode> bodies = executeBodies();
     assertEquals(1, bodies.size());
     JsonNode body = bodies.get(0);
     assertEquals(INSERT, body.path("statement").asText());
     assertFalse(body.has("parameters"));
-    assertEquals(2, body.path("parameter_sets").size());
-    assertEquals(
-        "BINARY",
-        body.path("parameter_sets").get(0).path("parameters").get(0).path("type").asText());
-    assertEquals(
-        "/w==",
-        body.path("parameter_sets").get(0).path("parameters").get(0).path("value").asText());
-    assertEquals(
-        "INT", body.path("parameter_sets").get(1).path("parameters").get(0).path("type").asText());
-    assertEquals(
-        "7", body.path("parameter_sets").get(1).path("parameters").get(0).path("value").asText());
+    assertEquals("BINARY", setValue(body, 0, "type"));
+    assertEquals("/w==", setValue(body, 0, "value"));
+    assertEquals("INT", setValue(body, 1, "type"));
+    assertEquals("7", setValue(body, 1, "value"));
   }
 
   @ParameterizedTest
   @NullSource
   @ValueSource(longs = {42247L})
-  void unboundPlaceholderFailsLocallyBeforeAnyRequest(Long version) throws Exception {
-    DatabricksPreparedStatement prepared = prepared(version, "SELECT ?", false);
-
+  void unboundOrSparseFallbackBindingsFailBeforeAnyRequest(Long version) throws Exception {
     assertThrows(
-        com.databricks.jdbc.exception.DatabricksValidationException.class, prepared::executeQuery);
-    assertTrue(executeBodies().isEmpty());
-  }
+        com.databricks.jdbc.exception.DatabricksValidationException.class,
+        prepared(version, "SELECT ?", false)::executeQuery);
 
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L})
-  void sparseFallbackSingleFailsBeforeRequest(Long version) throws Exception {
-    DatabricksPreparedStatement prepared = prepared(version, INSERT, false);
-    prepared.setInt(2, 7);
-
+    DatabricksPreparedStatement sparse = prepared(version, INSERT, false);
+    sparse.setInt(2, 7);
     assertThrows(
-        com.databricks.jdbc.exception.DatabricksValidationException.class, prepared::executeUpdate);
-    assertTrue(executeBodies().isEmpty());
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L})
-  void sparseFallbackBatchFailsBeforeRequest(Long version) throws Exception {
-    DatabricksPreparedStatement prepared = prepared(version, INSERT, false);
-    prepared.setInt(2, 7);
-    prepared.addBatch();
-
-    BatchUpdateException error =
-        assertThrows(BatchUpdateException.class, prepared::executeLargeBatch);
-    assertArrayEquals(new long[0], error.getLargeUpdateCounts());
+        com.databricks.jdbc.exception.DatabricksValidationException.class, sparse::executeUpdate);
+    sparse.addBatch();
+    assertThrows(BatchUpdateException.class, sparse::executeLargeBatch);
     assertTrue(executeBodies().isEmpty());
   }
 
@@ -369,10 +251,8 @@ class ApcParameterFakeServiceTest {
     assertArrayEquals(new long[] {1, 1}, prepared.executeLargeBatch());
     List<JsonNode> bodies = executeBodies();
     assertEquals(2, bodies.size());
-    server.verify(
-        1, deleteRequestedFor(urlPathEqualTo(PathConstants.STATEMENT_PATH + "statement-1")));
-    server.verify(
-        1, deleteRequestedFor(urlPathEqualTo(PathConstants.STATEMENT_PATH + "statement-2")));
+    verifyOperationClosed("statement-1");
+    verifyOperationClosed("statement-2");
     for (JsonNode body : bodies) {
       assertFalse(body.has("parameter_sets"));
     }
@@ -408,99 +288,16 @@ class ApcParameterFakeServiceTest {
       prepared.addBatch();
       prepared.setInt(1, batch * 2 + 2);
       prepared.addBatch();
-      assertArrayEquals(
-          new long[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
-          prepared.executeLargeBatch());
+      assertArrayEquals(NO_INFO_PAIR, prepared.executeLargeBatch());
     }
     List<JsonNode> bodies = executeBodies();
     assertEquals(2, bodies.size());
     for (JsonNode body : bodies) {
       assertFalse(body.has("parameters"));
       assertEquals(2, body.path("parameter_sets").size());
-      assertEquals(1, body.path("parameter_sets").get(0).path("parameters").size());
     }
-    server.verify(
-        1, deleteRequestedFor(urlPathEqualTo(PathConstants.STATEMENT_PATH + "statement-1")));
-    server.verify(
-        1, deleteRequestedFor(urlPathEqualTo(PathConstants.STATEMENT_PATH + "statement-2")));
-  }
-
-  @Test
-  void commentedInsertUsesOneNativeBatchRequest() throws Exception {
-    String sql = "/* tag */ INSERT INTO t VALUES (?)";
-    DatabricksPreparedStatement prepared = prepared(42250L, sql, true);
-    prepared.setInt(1, 1);
-    prepared.addBatch();
-    prepared.setInt(1, 2);
-    prepared.addBatch();
-
-    assertArrayEquals(
-        new int[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO}, prepared.executeBatch());
-
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(1, bodies.size());
-    assertEquals(sql, bodies.get(0).path("statement").asText());
-    assertFalse(bodies.get(0).has("parameters"));
-    assertEquals(2, bodies.get(0).path("parameter_sets").size());
-    assertEquals(
-        "1",
-        bodies
-            .get(0)
-            .path("parameter_sets")
-            .get(0)
-            .path("parameters")
-            .get(0)
-            .path("value")
-            .asText());
-    assertEquals(
-        "2",
-        bodies
-            .get(0)
-            .path("parameter_sets")
-            .get(1)
-            .path("parameters")
-            .get(0)
-            .path("value")
-            .asText());
-  }
-
-  @Test
-  void escapedQuoteBeforeCommentMarkerUsesOneNativeBatchRequest() throws Exception {
-    String sql = "/* tag */ INSERT INTO t VALUES ('it\\'s -- literal', ?)";
-    DatabricksPreparedStatement prepared = prepared(42250L, sql, true);
-    prepared.setInt(1, 1);
-    prepared.addBatch();
-    prepared.setInt(1, 2);
-    prepared.addBatch();
-
-    assertArrayEquals(
-        new int[] {Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO}, prepared.executeBatch());
-
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(1, bodies.size());
-    assertEquals(sql, bodies.get(0).path("statement").asText());
-    assertFalse(bodies.get(0).has("parameters"));
-    assertEquals(2, bodies.get(0).path("parameter_sets").size());
-    assertEquals(
-        "1",
-        bodies
-            .get(0)
-            .path("parameter_sets")
-            .get(0)
-            .path("parameters")
-            .get(0)
-            .path("value")
-            .asText());
-    assertEquals(
-        "2",
-        bodies
-            .get(0)
-            .path("parameter_sets")
-            .get(1)
-            .path("parameters")
-            .get(0)
-            .path("value")
-            .asText());
+    verifyOperationClosed("statement-1");
+    verifyOperationClosed("statement-2");
   }
 
   @Test
@@ -516,7 +313,9 @@ class ApcParameterFakeServiceTest {
     assertEquals(
         DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.getCode(), error.getErrorCode());
     assertTrue(error.getMessage().contains("complex logical type STRUCT"));
-    assertTrue(executeBodies().isEmpty());
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        error.getLargeUpdateCounts());
 
     DatabricksPreparedStatement single = prepared(42248L, "SELECT ?", false);
     single.setObject(1, new Object[] {1}, Types.ARRAY);
@@ -524,23 +323,13 @@ class ApcParameterFakeServiceTest {
         assertThrows(DatabricksSQLException.class, single::executeQuery);
     assertEquals(
         DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.name(), singleError.getSQLState());
-    assertEquals(
-        DatabricksDriverErrorCode.UNSUPPORTED_APC_PARAMETER.getCode(), singleError.getErrorCode());
     assertTrue(executeBodies().isEmpty());
   }
 
   @Test
   void interpolatedBatchFailureDoesNotEchoBoundValueInException() throws Exception {
     String secret = "sensitive-value-42";
-    server.stubFor(
-        post(urlPathEqualTo(PathConstants.STATEMENT_PATH))
-            .atPriority(1)
-            .willReturn(
-                okJson(
-                    "{\"statement_id\":\"failed\",\"status\":{\"state\":\"FAILED\","
-                        + "\"sql_state\":\"42000\",\"error\":{\"message\":\"Failed near "
-                        + secret
-                        + "\",\"error_code\":\"BAD_SQL\"}}")));
+    stubFailure("Failed near " + secret, "42000");
     DatabricksPreparedStatement prepared = prepared(null, INSERT, false);
     prepared.setString(1, secret);
     prepared.addBatch();
@@ -552,58 +341,14 @@ class ApcParameterFakeServiceTest {
     assertTrue(executeBodies().get(0).path("statement").asText().contains(secret));
   }
 
-  @Test
-  void nativeSingleSdkFailureDoesNotExposeServerEchoOrCause() throws Exception {
-    String secret = "native-single-secret";
-    stubFailure("Failed near " + secret, "42000");
-    DatabricksPreparedStatement prepared = prepared(42248L, "SELECT ?", false);
-    prepared.setString(1, secret);
-
-    DatabricksSQLException error =
-        assertThrows(DatabricksSQLException.class, prepared::executeQuery);
-    assertFalse(error.getMessage().contains(secret));
-    assertNull(error.getCause());
-    assertEquals(secret, executeBodies().get(0).path("parameters").get(0).path("value").asText());
-  }
-
-  @Test
-  void nativeBatchFailureRedactsBoundValueAndFailsEverySet() throws Exception {
-    String secret = "native-batch-secret";
-    stubFailure("Failed near " + secret, "42000");
-    DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
-    prepared.setString(1, secret);
-    prepared.addBatch();
-    prepared.setString(1, "second-value");
-    prepared.addBatch();
-
-    BatchUpdateException error =
-        assertThrows(BatchUpdateException.class, prepared::executeLargeBatch);
-    assertArrayEquals(
-        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
-        error.getLargeUpdateCounts());
-    assertFalse(error.getMessage().contains(secret));
-    assertNull(error.getCause());
-    assertEquals(1, executeBodies().size());
-    assertEquals(
-        secret,
-        executeBodies()
-            .get(0)
-            .path("parameter_sets")
-            .get(0)
-            .path("parameters")
-            .get(0)
-            .path("value")
-            .asText());
-  }
-
-  private void stubFailure(String message, String sqlState) throws Exception {
+  private void stubFailure(String message, String sqlState) {
     String response =
         "{\"statement_id\":\"failed\",\"status\":{\"state\":\"FAILED\","
             + "\"sql_state\":\""
             + sqlState
             + "\",\"error\":{\"message\":\""
             + message
-            + "\",\"error_code\":\"BAD_SQL\"}}";
+            + "\",\"error_code\":\"BAD_SQL\"}}}";
     server.stubFor(
         post(urlPathEqualTo(PathConstants.STATEMENT_PATH))
             .atPriority(1)

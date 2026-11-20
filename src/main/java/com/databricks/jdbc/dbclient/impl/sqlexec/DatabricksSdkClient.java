@@ -60,6 +60,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
@@ -81,6 +82,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private final String customerUserAgentSegment;
+  // Non-prepared statements would otherwise WARN and emit telemetry on every call.
+  private final AtomicBoolean apcDowngradeReported = new AtomicBoolean(false);
   private volatile ApiClient apiClient;
 
   private static final class CreateSessionHttpRequest extends RedactingRequest {
@@ -595,6 +598,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       request.setParameterSets(parameterSets);
     }
     ExecuteStatementResponse response;
+    // APC submits can block before a statement ID exists, so the query timeout clock starts here.
+    long submitStartMillis = System.currentTimeMillis();
     try {
       Request req =
           new Request(
@@ -684,7 +689,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
             : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT;
     TimeoutHandler timeoutHandler =
-        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this, timeoutErrorCode);
+        TimeoutHandler.forStatement(
+            timeoutInSeconds,
+            apc ? submitStartMillis : System.currentTimeMillis(),
+            typedStatementId,
+            this,
+            timeoutErrorCode);
 
     StatementState responseState = response.getStatus().getState();
     try {
@@ -1343,9 +1353,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       } else {
         String reason = ApcParameterCapabilities.downgradeReason(session);
         if (!(parentStatement instanceof DatabricksPreparedStatement)) {
-          LOGGER.warn("APC parameter downgrade: {}", reason);
-          TelemetryHelper.exportFailureLog(
-              connectionContext, "APC_PARAMETER_DOWNGRADE", reason, TelemetryLogLevel.WARN);
+          if (apcDowngradeReported.compareAndSet(false, true)) {
+            LOGGER.warn("APC parameter downgrade: {}", reason);
+            TelemetryHelper.exportFailureLog(
+                connectionContext, "APC_PARAMETER_DOWNGRADE", reason, TelemetryLogLevel.WARN);
+          } else {
+            LOGGER.debug("APC parameter downgrade: {}", reason);
+          }
         }
         sql = SQLInterpolator.interpolateApcSQL(sql, parameters);
         parameters = Collections.emptyMap();

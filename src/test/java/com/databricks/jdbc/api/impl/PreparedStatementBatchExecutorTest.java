@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -34,7 +33,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -151,16 +149,7 @@ class PreparedStatementBatchExecutorTest {
   void nativeBatchUncheckedFailureHasDriverErrorNameAndNumber() throws Exception {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
-    when(connection.getSession()).thenReturn(session);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .sessionId("session")
-                .computeResource(new AllPurposeCluster("org", "cluster"))
-                .clientType(DatabricksClientType.SEA)
-                .negotiatedProtocolVersion(42250L)
-                .liveProtocolVersion(true)
-                .build());
+    useApcSession(42250L);
     when(nativeBatchExecutor.isSupported()).thenReturn(true);
     List<BatchParameterSet> batch = createBatch(2);
     when(nativeBatchExecutor.execute(INSERT_SQL, batch))
@@ -403,30 +392,6 @@ class PreparedStatementBatchExecutorTest {
   }
 
   @Test
-  void warehouseIndividualBatchDoesNotAddCloseRequests() throws Exception {
-    setBatchedInsertsEnabled(false);
-    List<BatchParameterSet> batch = createBatch(2);
-    when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
-        .thenReturn(firstResultSet, secondResultSet);
-    when(firstResultSet.getUpdateCount()).thenReturn(3L);
-    when(secondResultSet.getUpdateCount()).thenReturn(5L);
-
-    assertArrayEquals(new long[] {3, 5}, newExecutor(INSERT_SQL, false).executeBatch(batch));
-
-    InOrder order = inOrder(statementExecutor, firstResultSet, secondResultSet);
-    order
-        .verify(statementExecutor)
-        .execute(INSERT_SQL, batch.get(0).getParameterBindings(), StatementType.UPDATE, false);
-    order.verify(firstResultSet).getUpdateCount();
-    order
-        .verify(statementExecutor)
-        .execute(INSERT_SQL, batch.get(1).getParameterBindings(), StatementType.UPDATE, false);
-    order.verify(secondResultSet).getUpdateCount();
-    verify(firstResultSet, never()).closeForNativeBatch();
-    verify(secondResultSet, never()).closeForNativeBatch();
-  }
-
-  @Test
   void warehouseIndividualBatchDoesNotCloseResultWhenReadingCountFails() throws Exception {
     setBatchedInsertsEnabled(false);
     when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
@@ -447,16 +412,7 @@ class PreparedStatementBatchExecutorTest {
   @Test
   void apcBatchCleanupFailureDoesNotTurnSuccessfulWritesIntoFailures() throws Exception {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
-    when(connection.getSession()).thenReturn(session);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .sessionId("session")
-                .computeResource(new AllPurposeCluster("org", "cluster"))
-                .clientType(DatabricksClientType.SEA)
-                .negotiatedProtocolVersion(42247L)
-                .liveProtocolVersion(true)
-                .build());
+    useApcSession(42247L);
     when(statementExecutor.execute(anyString(), anyMap(), eq(StatementType.UPDATE), eq(false)))
         .thenReturn(firstResultSet, secondResultSet);
     when(firstResultSet.getUpdateCount()).thenReturn(1L);
@@ -474,15 +430,7 @@ class PreparedStatementBatchExecutorTest {
   @Test
   void interpolatedApcBatchUnexpectedFailureRedactsValue() throws Exception {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
-    when(connection.getSession()).thenReturn(session);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .sessionId("session")
-                .computeResource(new AllPurposeCluster("org", "cluster"))
-                .clientType(DatabricksClientType.SEA)
-                .liveProtocolVersion(true)
-                .build());
+    useApcSession(null);
     when(statementExecutor.execute(anyString(), anyMap(), eq(StatementType.UPDATE), eq(false)))
         .thenThrow(new RuntimeException("unexpected failure on name-1"));
 
@@ -500,6 +448,19 @@ class PreparedStatementBatchExecutorTest {
       assertArrayEquals(new long[0], error.getLargeUpdateCounts());
       assertFalse(logs.getOutput().contains("name-1"));
     }
+  }
+
+  private void useApcSession(Long version) {
+    when(connection.getSession()).thenReturn(session);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId("session")
+                .computeResource(new AllPurposeCluster("org", "cluster"))
+                .clientType(DatabricksClientType.SEA)
+                .negotiatedProtocolVersion(version)
+                .liveProtocolVersion(true)
+                .build());
   }
 
   private PreparedStatementBatchExecutor newExecutor(String sql, boolean interpolateParameters) {

@@ -32,7 +32,25 @@ public class TimeoutHandler {
       String operationDescription,
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode) {
-    this.startTimeMillis = System.currentTimeMillis();
+    this(
+        timeoutSeconds,
+        System.currentTimeMillis(),
+        operationDescription,
+        onTimeoutAction,
+        internalErrorCode);
+  }
+
+  /**
+   * Creates a timeout handler whose clock started at {@code startTimeMillis}, so time spent before
+   * the handler could be built (e.g. a slow submit) counts against the timeout.
+   */
+  public TimeoutHandler(
+      int timeoutSeconds,
+      long startTimeMillis,
+      String operationDescription,
+      Runnable onTimeoutAction,
+      DatabricksDriverErrorCode internalErrorCode) {
+    this.startTimeMillis = startTimeMillis;
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
@@ -87,9 +105,20 @@ public class TimeoutHandler {
       StatementId statementId,
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
+    return forStatement(
+        timeoutSeconds, System.currentTimeMillis(), statementId, client, internalErrorCode);
+  }
 
+  /** Like the overload above, with the timeout clock starting at {@code startTimeMillis}. */
+  public static TimeoutHandler forStatement(
+      int timeoutSeconds,
+      long startTimeMillis,
+      StatementId statementId,
+      IDatabricksClient client,
+      DatabricksDriverErrorCode internalErrorCode) {
     return new TimeoutHandler(
         timeoutSeconds,
+        startTimeMillis,
         "Statement ID: " + StatementId.loggableStatementId(statementId),
         () -> {
           try {
