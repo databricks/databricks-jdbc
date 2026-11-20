@@ -1,0 +1,152 @@
+{
+  "captured_utc": "2026-11-18T08:20:49.296636+00:00",
+  "target_http_path_kind": "APC",
+  "target_region": "aws-us-west-2 staging",
+  "target_runtime": "19.x-photon-scala2.13",
+  "target_profile": "benchmarking-staging-aws-us-west-2",
+  "safe_flag_name": "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+  "live_safe_flags_get_config_found": false,
+  "prior_2026_11_15_connection_attempts": [
+    {
+      "UseThriftClient": "0",
+      "observed_protocol": null,
+      "query_executed": false,
+      "outcome": "connection_open_failed",
+      "exception_type": "DatabricksSQLException",
+      "sql_state": "CONNECTION_ERROR",
+      "vendor_code": 0
+    },
+    {
+      "UseThriftClient": "1",
+      "observed_protocol": null,
+      "query_executed": false,
+      "outcome": "connection_open_failed",
+      "exception_type": "DatabricksSQLException",
+      "sql_state": "CONNECTION_ERROR",
+      "vendor_code": 0
+    }
+  ],
+  "connection_attempts": [
+    {
+      "UseThriftClient": "0",
+      "observed_protocol": "SEA_APC",
+      "query": "SELECT 1 AS validation_value",
+      "outcome": "pass"
+    },
+    {
+      "UseThriftClient": "1",
+      "observed_protocol": "THRIFT",
+      "query": "SELECT 1 AS validation_value",
+      "outcome": "pass"
+    }
+  ],
+  "live_checks": {
+    "type_parity": {
+      "result": "pass",
+      "columns": 10,
+      "jdbc_type_codes_and_value_classes_match": true,
+      "matching_jdbc_type_code_and_value_class_sequence": [
+        "16:Boolean",
+        "4:Integer",
+        "-5:Long",
+        "3:BigDecimal",
+        "12:String",
+        "91:Date",
+        "93:Timestamp",
+        "2003:String",
+        "12:String",
+        "2002:String"
+      ]
+    },
+    "prepared_scalar": {
+      "result": "pass",
+      "protocols": [
+        "SEA_APC",
+        "THRIFT"
+      ],
+      "bound_value": 987654321
+    },
+    "large_sea_result": {
+      "result": "pass",
+      "rows": 100000,
+      "ordered_ids": true,
+      "checksum": 4999950000,
+      "direct_results": false
+    },
+    "sea_query_timeout": {
+      "result": "pass",
+      "sql_state": "STATEMENT_EXECUTION_TIMEOUT",
+      "exception_type": "DatabricksTimeoutException"
+    }
+  },
+  "ac27_live_running_poll_count": 4,
+  "ac27_live_pending_poll_count": 0,
+  "ac27_live_terminal_poll_count": 1,
+  "ac27_live_running_result_payload_fields": 0,
+  "ac27_live_running_result_payload_bytes": 0,
+  "ac27_live_terminal_row_count": 100000,
+  "ac27_live_terminal_checksum": 4999950000,
+  "ac27_measurement_method": "Driver SDK HttpClient captured GET request metadata and raw HTTP response entity bytes before ApiClient deserialization; four sanitized RUNNING response bodies and raw-body hashes are in apc-release-validation-ac27-wire.json.",
+  "pending_gates": {
+    "flag_assignment": "SAFE flags.get_config returned found=false on 2026-11-18; flag-ON no-override assignment is unavailable. Flag-absent no-override dogfood passed.",
+    "sc_deployment": "SC-gated live skips only: AC5/AC16 await SC-256188 (TO DO); AC8 inline-only large paging awaits SC-258787 (TO DO); AC22 DDL vehicle (APC result manifest has no schema) awaits SC-258842 (TO DO). AC3 TerminateSession is not SC-skipped."
+  },
+  "release_ready": false,
+  "ac27_query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled",
+  "round2_captured_utc": "2026-11-18T08:35:02.183877+00:00",
+  "safe_flag_live_lookup_round2_found": false,
+  "safe_flag_live_lookup_2026_11_19_found": true,
+  "safe_flag_2026_11_19_proposal_id": "66d7c328-df08-493b-a693-388fecef6844",
+  "safe_flag_2026_11_19_dogfood_override_workspace": "6051921418418893@aws@staging",
+  "dogfood_profile_auth_2026_11_19": "refresh token invalid before re-login; valid after databricks auth login --profile dogfood",
+  "flag_on_dogfood_2026_11_19": {
+    "runner": "reports/validation/ApcFlagOnRoutes.java",
+    "jar": "databricks-jdbc-3.4.5 uber jar (round-2 artifact)",
+    "cluster_access_modes_tried": ["SINGLE_USER", "USER_ISOLATION"],
+    "org_id_header": "http.header.x-databricks-org-id=6051921418418893 (required on dogfood SPOG)",
+    "afternoon_fail_root_cause": "without X-Databricks-Org-Id, feature-flags GET returns 403 and driver cache is empty",
+    "modes": {
+      "flag-default": {"protocol": "SEA_APC", "client": "DatabricksSdkClient", "reason": "apc_flag", "select_one": "pass"},
+      "thrift-override": {"protocol": "THRIFT", "reason": "explicit_thrift", "select_one": "pass"},
+      "sea-override": {"protocol": "SEA_APC", "client": "DatabricksSdkClient", "reason": "explicit_sea", "select_one": "pass"},
+      "sea-pattern": {"protocol": "THRIFT", "reason": "catalog_pattern", "select_one": "pass"}
+    },
+    "eng_nephos_e2_attempt": "AUTH_OK and enableSqlExecForJdbcApc=true, but APC create fails capacity/ingress lockdown; not used for JDBC flag-ON"
+  },
+  "sc_status_2026_11_19": {"SC-256188": "TO DO", "SC-258787": "TO DO", "SC-258842": "TO DO"},
+  "flag_absent_no_override": {
+    "observed_protocol": "THRIFT",
+    "client_class": "DatabricksThriftServiceClient",
+    "sea_client_instantiated": false,
+    "query": "SELECT 1 AS validation_value",
+    "outcome": "pass"
+  },
+  "ac8_unaffected_live_checks": [
+    {
+      "UseThriftClient": "0",
+      "EnableQueryResultDownload": "0",
+      "UseBoundedSeaApi": "0",
+      "observed_protocol": "SEA_APC",
+      "client_class": "DatabricksSdkClient",
+      "connection_context_cloud_fetch_enabled": false,
+      "connection_context_bounded_sea_api_enabled": false,
+      "select_one": "pass"
+    },
+    {
+      "UseThriftClient": "0",
+      "EnableQueryResultDownload": "0",
+      "UseBoundedSeaApi": "1",
+      "observed_protocol": "SEA_APC",
+      "client_class": "DatabricksSdkClient",
+      "connection_context_cloud_fetch_enabled": false,
+      "connection_context_bounded_sea_api_enabled": true,
+      "select_one": "pass"
+    }
+  ],
+  "ac27_prior_deserialized_measurement": {
+    "running_poll_count": 5,
+    "running_result_payload_bytes_reported": 0,
+    "limitation": "SDK response objects were inspected after JSON deserialization; this is superseded by the raw HTTP response entity capture."
+  },
+  "ac27_wire_evidence": "apc-release-validation-ac27-wire.json"
+}

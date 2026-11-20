@@ -1,0 +1,138 @@
+{
+  "captured_utc": "2026-11-18T08:37:01.234004+00:00",
+  "target_region": "aws-us-west-2 staging",
+  "capture_layer": "Driver SDK HttpClient response body before ApiClient JSON deserialization",
+  "wire_body_note": "Bytes are the HTTP response entity exposed by the SDK transport; HTTP content encoding may already be decoded by Apache HttpClient.",
+  "query_shape": "100000 ordered rows, 128-byte payload per row, forced delayed scalar subquery, direct results disabled",
+  "running_poll_count": 4,
+  "running_result_payload_bytes": 0,
+  "terminal_poll_count": 1,
+  "terminal_rows_checked": 100000,
+  "terminal_checksum": 4999950000,
+  "polls": [
+    {
+      "poll": 1,
+      "request": {
+        "method": "GET",
+        "path": "/api/2.0/sql/statements/<redacted>",
+        "backend_compute_query_present": true,
+        "body": null,
+        "body_bytes": 0
+      },
+      "response": {
+        "http_status": 200,
+        "state": "RUNNING",
+        "raw_body_bytes": 84,
+        "raw_body_sha256": "1bb6c27d595e12818631148a18c7c898c3a7ceaa4705f322450df2f7fbe687dd",
+        "result_payload_fields": [],
+        "result_payload_bytes": 0,
+        "sanitized_body": {
+          "statement_id": "<redacted>",
+          "status": {
+            "state": "RUNNING"
+          }
+        }
+      }
+    },
+    {
+      "poll": 2,
+      "request": {
+        "method": "GET",
+        "path": "/api/2.0/sql/statements/<redacted>",
+        "backend_compute_query_present": true,
+        "body": null,
+        "body_bytes": 0
+      },
+      "response": {
+        "http_status": 200,
+        "state": "RUNNING",
+        "raw_body_bytes": 84,
+        "raw_body_sha256": "1bb6c27d595e12818631148a18c7c898c3a7ceaa4705f322450df2f7fbe687dd",
+        "result_payload_fields": [],
+        "result_payload_bytes": 0,
+        "sanitized_body": {
+          "statement_id": "<redacted>",
+          "status": {
+            "state": "RUNNING"
+          }
+        }
+      }
+    },
+    {
+      "poll": 3,
+      "request": {
+        "method": "GET",
+        "path": "/api/2.0/sql/statements/<redacted>",
+        "backend_compute_query_present": true,
+        "body": null,
+        "body_bytes": 0
+      },
+      "response": {
+        "http_status": 200,
+        "state": "RUNNING",
+        "raw_body_bytes": 84,
+        "raw_body_sha256": "1bb6c27d595e12818631148a18c7c898c3a7ceaa4705f322450df2f7fbe687dd",
+        "result_payload_fields": [],
+        "result_payload_bytes": 0,
+        "sanitized_body": {
+          "statement_id": "<redacted>",
+          "status": {
+            "state": "RUNNING"
+          }
+        }
+      }
+    },
+    {
+      "poll": 4,
+      "request": {
+        "method": "GET",
+        "path": "/api/2.0/sql/statements/<redacted>",
+        "backend_compute_query_present": true,
+        "body": null,
+        "body_bytes": 0
+      },
+      "response": {
+        "http_status": 200,
+        "state": "RUNNING",
+        "raw_body_bytes": 84,
+        "raw_body_sha256": "1bb6c27d595e12818631148a18c7c898c3a7ceaa4705f322450df2f7fbe687dd",
+        "result_payload_fields": [],
+        "result_payload_bytes": 0,
+        "sanitized_body": {
+          "statement_id": "<redacted>",
+          "status": {
+            "state": "RUNNING"
+          }
+        }
+      }
+    },
+    {
+      "poll": 5,
+      "request": {
+        "method": "GET",
+        "path": "/api/2.0/sql/statements/<redacted>",
+        "backend_compute_query_present": true,
+        "body": null,
+        "body_bytes": 0
+      },
+      "response": {
+        "http_status": 200,
+        "state": "SUCCEEDED",
+        "raw_body_bytes": 1438,
+        "raw_body_sha256": "4b9d851ab54d165dea01af19c2370766314dfe7dcffa40cb92eb9005228fbe2b",
+        "result_payload_fields": [],
+        "result_payload_bytes": 0,
+        "sanitized_body_projection": {
+          "status": {
+            "state": "SUCCEEDED"
+          },
+          "top_level_fields": [
+            "statement_id",
+            "status",
+            "manifest"
+          ]
+        }
+      }
+    }
+  ]
+}
