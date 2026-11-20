@@ -442,7 +442,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     if (!hasNext) {
       stopHeartbeat();
-      if (executionResult instanceof ArrowStreamResult) {
+      if (executionResult instanceof ArrowStreamResult
+          && (unknownTotalRowsMode || !resultSetMetaData.hasKnownTotalRows())) {
         arrowStreamExhausted = true;
       }
     }
