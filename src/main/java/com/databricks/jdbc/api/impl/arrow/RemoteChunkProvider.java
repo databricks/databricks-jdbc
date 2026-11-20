@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -26,6 +27,8 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private ExecutorService chunkDownloaderExecutorService;
+  private volatile ChunkDownloadLimiter downloadLimiter;
+  private volatile ChunkDownloadLimiter.PoolRegistration poolRegistration;
 
   RemoteChunkProvider(
       StatementId statementId,
@@ -128,6 +131,19 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
 
   /** {@inheritDoc} */
   @Override
+  public ChunkDownloadLimiter getDownloadLimiter() {
+    ChunkDownloadLimiter limiter = downloadLimiter;
+    if (limiter == null) {
+      IDatabricksConnectionContext context =
+          session == null ? null : session.getConnectionContext();
+      limiter = ChunkDownloadLimiter.forHost(context == null ? null : context.getHost());
+      downloadLimiter = limiter;
+    }
+    return limiter;
+  }
+
+  /** {@inheritDoc} */
+  @Override
   protected void doClose() {
     LOGGER.debug(
         "doClose() called — shutting down executor and releasing all {} chunks (thread: {})",
@@ -149,6 +165,9 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
         Thread.currentThread().interrupt();
       }
     }
+    if (poolRegistration != null) {
+      poolRegistration.close();
+    }
     chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
     DatabricksThreadContextHolder.clearStatementInfo();
   }
@@ -165,6 +184,8 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
             return thread;
           }
         };
+    // At most allowedChunksInMemory (already set, and at most the pool size) download at once.
+    poolRegistration = getDownloadLimiter().registerPool((int) allowedChunksInMemory);
     return Executors.newFixedThreadPool(maxParallelChunkDownloadsPerQuery, threadFactory);
   }
 }

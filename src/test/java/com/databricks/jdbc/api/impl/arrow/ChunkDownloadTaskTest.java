@@ -107,11 +107,14 @@ public class ChunkDownloadTaskTest {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    doThrow(new InterruptedIOException("Chunk download interrupted"))
+    doAnswer(
+            invocation -> {
+              Thread.currentThread().interrupt(); // e.g. close() during the read
+              throw new InterruptedIOException("Chunk download interrupted");
+            })
         .when(chunk)
         .downloadData(httpClient, CompressionCodec.NONE, 0.1);
 
-    Thread.currentThread().interrupt();
     try {
       assertDoesNotThrow(() -> chunkDownloadTask.call());
       assertTrue(Thread.currentThread().isInterrupted());
@@ -125,6 +128,27 @@ public class ChunkDownloadTaskTest {
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> downloadFuture.get());
     // Not a DatabricksSQLException, so no CHUNK_DOWNLOAD_ERROR telemetry is exported.
+    assertInstanceOf(InterruptedIOException.class, executionException.getCause());
+  }
+
+  @Test
+  void interruptWhileWaitingForLink_isCancelledWithoutFailureReport() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(true);
+    when(chunkLinkDownloadService.getLinkForChunk(anyLong())).thenReturn(new CompletableFuture<>());
+
+    Thread.currentThread().interrupt();
+    try {
+      assertDoesNotThrow(() -> chunkDownloadTask.call());
+      assertTrue(Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
+
+    verify(chunk, never()).downloadData(any(), any(), anyDouble());
+    verify(chunk).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
     assertInstanceOf(InterruptedIOException.class, executionException.getCause());
   }
 

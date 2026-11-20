@@ -25,4 +25,9 @@ interface ChunkDownloadManager {
 
   /** Returns the compression type of chunks that are to be downloaded from pre-signed URLs. */
   CompressionCodec getCompressionCodec();
+
+  /** Returns the limiter that bounds concurrent chunk downloads for this result's host. */
+  default ChunkDownloadLimiter getDownloadLimiter() {
+    return ChunkDownloadLimiter.forHost(null);
+  }
 }

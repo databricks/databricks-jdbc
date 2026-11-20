@@ -76,11 +76,14 @@ public class StreamingChunkDownloadTaskTest {
   void interruptedDownload_isCancelledWithoutRetryOrFailureReport() throws Exception {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
-    doThrow(new InterruptedIOException("Chunk download interrupted"))
+    doAnswer(
+            invocation -> {
+              Thread.currentThread().interrupt(); // e.g. close() during the read
+              throw new InterruptedIOException("Chunk download interrupted");
+            })
         .when(chunk)
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
 
-    Thread.currentThread().interrupt();
     try {
       assertDoesNotThrow(() -> downloadTask.call());
       assertTrue(Thread.currentThread().isInterrupted());
