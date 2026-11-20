@@ -3,6 +3,7 @@ package com.databricks.jdbc.common.util;
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest.getSqlParam;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
@@ -82,6 +83,51 @@ public class SQLInterpolatorTest {
     params.put(2, getSqlParam(2, 200, DatabricksTypeUtil.INT));
     String expected = "UPDATE products SET price = 'O''Reilly' WHERE id = 200";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testDeclaredStringObjectCannotInjectSql() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, new StringBuilder("'x' OR TRUE --"), DatabricksTypeUtil.STRING));
+    assertEquals(
+        "SELECT '''x'' OR TRUE --'", SQLInterpolator.interpolateApcSQL("SELECT ?", params));
+  }
+
+  @Test
+  public void testDeclaredNumericObjectCannotInjectSql() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, new StringBuilder("0 OR TRUE --"), DatabricksTypeUtil.INT));
+    assertEquals("SELECT '0 OR TRUE --'", SQLInterpolator.interpolateApcSQL("SELECT ?", params));
+  }
+
+  @Test
+  public void testDeclaredTimestampObjectCannotInjectSql() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(
+        1,
+        getSqlParam(1, new StringBuilder("2024-01-01' OR TRUE --"), DatabricksTypeUtil.TIMESTAMP));
+    assertEquals(
+        "SELECT '2024-01-01'' OR TRUE --'", SQLInterpolator.interpolateApcSQL("SELECT ?", params));
+  }
+
+  @Test
+  public void warehouseTypedObjectRetainsExistingSqlBytes() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, new StringBuilder("raw"), DatabricksTypeUtil.STRING));
+    assertEquals("SELECT raw", SQLInterpolator.interpolateSQL("SELECT ?", params));
+  }
+
+  @Test
+  public void sparseApcBindingsFailBeforeInterpolation() {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(2, getSqlParam(2, 7, DatabricksTypeUtil.INT));
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> SQLInterpolator.interpolateApcSQL("SELECT ?", params));
+    params.put(3, getSqlParam(3, 8, DatabricksTypeUtil.INT));
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> SQLInterpolator.interpolateApcSQL("SELECT ?, ?", params));
   }
 
   @Test
@@ -234,6 +280,71 @@ public class SQLInterpolatorTest {
     assertEquals("'back\\\\slash'", SQLInterpolator.escapeInputs("back\\slash"));
     // Emoji properly escaped as \U0001F9F1
     assertEquals("'brick\\U0001F9F1test'", SQLInterpolator.escapeInputs("brick🧱test"));
+  }
+
+  @Test
+  public void testBackslashEscapedQuoteKeepsLiteralQuestionMarkOutOfBindings()
+      throws DatabricksValidationException {
+    String sql = "SELECT 'it\\'s ?' AS literal, ? AS bound";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 7, DatabricksTypeUtil.INT));
+
+    assertEquals(
+        "SELECT 'it\\'s ?' AS literal, 7 AS bound", SQLInterpolator.interpolateApcSQL(sql, params));
+    assertEquals(
+        "SELECT 'it\\'s ?' AS literal, '?' AS bound",
+        SQLInterpolator.surroundApcPlaceholdersWithQuotes(sql));
+  }
+
+  @Test
+  public void testApcRawLiteralAndWarehouseBackslashParsingStaySeparate()
+      throws DatabricksValidationException {
+    String rawSql = "SELECT r'\\' AS raw, ? AS bound";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 7, DatabricksTypeUtil.INT));
+    assertEquals(
+        "SELECT r'\\' AS raw, 7 AS bound", SQLInterpolator.interpolateApcSQL(rawSql, params));
+    assertEquals(
+        "SELECT r'\\' AS raw, '?' AS bound",
+        SQLInterpolator.surroundApcPlaceholdersWithQuotes(rawSql));
+
+    String warehouseSql = "SELECT 'it\\'s ?' AS literal, ? AS bound";
+    assertEquals(
+        "SELECT 'it\\'s ?' AS literal, 7 AS bound",
+        SQLInterpolator.interpolateSQL(warehouseSql, params));
+    assertEquals(
+        "SELECT 'it\\'s ?' AS literal, '?' AS bound",
+        SQLInterpolator.surroundPlaceholdersWithQuotes(warehouseSql));
+  }
+
+  @Test
+  public void testApcNonFiniteFloatingPointUsesCastLiterals() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, Double.NaN, DatabricksTypeUtil.DOUBLE));
+    params.put(2, getSqlParam(2, Float.POSITIVE_INFINITY, DatabricksTypeUtil.FLOAT));
+    params.put(3, getSqlParam(3, Double.NEGATIVE_INFINITY, DatabricksTypeUtil.DOUBLE));
+    assertEquals(
+        "SELECT CAST('NaN' AS DOUBLE), CAST('Infinity' AS FLOAT), CAST('-Infinity' AS DOUBLE)",
+        SQLInterpolator.interpolateApcSQL("SELECT ?, ?, ?", params));
+  }
+
+  @Test
+  public void testApcFiniteFloatKeepsFloatDecimalRepresentation()
+      throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 0.1f, DatabricksTypeUtil.FLOAT));
+    params.put(2, getSqlParam(2, 0.1d, DatabricksTypeUtil.DOUBLE));
+    assertEquals("SELECT 0.1, 0.1", SQLInterpolator.interpolateApcSQL("SELECT ?, ?", params));
+  }
+
+  @Test
+  public void testApcParameterMismatchNeverIncludesSqlText() {
+    String secret = "private-sql-literal";
+    DatabricksValidationException error =
+        assertThrows(
+            DatabricksValidationException.class,
+            () -> SQLInterpolator.interpolateApcSQL("SELECT '" + secret + "', ?", Map.of()));
+    assertFalse(error.getMessage().contains(secret));
   }
 
   private static Stream<Arguments> providePlaceholderQuotingTestCases() {

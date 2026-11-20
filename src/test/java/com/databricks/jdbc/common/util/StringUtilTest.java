@@ -42,6 +42,13 @@ public class StringUtilTest {
   }
 
   @Test
+  public void testFunctionEscapeKeepsClosingBraceInsideBoundLiteral() {
+    String sql = "SELECT {fn CONCAT('a}b', 'x''}y')} /* } */";
+    assertEquals(
+        "SELECT CONCAT('a}b', 'x''}y') /* } */", StringUtil.convertJdbcEscapeSequences(sql));
+  }
+
+  @Test
   public void testNoEscapeSequence() {
     String sqlWithoutEscape = "SELECT * FROM table WHERE column = 'value'";
     assertEquals(sqlWithoutEscape, StringUtil.convertJdbcEscapeSequences(sqlWithoutEscape));
@@ -87,6 +94,32 @@ public class StringUtilTest {
   public void testPreserveCustomEscapeClause() {
     String sql = "SELECT * FROM table WHERE name LIKE 'pattern#%' ESCAPE '#'";
     assertEquals(sql, StringUtil.removeRedundantEscapeClause(sql));
+  }
+
+  @Test
+  public void testEscapeRewritesPreserveLiteralAndCommentContents() {
+    String sql =
+        "SELECT 'x ESCAPE \"\" y {fn UCASE(a)}', 'pattern%' ESCAPE ''"
+            + " /* ESCAPE '' {call danger()} */";
+    String expected =
+        "SELECT 'x ESCAPE \"\" y {fn UCASE(a)}', 'pattern%'" + " /* ESCAPE '' {call danger()} */";
+    assertEquals(expected, StringUtil.removeRedundantEscapeClause(sql));
+    assertEquals(expected, StringUtil.convertJdbcEscapeSequences(expected));
+  }
+
+  @Test
+  public void testApcRewritesRespectBackslashEscapedQuotes() {
+    String sql =
+        "SELECT 'it\\'s ESCAPE \"\" {fn UCASE(a)}' AS literal, "
+            + "{fn UCASE('x')} AS fn, name LIKE 'x%' ESCAPE ''";
+    String withoutEmptyEscape =
+        "SELECT 'it\\'s ESCAPE \"\" {fn UCASE(a)}' AS literal, "
+            + "{fn UCASE('x')} AS fn, name LIKE 'x%'";
+    assertEquals(withoutEmptyEscape, StringUtil.removeRedundantEscapeClause(sql));
+    assertEquals(
+        "SELECT 'it\\'s ESCAPE \"\" {fn UCASE(a)}' AS literal, "
+            + "UCASE('x') AS fn, name LIKE 'x%'",
+        StringUtil.convertJdbcEscapeSequences(withoutEmptyEscape));
   }
 
   @Test

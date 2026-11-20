@@ -51,6 +51,7 @@ public class ExecuteStatementRequest {
   private Collection<StatementParameterListItem> parameters;
 
   @JsonProperty("parameter_sets")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private Collection<StatementParameterSet> parameterSets;
 
   @JsonProperty("result_compression")

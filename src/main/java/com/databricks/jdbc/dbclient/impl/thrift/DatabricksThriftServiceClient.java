@@ -42,11 +42,25 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.thrift.TException;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
+
+  @Override
+  public long[] executeNativeBatch(
+      String sql,
+      List<com.databricks.jdbc.api.impl.BatchParameterSet> parameterSets,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "APC parameter_sets are not supported by the Thrift client",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+  }
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftServiceClient.class);
