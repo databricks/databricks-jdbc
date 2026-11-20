@@ -106,6 +106,13 @@ class ArrowBatchSchemaBuilderTest {
   }
 
   @Test
+  void nullColumnsBuildEmptySchema() throws Exception {
+    ResultSchema ddlSchema = new ResultSchema().setColumnCount(0L);
+    assertTrue(ArrowBatchSchemaBuilder.build(ddlSchema).getFields().isEmpty());
+    assertNotNull(ArrowBatchSchemaBuilder.serialize(ddlSchema));
+  }
+
+  @Test
   void timestampNtzManifestTypeNameDeserializes() throws Exception {
     ColumnInfo info =
         new ObjectMapper()

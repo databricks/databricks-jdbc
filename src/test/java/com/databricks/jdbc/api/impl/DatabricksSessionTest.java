@@ -69,6 +69,19 @@ public class DatabricksSessionTest {
             new CreateSessionRequest().setSessionConfigs(session.getSessionConfigs())));
   }
 
+  @Test
+  public void clusterSessionConfigNullValueClearsEntryInsteadOfThrowing() {
+    IDatabricksConnectionContext context = Mockito.mock(IDatabricksConnectionContext.class);
+    when(context.isAllPurposeCluster()).thenReturn(true);
+    when(context.getSessionConfigs()).thenReturn(new HashMap<>());
+    DatabricksSession session = new DatabricksSession(context, sdkClient);
+    session.setSessionConfig("timezone", "UTC");
+
+    session.setSessionConfig("timezone", null);
+
+    assertFalse(session.getSessionConfigs().containsKey("timezone"));
+  }
+
   static void setupWarehouse(boolean useThrift) throws SQLException {
     String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());

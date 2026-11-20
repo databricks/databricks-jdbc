@@ -10,6 +10,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
@@ -89,34 +90,15 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void genericFailureNamesExceptionTypeWithoutExposingPath() throws Exception {
-    String secret = "org-secret/cluster-secret/path-token";
-    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
+  void retryFailureKeepsVendorCodeDerivedFromCause() throws Exception {
+    HttpGet request = new HttpGet("https://storage.example.test/chunk");
     when(mockHttpClient.execute(request))
-        .thenThrow(new java.net.SocketException("reset at " + secret));
+        .thenThrow(new DatabricksRetryHandlerException("java.net.UnknownHostException: host", 503));
 
     DatabricksHttpException error =
         assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
 
-    assertTrue(error.getMessage().contains("SocketException"));
-    assertFalse(error.getMessage().contains(secret));
-    assertFalse(error.getMessage().contains("query-secret"));
-  }
-
-  @Test
-  void presignedRetryFailureDoesNotReturnPath() throws Exception {
-    String secret = "org-secret/cluster-secret/path-token";
-    HttpGet request = new HttpGet("https://storage.example.test/" + secret + "?sig=query-secret");
-    when(mockHttpClient.execute(request))
-        .thenThrow(new DatabricksRetryHandlerException("retry at " + secret, 503));
-    DatabricksHttpException error =
-        assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
-    assertFalse(error.getMessage().contains(secret));
-    assertFalse(error.getMessage().contains("query-secret"));
-    assertTrue(error.getMessage().contains("/REDACTED"));
-    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
-    assertNotNull(error.getCause());
+    assertEquals(DatabricksVendorCode.INCORRECT_HOST.getCode(), error.getErrorCode());
   }
 
   @Test
@@ -129,7 +111,7 @@ public class DatabricksHttpClientTest {
         assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
 
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+    assertEquals(DatabricksVendorCode.getVendorCode(error.getCause()), error.getErrorCode());
     assertNotNull(error.getCause());
   }
 

@@ -18,10 +18,13 @@ import java.io.IOException;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -139,6 +142,8 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
         current = null;
       }
     }
+    // Empty pages must not revisit a position, or alternating continuations would loop forever.
+    Set<List<Long>> requestedPositions = new HashSet<>();
     while (true) {
       long index;
       long offset;
@@ -152,21 +157,15 @@ final class ApcArrowBatchChunkProvider implements ChunkProvider {
         index = nextChunkIndex;
         offset = nextRowOffset;
       }
+      if (!requestedPositions.add(Arrays.asList(index, offset))) {
+        throw invalidPage("APC result continuation did not advance");
+      }
       ResultData page =
           session.getDatabricksClient().getResultChunksData(statementId, index, offset);
       if (page == null) {
         throw invalidPage("APC result page is missing");
       }
       addPage(page);
-      synchronized (stateLock) {
-        if (!closed
-            && pending.isEmpty()
-            && nextChunkIndex != null
-            && index == nextChunkIndex
-            && offset == nextRowOffset) {
-          throw invalidPage("APC result continuation did not advance");
-        }
-      }
     }
     ArrowResultChunk chunk;
     Future<Void> download = null;

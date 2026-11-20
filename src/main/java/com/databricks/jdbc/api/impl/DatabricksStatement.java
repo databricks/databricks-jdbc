@@ -46,7 +46,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
               + "\\s*;?\\s*$");
   private static final Pattern RESET_TIME_ZONE =
       Pattern.compile(
-          "(?is)^\\s*RESET\\s+(?:TIME\\s*ZONE|spark\\.sql\\.session\\.timeZone)\\s*;?\\s*$");
+          "(?is)^\\s*RESET(?:\\s+(?:TIME\\s*ZONE|spark\\.sql\\.session\\.timeZone))?\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -1033,14 +1033,25 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (zone == null) {
       return;
     }
-    // LOCAL and INTERVAL offsets are resolved by the server, so read back what it applied.
+    // LOCAL, INTERVAL offsets and zone IDs java.time rejects (e.g. Spark's short ID "PST") are
+    // resolved by the server, so read back what it applied.
     if ("LOCAL".equalsIgnoreCase(zone)
         || (zone.regionMatches(true, 0, "INTERVAL", 0, 8)
             && zone.length() > 8
-            && Character.isWhitespace(zone.charAt(8)))) {
+            && Character.isWhitespace(zone.charAt(8)))
+        || !isJavaTimeZoneId(zone)) {
       zone = readEffectiveSessionTimeZone(connection);
     }
     publishSessionTimeZone(connection, zone);
+  }
+
+  private static boolean isJavaTimeZoneId(String zone) {
+    try {
+      java.time.ZoneId.of(zone);
+      return true;
+    } catch (java.time.DateTimeException e) {
+      return false;
+    }
   }
 
   static boolean isApcSea(DatabricksConnection connection) {
@@ -1057,7 +1068,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             DatabricksDriverErrorCode.INVALID_STATE.name(),
             DatabricksDriverErrorCode.INVALID_STATE);
       }
-      return zoneResult.getString(1);
+      String zone = zoneResult.getString(1);
+      if (zone == null || zone.isEmpty()) {
+        throw new DatabricksSQLException(
+            "Server returned an empty effective session time zone",
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      return zone;
     }
   }
 
