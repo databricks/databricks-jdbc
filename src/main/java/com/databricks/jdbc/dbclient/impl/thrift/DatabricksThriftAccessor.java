@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -47,6 +48,9 @@ final class DatabricksThriftAccessor {
       new TSparkGetDirectResults()
           .setMaxRows(DEFAULT_ROW_LIMIT_PER_BLOCK)
           .setMaxBytes(DEFAULT_BYTE_LIMIT);
+  // maxBytes for inline Arrow fetches when RowsFetchedPerBlock is not set. The server counts
+  // uncompressed Arrow bytes and already caps each inline response near this size.
+  private static final long INLINE_ARROW_BYTE_LIMIT = 10L * 1024 * 1024;
   private static final short directResultsFieldId =
       TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final short operationHandleFieldId =
@@ -57,6 +61,8 @@ final class DatabricksThriftAccessor {
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
+  private final long inlineArrowMaxRows;
+  private final long inlineArrowMaxBytes;
   private final String connectionUuid;
   private final String endpointUrl;
   private final IDatabricksConnectionContext connectionContext;
@@ -73,6 +79,11 @@ final class DatabricksThriftAccessor {
     this.endpointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
+    // An explicit RowsFetchedPerBlock applies to every fetch, as before.
+    boolean rowsPerBlockSet =
+        connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK);
+    this.inlineArrowMaxRows = rowsPerBlockSet ? maxRowsPerBlock : DEFAULT_ROW_LIMIT_PER_BLOCK;
+    this.inlineArrowMaxBytes = rowsPerBlockSet ? DEFAULT_BYTE_LIMIT : INLINE_ARROW_BYTE_LIMIT;
     this.connectionUuid = connectionContext.getConnectionUuid();
     this.connectionContext = connectionContext;
     if (DriverUtil.isRunningAgainstFake()) {
@@ -189,6 +200,21 @@ final class DatabricksThriftAccessor {
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
+  }
+
+  /**
+   * Like {@link #getMoreResults}, for a result already known to be inline Arrow. Narrow rows then
+   * arrive in a few large blocks instead of one round trip per RowsFetchedPerBlock rows. Columnar
+   * results are not bounded by size on the server, so they keep using {@link #getMoreResults}.
+   */
+  TFetchResultsResp getMoreInlineArrowResults(IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    TFetchResultsReq req =
+        createFetchResultsReqWithDefaults(getOperationHandle(parentStatement.getStatementId()))
+            .setMaxRows(inlineArrowMaxRows)
+            .setMaxBytes(inlineArrowMaxBytes);
+    setFetchMetadata(req);
+    return executeFetchRequest(req);
   }
 
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)

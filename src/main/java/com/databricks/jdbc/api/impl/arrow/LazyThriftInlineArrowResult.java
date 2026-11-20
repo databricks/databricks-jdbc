@@ -306,7 +306,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   private void fetchNextChunk() throws SQLException {
     try {
       LOGGER.debug("Fetching next arrow chunk, current total rows fetched: {}", totalRowsFetched);
-      currentResponse = session.getDatabricksClient().getMoreResults(statement);
+      currentResponse = session.getDatabricksClient().getMoreInlineArrowResults(statement);
 
       // Release previous chunk to free memory
       if (currentChunk != null) {

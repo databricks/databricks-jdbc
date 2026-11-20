@@ -18,6 +18,7 @@
 - Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
 - Reduced `ResultSet.next()` CPU on Arrow results by about 40% per row: moving to the next row within a record batch is now a single check. Draining narrow columns with many rows (for example 80 million `BOOLEAN` values) is correspondingly faster.
 - Reduced `getConnection()` latency for apps that open connections one at a time or after idle periods: a new connection reuses the driver feature flags fetched in the last 15 minutes (or within the server's TTL, if shorter) for the same host, User-Agent, and custom headers instead of fetching them again.
+- Large inline (non-CloudFetch) Arrow results over Thrift now arrive in fewer round trips: after the first block, the driver requests up to 2,000,000 rows or 10 MiB per `FetchResults` call instead of `RowsFetchedPerBlock` (100,000) rows. A `RowsFetchedPerBlock` value set on the connection is still used as is, and columnar results are unchanged.
 
 ### Fixed
 

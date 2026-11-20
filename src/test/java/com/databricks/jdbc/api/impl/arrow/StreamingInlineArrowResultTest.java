@@ -233,7 +233,7 @@ public class StreamingInlineArrowResultTest {
     TFetchResultsResp firstResponse = createFetchResultsResp(arrowData1, rowsPerChunk, true);
     TFetchResultsResp secondResponse = createFetchResultsResp(arrowData2, rowsPerChunk, false);
 
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondResponse);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(secondResponse);
 
     StreamingInlineArrowResult result =
         new StreamingInlineArrowResult(firstResponse, statement, session);
@@ -253,7 +253,7 @@ public class StreamingInlineArrowResultTest {
       // End
       assertFalse(result.next());
 
-      verify(databricksClient, atLeastOnce()).getMoreResults(statement);
+      verify(databricksClient, atLeastOnce()).getMoreInlineArrowResults(statement);
     } finally {
       result.close();
     }
@@ -266,7 +266,7 @@ public class StreamingInlineArrowResultTest {
 
     DatabricksSQLException expectedException =
         new DatabricksSQLException("Network error", DatabricksDriverErrorCode.CONNECTION_ERROR);
-    when(databricksClient.getMoreResults(statement)).thenThrow(expectedException);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenThrow(expectedException);
 
     // The prefetch thread starts during construction and may fail before or after
     // the constructor completes. We need to handle both cases.
@@ -323,7 +323,7 @@ public class StreamingInlineArrowResultTest {
     TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 3, true);
     TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 2, false);
 
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(secondBatch);
 
     StreamingInlineArrowResult result =
         new StreamingInlineArrowResult(firstBatch, statement, session);
@@ -349,7 +349,7 @@ public class StreamingInlineArrowResultTest {
     TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 2, true);
     TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 2, false);
 
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(secondBatch);
 
     StreamingInlineArrowResult result =
         new StreamingInlineArrowResult(firstBatch, statement, session);
@@ -422,7 +422,7 @@ public class StreamingInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, 3);
     TFetchResultsResp dataBatch = createFetchResultsResp(arrowData, 3, false);
 
-    when(databricksClient.getMoreResults(statement)).thenReturn(dataBatch);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(dataBatch);
 
     StreamingInlineArrowResult result =
         new StreamingInlineArrowResult(emptyInitial, statement, session);
@@ -498,7 +498,7 @@ public class StreamingInlineArrowResultTest {
     byte[] arrowData2 = createValidArrowData(1, 1);
     TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 1, false);
 
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(secondBatch);
 
     StreamingInlineArrowResult result =
         new StreamingInlineArrowResult(firstBatch, statement, session);
@@ -539,7 +539,7 @@ public class StreamingInlineArrowResultTest {
     byte[] arrowData2 = createValidArrowData(1, 1);
     TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 1, false);
 
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(secondBatch);
 
     StreamingInlineArrowResult result =
         new StreamingInlineArrowResult(firstBatch, statement, session);
