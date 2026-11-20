@@ -61,7 +61,7 @@ class ExecutionResultFactory {
         && data.getColumnarData() != null
         && (manifest.getFormat() == SqlExecResultFormat.ARROW_STREAM
             || manifest.getFormat() == SqlExecResultFormat.COLUMN_BASED_SET)) {
-      return new ColumnarDataResult(manifest, data);
+      return new ColumnarDataResult(manifest, data, statementId, session);
     }
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
