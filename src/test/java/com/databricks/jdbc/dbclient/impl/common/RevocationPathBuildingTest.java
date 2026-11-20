@@ -7,10 +7,16 @@ import com.databricks.jdbc.dbclient.impl.common.RevocationTestFixture.Responder;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.KeyPair;
+import java.security.cert.CertPath;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.net.ssl.SSLEngine;
@@ -91,14 +97,33 @@ class RevocationPathBuildingTest {
   /** Runs the soft-fail server check, with the first pass failing without an index. */
   private static void checkServer(RevocationChainFixture fixture, X509Certificate[] chain)
       throws CertificateException {
-    Set<TrustAnchor> anchors = Set.of(new TrustAnchor(fixture.certificates()[3], null));
+    checkServer(
+        fixture.certificates()[3],
+        chain,
+        new CertificateException("pass stopped without an index"));
+  }
+
+  /**
+   * Runs the soft-fail server check against the given anchor, with the given first-pass failure.
+   */
+  private static void checkServer(
+      X509Certificate anchor, X509Certificate[] chain, CertificateException firstFailure)
+      throws CertificateException {
+    Set<TrustAnchor> anchors = Set.of(new TrustAnchor(anchor, null));
     TrustManager[] managers =
         ConfiguratorUtils.softFailTrustManagers(
-            new StubPass(new CertificateException("pass stopped without an index")),
-            new StubPass(null),
-            anchors,
-            new TrustManager[0]);
+            new StubPass(firstFailure), new StubPass(null), anchors, new TrustManager[0]);
     ((X509TrustManager) managers[0]).checkServerTrusted(chain, "RSA");
+  }
+
+  /** A first-pass failure that stopped at the given index of the chain it validated. */
+  private static CertificateException failedAt(int index, X509Certificate[] chain)
+      throws CertificateException {
+    CertPath validated =
+        CertificateFactory.getInstance("X.509").generateCertPath(Arrays.asList(chain));
+    return new CertificateException(
+        "pass stopped at index " + index,
+        new CertPathValidatorException("undetermined", null, validated, index));
   }
 
   /** Leaf, intermediate one, then intermediate two: the order a server may send. */
@@ -198,5 +223,61 @@ class RevocationPathBuildingTest {
       X509Certificate[] chain = new X509Certificate[] {presented[0], presented[1], unrelatedRoot()};
       assertThrows(CertificateException.class, () -> checkServer(fixture, chain));
     }
+  }
+
+  @Test
+  void reorderedChainChecksEveryCertificateWhenFirstPassIndexDoesNotMatchPresentedOrder()
+      throws Exception {
+    try (RevocationChainFixture fixture = new RevocationChainFixture(Map.of())) {
+      // Presented leaf, intermediate one, intermediate two. The built path is leaf, intermediate
+      // two, intermediate one, so the path index 2 (intermediate one, CRL-only and undetermined)
+      // is presented index 1. Intermediate two sits at presented index 2 but path index 1, and
+      // the first pass never reached it, so its OCSP must still be asked.
+      X509Certificate[] chain = outOfOrder(fixture.certificates());
+      checkServer(fixture.certificates()[3], chain, failedAt(2, chain));
+      assertEquals(1, fixture.requestCount(Endpoint.OCSP_INTERMEDIATE_TWO));
+      assertEquals(1, fixture.requestCount(Endpoint.OCSP_LEAF));
+    }
+  }
+
+  @Test
+  void revokedLeafInReorderedChainIsRejectedWhenFirstPassIndexDoesNotMatchPresentedOrder()
+      throws Exception {
+    try (RevocationChainFixture fixture =
+        new RevocationChainFixture(Map.of(Endpoint.OCSP_LEAF, Responder.REVOKED))) {
+      X509Certificate[] chain = outOfOrder(fixture.certificates());
+      assertThrows(
+          CertificateException.class,
+          () -> checkServer(fixture.certificates()[3], chain, failedAt(2, chain)));
+      assertTrue(fixture.requestCount(Endpoint.OCSP_LEAF) >= 1);
+    }
+  }
+
+  @Test
+  void chainWithSixIntermediatesIsAccepted() throws Exception {
+    // Root, six intermediates, leaf: more than the default PKIX maximum path length of five.
+    // The synthetic certificates carry no revocation pointers, so no endpoint is contacted.
+    KeyPair signerKeys = RevocationTestFixture.newKeyPair();
+    X500Name signerName = new X500Name("CN=Long Chain Root");
+    X509Certificate root = issue(signerName, signerName, signerKeys, signerKeys.getPublic());
+    List<X509Certificate> intermediates = new ArrayList<>();
+    for (int i = 1; i <= 6; i++) {
+      KeyPair keys = RevocationTestFixture.newKeyPair();
+      X500Name name = new X500Name("CN=Long Chain Intermediate " + i);
+      intermediates.add(issue(signerName, name, signerKeys, keys.getPublic()));
+      signerKeys = keys;
+      signerName = name;
+    }
+    KeyPair leafKeys = RevocationTestFixture.newKeyPair();
+    X509Certificate leaf =
+        issue(signerName, new X500Name("CN=Long Chain Leaf"), signerKeys, leafKeys.getPublic());
+
+    // Presented in the usual order: leaf, then the intermediates nearest the leaf first.
+    X509Certificate[] chain = new X509Certificate[intermediates.size() + 1];
+    chain[0] = leaf;
+    for (int i = 0; i < intermediates.size(); i++) {
+      chain[i + 1] = intermediates.get(intermediates.size() - 1 - i);
+    }
+    checkServer(root, chain, new CertificateException("pass stopped without an index"));
   }
 }

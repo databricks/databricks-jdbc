@@ -573,20 +573,22 @@ public class ConfiguratorUtils {
 
     /**
      * Checks the certificates of the validated path that the first pass did not reach. The first
-     * pass runs from the anchor end of the presented chain, so every presented certificate at or
-     * after {@code failedIndex} was already checked there and is not fetched again. Each remaining
-     * path certificate is checked alone, against the next certificate on the path, or against the
-     * anchor for the last one. Certificates the path does not use are never checked.
+     * pass runs from the anchor end of the path, so every path certificate at or after {@code
+     * failedIndex} was already checked there and is not fetched again. The index is trusted only
+     * when the presented chain starts with the built path in order, which makes presented and path
+     * positions the same. Otherwise {@code failedIndex} is ignored and every path certificate is
+     * checked. Each remaining path certificate is checked alone, against the next certificate on
+     * the path, or against the anchor for the last one. Certificates the path does not use are
+     * never checked.
      */
     private void checkUnreached(X509Certificate[] chain, int failedIndex)
         throws CertificateException {
       PKIXCertPathBuilderResult built = buildPath(chain);
       List<? extends Certificate> path = built.getCertPath().getCertificates();
-      List<X509Certificate> presented = Arrays.asList(chain);
+      int reachedFrom = presentedInPathOrder(chain, path) ? failedIndex : -1;
       for (int i = 0; i < path.size(); i++) {
         X509Certificate certificate = (X509Certificate) path.get(i);
-        if (isTrustAnchorCertificate(certificate)
-            || (failedIndex >= 0 && presented.indexOf(certificate) >= failedIndex)) {
+        if (isTrustAnchorCertificate(certificate) || (reachedFrom >= 0 && i >= reachedFrom)) {
           continue;
         }
         TrustAnchor issuer =
@@ -597,10 +599,25 @@ public class ConfiguratorUtils {
       }
     }
 
+    /** True when the presented chain begins with the path's certificates, in the same order. */
+    private static boolean presentedInPathOrder(
+        X509Certificate[] chain, List<? extends Certificate> path) {
+      if (chain.length < path.size()) {
+        return false;
+      }
+      for (int i = 0; i < path.size(); i++) {
+        if (!chain[i].equals(path.get(i))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     /**
      * Builds the path from the leaf to a trust anchor with the JDK's PKIX builder, over the
-     * presented certificates only. Revocation is off: the first pass already ran it. A chain with
-     * no path to an anchor fails here, so a missing intermediate is still refused.
+     * presented certificates only. Revocation is off: the first pass already ran it. The path
+     * length is left unlimited, so BasicConstraints alone bounds it, as in the first pass. A chain
+     * with no path to an anchor fails here, so a missing intermediate is still refused.
      */
     private PKIXCertPathBuilderResult buildPath(X509Certificate[] chain)
         throws CertificateException {
@@ -609,6 +626,7 @@ public class ConfiguratorUtils {
         leaf.setCertificate(chain[0]);
         PKIXBuilderParameters parameters = new PKIXBuilderParameters(trustAnchors, leaf);
         parameters.setRevocationEnabled(false);
+        parameters.setMaxPathLength(-1);
         parameters.addCertStore(
             CertStore.getInstance(
                 "Collection", new CollectionCertStoreParameters(Arrays.asList(chain))));
