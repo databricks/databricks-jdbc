@@ -154,8 +154,7 @@ public class TelemetryHelper {
       TelemetryLogLevel logLevel) {
     if (isApcSea(connectionContext)) {
       AllPurposeCluster cluster = (AllPurposeCluster) connectionContext.getComputeResource();
-      errorMessage = redactIdentifier(errorMessage, statementId);
-      errorMessage = redactIdentifier(errorMessage, DatabricksThreadContextHolder.getStatementId());
+      // Statement IDs are intentionally kept raw, matching APC operation telemetry.
       errorMessage = redactIdentifier(errorMessage, DatabricksThreadContextHolder.getSessionId());
       errorMessage = redactIdentifier(errorMessage, cluster.getOrgId());
       errorMessage = redactIdentifier(errorMessage, cluster.getClusterId());
@@ -179,10 +178,19 @@ public class TelemetryHelper {
         && connectionContext.getClientType() == DatabricksClientType.SEA;
   }
 
+  // Org ID is "0" on AWS; shorter identifiers carry no secret and would corrupt unrelated digits.
+  private static final int MIN_REDACTED_IDENTIFIER_LENGTH = 4;
+
   private static String redactIdentifier(String message, String identifier) {
-    return message == null || identifier == null || identifier.isEmpty()
-        ? message
-        : message.replace(identifier, "[REDACTED]");
+    if (message == null
+        || identifier == null
+        || identifier.length() < MIN_REDACTED_IDENTIFIER_LENGTH) {
+      return message;
+    }
+    // Whole-token match so a numeric ID does not rewrite part of a longer number or word.
+    return message.replaceAll(
+        "(?<![A-Za-z0-9])" + java.util.regex.Pattern.quote(identifier) + "(?![A-Za-z0-9])",
+        "[REDACTED]");
   }
 
   public static String getStatementIdString(StatementId statementId) {

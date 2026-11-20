@@ -190,6 +190,43 @@ public class TelemetryHelperTest {
   }
 
   @Test
+  void apcFailureTelemetryWithAwsOrgIdZeroPreservesDigitsAndStatementId() throws Exception {
+    String cluster = "private-cluster-735";
+    String statementId = "01ef-statement-0";
+    when(connectionContext.getHostUrl()).thenReturn("https://example.com");
+    when(connectionContext.getHttpPath()).thenReturn("/sql/protocolv1/o/0/" + cluster);
+    when(connectionContext.getComputeResource()).thenReturn(new AllPurposeCluster("0", cluster));
+    when(connectionContext.getSessionConfigs()).thenReturn(Map.of());
+    TelemetryHelper.removeConnectionParameters("test-uuid");
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+
+      TelemetryHelper.exportFailureLog(
+          connectionContext,
+          "TEST_FAILURE",
+          "org 0 at Foo.java:100 line 20 stmt " + statementId + " cluster " + cluster,
+          TelemetryLogLevel.ERROR);
+
+      ArgumentCaptor<TelemetryFrontendLog> captured =
+          ArgumentCaptor.forClass(TelemetryFrontendLog.class);
+      verify(clientMock).exportEvent(captured.capture());
+      String stackTrace =
+          new ObjectMapper()
+              .readTree(new ObjectMapper().writeValueAsString(captured.getValue()))
+              .findValue("stack_trace")
+              .asText();
+      assertEquals(
+          "org 0 at Foo.java:100 line 20 stmt " + statementId + " cluster [REDACTED]", stackTrace);
+    } finally {
+      TelemetryHelper.removeConnectionParameters("test-uuid");
+    }
+  }
+
+  @Test
   void legacyClusterTelemetryRetainsItsHttpPath() throws Exception {
     when(connectionContext.getHostUrl()).thenReturn("https://example.com");
     when(connectionContext.getHttpPath()).thenReturn("/cliservice");

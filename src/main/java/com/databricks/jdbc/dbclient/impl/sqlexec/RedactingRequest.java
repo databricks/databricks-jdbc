@@ -29,6 +29,14 @@ class RedactingRequest extends Request {
     request.getRedirectionBehavior().ifPresent(this::setRedirectionBehavior);
   }
 
+  /**
+   * Subclasses shared with non-APC compute (e.g. CreateSession) opt out so warehouses are
+   * unchanged.
+   */
+  boolean isRedactionActive() {
+    return true;
+  }
+
   void showWireBody() {
     wireBodyVisible = true;
   }
@@ -39,11 +47,14 @@ class RedactingRequest extends Request {
 
   @Override
   public String getBodyString() {
-    return wireBodyVisible ? super.getBodyString() : logBody;
+    return wireBodyVisible || !isRedactionActive() ? super.getBodyString() : logBody;
   }
 
   @Override
   public String getRequestLine() {
+    if (!isRedactionActive()) {
+      return super.getRequestLine();
+    }
     URI uri = getUri();
     String path = uri.getRawPath();
     if (path.startsWith(SESSION_PATH) && path.length() > SESSION_PATH.length()) {

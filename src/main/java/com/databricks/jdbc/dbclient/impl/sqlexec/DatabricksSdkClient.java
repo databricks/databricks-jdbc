@@ -113,10 +113,22 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private static final class CreateSessionHttpRequest extends RedactingRequest {
     boolean realtimeSession;
+    private final boolean apc;
 
-    CreateSessionHttpRequest(String path, String body) {
+    CreateSessionHttpRequest(String path, String body, boolean apc) {
       super(Request.POST, path, body);
+      this.apc = apc;
     }
+
+    @Override
+    boolean isRedactionActive() {
+      return apc;
+    }
+  }
+
+  /** Warehouse CreateSession reuses RedactingRequest, so the type alone does not imply APC. */
+  private static boolean isApcRedactedRequest(Request request) {
+    return request instanceof RedactingRequest && ((RedactingRequest) request).isRedactionActive();
   }
 
   private <T> T execute(Request request, Class<T> responseType) throws IOException {
@@ -181,20 +193,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
           if (!responseCompressionEnabled) {
             request.withHeader("Accept-Encoding", "identity");
           }
-          if (request instanceof RedactingRequest) {
+          boolean apcRequest = isApcRedactedRequest(request);
+          if (apcRequest) {
             ((RedactingRequest) request).showWireBody();
           }
           Response response;
           try {
             response = delegate.execute(request);
           } catch (IOException e) {
-            if (request instanceof RedactingRequest) {
+            if (apcRequest) {
               // ApiClient logs transport failures before the driver can sanitize the exception.
               throw sanitizeApcTransportFailure(e);
             }
             throw e;
           } finally {
-            if (request instanceof RedactingRequest) {
+            if (apcRequest) {
               ((RedactingRequest) request).hideWireBody();
             }
           }
@@ -238,7 +251,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @VisibleForTesting
   static Response redactApcResponseDebugBody(Request request, Response response) {
-    if (!(request instanceof RedactingRequest)) {
+    if (!isApcRedactedRequest(request)) {
       return response;
     }
     if (response.getStatusCode() >= 400) {
@@ -353,7 +366,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean realtimeSession;
     try {
       CreateSessionHttpRequest req =
-          new CreateSessionHttpRequest(createPath, apiClient.serialize(request));
+          new CreateSessionHttpRequest(createPath, apiClient.serialize(request), target.isApc());
       req.withHeaders(getHeaders("createSession"));
       createSessionResponse = execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;

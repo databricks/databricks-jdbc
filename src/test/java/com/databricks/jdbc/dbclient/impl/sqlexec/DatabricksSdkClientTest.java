@@ -243,6 +243,57 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  void warehouseCreateSessionRealSdkKeepsServerMessageAndTransportCause() throws Exception {
+    boolean[] failTransport = {false};
+    HttpClient transport =
+        request -> {
+          if (request.getUri().getPath().startsWith("/oidc/")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          if (failTransport[0]) {
+            throw new javax.net.ssl.SSLHandshakeException("PKIX path building failed");
+          }
+          return new Response(
+              request,
+              400,
+              "Bad Request",
+              Map.of(),
+              "{\"error_code\":\"BAD_REQUEST\",\"message\":\"warehouse-server-message\"}");
+        };
+    ApiClient realApiClient =
+        DatabricksSdkClient.buildApiClient(
+            new DatabricksConfig()
+                .setHost("https://example.com")
+                .setAuthType("pat")
+                .setToken("test-token")
+                .setDisableRetries(true)
+                .setHttpClient(transport),
+            null,
+            true);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+
+    DatabricksSQLException serverFailure =
+        assertThrows(
+            DatabricksSQLException.class, () -> client.createSession(warehouse, null, null, null));
+    assertTrue(serverFailure.getMessage().contains("warehouse-server-message"));
+    DatabricksError serverCause = assertInstanceOf(DatabricksError.class, serverFailure.getCause());
+    assertEquals("BAD_REQUEST", serverCause.getErrorCode());
+    assertTrue(serverCause.getMessage().contains("warehouse-server-message"));
+
+    failTransport[0] = true;
+    Exception transportFailure =
+        assertThrows(Exception.class, () -> client.createSession(warehouse, null, null, null));
+    boolean sawTlsCause = false;
+    for (Throwable t = transportFailure; t != null; t = t.getCause()) {
+      sawTlsCause |= t instanceof javax.net.ssl.SSLHandshakeException;
+    }
+    assertTrue(sawTlsCause, "warehouse transport TLS cause must not be sanitized away");
+  }
+
+  @Test
   void apcRateLimitRedactsUnsafeServerCodeFromExceptionAndCause() throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(
