@@ -253,6 +253,18 @@ class ApcParameterFakeServiceTest {
   }
 
   @Test
+  void nativeBinarySetBytesCopiesCallerArray() throws Exception {
+    DatabricksPreparedStatement prepared = prepared(42248L, INSERT, false, true);
+    byte[] bytes = new byte[] {0x00, (byte) 0xFF, 0x41};
+    prepared.setBytes(1, bytes);
+    bytes[0] = 0x7F;
+    prepared.executeUpdate();
+
+    JsonNode body = executeBodies().get(0);
+    assertEquals("00FF41", body.path("parameters").get(0).path("value").asText());
+  }
+
+  @Test
   void nativeBinarySetObjectAndBatchPreserveArbitraryBytes() throws Exception {
     DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
     prepared.setObject(1, new byte[] {(byte) 0x80, 0x00}, Types.BINARY);

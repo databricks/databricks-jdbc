@@ -73,9 +73,11 @@ public class SQLInterpolator {
         || (apc && object.type() == ColumnInfoTypeName.TIMESTAMP_NTZ)) {
       return apc ? escapeInputs(object.value().toString()) : "'" + object.value() + "'";
     } else if (apc && object.value() instanceof Float) {
-      return formatApcFloating(((Float) object.value()).doubleValue(), "FLOAT");
+      float value = (Float) object.value();
+      return Float.isFinite(value) ? Float.toString(value) : formatNonFinite(value, "FLOAT");
     } else if (apc && object.value() instanceof Double) {
-      return formatApcFloating((Double) object.value(), "DOUBLE");
+      double value = (Double) object.value();
+      return Double.isFinite(value) ? Double.toString(value) : formatNonFinite(value, "DOUBLE");
     } else if (!apc || isTrustedScalar(object.value())) {
       return object.value().toString();
     } else {
@@ -85,17 +87,13 @@ public class SQLInterpolator {
     }
   }
 
-  private static String formatApcFloating(double value, String sqlType) {
+  private static String formatNonFinite(double value, String sqlType) {
     if (Double.isNaN(value)) {
       return "CAST('NaN' AS " + sqlType + ")";
     }
-    if (value == Double.POSITIVE_INFINITY) {
-      return "CAST('Infinity' AS " + sqlType + ")";
-    }
-    if (value == Double.NEGATIVE_INFINITY) {
-      return "CAST('-Infinity' AS " + sqlType + ")";
-    }
-    return Double.toString(value);
+    return value > 0
+        ? "CAST('Infinity' AS " + sqlType + ")"
+        : "CAST('-Infinity' AS " + sqlType + ")";
   }
 
   /** Returns an SQL hex literal for client-side binary interpolation. */

@@ -303,7 +303,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, null);
     } else {
       if (ApcParameterCapabilities.supportsNativeParameters(connection.getSession())) {
-        setObject(parameterIndex, x, Types.BINARY);
+        // Execution is deferred; callers may reuse or mutate the array before then.
+        setObject(parameterIndex, x.clone(), Types.BINARY);
       } else if (this.interpolateParameters
           || ApcParameterCapabilities.isApcSea(connection.getSession())) {
         setObject(parameterIndex, bytesToHex(x), Types.BINARY);

@@ -329,6 +329,15 @@ public class SQLInterpolatorTest {
   }
 
   @Test
+  public void testApcFiniteFloatKeepsFloatDecimalRepresentation()
+      throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 0.1f, DatabricksTypeUtil.FLOAT));
+    params.put(2, getSqlParam(2, 0.1d, DatabricksTypeUtil.DOUBLE));
+    assertEquals("SELECT 0.1, 0.1", SQLInterpolator.interpolateApcSQL("SELECT ?, ?", params));
+  }
+
+  @Test
   public void testApcParameterMismatchNeverIncludesSqlText() {
     String secret = "private-sql-literal";
     DatabricksValidationException error =
