@@ -208,7 +208,7 @@ public class ArrowStreamResult implements IExecutionResult {
     CompressionCodec compressionCodec =
         CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
 
-    if (connectionContext.isStreamingChunkProviderEnabled()) {
+    if (connectionContext.isThriftStreamingChunkProviderEnabled()) {
       StatementId statementId = parentStatement.getStatementId();
       LOGGER.info(
           "Using StreamingChunkProvider for Thrift statementId: {}",

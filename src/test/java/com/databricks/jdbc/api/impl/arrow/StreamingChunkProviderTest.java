@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -13,6 +14,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.Instant;
@@ -37,6 +40,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -331,6 +335,79 @@ class StreamingChunkProviderTest {
       // After consuming all chunks
       assertFalse(provider.hasNextChunk(), "Should not have more chunks after consuming all");
       assertFalse(provider.next(), "next() should return false after all chunks consumed");
+    }
+
+    @Test
+    @DisplayName("Should record the total chunk count once the end of the stream is known")
+    void testRecordsTotalChunksAtEndOfStream() throws Exception {
+      // End of stream comes from the initial links, so it is reached on this thread (static mocks
+      // are thread-local).
+      ChunkLinkFetchResult initialLinks =
+          createLinkBatch(0, 4, 100L, false, Collections.emptySet());
+      try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+        provider = createProvider(initialLinks, LINK_PREFETCH_WINDOW, MAX_CHUNKS_IN_MEMORY);
+
+        telemetry.verify(
+            () -> TelemetryHelper.recordTotalChunks(isNull(), eq(STATEMENT_ID), eq(4L)));
+      }
+    }
+
+    @Test
+    @DisplayName(
+        "Should not record telemetry when an in-flight link fetch ends the stream after close")
+    void testNoTotalChunksTelemetryAfterClose() throws Exception {
+      IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+      when(context.getConnectionUuid()).thenReturn("streaming-close-telemetry-test");
+      CountDownLatch fetchStarted = new CountDownLatch(1);
+      CountDownLatch releaseFetch = new CountDownLatch(1);
+      when(mockLinkFetcher.fetchLinks(anyLong(), anyLong()))
+          .thenAnswer(
+              invocation -> {
+                fetchStarted.countDown();
+                // Like an HTTP read, the in-flight fetch does not stop on close()'s interrupt.
+                boolean released = false;
+                while (!released) {
+                  try {
+                    released = releaseFetch.await(5, TimeUnit.SECONDS);
+                  } catch (InterruptedException ignored) {
+                    // keep waiting
+                  }
+                }
+                return ChunkLinkFetchResult.endOfStream();
+              });
+      provider =
+          new StreamingChunkProvider(
+              mockLinkFetcher,
+              mockHttpClient,
+              CompressionCodec.NONE,
+              STATEMENT_ID,
+              MAX_CHUNKS_IN_MEMORY,
+              LINK_PREFETCH_WINDOW,
+              CHUNK_READY_TIMEOUT_SECONDS,
+              CLOUD_FETCH_SPEED_THRESHOLD,
+              context,
+              createLinkBatch(0, 1, 100L, true, Collections.emptySet()));
+      try {
+        assertTrue(fetchStarted.await(5, TimeUnit.SECONDS));
+        provider.close();
+        releaseFetch.countDown();
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+          if (thread.getName().equals("databricks-jdbc-link-prefetcher")) {
+            thread.join(5000);
+          }
+        }
+
+        assertEquals(1, provider.getChunkCount(), "The late fetch still ends the stream");
+        assertNull(
+            TelemetryCollectorManager.getInstance()
+                .getOrCreateCollector(context)
+                .getOrCreateTelemetryDetails(STATEMENT_ID.toSQLExecStatementId())
+                .getChunkDetails()
+                .getTotalChunksPresent());
+      } finally {
+        releaseFetch.countDown();
+        TelemetryCollectorManager.getInstance().removeCollector(context);
+      }
     }
 
     @Test

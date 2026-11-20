@@ -48,6 +48,7 @@ public class ThriftCloudFetchFakeIntegrationTests extends AbstractFakeServiceInt
     Properties props = new Properties();
     props.put("EnableDirectResults", "0"); // Disable direct results to test CloudFetch
     props.put("CloudFetchThreadPoolSize", "1"); // Download only a small chunk.
+    props.put("EnableStreamingChunkProvider", "0"); // The test inspects RemoteChunkProvider.
 
     // Thrift is set up in the command line option.
 

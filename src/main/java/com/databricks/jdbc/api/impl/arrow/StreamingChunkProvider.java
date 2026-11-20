@@ -11,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.sql.SQLException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -104,8 +105,9 @@ public class StreamingChunkProvider implements ChunkProvider {
   private volatile boolean closed = false;
   private volatile DatabricksSQLException prefetchError = null;
 
-  // Row tracking
+  // Row and chunk tracking
   private final AtomicLong totalRowCount = new AtomicLong(0);
+  private final AtomicLong createdChunkCount = new AtomicLong(0);
 
   // Synchronization for prefetch thread
   private final ReentrantLock prefetchLock = new ReentrantLock();
@@ -447,8 +449,7 @@ public class StreamingChunkProvider implements ChunkProvider {
     if (result.isEndOfStream()) {
       LOGGER.info(
           "End of stream reached for statement {}", StatementId.loggableStatementId(statementId));
-      endOfStreamReached = true;
-      notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
+      markEndOfStream();
       return;
     }
 
@@ -461,15 +462,25 @@ public class StreamingChunkProvider implements ChunkProvider {
     if (result.hasMore()) {
       nextFetchPosition = new FetchPosition(result.getNextFetchIndex(), result.getNextRowOffset());
     } else {
-      endOfStreamReached = true;
       LOGGER.info(
           "End of stream reached for statement {} (hasMore=false)",
           StatementId.loggableStatementId(statementId));
-      notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
+      markEndOfStream();
     }
 
     // Trigger downloads for new chunks
     triggerDownloads();
+  }
+
+  /** Marks the end of the stream, records the final chunk count and wakes a waiting consumer. */
+  private void markEndOfStream() {
+    endOfStreamReached = true;
+    // An in-flight link fetch can return after close(), when the statement's telemetry has
+    // already been exported; recording then would leave a partial entry behind.
+    if (!closed) {
+      TelemetryHelper.recordTotalChunks(connectionContext, statementId, createdChunkCount.get());
+    }
+    notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
   }
 
   /**
@@ -506,8 +517,7 @@ public class StreamingChunkProvider implements ChunkProvider {
           pos.chunkIndex,
           pos.rowOffset);
     } else {
-      endOfStreamReached = true;
-      notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
+      markEndOfStream();
       LOGGER.info(
           "End of stream reached from initial links for statement {}",
           StatementId.loggableStatementId(statementId));
@@ -548,6 +558,7 @@ public class StreamingChunkProvider implements ChunkProvider {
     downloadOrder.add(chunkIndex);
     highestKnownChunkIndex.updateAndGet(current -> Math.max(current, chunkIndex));
     totalRowCount.addAndGet(rowCount);
+    createdChunkCount.incrementAndGet();
 
     // Notify any waiting consumers that a chunk is available
     notifyChunkCreated();
@@ -692,8 +703,7 @@ public class StreamingChunkProvider implements ChunkProvider {
       // otherwise the prefetch loop would skip the failed chunk, leaving a gap that
       // causes consumers to hang forever in waitForChunkCreation.
       if (!result.hasMore()) {
-        endOfStreamReached = true;
-        notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
+        markEndOfStream();
       } else if (result.getNextFetchIndex() > nextFetchPosition.chunkIndex
           && allRefreshChunksCreated) {
         nextFetchPosition =

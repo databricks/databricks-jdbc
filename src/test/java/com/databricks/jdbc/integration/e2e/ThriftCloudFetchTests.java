@@ -48,6 +48,7 @@ public class ThriftCloudFetchTests {
     props.put("UseThriftClient", "1"); // Create connection with Thrift client enabled
     props.put("EnableDirectResults", "0"); // Disable direct results to test CloudFetch
     props.put("CloudFetchThreadPoolSize", "1"); // Download only a small chunk.
+    props.put("EnableStreamingChunkProvider", "0"); // The test inspects RemoteChunkProvider.
 
     connection = getValidJDBCConnection(props);
   }
@@ -56,6 +57,35 @@ public class ThriftCloudFetchTests {
   void tearDown() throws Exception {
     if (connection != null && !connection.isClosed()) {
       connection.close();
+    }
+  }
+
+  /** The streaming provider must return every row in order across several link batches. */
+  @Test
+  void testStreamingChunkProviderReturnsAllRowsInOrder() throws Exception {
+    Properties props = new Properties();
+    props.put("UseThriftClient", "1");
+    props.put("EnableStreamingChunkProvider", "1");
+    long rows = 60_000_000; // ~480 MB uncompressed, so links arrive in more than one batch
+    try (Connection streaming = getValidJDBCConnection(props);
+        Statement stmt = streaming.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT id FROM range(" + rows + ") ORDER BY id")) {
+      Optional<ChunkProvider> provider = ((DatabricksResultSet) rs).getChunkProvider();
+      assertTrue(provider.isPresent());
+      assertEquals("StreamingChunkProvider", provider.get().getClass().getSimpleName());
+
+      long expected = 0;
+      while (rs.next()) {
+        if (rs.getLong(1) != expected) {
+          assertEquals(expected, rs.getLong(1), "Rows must arrive in order");
+        }
+        expected++;
+        if (expected == rows / 2) {
+          assertFalse(rs.isAfterLast());
+        }
+      }
+      assertEquals(rows, expected);
+      assertTrue(rs.isAfterLast());
     }
   }
 

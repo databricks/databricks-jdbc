@@ -44,6 +44,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
 
+  @VisibleForTesting
+  static final String THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableStreamingChunkProviderForThriftJdbc";
+
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -1379,13 +1383,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     //    AND server-side flag agree. This gives a two-key rollout mechanism:
     //    flip the param default to "1" in the driver AND enable the server flag.
     boolean clientDefault = getParameter(clientParam).equals("1");
-    boolean serverEnabled = false;
-    try {
-      serverEnabled =
-          DatabricksDriverFeatureFlagsContextFactory.getInstance(this).getBoolean(serverFlagName);
-    } catch (Exception e) {
-      LOGGER.debug("Failed to check server-side flag {}: {}", serverFlagName, e.getMessage());
-    }
+    boolean serverEnabled = isServerFlagEnabled(serverFlagName);
 
     if (clientDefault && serverEnabled) {
       LOGGER.debug(
@@ -1398,6 +1396,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
 
     return false;
+  }
+
+  private boolean isServerFlagEnabled(String serverFlagName) {
+    try {
+      return DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+          .getBoolean(serverFlagName);
+    } catch (Exception e) {
+      LOGGER.debug("Failed to check server-side flag {}: {}", serverFlagName, e.getMessage());
+      return false;
+    }
   }
 
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
@@ -1529,6 +1537,19 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isStreamingChunkProviderEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_STREAMING_CHUNK_PROVIDER).equals("1");
+  }
+
+  @Override
+  public boolean isThriftStreamingChunkProviderEnabled() {
+    String explicitValue =
+        getParameterIgnoreDefault(DatabricksJdbcUrlParams.ENABLE_STREAMING_CHUNK_PROVIDER);
+    if (explicitValue != null) {
+      return explicitValue.equals("1");
+    }
+    // The client default stays "0" because SEA shares this parameter, so unlike
+    // resolveFeatureFlag only the server flag gates warehouses here.
+    return computeResource instanceof Warehouse
+        && isServerFlagEnabled(THRIFT_STREAMING_CHUNK_PROVIDER_FLAG_NAME);
   }
 
   @Override

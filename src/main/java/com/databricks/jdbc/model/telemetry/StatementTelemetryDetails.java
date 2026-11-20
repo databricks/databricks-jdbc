@@ -92,7 +92,11 @@ public class StatementTelemetryDetails {
   }
 
   public void recordResultSetIteration(Long totalChunks, boolean hasNext) {
-    this.chunkDetails.setTotalChunksPresent(totalChunks);
+    // -1 means a streaming result does not know its chunk count yet; the provider records the
+    // total once the stream ends, so don't overwrite it.
+    if (totalChunks == null || totalChunks >= 0) {
+      this.chunkDetails.setTotalChunksPresent(totalChunks);
+    }
     this.resultLatency.markResultSetConsumption(hasNext);
   }
 
