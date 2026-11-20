@@ -812,7 +812,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public BigDecimal getBigDecimal(String columnLabel, int scale) throws SQLException {
-    return getBigDecimal(getColumnNameIndex(columnLabel));
+    return getBigDecimal(getColumnNameIndex(columnLabel), scale);
   }
 
   @Override
