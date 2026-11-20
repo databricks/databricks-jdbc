@@ -72,6 +72,7 @@ import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.ThrowingSupplier;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -655,6 +656,23 @@ public class DatabricksSdkClientTest {
     ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
     verify(apiClient).execute(requests.capture(), eq(Void.class));
     assertTrue(requests.getValue().getUrl().contains(rawId));
+  }
+
+  @Test
+  void redactApcServerErrorTextOnlyForMetadataAndParameterizedStatements() {
+    assertFalse(
+        DatabricksSdkClient.redactApcServerErrorText(
+            true, StatementType.SQL, Collections.emptyMap(), null));
+    assertTrue(
+        DatabricksSdkClient.redactApcServerErrorText(
+            true, StatementType.METADATA, Collections.emptyMap(), null));
+    Map<Integer, ImmutableSqlParameter> bound = new HashMap<Integer, ImmutableSqlParameter>();
+    bound.put(1, mock(ImmutableSqlParameter.class));
+    assertTrue(
+        DatabricksSdkClient.redactApcServerErrorText(true, StatementType.SQL, bound, null));
+    assertFalse(
+        DatabricksSdkClient.redactApcServerErrorText(
+            false, StatementType.METADATA, Collections.emptyMap(), null));
   }
 
   @ParameterizedTest

@@ -22,6 +22,8 @@
 
 ### Fixed
 
+- Inline SEA columnar results page additional chunks using `next_chunk_index` instead of dropping rows after the first chunk.
+- Present SEA columnar value wrappers with an omitted repeated `values` field (proto3 JSON empty lists) are treated as zero-length columns.
 - Fixed numeric getters returning shifted values for BC and pre-1582 dates: `getLong`, `getInt` and `getShort` (and `getObject(column, Long/Integer/Short/BigInteger)`) on DATE columns, and `getLong` (and `getObject(column, Long/BigInteger)`) on TIMESTAMP columns. For example, `DATE '1582-10-05'` returned epoch day -141427 instead of -141437. Values after the 1582 Gregorian cutover are unchanged. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
 - Fixed reading ARRAY, STRUCT and MAP values that contain a TIMESTAMP_NTZ with zero seconds (for example `2023-10-05 15:20:00`), which failed with `Invalid TIMESTAMP_NTZ array representation`. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.

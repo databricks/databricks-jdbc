@@ -827,6 +827,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementRequest suppliedRequest)
       throws SQLException {
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    boolean redactApcError =
+        redactApcServerErrorText(apc, statementType, parameters, parameterSets);
     String logSql = apc ? "[REDACTED]" : sql;
     String errorSql = apc ? "[REDACTED]" : sql;
     LOGGER.debug(
@@ -938,7 +940,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           logSql,
           statementType,
           computeLabel(computeResource));
-      handleFailedExecution(response, "", errorSql, apc);
+      handleFailedExecution(response, "", errorSql, redactApcError);
     }
     LOGGER.debug(
         "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
@@ -1076,7 +1078,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
       try {
-        handleFailedExecution(response, statementId, errorSql, apc);
+        handleFailedExecution(response, statementId, errorSql, redactApcError);
       } finally {
         if (apc) {
           closeFailedApcOperation(typedStatementId, parentStatement);
@@ -1304,7 +1306,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (statementId == null) {
       LOGGER.error(
           "Empty Statement ID for sql {}, compute {}", logSql, computeLabel(computeResource));
-      handleFailedExecution(response, "", apc ? "[REDACTED]" : sql, apc);
+      handleFailedExecution(
+          response,
+          "",
+          apc ? "[REDACTED]" : sql,
+          redactApcServerErrorText(apc, statementType, parameters, null));
     }
     StatementId typedStatementId =
         StatementId.forCurrentSession(statementId, session.getSessionInfo());
@@ -1431,7 +1437,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             wrapGetStatementResponse(response),
             statementId,
             statementType == StatementType.METADATA ? "[metadata statement]" : "[REDACTED]",
-            apc,
+            redactApcServerErrorText(apc, statementType, null, null),
             true);
       } finally {
         if (apc) {
@@ -1977,6 +1983,27 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .setOrdinal(ordinal)
         .setType(typeString)
         .setValue(value != null ? value.toString() : null);
+  }
+
+  /**
+   * Server error text can echo SQL or bound values. Strip it only for APC metadata and
+   * parameterized statements.
+   */
+  static boolean redactApcServerErrorText(
+      boolean apc,
+      StatementType statementType,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      List<StatementParameterSet> parameterSets) {
+    if (!apc) {
+      return false;
+    }
+    if (statementType == StatementType.METADATA) {
+      return true;
+    }
+    if (parameters != null && !parameters.isEmpty()) {
+      return true;
+    }
+    return parameterSets != null && !parameterSets.isEmpty();
   }
 
   /** Handles a failed execution and throws appropriate exception */
