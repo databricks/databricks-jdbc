@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
-import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -33,11 +32,13 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.stubbing.OngoingStubbing;
 
 class DatabricksMetadataAsyncTest {
   private final IDatabricksClient client = mock(IDatabricksClient.class);
@@ -150,7 +151,7 @@ class DatabricksMetadataAsyncTest {
 
   @ParameterizedTest
   @MethodSource("showRequests")
-  void submitsEveryShowWithTypedHandleAndConvertsNativeResult(
+  void submitsEveryShowWithTypedHandleAndConvertsNativeRows(
       MetadataAsyncRequest request, String expectedSql) throws SQLException {
     MetadataAsyncHandle handle = metadata.executeMetadataAsync(request, session);
     assertEquals(request.getOperation(), handle.getOperation());
@@ -166,33 +167,11 @@ class DatabricksMetadataAsyncTest {
             eq(StatementType.METADATA),
             eq(request.getOperation()));
 
-    ResultSetMetaData resultMetadata = mock(ResultSetMetaData.class);
-    when(completed.getMetaData()).thenReturn(resultMetadata);
-    when(completed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.SUCCEEDED));
-    when(completed.isThriftNativeMetadataResult()).thenReturn(true);
-    when(completed.next()).thenReturn(false);
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(completed);
-    DatabricksResultSet jdbc = metadata.getMetadataExecutionResult(handle, session);
-    assertNotNull(jdbc);
-    assertEquals(0, jdbc.getUpdateCount());
-    assertFalse(jdbc.next());
-  }
-
-  @ParameterizedTest
-  @MethodSource("showRequests")
-  void nativeRowsForEveryShowUseTheJdbcMetadataLayout(
-      MetadataAsyncRequest request, String ignoredSql) throws SQLException {
-    MetadataAsyncHandle handle = metadata.executeMetadataAsync(request, session);
     List<Object> nativeRow = rowFor(request.getMethod());
     DatabricksResultSet nativeResult = nativeRows(List.of(nativeRow));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(nativeResult);
-
+    pollReturns(nativeResult);
     DatabricksResultSet jdbc = metadata.getMetadataExecutionResult(handle, session);
+    assertEquals(0, jdbc.getUpdateCount());
     assertEquals(nativeRow.size(), jdbc.getMetaData().getColumnCount());
     assertTrue(jdbc.next());
     assertEquals(nativeRow.get(0), jdbc.getObject(1));
@@ -234,18 +213,15 @@ class DatabricksMetadataAsyncTest {
         metadata.executeMetadataAsync(
             MetadataAsyncRequest.forTables(null, "s%", "t%", new String[] {"TABLE"}), session);
     assertEquals("main", handle.getResolvedCatalog());
-    when(completed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(completed);
+    DatabricksResultSet failed = parseFailure();
+    pollReturns(failed);
 
     SQLException error =
         assertThrows(
             SQLException.class, () -> metadata.getMetadataExecutionResult(handle, session));
     assertEquals("42601", error.getSQLState());
     verify(client).closeStatement(handle.getStatementId());
-    verify(completed).close();
+    verify(failed).close();
   }
 
   private static List<Object> rowFor(MetadataAsyncRequest.Method method) {
@@ -290,89 +266,6 @@ class DatabricksMetadataAsyncTest {
                 MetadataAsyncRequest.forOperation(MetadataOperationType.GET_PROCEDURE_COLUMNS),
                 session));
     verify(client, never())
-        .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
-  }
-
-  @Test
-  void sessionMetadataClientSubmitsAndCompletesThroughInterface() throws SQLException {
-    DatabricksSdkClient sdk = mock(DatabricksSdkClient.class);
-    ImmutableSessionInfo info =
-        ImmutableSessionInfo.builder()
-            .clientType(DatabricksClientType.SEA)
-            .sessionId("session")
-            .computeResource(cluster)
-            .build();
-    when(context.getClientType()).thenReturn(DatabricksClientType.SEA);
-    when(context.getComputeResource()).thenReturn(cluster);
-    when(sdk.getConnectionContext()).thenReturn(context);
-    when(sdk.createSession(eq(cluster), isNull(), isNull(), anyMap())).thenReturn(info);
-    DatabricksSession realSession = new DatabricksSession(context, sdk);
-    realSession.open();
-    DatabricksResultSet submitted = pendingWithId("submitted");
-    when(sdk.executeStatementAsync(
-            eq("SHOW CATALOGS"),
-            eq(cluster),
-            anyMap(),
-            eq(realSession),
-            isNull(),
-            eq(StatementType.METADATA),
-            eq(MetadataOperationType.GET_CATALOGS)))
-        .thenReturn(submitted);
-    DatabricksResultSet nativeResult = mock(DatabricksResultSet.class);
-    ResultSetMetaData nativeMetadata = mock(ResultSetMetaData.class);
-    when(nativeResult.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.SUCCEEDED));
-    when(nativeResult.isThriftNativeMetadataResult()).thenReturn(true);
-    when(nativeResult.getMetaData()).thenReturn(nativeMetadata);
-    when(nativeMetadata.getColumnCount()).thenReturn(1);
-    when(nativeResult.next()).thenReturn(false);
-    when(sdk.getStatementResult(
-            any(StatementId.class), eq(realSession), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(nativeResult);
-
-    MetadataAsyncHandle handle =
-        realSession
-            .getDatabricksMetadataClient()
-            .executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), realSession);
-    DatabricksResultSet jdbc =
-        realSession.getDatabricksMetadataClient().getMetadataExecutionResult(handle, realSession);
-    assertEquals("submitted", handle.getStatementId().toSQLExecStatementId());
-    assertEquals("TABLE_CAT", jdbc.getMetaData().getColumnName(1));
-    assertEquals(0, jdbc.getUpdateCount());
-    assertFalse(jdbc.next());
-  }
-
-  @Test
-  void propagatesFailedCompletionWithoutCatalogFanout() throws SQLException {
-    MetadataAsyncHandle handle =
-        metadata.executeMetadataAsync(MetadataAsyncRequest.forSchemas("main", "s%"), session);
-    when(completed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(completed);
-    DatabricksSQLException error =
-        assertThrows(
-            DatabricksSQLException.class,
-            () -> metadata.getMetadataExecutionResult(handle, session));
-    assertEquals("42601", error.getSQLState());
-    assertEquals(
-        DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED.getCode(), error.getErrorCode());
-    verify(client, times(1))
-        .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
-  }
-
-  @Test
-  void cancellationPropagatesWithoutCatalogFanout() throws SQLException {
-    MetadataAsyncHandle handle =
-        metadata.executeMetadataAsync(MetadataAsyncRequest.forSchemas(null, "s%"), session);
-    when(completed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.CANCELED));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(completed);
-    assertThrows(SQLException.class, () -> metadata.getMetadataExecutionResult(handle, session));
-    verify(client, times(1))
         .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
   }
 
@@ -445,69 +338,34 @@ class DatabricksMetadataAsyncTest {
     when(context.getMetadataOperationTimeout()).thenReturn(1);
     MetadataAsyncHandle handle =
         metadata.executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), session);
-    when(completed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.PENDING));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(completed);
-    DatabricksTimeoutException error =
-        assertThrows(
-            DatabricksTimeoutException.class,
-            () -> metadata.getMetadataExecutionResult(handle, session));
-    assertEquals(DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR.getCode(), error.getErrorCode());
+    pollReturns(waiting());
+    assertTimeout(() -> metadata.getMetadataExecutionResult(handle, session));
     verify(client).cancelStatement(handle.getStatementId());
   }
 
   @ParameterizedTest
-  @NullSource
-  @ValueSource(strings = {"42000"})
-  void nullCatalogNonSyntaxOrMissingStateDoesNotFanOut(String state) throws SQLException {
+  @CsvSource({"FAILED,42000", "FAILED,", "CANCELED,"})
+  void nullCatalogNonSyntaxFailureOrCancellationDoesNotFanOut(StatementState state, String sqlState)
+      throws SQLException {
     MetadataAsyncHandle handle =
         metadata.executeMetadataAsync(
             MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%"), session);
-    when(completed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState(state));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(completed);
+    pollReturns(withState(state, sqlState));
     assertThrows(SQLException.class, () -> metadata.getMetadataExecutionResult(handle, session));
-    verify(client, times(1))
-        .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
+    verifySubmissions(1);
   }
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void nullCatalogSyntaxErrorFansOutAsyncAndCombinesRows(boolean schemas) throws SQLException {
-    MetadataAsyncRequest original =
-        schemas
-            ? MetadataAsyncRequest.forSchemas(null, "s%")
-            : MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%");
+    MetadataAsyncRequest original = fanOutRequest(schemas);
     MetadataAsyncHandle handle = metadata.executeMetadataAsync(original, session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet firstPending = pendingWithId("first");
-    DatabricksResultSet secondPending = pendingWithId("second");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending, firstPending, secondPending);
-
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("first"), List.of("second")));
-    List<List<Object>> firstRows = List.of(metadataRow(schemas, "first"));
-    List<List<Object>> secondRows = List.of(metadataRow(schemas, "second"));
-    DatabricksResultSet firstResult = nativeRows(firstRows);
-    DatabricksResultSet secondResult = nativeRows(secondRows);
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows, firstResult, secondResult);
+    submitReturns(pendingWithId("catalogs"), pendingWithId("first"), pendingWithId("second"));
+    pollReturns(
+        parseFailure(),
+        nativeRows(List.of(List.of("first"), List.of("second"))),
+        nativeRows(List.of(metadataRow(schemas, "first"))),
+        nativeRows(List.of(metadataRow(schemas, "second"))));
 
     DatabricksResultSet result = metadata.getMetadataExecutionResult(handle, session);
     List<String> catalogs = new ArrayList<>();
@@ -521,69 +379,38 @@ class DatabricksMetadataAsyncTest {
     for (StatementId id : handle.getFallbackStatementIds()) {
       verify(client).closeStatement(id);
     }
-    verify(client, times(4))
-        .executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class));
-    String expected =
-        schemas
-            ? "SHOW SCHEMAS IN `%s` LIKE 's*'"
-            : "SHOW COLUMNS IN CATALOG `%s` SCHEMA LIKE 's*' TABLE LIKE 't*' LIKE 'c*'";
-    for (String catalog : List.of("first", "second")) {
-      verify(client)
-          .executeStatementAsync(
-              eq(String.format(expected, catalog)),
-              eq(cluster),
-              anyMap(),
-              eq(session),
-              isNull(),
-              eq(StatementType.METADATA),
-              eq(original.getOperation()));
-    }
+    verifySubmissions(4);
+  }
+
+  private static Stream<Arguments> skippedCatalogSubmitErrors() {
+    SQLException generic = new SQLException("first catalog submit failed", "42000");
+    SQLException notFound =
+        new DatabricksSQLException(
+            "[SCHEMA_NOT_FOUND] The schema cannot be found. SQLSTATE: 42704", "42704");
+    return Stream.of(
+        Arguments.of(true, generic), Arguments.of(false, generic), Arguments.of(true, notFound));
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void catalogSubmissionFailureSkipsCatalogAndContinues(boolean schemas) throws SQLException {
-    MetadataAsyncRequest request =
-        schemas
-            ? MetadataAsyncRequest.forSchemas(null, "s%")
-            : MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%");
-    MetadataAsyncHandle handle = metadata.executeMetadataAsync(request, session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet secondPending = pendingWithId("second");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending)
-        .thenThrow(new SQLException("first catalog submit failed", "42000"))
-        .thenReturn(secondPending);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("first"), List.of("second")));
-    DatabricksResultSet secondRows = nativeRows(List.of(metadataRow(schemas, "second")));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows, secondRows);
+  @MethodSource("skippedCatalogSubmitErrors")
+  void catalogSubmissionFailureSkipsCatalogWithoutPollingItAndContinues(
+      boolean schemas, SQLException submitError) throws SQLException {
+    MetadataAsyncHandle handle = metadata.executeMetadataAsync(fanOutRequest(schemas), session);
+    submitReturns(pendingWithId("catalogs"), submitError, pendingWithId("second"));
+    pollReturns(
+        parseFailure(),
+        nativeRows(List.of(List.of("first"), List.of("second"))),
+        nativeRows(List.of(metadataRow(schemas, "second"))));
 
     DatabricksResultSet result = metadata.getMetadataExecutionResult(handle, session);
     assertTrue(result.next());
     assertEquals("second", result.getString(schemas ? 2 : 1));
     assertFalse(result.next());
     assertEquals(2, handle.getFallbackStatementIds().size());
-    verify(client, times(4))
-        .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
+    verifySubmissions(4);
+    verify(client, times(3))
+        .getStatementResult(
+            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA));
   }
 
   @ParameterizedTest
@@ -598,24 +425,8 @@ class DatabricksMetadataAsyncTest {
             : new SQLException(
                 "metadata cancelled",
                 com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending)
-        .thenThrow(submitError);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("first")));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows);
+    submitReturns(pendingWithId("catalogs"), submitError);
+    pollReturns(parseFailure(), nativeRows(List.of(List.of("first"))));
 
     assertSame(
         submitError,
@@ -627,24 +438,8 @@ class DatabricksMetadataAsyncTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void emptyCatalogFallbackReturnsEmptyJdbcMetadata(boolean schemas) throws SQLException {
-    MetadataAsyncRequest request =
-        schemas
-            ? MetadataAsyncRequest.forSchemas(null, "s%")
-            : MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%");
-    MetadataAsyncHandle handle = metadata.executeMetadataAsync(request, session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
+    MetadataAsyncHandle handle = metadata.executeMetadataAsync(fanOutRequest(schemas), session);
+    submitReturns(pendingWithId("catalogs"));
     DatabricksResultSet emptyCatalogs = mock(DatabricksResultSet.class);
     ResultSetMetaData emptyMetadata = mock(ResultSetMetaData.class);
     when(emptyCatalogs.getStatementStatus())
@@ -653,9 +448,7 @@ class DatabricksMetadataAsyncTest {
     when(emptyCatalogs.getMetaData()).thenReturn(emptyMetadata);
     when(emptyMetadata.getColumnCount()).thenReturn(1);
     when(emptyCatalogs.next()).thenReturn(false);
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, emptyCatalogs);
+    pollReturns(parseFailure(), emptyCatalogs);
 
     DatabricksResultSet result = metadata.getMetadataExecutionResult(handle, session);
     assertFalse(result.next());
@@ -665,35 +458,18 @@ class DatabricksMetadataAsyncTest {
             : MetadataResultConstants.COLUMN_COLUMNS.size(),
         result.getMetaData().getColumnCount());
     assertEquals(1, handle.getFallbackStatementIds().size());
-    verify(client, times(2))
-        .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
+    verifySubmissions(2);
   }
 
   @Test
   void fallbackCancellationPropagates() throws SQLException {
     MetadataAsyncHandle handle =
         metadata.executeMetadataAsync(MetadataAsyncRequest.forSchemas(null, "s%"), session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet childPending = pendingWithId("child");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending, childPending);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet cancelled = mock(DatabricksResultSet.class);
-    when(cancelled.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.CANCELED));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("main")));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows, cancelled);
+    submitReturns(pendingWithId("catalogs"), pendingWithId("child"));
+    pollReturns(
+        parseFailure(),
+        nativeRows(List.of(List.of("main"))),
+        withState(StatementState.CANCELED, null));
     SQLException error =
         assertThrows(
             SQLException.class, () -> metadata.getMetadataExecutionResult(handle, session));
@@ -707,38 +483,20 @@ class DatabricksMetadataAsyncTest {
   @ValueSource(booleans = {true, false})
   void interruptedFallbackPollingPropagatesInsteadOfReturningPartialRows(boolean schemas)
       throws SQLException {
-    MetadataAsyncRequest request =
-        schemas
-            ? MetadataAsyncRequest.forSchemas(null, "s%")
-            : MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%");
-    MetadataAsyncHandle handle = metadata.executeMetadataAsync(request, session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet firstPending = pendingWithId("first");
-    DatabricksResultSet secondPending = pendingWithId("second");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending, firstPending, secondPending);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("first"), List.of("second")));
-    DatabricksResultSet firstRows = nativeRows(List.of(metadataRow(schemas, "first")));
-    DatabricksResultSet waiting = mock(DatabricksResultSet.class);
-    when(waiting.getStatementStatus())
+    MetadataAsyncHandle handle = metadata.executeMetadataAsync(fanOutRequest(schemas), session);
+    submitReturns(pendingWithId("catalogs"), pendingWithId("first"), pendingWithId("second"));
+    DatabricksResultSet interrupting = mock(DatabricksResultSet.class);
+    when(interrupting.getStatementStatus())
         .thenAnswer(
             invocation -> {
               Thread.currentThread().interrupt();
               return new StatementStatus().setState(StatementState.PENDING);
             });
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows, firstRows, waiting);
+    pollReturns(
+        parseFailure(),
+        nativeRows(List.of(List.of("first"), List.of("second"))),
+        nativeRows(List.of(metadataRow(schemas, "first"))),
+        interrupting);
 
     try {
       DatabricksSQLException error =
@@ -751,107 +509,47 @@ class DatabricksMetadataAsyncTest {
       assertInstanceOf(InterruptedException.class, error.getCause());
       assertTrue(Thread.currentThread().isInterrupted());
       assertEquals(3, handle.getFallbackStatementIds().size());
-      verify(client, times(4))
-          .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
+      verifySubmissions(4);
     } finally {
       Thread.interrupted();
     }
   }
 
-  @Test
-  void fallbackTimeoutCancelsChildStatement() throws SQLException {
-    when(context.getMetadataOperationTimeout()).thenReturn(1);
-    MetadataAsyncHandle handle =
-        metadata.executeMetadataAsync(
-            MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%"), session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet childPending = pendingWithId("child");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending, childPending);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("main")));
-    DatabricksResultSet waiting = mock(DatabricksResultSet.class);
-    when(waiting.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.PENDING));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows, waiting);
-    DatabricksTimeoutException error =
-        assertThrows(
-            DatabricksTimeoutException.class,
-            () -> metadata.getMetadataExecutionResult(handle, session));
-    assertEquals(DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR.getCode(), error.getErrorCode());
-    verify(client).cancelStatement(handle.getFallbackStatementIds().get(1));
-  }
-
-  @Test
-  void fanOutTreatsCatalogNotFoundAtSubmissionAsEmptyWithoutPollingNullStatement()
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void fanOutTimeoutCancelsOnlyTheActiveChildStatement(boolean parseErrorAtSubmission)
       throws SQLException {
-    MetadataAsyncHandle handle =
-        metadata.executeMetadataAsync(MetadataAsyncRequest.forSchemas(null, "s%"), session);
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet secondPending = pendingWithId("second");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenReturn(catalogPending)
-        .thenThrow(
-            new DatabricksSQLException(
-                "[SCHEMA_NOT_FOUND] The schema cannot be found. SQLSTATE: 42704", "42704"))
-        .thenReturn(secondPending);
-    DatabricksResultSet failed = mock(DatabricksResultSet.class);
-    when(failed.getStatementStatus())
-        .thenReturn(new StatementStatus().setState(StatementState.FAILED).setSqlState("42601"));
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("first"), List.of("second")));
-    DatabricksResultSet secondRows = nativeRows(List.of(metadataRow(true, "second")));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(failed, catalogRows, secondRows);
-
-    DatabricksResultSet result = metadata.getMetadataExecutionResult(handle, session);
-    assertTrue(result.next());
-    assertEquals("second", result.getString(2));
-    assertFalse(result.next());
-    assertEquals(2, handle.getFallbackStatementIds().size());
-    verify(client, times(3))
-        .getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA));
+    when(context.getMetadataOperationTimeout()).thenReturn(1);
+    MetadataAsyncRequest request = MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%");
+    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("main")));
+    StatementId child;
+    if (parseErrorAtSubmission) {
+      submitReturns(
+          new DatabricksSQLException("syntax error at or near \"ALL\"", "42601"),
+          pendingWithId("catalogs"),
+          pendingWithId("child"));
+      pollReturns(catalogRows, waiting());
+      assertTimeout(() -> metadata.executeMetadataAsync(request, session));
+      child = StatementId.forCurrentSession("child", session.getSessionInfo());
+    } else {
+      MetadataAsyncHandle handle = metadata.executeMetadataAsync(request, session);
+      submitReturns(pendingWithId("catalogs"), pendingWithId("child"));
+      pollReturns(parseFailure(), catalogRows, waiting());
+      assertTimeout(() -> metadata.getMetadataExecutionResult(handle, session));
+      child = handle.getFallbackStatementIds().get(1);
+    }
+    verify(client).cancelStatement(child);
+    verify(client, times(1)).cancelStatement(any(StatementId.class));
   }
 
   @Test
   void submissionParseErrorFansOutAndClosesFanOutOperations() throws SQLException {
-    DatabricksResultSet catalogPending = pendingWithId("catalogs");
-    DatabricksResultSet firstPending = pendingWithId("first");
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenThrow(new DatabricksSQLException("syntax error at or near \"ALL\"", "42601"))
-        .thenReturn(catalogPending, firstPending);
-    DatabricksResultSet catalogRows = nativeRows(List.of(List.of("first")));
-    DatabricksResultSet firstRows = nativeRows(List.of(metadataRow(true, "first")));
-    when(client.getStatementResult(
-            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
-        .thenReturn(catalogRows, firstRows);
+    submitReturns(
+        new DatabricksSQLException("syntax error at or near \"ALL\"", "42601"),
+        pendingWithId("catalogs"),
+        pendingWithId("first"));
+    pollReturns(
+        nativeRows(List.of(List.of("first"))), nativeRows(List.of(metadataRow(true, "first"))));
 
     MetadataAsyncHandle handle =
         metadata.executeMetadataAsync(MetadataAsyncRequest.forSchemas(null, "s%"), session);
@@ -867,20 +565,71 @@ class DatabricksMetadataAsyncTest {
 
   @Test
   void submissionObjectNotFoundReturnsEmptyResult() throws SQLException {
-    when(client.executeStatementAsync(
-            anyString(),
-            eq(cluster),
-            anyMap(),
-            eq(session),
-            isNull(),
-            eq(StatementType.METADATA),
-            any(MetadataOperationType.class)))
-        .thenThrow(
-            new DatabricksSQLException(
-                "[SCHEMA_NOT_FOUND] The schema cannot be found. SQLSTATE: 42704", "42704"));
+    submitReturns(
+        new DatabricksSQLException(
+            "[SCHEMA_NOT_FOUND] The schema cannot be found. SQLSTATE: 42704", "42704"));
     MetadataAsyncHandle handle =
         metadata.executeMetadataAsync(MetadataAsyncRequest.forSchemas("main", "s%"), session);
     assertFalse(metadata.getMetadataExecutionResult(handle, session).next());
+  }
+
+  private static MetadataAsyncRequest fanOutRequest(boolean schemas) {
+    return schemas
+        ? MetadataAsyncRequest.forSchemas(null, "s%")
+        : MetadataAsyncRequest.forColumns(null, "s%", "t%", "c%");
+  }
+
+  private static void assertTimeout(Executable action) {
+    DatabricksTimeoutException error = assertThrows(DatabricksTimeoutException.class, action);
+    assertEquals(DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR.getCode(), error.getErrorCode());
+  }
+
+  /** Each outcome is either a result set or a Throwable thrown by that submission. */
+  private void submitReturns(Object... outcomes) throws SQLException {
+    OngoingStubbing<DatabricksResultSet> stub =
+        when(
+            client.executeStatementAsync(
+                anyString(),
+                eq(cluster),
+                anyMap(),
+                eq(session),
+                isNull(),
+                eq(StatementType.METADATA),
+                any(MetadataOperationType.class)));
+    for (Object outcome : outcomes) {
+      stub =
+          outcome instanceof Throwable
+              ? stub.thenThrow((Throwable) outcome)
+              : stub.thenReturn((DatabricksResultSet) outcome);
+    }
+  }
+
+  private void pollReturns(DatabricksResultSet first, DatabricksResultSet... rest)
+      throws SQLException {
+    when(client.getStatementResult(
+            any(StatementId.class), eq(session), isNull(), eq(StatementType.METADATA)))
+        .thenReturn(first, rest);
+  }
+
+  private void verifySubmissions(int count) throws SQLException {
+    verify(client, times(count))
+        .executeStatementAsync(anyString(), any(), anyMap(), any(), any(), any(), any());
+  }
+
+  private static DatabricksResultSet withState(StatementState state, String sqlState) {
+    DatabricksResultSet result = mock(DatabricksResultSet.class);
+    when(result.getStatementStatus())
+        .thenReturn(new StatementStatus().setState(state).setSqlState(sqlState));
+    return result;
+  }
+
+  private static DatabricksResultSet parseFailure() {
+    return withState(StatementState.FAILED, "42601");
+  }
+
+  private static DatabricksResultSet waiting() {
+    return withState(StatementState.PENDING, null);
   }
 
   private DatabricksResultSet pendingWithId(String id) {

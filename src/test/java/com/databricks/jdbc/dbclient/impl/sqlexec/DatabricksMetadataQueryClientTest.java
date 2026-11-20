@@ -47,6 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -209,20 +210,22 @@ public class DatabricksMetadataQueryClientTest {
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 2);
   }
 
-  @Test
-  void synchronousConversionFailureClosesSourceAndServerOperation() throws SQLException {
-    AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
-    when(session.getComputeResource()).thenReturn(cluster);
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void synchronousMetadataClosesServerOperationOnlyForApc(boolean warehouse) throws SQLException {
+    IDatabricksComputeResource compute =
+        warehouse ? new Warehouse("warehouse") : new AllPurposeCluster("org", "cluster");
+    when(session.getComputeResource()).thenReturn(compute);
     when(session.getSessionInfo())
         .thenReturn(
             ImmutableSessionInfo.builder()
                 .clientType(DatabricksClientType.SEA)
                 .sessionId("session")
-                .computeResource(cluster)
+                .computeResource(compute)
                 .build());
     when(mockClient.executeStatement(
             eq("SHOW CATALOGS"),
-            eq(cluster),
+            eq(compute),
             any(),
             eq(StatementType.METADATA),
             eq(session),
@@ -230,43 +233,20 @@ public class DatabricksMetadataQueryClientTest {
             eq(MetadataOperationType.GET_CATALOGS)))
         .thenReturn(mockedCatalogResultSet);
     when(mockedCatalogResultSet.getStatementId()).thenReturn("server-operation");
-    when(mockedCatalogResultSet.next()).thenThrow(new SQLException("conversion failed"));
-
     DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
-    SQLException error =
-        assertThrows(SQLException.class, () -> metadataClient.listCatalogs(session));
-    assertEquals("conversion failed", error.getMessage());
+
+    if (warehouse) {
+      when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
+      metadataClient.listCatalogs(session);
+      verify(mockClient, never()).closeStatement(any(StatementId.class));
+    } else {
+      when(mockedCatalogResultSet.next()).thenThrow(new SQLException("conversion failed"));
+      SQLException error =
+          assertThrows(SQLException.class, () -> metadataClient.listCatalogs(session));
+      assertEquals("conversion failed", error.getMessage());
+      verify(mockClient).closeStatement(new StatementId("server-operation"));
+    }
     verify(mockedCatalogResultSet).close();
-    verify(mockClient).closeStatement(new StatementId("server-operation"));
-  }
-
-  @Test
-  void warehouseSynchronousMetadataDoesNotCloseServerOperation() throws SQLException {
-    Warehouse warehouse = new Warehouse("warehouse");
-    when(session.getComputeResource()).thenReturn(warehouse);
-    when(session.getSessionInfo())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .clientType(DatabricksClientType.SEA)
-                .sessionId("session")
-                .computeResource(warehouse)
-                .build());
-    when(mockClient.executeStatement(
-            eq("SHOW CATALOGS"),
-            eq(warehouse),
-            any(),
-            eq(StatementType.METADATA),
-            eq(session),
-            any(),
-            eq(MetadataOperationType.GET_CATALOGS)))
-        .thenReturn(mockedCatalogResultSet);
-    when(mockedCatalogResultSet.getStatementId()).thenReturn("warehouse-operation");
-    when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
-
-    new DatabricksMetadataQueryClient(mockClient).listCatalogs(session);
-
-    verify(mockedCatalogResultSet).close();
-    verify(mockClient, never()).closeStatement(any(StatementId.class));
   }
 
   @Test

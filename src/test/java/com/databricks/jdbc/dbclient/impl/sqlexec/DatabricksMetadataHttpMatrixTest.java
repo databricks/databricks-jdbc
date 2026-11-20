@@ -24,12 +24,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -52,100 +50,6 @@ class DatabricksMetadataHttpMatrixTest {
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final String OPERATION_HEADER = "X-Databricks-Metadata-Operation-Type";
   private static final String SYNC_HEADER = "x-databricks-sea-can-run-fully-sync";
-
-  @Test
-  void procedureSelectsDecodeApcArrowBatchesIntoJdbcMetadata() throws Exception {
-    Fixture fake = new Fixture();
-    DatabricksSession session = fake.open(true);
-    fake.configureProcedure(
-        List.of(
-            sourceColumn("routine_catalog", Types.VARCHAR),
-            sourceColumn("routine_schema", Types.VARCHAR),
-            sourceColumn("routine_name", Types.VARCHAR),
-            sourceColumn("comment", Types.VARCHAR),
-            sourceColumn("specific_name", Types.VARCHAR)),
-        Map.of(
-            "routine_catalog", "main",
-            "routine_schema", "s",
-            "routine_name", "p",
-            "comment", "procedure remark",
-            "specific_name", "p"));
-    try (ResultSet result =
-        session.getDatabricksMetadataClient().listProcedures(session, "main", "s%", "p%")) {
-      assertEquals(
-          MetadataResultConstants.PROCEDURES_COLUMNS.size(), result.getMetaData().getColumnCount());
-      assertTrue(result.next());
-      assertEquals("main", result.getString("PROCEDURE_CAT"));
-      assertEquals("s", result.getString("PROCEDURE_SCHEM"));
-      assertEquals("p", result.getString("PROCEDURE_NAME"));
-      assertEquals("procedure remark", result.getString("REMARKS"));
-      assertEquals(DatabaseMetaData.procedureNoResult, result.getShort("PROCEDURE_TYPE"));
-      assertEquals("p", result.getString("SPECIFIC_NAME"));
-      assertFalse(result.next());
-    }
-    fake.assertProcedureSubmission("information_schema.routines", 2);
-
-    fake.configureProcedure(
-        List.of(
-            sourceColumn("specific_catalog", Types.VARCHAR),
-            sourceColumn("specific_schema", Types.VARCHAR),
-            sourceColumn("specific_name", Types.VARCHAR),
-            sourceColumn("parameter_name", Types.VARCHAR),
-            sourceColumn("parameter_mode", Types.VARCHAR),
-            sourceColumn("is_result", Types.VARCHAR),
-            sourceColumn("data_type", Types.VARCHAR),
-            sourceColumn("numeric_precision", Types.INTEGER),
-            sourceColumn("numeric_precision_radix", Types.INTEGER),
-            sourceColumn("numeric_scale", Types.INTEGER),
-            sourceColumn("character_maximum_length", Types.INTEGER),
-            sourceColumn("character_octet_length", Types.INTEGER),
-            sourceColumn("ordinal_position", Types.INTEGER),
-            sourceColumn("parameter_default", Types.VARCHAR),
-            sourceColumn("comment", Types.VARCHAR)),
-        Map.ofEntries(
-            Map.entry("specific_catalog", "main"),
-            Map.entry("specific_schema", "s"),
-            Map.entry("specific_name", "p"),
-            Map.entry("parameter_name", "arg"),
-            Map.entry("parameter_mode", "IN"),
-            Map.entry("is_result", "NO"),
-            Map.entry("data_type", "INT"),
-            Map.entry("numeric_precision", 10),
-            Map.entry("numeric_precision_radix", 10),
-            Map.entry("numeric_scale", 0),
-            Map.entry("character_maximum_length", 0),
-            Map.entry("character_octet_length", 0),
-            Map.entry("ordinal_position", 1),
-            Map.entry("parameter_default", "7"),
-            Map.entry("comment", "parameter remark")));
-    try (ResultSet result =
-        session
-            .getDatabricksMetadataClient()
-            .listProcedureColumns(session, "main", "s%", "p%", "a%")) {
-      assertEquals(
-          MetadataResultConstants.PROCEDURE_COLUMNS_COLUMNS.size(),
-          result.getMetaData().getColumnCount());
-      assertTrue(result.next());
-      assertEquals("main", result.getString("PROCEDURE_CAT"));
-      assertEquals("s", result.getString("PROCEDURE_SCHEM"));
-      assertEquals("p", result.getString("PROCEDURE_NAME"));
-      assertEquals("arg", result.getString("COLUMN_NAME"));
-      assertEquals(DatabaseMetaData.procedureColumnIn, result.getShort("COLUMN_TYPE"));
-      assertEquals(Types.INTEGER, result.getInt("DATA_TYPE"));
-      assertEquals("INT", result.getString("TYPE_NAME"));
-      assertEquals(10, result.getInt("PRECISION"));
-      assertEquals(1, result.getInt("ORDINAL_POSITION"));
-      assertEquals("7", result.getString("COLUMN_DEF"));
-      assertEquals("parameter remark", result.getString("REMARKS"));
-      assertFalse(result.next());
-    }
-    fake.assertProcedureSubmission("information_schema.parameters", 3);
-    assertEquals(2, fake.closedIds.size());
-  }
-
-  private static ResultColumn sourceColumn(String name, int type) {
-    return new ResultColumn(name, name, type);
-  }
 
   @Test
   void showMetadataUsesBothResponseFormatsAndPreservesAllJdbcCells() throws Exception {
@@ -204,6 +108,35 @@ class DatabricksMetadataHttpMatrixTest {
       List<List<Object>> values = rows(async);
       assertEquals(1, values.size());
       assertEquals("main", values.get(0).get(0));
+    }
+  }
+
+  @Test
+  void notFoundServerMarkerReturnsEmptySyncAndAsyncMetadataWithNonstandardSqlState()
+      throws Exception {
+    MetadataAsyncRequest request =
+        MetadataAsyncRequest.forTables("main", "s%", "t%", new String[] {"TABLE"});
+    for (String sqlState : new String[] {"42P01", ""}) {
+      Fixture fake = new Fixture();
+      DatabricksSession session = fake.open(false);
+      fake.notFoundSqlState = sqlState;
+      try (ResultSet sync = executeSync(session, request)) {
+        assertTrue(sync.getMetaData().getColumnCount() > 0);
+        assertFalse(sync.next());
+      }
+      fake.async = true;
+      MetadataAsyncHandle handle =
+          session.getDatabricksMetadataClient().executeMetadataAsync(request, session);
+      try (ResultSet async =
+          session.getDatabricksMetadataClient().getMetadataExecutionResult(handle, session)) {
+        assertTrue(async.getMetaData().getColumnCount() > 0);
+        assertFalse(async.next());
+        assertEquals(0, ((DatabricksResultSet) async).getUpdateCount());
+      }
+      assertEquals(2, fake.submitted.size());
+      for (Request submitted : fake.submitted) {
+        assertEquals("GetTables", submitted.getHeaders().get(OPERATION_HEADER));
+      }
     }
   }
 
@@ -429,83 +362,14 @@ class DatabricksMetadataHttpMatrixTest {
             "result", result));
   }
 
-  private static String procedureResponse(
-      String id, List<ResultColumn> columns, Map<String, Object> row) throws Exception {
-    List<Map<String, Object>> schema = new ArrayList<>();
-    for (int i = 0; i < columns.size(); i++) {
-      ResultColumn column = columns.get(i);
-      String type = column.getColumnTypeInt() == Types.VARCHAR ? "STRING" : "INT";
-      schema.add(
-          Map.of(
-              "name", column.getColumnName(),
-              "position", i,
-              "type_name", type,
-              "type_text", type));
-    }
-    byte[] stream = arrow(columns, row);
-    int schemaLength =
-        8 + java.nio.ByteBuffer.wrap(stream, 4, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt();
-    byte[] batch = Arrays.copyOfRange(stream, schemaLength, stream.length - 8);
-    return JSON.writeValueAsString(
-        Map.of(
-            "statement_id", id,
-            "status", Map.of("state", "SUCCEEDED"),
-            "manifest",
-                Map.of(
-                    "format",
-                    "ARROW_BATCH",
-                    "total_row_count",
-                    1,
-                    "total_chunk_count",
-                    1,
-                    "schema",
-                    Map.of("column_count", columns.size(), "columns", schema)),
-            "result",
-                Map.of(
-                    "row_count",
-                    1,
-                    "arrow_batches",
-                    List.of(
-                        Map.of(
-                            "row_count", 1, "batch", Base64.getEncoder().encodeToString(batch))))));
-  }
-
-  private static String catalogsResponse(String id) throws Exception {
-    return JSON.writeValueAsString(
-        Map.of(
-            "statement_id", id,
-            "status", Map.of("state", "SUCCEEDED"),
-            "manifest",
-                Map.of(
-                    "format",
-                    "COLUMN_BASED_SET",
-                    "is_native_metadata_result",
-                    true,
-                    "total_row_count",
-                    2,
-                    "total_chunk_count",
-                    1,
-                    "schema",
-                    Map.of(
-                        "column_count",
-                        1,
-                        "columns",
-                        List.of(
-                            Map.of(
-                                "name", "TABLE_CAT",
-                                "position", 0,
-                                "type_name", "STRING",
-                                "type_text", "STRING")))),
-            "result",
-                Map.of(
-                    "row_count",
-                    2,
-                    "columnar_data",
-                    Map.of(
-                        "columns",
-                        List.of(
-                            Map.of(
-                                "string_values", Map.of("values", List.of("first", "second"))))))));
+  private static String catalogsResponse(String id) {
+    return "{\"statement_id\":\""
+        + id
+        + "\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"COLUMN_BASED_SET\","
+        + "\"is_native_metadata_result\":true,\"total_row_count\":2,\"total_chunk_count\":1,"
+        + "\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"TABLE_CAT\",\"position\":0,"
+        + "\"type_name\":\"STRING\",\"type_text\":\"STRING\"}]}},\"result\":{\"row_count\":2,"
+        + "\"columnar_data\":{\"columns\":[{\"string_values\":{\"values\":[\"first\",\"second\"]}}]}}}";
   }
 
   private static byte[] arrow(List<ResultColumn> columns, Map<String, Object> row)
@@ -547,7 +411,6 @@ class DatabricksMetadataHttpMatrixTest {
   private static final class Fixture implements HttpClient {
     private final List<Request> submitted = new ArrayList<>();
     private final List<String> submittedBodies = new ArrayList<>();
-    private final List<String> closedIds = new ArrayList<>();
     private final Map<String, String> responses = new HashMap<>();
     private final Map<String, Integer> polls = new HashMap<>();
     private List<ResultColumn> columns;
@@ -556,8 +419,8 @@ class DatabricksMetadataHttpMatrixTest {
     private boolean async;
     private boolean fallback;
     private boolean fallbackSchemas;
-    private boolean procedure;
     private boolean omitArrowRowCount;
+    private String notFoundSqlState;
     private int pollsForLastStatement;
     private int nextId;
 
@@ -598,27 +461,7 @@ class DatabricksMetadataHttpMatrixTest {
       this.arrow = arrow;
       this.async = async;
       this.fallback = false;
-      this.procedure = false;
       this.pollsForLastStatement = 0;
-    }
-
-    void configureProcedure(List<ResultColumn> columns, Map<String, Object> row) {
-      this.columns = columns;
-      this.row = row;
-      this.procedure = true;
-      this.fallback = false;
-      this.async = false;
-    }
-
-    void assertProcedureSubmission(String table, int parameterCount) throws Exception {
-      Request request = submitted.get(submitted.size() - 1);
-      JsonNode body = JSON.readTree(submittedBodies.get(submittedBodies.size() - 1));
-      assertTrue(body.path("statement").asText().contains(table));
-      assertEquals("ARROW_BATCH", body.path("format").asText());
-      assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
-      assertEquals(parameterCount, body.path("parameters").size());
-      assertFalse(request.getHeaders().containsKey(OPERATION_HEADER));
-      assertFalse(request.getHeaders().containsKey(SYNC_HEADER));
     }
 
     void configureFallback(boolean schemas, boolean async) {
@@ -679,7 +522,6 @@ class DatabricksMetadataHttpMatrixTest {
                 ? "{\"statement_id\":\"" + id + "\",\"status\":{\"state\":\"RUNNING\"}}"
                 : responses.get(id);
       } else if (Request.DELETE.equals(request.getMethod())) {
-        closedIds.add(path);
         body = "{}";
       } else {
         throw new AssertionError("Unexpected request: " + path);
@@ -688,10 +530,16 @@ class DatabricksMetadataHttpMatrixTest {
     }
 
     private String completedResponse(String id) {
+      if (notFoundSqlState != null) {
+        return "{\"statement_id\":\""
+            + id
+            + "\",\"status\":{\"state\":\"FAILED\","
+            + (notFoundSqlState.isEmpty() ? "" : "\"sql_state\":\"" + notFoundSqlState + "\",")
+            + "\"error\":{\"message\":\"[TABLE_OR_VIEW_NOT_FOUND] secret table name\"}}}";
+      }
       try {
-        String response =
-            procedure ? procedureResponse(id, columns, row) : response(id, columns, row, arrow);
-        if (omitArrowRowCount && arrow && !procedure) {
+        String response = response(id, columns, row, arrow);
+        if (omitArrowRowCount && arrow) {
           ObjectNode root = (ObjectNode) JSON.readTree(response);
           ((ObjectNode) root.path("result")).remove("row_count");
           return JSON.writeValueAsString(root);

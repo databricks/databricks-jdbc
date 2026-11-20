@@ -233,18 +233,13 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
           && (request.getMethod() == MetadataAsyncRequest.Method.SCHEMAS
               || request.getMethod() == MetadataAsyncRequest.Method.COLUMNS)) {
         MetadataAsyncHandle failed = new MetadataAsyncHandle(null, request, catalog, parent);
-        TimeoutHandler timeout =
-            new TimeoutHandler(
-                queryExecutionClient.getConnectionContext().getMetadataOperationTimeout(),
-                "asynchronous metadata",
-                () -> {},
-                DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
-                true);
+        AtomicReference<StatementId> activeId = new AtomicReference<>();
+        TimeoutHandler timeout = cancelOnTimeoutHandler(activeId);
         // The fan-out is fully consumed here, so its SHOW CATALOGS and per-catalog operations are
         // never reachable through a handle and must be closed before returning.
         try {
           return immediateHandle(
-              request, fallbackAcrossCatalogs(failed, session, timeout, new AtomicReference<>()));
+              request, fallbackAcrossCatalogs(failed, session, timeout, activeId));
         } finally {
           closeFallbackOperations(failed);
         }
@@ -269,19 +264,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return handle.getImmediateResult();
     }
     AtomicReference<StatementId> activeId = new AtomicReference<>(handle.getStatementId());
-    TimeoutHandler timeout =
-        new TimeoutHandler(
-            queryExecutionClient.getConnectionContext().getMetadataOperationTimeout(),
-            "asynchronous metadata",
-            () -> {
-              try {
-                queryExecutionClient.cancelStatement(activeId.get());
-              } catch (SQLException e) {
-                LOGGER.warn("Could not cancel timed out metadata statement");
-              }
-            },
-            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
-            true);
+    TimeoutHandler timeout = cancelOnTimeoutHandler(activeId);
     try {
       return convertCompletedMetadata(handle, session, timeout);
     } catch (SQLException e) {
@@ -303,6 +286,26 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       closeMetadataOperation(handle.getStatementId());
       closeFallbackOperations(handle);
     }
+  }
+
+  private TimeoutHandler cancelOnTimeoutHandler(AtomicReference<StatementId> activeId)
+      throws SQLException {
+    return new TimeoutHandler(
+        queryExecutionClient.getConnectionContext().getMetadataOperationTimeout(),
+        "asynchronous metadata",
+        () -> {
+          StatementId id = activeId.get();
+          if (id == null) {
+            return;
+          }
+          try {
+            queryExecutionClient.cancelStatement(id);
+          } catch (SQLException e) {
+            LOGGER.warn("Could not cancel timed out metadata statement");
+          }
+        },
+        DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+        true);
   }
 
   private void closeFallbackOperations(MetadataAsyncHandle handle) {
