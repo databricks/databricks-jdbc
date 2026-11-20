@@ -35,13 +35,11 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.IdleConnectionEvictor;
 import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -1543,7 +1541,7 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  public void testExpiredTokenCloseStopsActualIdleConnectionEvictor() throws Exception {
+  public void testExpiredTokenCloseStopsIdleConnectionEviction() throws Exception {
     IDatabricksConnectionContext localContext =
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
     DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
@@ -1552,9 +1550,9 @@ public class DatabricksConnectionTest {
         assertInstanceOf(
             DatabricksHttpClient.class,
             httpClientFactory.getClient(localContext, HttpClientType.COMMON))) {
-      IdleConnectionEvictor evictor = getIdleConnectionEvictor(httpClient);
       assertTrue(
-          evictor.isRunning(), "Creating a real HTTP client must start an IdleConnectionEvictor");
+          httpClient.isIdleConnectionEvictionActive(),
+          "Creating a real HTTP client must start idle-connection eviction");
 
       when(databricksClient.createSession(
               new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
@@ -1571,17 +1569,16 @@ public class DatabricksConnectionTest {
       assertInstanceOf(
           ClosedConnectionHttpClient.class,
           httpClientFactory.getClient(localContext, HttpClientType.COMMON));
-      evictor.awaitTermination(10, TimeUnit.SECONDS);
       assertFalse(
-          evictor.isRunning(),
-          "Connection evictor must terminate after close despite the expired token");
+          httpClient.isIdleConnectionEvictionActive(),
+          "Idle-connection eviction must stop after close despite the expired token");
     } finally {
       httpClientFactory.removeClient(localContext);
     }
   }
 
   @Test
-  public void testStatementCloseFailureStillStopsActualIdleConnectionEvictor() throws Exception {
+  public void testStatementCloseFailureStillStopsIdleConnectionEviction() throws Exception {
     IDatabricksConnectionContext localContext =
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
     DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
@@ -1590,9 +1587,9 @@ public class DatabricksConnectionTest {
         assertInstanceOf(
             DatabricksHttpClient.class,
             httpClientFactory.getClient(localContext, HttpClientType.COMMON))) {
-      IdleConnectionEvictor evictor = getIdleConnectionEvictor(httpClient);
       assertTrue(
-          evictor.isRunning(), "Creating a real HTTP client must start an IdleConnectionEvictor");
+          httpClient.isIdleConnectionEvictionActive(),
+          "Creating a real HTTP client must start idle-connection eviction");
 
       when(databricksClient.createSession(
               new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
@@ -1613,10 +1610,9 @@ public class DatabricksConnectionTest {
       assertInstanceOf(
           ClosedConnectionHttpClient.class,
           httpClientFactory.getClient(localContext, HttpClientType.COMMON));
-      evictor.awaitTermination(10, TimeUnit.SECONDS);
       assertFalse(
-          evictor.isRunning(),
-          "Connection evictor must terminate even when statement.close() fails");
+          httpClient.isIdleConnectionEvictionActive(),
+          "Idle-connection eviction must stop even when statement.close() fails");
     } finally {
       httpClientFactory.removeClient(localContext);
     }
@@ -1628,12 +1624,5 @@ public class DatabricksConnectionTest {
     Field field = DatabricksConnection.class.getDeclaredField("statementSet");
     field.setAccessible(true);
     return (Set<IDatabricksStatementInternal>) field.get(databricksConnection);
-  }
-
-  private static IdleConnectionEvictor getIdleConnectionEvictor(DatabricksHttpClient httpClient)
-      throws ReflectiveOperationException {
-    Field field = DatabricksHttpClient.class.getDeclaredField("idleConnectionEvictor");
-    field.setAccessible(true);
-    return (IdleConnectionEvictor) field.get(httpClient);
   }
 }
