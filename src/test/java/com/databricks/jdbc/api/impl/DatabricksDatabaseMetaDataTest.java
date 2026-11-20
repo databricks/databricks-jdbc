@@ -95,17 +95,47 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void supportsBatchUpdates_returnsFalseByDefault() throws Exception {
-    // Default EnableBatchedInserts=0, so batch support is not advertised
+  public void supportsBatchUpdates_returnsTrueByDefault() throws Exception {
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsFalseWhenBothStrategiesDisabled() throws Exception {
+    String urlWithBatchingDisabled =
+        WAREHOUSE_JDBC_URL + ";EnableNativeBatching=0;EnableBatchedInserts=0";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithBatchingDisabled, new Properties()));
     boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
     assertFalse(supportsBatchUpdates);
   }
 
   @Test
   public void supportsBatchUpdates_returnsTrueWhenBatchedInsertsEnabled() throws Exception {
-    String urlWithBatchedInserts = WAREHOUSE_JDBC_URL + ";EnableBatchedInserts=1";
+    String urlWithBatchedInserts =
+        WAREHOUSE_JDBC_URL + ";EnableNativeBatching=0;EnableBatchedInserts=1";
     when(session.getConnectionContext())
         .thenReturn(DatabricksConnectionContext.parse(urlWithBatchedInserts, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsTrueWhenNativeBatchingEnabled() throws Exception {
+    String urlWithNativeBatching =
+        WAREHOUSE_JDBC_URL + ";EnableNativeBatching=1;EnableBatchedInserts=0";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithNativeBatching, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsTrueWhenBothStrategiesEnabled() throws Exception {
+    String urlWithBothStrategies =
+        WAREHOUSE_JDBC_URL + ";EnableNativeBatching=1;EnableBatchedInserts=1";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithBothStrategies, new Properties()));
     boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
     assertTrue(supportsBatchUpdates);
   }

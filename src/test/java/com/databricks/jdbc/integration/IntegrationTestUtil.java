@@ -253,6 +253,12 @@ public class IntegrationTestUtil {
       connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
           FakeServiceConfigLoader.shouldUseThriftClient());
+      // Existing replay fixtures characterize the previous batching defaults. Batching-specific
+      // tests opt in explicitly so activation does not invalidate unrelated recordings.
+      connectionProperties.putIfAbsent(
+          DatabricksJdbcUrlParams.ENABLE_NATIVE_BATCHING.getParamName(), "0");
+      connectionProperties.putIfAbsent(
+          DatabricksJdbcUrlParams.ENABLE_BATCHED_INSERTS.getParamName(), "0");
       connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName(),
           DEFAULT_ROW_LIMIT_PER_BLOCK);
@@ -287,6 +293,12 @@ public class IntegrationTestUtil {
       connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
           FakeServiceConfigLoader.shouldUseThriftClient());
+      // Existing replay fixtures characterize the previous batching defaults. Batching-specific
+      // tests opt in explicitly so activation does not invalidate unrelated recordings.
+      connectionProperties.putIfAbsent(
+          DatabricksJdbcUrlParams.ENABLE_NATIVE_BATCHING.getParamName(), "0");
+      connectionProperties.putIfAbsent(
+          DatabricksJdbcUrlParams.ENABLE_BATCHED_INSERTS.getParamName(), "0");
       connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName(),
           DEFAULT_ROW_LIMIT_PER_BLOCK);
