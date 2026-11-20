@@ -7,10 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TCLIServiceConstants;
@@ -69,6 +73,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ColumnarDataResultTest {
   @Mock IDatabricksSession session;
+  @Mock IDatabricksClient client;
   @Mock DatabricksConnectionContext context;
 
   private static <T> ColumnVector.Values<T> values(List<T> values) {
@@ -213,11 +218,11 @@ class ColumnarDataResultTest {
     }
 
     ColumnarDataResult reader = new ColumnarDataResult(null, chunk(vector));
-    Field columnsField = ColumnarDataResult.class.getDeclaredField("columns");
-    columnsField.setAccessible(true);
-    assertEquals(1, ((List<?>) columnsField.get(reader)).size());
+    Field chunksField = ColumnarDataResult.class.getDeclaredField("chunks");
+    chunksField.setAccessible(true);
+    assertEquals(1, ((List<?>) chunksField.get(reader)).size());
     reader.close();
-    assertTrue(((List<?>) columnsField.get(reader)).isEmpty());
+    assertTrue(((List<?>) chunksField.get(reader)).isEmpty());
     assertThrows(DatabricksSQLException.class, () -> reader.getObject(0));
   }
 
@@ -241,13 +246,58 @@ class ColumnarDataResultTest {
   }
 
   @Test
-  void multiChunkColumnarResultIsRejected() {
+  void multiChunkColumnarResultFollowsNextChunkIndex() throws Exception {
+    StatementId statementId = new StatementId("columnar-statement");
+    ResultData first =
+        chunk(new ColumnVector().setI32Values(values(List.of(1, 2))))
+            .setRowOffset(0L)
+            .setRowCount(2L)
+            .setNextChunkIndex(1L);
+    ResultData second =
+        chunk(new ColumnVector().setI32Values(values(List.of(3)))).setRowOffset(2L).setRowCount(1L);
+    when(session.getDatabricksClient()).thenReturn(client);
+    when(client.getResultChunksData(eq(statementId), eq(1L), eq(2L))).thenReturn(second);
+
+    ColumnarDataResult result = new ColumnarDataResult(null, first, statementId, session);
+    assertEquals(3, result.getRowCount());
+    assertEquals(2, result.getChunkCount());
+    assertTrue(result.next());
+    assertEquals(1, result.getObject(0));
+    assertTrue(result.next());
+    assertEquals(2, result.getObject(0));
+    assertTrue(result.next());
+    assertEquals(3, result.getObject(0));
+    assertFalse(result.next());
+    verify(client).getResultChunksData(statementId, 1L, 2L);
+    verifyNoMoreInteractions(client);
+    result.close();
+  }
+
+  @Test
+  void multiChunkWithoutSessionFailsClearly() {
     ResultData data =
         chunk(new ColumnVector().setI32Values(values(List.of(1)))).setNextChunkIndex(1L);
     DatabricksSQLException error =
         assertThrows(DatabricksSQLException.class, () -> new ColumnarDataResult(null, data));
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
-    assertTrue(error.getMessage().contains("Multi-chunk"));
+    assertTrue(error.getMessage().contains("requires a session"));
+  }
+
+  @Test
+  void totalChunkCountAloneDoesNotTriggerFetch() throws Exception {
+    ResultData data =
+        chunk(new ColumnVector().setI32Values(values(List.of(7)))).setRowCount(1L).setRowOffset(0L);
+    ResultManifest manifest =
+        new ResultManifest().setFormat(SqlExecResultFormat.COLUMN_BASED_SET).setTotalChunkCount(3L);
+    ColumnarDataResult result =
+        new ColumnarDataResult(manifest, data, new StatementId("unused"), session);
+    assertEquals(1, result.getRowCount());
+    assertEquals(1, result.getChunkCount());
+    assertTrue(result.next());
+    assertEquals(7, result.getObject(0));
+    assertFalse(result.next());
+    verifyNoMoreInteractions(session);
+    result.close();
   }
 
   @Test
