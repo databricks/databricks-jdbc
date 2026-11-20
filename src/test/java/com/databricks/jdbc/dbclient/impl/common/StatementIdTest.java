@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
@@ -13,6 +14,24 @@ import org.junit.jupiter.api.Test;
 
 /** Unit tests for the StatementId class. */
 public class StatementIdTest {
+
+  @Test
+  void testApcInternalRoutingIdKeepsPublicIdRaw() {
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
+            .sessionId("session")
+            .computeResource(new AllPurposeCluster("org", "cluster"))
+            .build();
+    StatementId id = StatementId.forCurrentSession("statement", info);
+    assertEquals("s|a|org|cluster|statement", id.serialize());
+    assertEquals("statement", id.toString());
+    assertEquals("statement", id.toSQLExecStatementId());
+    assertEquals("statement", StatementId.loggableStatementId(id));
+    StatementId parsed = StatementId.deserialize(id.serialize());
+    assertEquals(id.toString(), parsed.toString());
+    assertEquals(info.computeResource(), parsed.computeResource());
+  }
 
   private static final byte[] testGuidBytes =
       new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};

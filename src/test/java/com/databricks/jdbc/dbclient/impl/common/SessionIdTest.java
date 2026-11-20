@@ -65,6 +65,17 @@ public class SessionIdTest {
   }
 
   @Test
+  public void testLegacyWarehouseIdAStillParsesWithBothRoutes() throws Exception {
+    for (String serialized : new String[] {"s|a|session", "s|a|session|r"}) {
+      SessionId parsed = SessionId.deserialize(serialized);
+      assertEquals(serialized, parsed.toString());
+      assertEquals(DatabricksClientType.SEA, parsed.getClientType());
+      assertEquals(new Warehouse("a"), parsed.getSessionInfo().computeResource());
+      assertEquals(serialized.endsWith("|r"), parsed.getSessionInfo().realtimeSession());
+    }
+  }
+
+  @Test
   public void testConstructorThrift() throws Exception {
     THandleIdentifier tHandleIdentifier =
         new THandleIdentifier().setGuid(testGuidBytes).setSecret(testSecretBytes);
@@ -104,5 +115,68 @@ public class SessionIdTest {
 
     final String sessionId3 = "t|test-session-id|invalid|part3";
     assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId3));
+  }
+
+  @Test
+  public void testApcSeaRoundTripAndSavedVersionCannotGrantCapabilities() throws Exception {
+    for (Long version : new Long[] {8L, null}) {
+      ImmutableSessionInfo live =
+          ImmutableSessionInfo.builder()
+              .clientType(DatabricksClientType.SEA)
+              .sessionId("session")
+              .computeResource(new AllPurposeCluster("org", "cluster"))
+              .negotiatedProtocolVersion(version)
+              .liveProtocolVersion(true)
+              .build();
+      String serialized = SessionId.create(live).toString();
+      assertEquals("s|a|org|cluster|session|" + (version == null ? "-" : version), serialized);
+      ImmutableSessionInfo saved = SessionId.deserialize(serialized).getSessionInfo();
+      assertEquals(DatabricksClientType.SEA, saved.clientType());
+      assertEquals(live.computeResource(), saved.computeResource());
+      assertEquals(version, saved.negotiatedProtocolVersion());
+      assertNull(saved.nativeProtocolVersion());
+      assertFalse(saved.liveProtocolVersion());
+      assertEquals(version, live.nativeProtocolVersion());
+    }
+    assertNull(
+        SessionId.deserialize("s|a|org|cluster|session|99")
+            .getSessionInfo()
+            .nativeProtocolVersion());
+  }
+
+  @Test
+  public void testMalformedApcSessionIdsReportOnlyStructure() {
+    for (String input :
+        new String[] {
+          "s|a|org|cluster",
+          "s|a|org|cluster|session",
+          "s|a|org|cluster|session|-|extra",
+          "s|a||cluster|session|-",
+          "s|a|org|cluster||-",
+          "s|a|org|cluster|session|invalid",
+          "s|a|org|cluster|session|-1"
+        }) {
+      DatabricksParsingException error =
+          assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(input));
+      assertEquals("SESSION_ID_PARSING_EXCEPTION", error.getSQLState());
+      assertEquals(1029, error.getErrorCode());
+      assertFalse(error.getMessage().contains(input));
+      assertFalse(error.getMessage().contains("org"));
+      assertFalse(error.getMessage().contains("cluster"));
+    }
+  }
+
+  @Test
+  public void testWarehouseThriftSessionDispatchesByClientType() {
+    THandleIdentifier handle =
+        new THandleIdentifier().setGuid(testGuidBytes).setSecret(testSecretBytes);
+    ImmutableSessionInfo info =
+        ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.THRIFT)
+            .sessionId("thrift")
+            .computeResource(new Warehouse(WAREHOUSE_ID))
+            .sessionHandle(new TSessionHandle().setSessionId(handle))
+            .build();
+    assertEquals(DatabricksClientType.THRIFT, SessionId.create(info).getClientType());
   }
 }
