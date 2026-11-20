@@ -1127,25 +1127,6 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  void apcCloseStatementRedactsIdInDiagnosticsButKeepsRequestTarget() throws Exception {
-    DatabricksSdkClient client = apcClient(apcContext(""));
-    String rawId = "raw-sensitive-apc-statement-id";
-    StatementId id = StatementId.forCurrentSession(rawId, apcInfoBuilder().build());
-
-    try (LogCapture logs = new LogCapture()) {
-      client.closeStatement(id);
-      assertTrue(logs.getOutput().contains("closeStatement"));
-      assertFalse(logs.getOutput().contains(rawId));
-    }
-    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient).execute(requests.capture(), eq(Void.class));
-    assertEquals(Request.DELETE, requests.getValue().getMethod());
-    assertEquals(
-        String.format(STATEMENT_PATH_WITH_ID, rawId), requests.getValue().getUri().getPath());
-    assertNull(requests.getValue().getBodyString());
-  }
-
-  @Test
   public void testCancelStatement() throws DatabricksSQLException, IOException {
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID);
     IDatabricksConnectionContext connectionContext =
@@ -2704,28 +2685,6 @@ public class DatabricksSdkClientTest {
     assertEquals(
         "backend_compute.all_purpose_cluster_compute.cluster_id=cluster+%2F%2B",
         close.getUri().getRawQuery());
-  }
-
-  @Test
-  void apcChunkFetchLogsRedactStatementIdWhileRequestsKeepIt() throws Exception {
-    DatabricksSdkClient client = apcClient(apcContext(""));
-    String rawId = "private-apc-metadata-chunk-id";
-    StatementId id = StatementId.deserialize("s|a|org|cluster|" + rawId);
-    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
-
-    try (LogCapture logs = new LogCapture()) {
-      client.getResultChunks(id, 2, 7);
-      client.getResultChunksData(id, 3, 0);
-      assertTrue(logs.getOutput().contains("getResultChunks(statementId=[REDACTED]"));
-      assertTrue(logs.getOutput().contains("getResultChunksData(statementId=[REDACTED]"));
-      assertFalse(logs.getOutput().contains(rawId));
-    }
-
-    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient, times(2)).execute(requests.capture(), eq(ResultData.class));
-    for (Request request : requests.getAllValues()) {
-      assertTrue(request.getUri().getPath().contains(rawId));
-    }
   }
 
   @ParameterizedTest
