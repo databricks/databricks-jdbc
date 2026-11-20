@@ -83,10 +83,20 @@ public class DatabricksClientConfiguratorManager {
   }
 
   public void removeInstance(IDatabricksConnectionContext context) {
-    ConfiguratorHolder removed = instances.remove(context.getConnectionUuid());
-    if (removed != null) {
-      removed.close();
+    Runnable close = detachInstance(context);
+    if (close != null) {
+      close.run();
     }
+  }
+
+  /**
+   * Removes the connection's configurator from the manager and returns its close for the caller to
+   * run later (for example after a final telemetry push that still authenticates with it), or null
+   * if there is none.
+   */
+  public Runnable detachInstance(IDatabricksConnectionContext context) {
+    ConfiguratorHolder removed = instances.remove(context.getConnectionUuid());
+    return removed != null ? removed::close : null;
   }
 
   private static ClientConfigurator createConfigurator(IDatabricksConnectionContext context) {

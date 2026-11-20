@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -260,6 +261,42 @@ public class DatabricksHttpClientTest {
     assertSame(client2, sameClient2);
 
     System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+  }
+
+  @Test
+  public void testCloseConnectionExceptTelemetryKeepsTelemetryClientUntilRun() {
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    try {
+      IDatabricksConnectionContext context = Mockito.mock(IDatabricksConnectionContext.class);
+      when(context.getConnectionUuid()).thenReturn("deferred-telemetry-uuid");
+      when(context.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+      DatabricksHttpClientFactory factory = DatabricksHttpClientFactory.getInstance();
+      factory.getClient(context, HttpClientType.COMMON);
+      IDatabricksHttpClient telemetry = factory.getClient(context, HttpClientType.TELEMETRY);
+
+      Runnable closeTelemetry = factory.closeConnectionExceptTelemetry(context);
+
+      assertInstanceOf(
+          ClosedConnectionHttpClient.class, factory.getClient(context, HttpClientType.COMMON));
+      assertSame(telemetry, factory.getClient(context, HttpClientType.TELEMETRY));
+      closeTelemetry.run();
+      assertInstanceOf(
+          ClosedConnectionHttpClient.class, factory.getClient(context, HttpClientType.TELEMETRY));
+    } finally {
+      System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+    }
+  }
+
+  @Test
+  public void testTelemetryClientDoesNotHoldSharedAsyncClient() throws IOException {
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    when(mockConnectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    try (DatabricksHttpClient telemetry =
+        new DatabricksHttpClient(mockConnectionContext, HttpClientType.TELEMETRY)) {
+      assertThrows(IllegalStateException.class, () -> telemetry.executeAsync(null, null, null));
+    } finally {
+      System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+    }
   }
 
   @Test

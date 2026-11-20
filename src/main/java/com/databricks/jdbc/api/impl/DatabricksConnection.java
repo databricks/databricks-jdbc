@@ -29,11 +29,40 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /** Implementation for Databricks specific connection. */
 public class DatabricksConnection implements IDatabricksConnection, IDatabricksConnectionInternal {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
+  // Bounds the threads (and the telemetry clients they keep open) while final flushes are
+  // pending; covers ~6 closes/s against an endpoint that takes the full 5 s timeout. Beyond it,
+  // close() waits as it did before.
+  @VisibleForTesting static final int MAX_BACKGROUND_CLOSES = 32;
+  private static final AtomicInteger CLOSE_THREAD_COUNT = new AtomicInteger();
+
+  /**
+   * Finishes closes whose final telemetry flush is pending. Idle threads exit immediately; threads
+   * are non-daemon so a normal JVM exit still waits for the (bounded) flush.
+   */
+  private static final ThreadPoolExecutor CLOSE_EXECUTOR =
+      new ThreadPoolExecutor(
+          0,
+          MAX_BACKGROUND_CLOSES,
+          0L,
+          TimeUnit.MILLISECONDS,
+          new SynchronousQueue<>(),
+          r -> {
+            Thread t =
+                new Thread(r, "databricks-jdbc-close-" + CLOSE_THREAD_COUNT.incrementAndGet());
+            t.setDaemon(false);
+            return t;
+          });
+
   private final IDatabricksSession session;
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
@@ -458,24 +487,94 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     } finally {
       // Each cleanup step must run even if an earlier one fails. In particular,
       // closeConnection() stops the IdleConnectionEvictor owned by this connection.
+      Runnable finalTelemetryFlush = null;
       try {
-        TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
+        finalTelemetryFlush =
+            TelemetryClientFactory.getInstance().detachTelemetryClient(connectionContext);
       } finally {
         try {
-          DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
+          releaseClients(finalTelemetryFlush);
         } finally {
-          try {
-            DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
-          } finally {
-            try {
-              DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
-            } finally {
-              DatabricksThreadContextHolder.clearAllContext();
-            }
+          DatabricksThreadContextHolder.clearAllContext();
+        }
+      }
+    }
+  }
+
+  /**
+   * Removes this connection from every shared map now, so a new connection never observes it. A
+   * pending final telemetry flush then runs on a background worker, followed by closing the
+   * telemetry HTTP client and auth configurator it still uses; close() does not wait for it. Runs
+   * inline when there is no flush or all workers are busy.
+   */
+  private void releaseClients(Runnable finalTelemetryFlush) {
+    Runnable closeConfigurator = null;
+    Runnable closeTelemetryHttpClient = null;
+    try {
+      closeConfigurator =
+          DatabricksClientConfiguratorManager.getInstance().detachInstance(connectionContext);
+    } finally {
+      try {
+        DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
+      } finally {
+        try {
+          closeTelemetryHttpClient =
+              DatabricksHttpClientFactory.getInstance()
+                  .closeConnectionExceptTelemetry(connectionContext);
+        } finally {
+          Runnable[] steps = {finalTelemetryFlush, closeTelemetryHttpClient, closeConfigurator};
+          if (finalTelemetryFlush == null) {
+            runInOrder(steps);
+          } else {
+            runInBackground(steps);
           }
         }
       }
     }
+  }
+
+  private static void runInBackground(Runnable[] steps) {
+    try {
+      CLOSE_EXECUTOR.execute(
+          () -> {
+            try {
+              runInOrder(steps);
+            } catch (RuntimeException e) {
+              // Inline, this failure would propagate from close(); keep it and its suppressed
+              // failures visible, since a failed client close can leak resources.
+              LOGGER.error(e, "Error while finishing connection close in the background");
+            }
+          });
+    } catch (RejectedExecutionException e) {
+      runInOrder(steps);
+    }
+  }
+
+  /** Runs every non-null step even if an earlier one fails, then rethrows the first failure. */
+  private static void runInOrder(Runnable[] steps) {
+    RuntimeException failure = null;
+    for (Runnable step : steps) {
+      if (step == null) {
+        continue;
+      }
+      try {
+        step.run();
+      } catch (RuntimeException e) {
+        if (failure == null) {
+          failure = e;
+        } else {
+          failure.addSuppressed(e);
+        }
+      }
+    }
+    if (failure != null) {
+      throw failure;
+    }
+  }
+
+  @VisibleForTesting
+  static int backgroundCloseThreadCount() {
+    return CLOSE_EXECUTOR.getPoolSize();
   }
 
   @Override

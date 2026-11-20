@@ -29,13 +29,16 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTransactionException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -1619,6 +1622,205 @@ public class DatabricksConnectionTest {
           "Connection evictor must terminate even when statement.close() fails");
     } finally {
       httpClientFactory.removeClient(localContext);
+    }
+  }
+
+  @Test
+  public void testCloseReturnsBeforeFinalTelemetryFlushAndReleasesClientsAfterIt()
+      throws Exception {
+    IDatabricksConnectionContext localContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
+    CountDownLatch flushStarted = new CountDownLatch(1);
+    CountDownLatch releaseFlush = new CountDownLatch(1);
+    AtomicBoolean flushFinished = new AtomicBoolean();
+    TelemetryClientFactory telemetryFactory = mock(TelemetryClientFactory.class);
+    when(telemetryFactory.detachTelemetryClient(localContext))
+        .thenReturn(
+            () -> {
+              flushStarted.countDown();
+              awaitQuietly(releaseFlush);
+              flushFinished.set(true);
+            });
+
+    try (DatabricksHttpClient commonClient =
+            assertInstanceOf(
+                DatabricksHttpClient.class,
+                httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+        DatabricksHttpClient telemetryClient =
+            assertInstanceOf(
+                DatabricksHttpClient.class,
+                httpClientFactory.getClient(localContext, HttpClientType.TELEMETRY))) {
+      IdleConnectionEvictor commonEvictor = getIdleConnectionEvictor(commonClient);
+      IdleConnectionEvictor telemetryEvictor = getIdleConnectionEvictor(telemetryClient);
+      when(databricksClient.createSession(
+              new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+          .thenReturn(IMMUTABLE_SESSION_INFO);
+      DatabricksConnection localConnection =
+          new DatabricksConnection(localContext, databricksClient);
+      localConnection.open();
+
+      try (MockedStatic<TelemetryClientFactory> factory =
+          mockStatic(TelemetryClientFactory.class)) {
+        factory.when(TelemetryClientFactory::getInstance).thenReturn(telemetryFactory);
+        localConnection.close();
+      }
+
+      assertFalse(flushFinished.get(), "close() waited for the final telemetry flush");
+      verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
+      assertTrue(localConnection.isClosed());
+      // Everything except the telemetry client the flush pushes through is released now.
+      assertInstanceOf(
+          ClosedConnectionHttpClient.class,
+          httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+      commonEvictor.awaitTermination(10, TimeUnit.SECONDS);
+      assertFalse(commonEvictor.isRunning());
+      assertTrue(flushStarted.await(10, TimeUnit.SECONDS));
+      assertSame(
+          telemetryClient, httpClientFactory.getClient(localContext, HttpClientType.TELEMETRY));
+      assertTrue(telemetryEvictor.isRunning());
+
+      releaseFlush.countDown();
+      telemetryEvictor.awaitTermination(10, TimeUnit.SECONDS);
+      assertFalse(telemetryEvictor.isRunning(), "Telemetry client must close after the flush");
+      assertInstanceOf(
+          ClosedConnectionHttpClient.class,
+          httpClientFactory.getClient(localContext, HttpClientType.TELEMETRY));
+      awaitNoBackgroundCloseThreads();
+    } finally {
+      releaseFlush.countDown();
+      httpClientFactory.removeClient(localContext);
+    }
+  }
+
+  @Test
+  public void testFailedFinalTelemetryFlushStillClosesTelemetryClient() throws Exception {
+    IDatabricksConnectionContext localContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
+    TelemetryClientFactory telemetryFactory = mock(TelemetryClientFactory.class);
+    when(telemetryFactory.detachTelemetryClient(localContext))
+        .thenReturn(
+            () -> {
+              throw new IllegalStateException("flush failed");
+            });
+
+    try (DatabricksHttpClient telemetryClient =
+        assertInstanceOf(
+            DatabricksHttpClient.class,
+            httpClientFactory.getClient(localContext, HttpClientType.TELEMETRY))) {
+      IdleConnectionEvictor evictor = getIdleConnectionEvictor(telemetryClient);
+      DatabricksConnection localConnection =
+          new DatabricksConnection(localContext, databricksClient);
+
+      try (MockedStatic<TelemetryClientFactory> factory =
+          mockStatic(TelemetryClientFactory.class)) {
+        factory.when(TelemetryClientFactory::getInstance).thenReturn(telemetryFactory);
+        assertDoesNotThrow(localConnection::close);
+      }
+
+      evictor.awaitTermination(10, TimeUnit.SECONDS);
+      assertFalse(evictor.isRunning(), "Telemetry client must close even if the flush fails");
+      awaitNoBackgroundCloseThreads();
+    } finally {
+      httpClientFactory.removeClient(localContext);
+    }
+  }
+
+  @Test
+  public void testCloseFromBackgroundCloseWorkerDoesNotDeadlock() throws Exception {
+    IDatabricksConnectionContext outerContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    IDatabricksConnectionContext innerContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    DatabricksConnection inner = new DatabricksConnection(innerContext, databricksClient);
+    CountDownLatch innerFlushed = new CountDownLatch(1);
+    TelemetryClientFactory telemetryFactory = mock(TelemetryClientFactory.class);
+    // Contexts with the same URL are equal, so match by identity.
+    when(telemetryFactory.detachTelemetryClient(same(innerContext)))
+        .thenReturn(innerFlushed::countDown);
+    // The outer flush runs on a close worker and closes another connection from there.
+    when(telemetryFactory.detachTelemetryClient(same(outerContext)))
+        .thenReturn(
+            () -> {
+              try (MockedStatic<TelemetryClientFactory> nested =
+                  mockStatic(TelemetryClientFactory.class)) {
+                nested.when(TelemetryClientFactory::getInstance).thenReturn(telemetryFactory);
+                inner.close();
+              } catch (SQLException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+
+    try (MockedStatic<TelemetryClientFactory> factory = mockStatic(TelemetryClientFactory.class)) {
+      factory.when(TelemetryClientFactory::getInstance).thenReturn(telemetryFactory);
+      new DatabricksConnection(outerContext, databricksClient).close();
+    }
+
+    assertTrue(innerFlushed.await(10, TimeUnit.SECONDS));
+    assertTrue(inner.isClosed());
+    awaitNoBackgroundCloseThreads();
+  }
+
+  @Test
+  public void testCloseFinishesInlineWhenBackgroundClosesAreSaturated() throws Exception {
+    // The executor is JVM-wide; start only once other tests' workers have finished.
+    awaitNoBackgroundCloseThreads();
+    int busy = DatabricksConnection.MAX_BACKGROUND_CLOSES;
+    Thread testThread = Thread.currentThread();
+    CountDownLatch backgroundStarted = new CountDownLatch(busy);
+    CountDownLatch backgroundFinished = new CountDownLatch(busy);
+    CountDownLatch releaseFlush = new CountDownLatch(1);
+    AtomicBoolean ranInline = new AtomicBoolean();
+    TelemetryClientFactory telemetryFactory = mock(TelemetryClientFactory.class);
+    when(telemetryFactory.detachTelemetryClient(any()))
+        .thenReturn(
+            () -> {
+              if (Thread.currentThread() == testThread) {
+                ranInline.set(true);
+                return;
+              }
+              backgroundStarted.countDown();
+              awaitQuietly(releaseFlush);
+              backgroundFinished.countDown();
+            });
+
+    try (MockedStatic<TelemetryClientFactory> factory = mockStatic(TelemetryClientFactory.class)) {
+      factory.when(TelemetryClientFactory::getInstance).thenReturn(telemetryFactory);
+      for (int i = 0; i < busy; i++) {
+        new DatabricksConnection(
+                DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties()),
+                databricksClient)
+            .close();
+      }
+      assertTrue(backgroundStarted.await(10, TimeUnit.SECONDS));
+
+      new DatabricksConnection(
+              DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties()),
+              databricksClient)
+          .close();
+
+      assertTrue(ranInline.get(), "With every worker busy, close() must finish inline");
+    } finally {
+      releaseFlush.countDown();
+    }
+    assertTrue(backgroundFinished.await(10, TimeUnit.SECONDS));
+  }
+
+  /** Close workers must exit as soon as they are idle so they never keep the JVM alive. */
+  private static void awaitNoBackgroundCloseThreads() throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+    while (DatabricksConnection.backgroundCloseThreadCount() > 0 && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
+    assertEquals(0, DatabricksConnection.backgroundCloseThreadCount());
+  }
+
+  private static void awaitQuietly(CountDownLatch latch) {
+    try {
+      latch.await(30, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 

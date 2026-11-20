@@ -58,7 +58,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
-    asyncClient = GlobalAsyncHttpClient.getClient();
+    // Telemetry pushes are synchronous. Not holding the shared async client lets the TELEMETRY
+    // client close after Connection.close() without touching shared reference counts.
+    asyncClient = type == HttpClientType.TELEMETRY ? null : GlobalAsyncHttpClient.getClient();
   }
 
   @VisibleForTesting
@@ -107,6 +109,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       AsyncRequestProducer requestProducer,
       AsyncResponseConsumer<T> responseConsumer,
       FutureCallback<T> callback) {
+    if (asyncClient == null) {
+      throw new IllegalStateException("This HTTP client does not support async requests");
+    }
     return asyncClient.execute(requestProducer, responseConsumer, callback);
   }
 

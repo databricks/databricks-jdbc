@@ -57,13 +57,29 @@ public class DatabricksHttpClientFactory {
    * com.databricks.jdbc.api.impl.DatabricksConnection#close()}.
    */
   public void closeConnection(IDatabricksConnectionContext context) {
+    closeConnectionExceptTelemetry(context).run();
+  }
+
+  /**
+   * Like {@link #closeConnection}, but the TELEMETRY client stays usable until the returned
+   * Runnable runs, so a final telemetry push can finish first. It is keyed by this connection, so
+   * no other connection can observe the delay.
+   */
+  public Runnable closeConnectionExceptTelemetry(IDatabricksConnectionContext context) {
     String uuid = context.getConnectionUuid();
     for (HttpClientType type : HttpClientType.values()) {
-      SimpleEntry<String, HttpClientType> key = getClientKey(uuid, type);
-      IDatabricksHttpClient old = instances.put(key, ClosedConnectionHttpClient.INSTANCE);
-      if (old != null && !(old instanceof ClosedConnectionHttpClient)) {
-        closeQuietly(old);
+      if (type != HttpClientType.TELEMETRY) {
+        closeClient(uuid, type);
       }
+    }
+    return () -> closeClient(uuid, HttpClientType.TELEMETRY);
+  }
+
+  private void closeClient(String uuid, HttpClientType type) {
+    IDatabricksHttpClient old =
+        instances.put(getClientKey(uuid, type), ClosedConnectionHttpClient.INSTANCE);
+    if (old != null && !(old instanceof ClosedConnectionHttpClient)) {
+      closeQuietly(old);
     }
   }
 

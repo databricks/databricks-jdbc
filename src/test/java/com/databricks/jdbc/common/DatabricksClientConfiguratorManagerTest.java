@@ -113,6 +113,22 @@ class DatabricksClientConfiguratorManagerTest {
   }
 
   @Test
+  void detachInstanceRemovesNowAndClosesOnlyWhenRun() {
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(ClientConfigurator.class)) {
+      ClientConfigurator first = manager.getConfigurator(contextA);
+
+      Runnable close = manager.detachInstance(contextA);
+
+      assertNull(manager.getConfiguratorOnlyIfExists(contextA));
+      verify(first, never()).close();
+      close.run();
+      verify(first).close();
+      assertNull(manager.detachInstance(contextA));
+    }
+  }
+
+  @Test
   void failedCreationRemovesHolderAndNextCallCanRetry() throws Exception {
     try (MockedConstruction<ClientConfigurator> mocked =
         mockConstruction(

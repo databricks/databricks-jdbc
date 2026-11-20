@@ -9,6 +9,8 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.TelemetryAuthHelper;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.HashMap;
 import java.util.Map;
@@ -345,6 +347,109 @@ public class TelemetryClientFactoryTest {
     } finally {
       releaseClose.countDown();
       closer.shutdownNow();
+    }
+  }
+
+  @Test
+  void testClosingBoundConnectionMovesPushesToAnotherOpenConnection() throws Exception {
+    String host = "shared-host.databricks.net";
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
+      setupTelemetryHelperMock(mockedStatic);
+      IDatabricksConnectionContext first = createMockContext("uuid-1", host, false);
+      IDatabricksConnectionContext second = createMockContext("uuid-2", host, false);
+      ITelemetryClient shared = TelemetryClientFactory.getInstance().getTelemetryClient(first);
+      TelemetryClientFactory.getInstance().getTelemetryClient(second);
+      assertSame(first, boundContext(shared));
+
+      TelemetryClientFactory.getInstance().closeTelemetryClient(first);
+
+      // The first connection's HTTP client closes with it; pushes must use the second's.
+      assertSame(second, boundContext(shared));
+      TelemetryClientFactory.getInstance().closeTelemetryClient(second);
+      assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+    }
+  }
+
+  @Test
+  void testFailedRebindDoesNotFailClose() throws Exception {
+    String host = "shared-host.databricks.net";
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
+      setupTelemetryHelperMock(mockedStatic);
+      IDatabricksConnectionContext first = createMockContext("uuid-1", host, false);
+      IDatabricksConnectionContext second = createMockContext("uuid-2", host, false);
+      TelemetryClientFactory.getInstance().getTelemetryClient(first);
+      TelemetryClientFactory.getInstance().getTelemetryClient(second);
+      // Building the replacement push client fails.
+      when(second.isTelemetryCircuitBreakerEnabled()).thenThrow(new IllegalStateException("boom"));
+
+      assertDoesNotThrow(() -> TelemetryClientFactory.getInstance().closeTelemetryClient(first));
+
+      assertEquals(1, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+      TelemetryClientFactory.getInstance().closeTelemetryClient(second);
+      assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+    }
+  }
+
+  private static Object boundContext(ITelemetryClient client) throws Exception {
+    java.lang.reflect.Field field = TelemetryClient.class.getDeclaredField("context");
+    field.setAccessible(true);
+    return field.get(client);
+  }
+
+  @Test
+  void testDetachDefersOnlyTheLastConnectionsFinalFlush() throws Exception {
+    String host = "shared-host.databricks.net";
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class);
+        MockedConstruction<TelemetryClient> clients = mockConstruction(TelemetryClient.class)) {
+      setupTelemetryHelperMock(mockedStatic);
+      IDatabricksConnectionContext conn1 = createMockContext("uuid-1", host, false);
+      IDatabricksConnectionContext conn2 = createMockContext("uuid-2", host, false);
+      TelemetryClientFactory.getInstance().getTelemetryClient(conn1);
+      TelemetryClientFactory.getInstance().getTelemetryClient(conn2);
+      TelemetryClient shared = clients.constructed().get(0);
+
+      assertNull(TelemetryClientFactory.getInstance().detachTelemetryClient(conn1));
+      Runnable finalFlush = TelemetryClientFactory.getInstance().detachTelemetryClient(conn2);
+
+      assertNotNull(finalFlush, "The host's last connection must hand back its final flush");
+      assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+      assertInstanceOf(
+          NoopTelemetryClient.class,
+          TelemetryClientFactory.getInstance().getTelemetryClient(conn2));
+      verify(shared, never()).close();
+      mockedStatic.verify(() -> TelemetryHelper.removeConnectionParameters("uuid-2"), never());
+
+      finalFlush.run();
+
+      verify(shared).close();
+      mockedStatic.verify(() -> TelemetryHelper.removeConnectionParameters("uuid-2"));
+    }
+  }
+
+  @Test
+  void testDetachClosesClientInlineWhenPendingExportFails() throws Exception {
+    String host = "test-host.databricks.net";
+    TelemetryCollectorManager collectorManager = mock(TelemetryCollectorManager.class);
+    TelemetryCollector collector = mock(TelemetryCollector.class);
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class);
+        MockedStatic<TelemetryCollectorManager> managerStatic =
+            mockStatic(TelemetryCollectorManager.class);
+        MockedConstruction<TelemetryClient> clients = mockConstruction(TelemetryClient.class)) {
+      setupTelemetryHelperMock(mockedStatic);
+      managerStatic.when(TelemetryCollectorManager::getInstance).thenReturn(collectorManager);
+      IDatabricksConnectionContext ctx = createMockContext("uuid-1", host, false);
+      when(collectorManager.removeCollector(ctx)).thenReturn(collector);
+      doThrow(new IllegalStateException("export failed"))
+          .when(collector)
+          .exportAllPendingTelemetryDetails();
+      TelemetryClientFactory.getInstance().getTelemetryClient(ctx);
+
+      assertThrows(
+          IllegalStateException.class,
+          () -> TelemetryClientFactory.getInstance().detachTelemetryClient(ctx));
+
+      verify(clients.constructed().get(0)).close();
+      assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
     }
   }
 
