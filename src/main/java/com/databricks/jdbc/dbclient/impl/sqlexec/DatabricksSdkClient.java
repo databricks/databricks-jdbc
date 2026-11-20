@@ -86,6 +86,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final AtomicBoolean apcDowngradeReported = new AtomicBoolean(false);
   private volatile ApiClient apiClient;
 
+  static final int APC_NATIVE_BATCH_SUBMIT_MAX_THREADS = 16;
+  // A timed-out submit stays blocked in HTTP, so the pool rejects instead of growing or queueing.
+  private final java.util.concurrent.ExecutorService apcNativeBatchSubmitExecutor =
+      new java.util.concurrent.ThreadPoolExecutor(
+          0,
+          APC_NATIVE_BATCH_SUBMIT_MAX_THREADS,
+          60,
+          java.util.concurrent.TimeUnit.SECONDS,
+          new java.util.concurrent.SynchronousQueue<>(),
+          runnable -> {
+            Thread thread = new Thread(runnable, "apc-native-batch-submit");
+            thread.setDaemon(true);
+            return thread;
+          });
+
   private static final class CreateSessionHttpRequest extends RedactingRequest {
     boolean realtimeSession;
 
@@ -811,20 +826,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (timeoutSeconds <= 0) {
       return execute(request, ExecuteStatementResponse.class);
     }
-    java.util.concurrent.CompletableFuture<ExecuteStatementResponse> submit =
-        new java.util.concurrent.CompletableFuture<>();
-    Thread worker =
-        new Thread(
-            () -> {
-              try {
-                submit.complete(execute(request, ExecuteStatementResponse.class));
-              } catch (Throwable failure) {
-                submit.completeExceptionally(failure);
-              }
-            },
-            "apc-native-batch-submit");
-    worker.setDaemon(true);
-    worker.start();
+    java.util.concurrent.CompletableFuture<ExecuteStatementResponse> submit;
+    try {
+      submit =
+          java.util.concurrent.CompletableFuture.supplyAsync(
+              () -> {
+                try {
+                  return execute(request, ExecuteStatementResponse.class);
+                } catch (IOException e) {
+                  throw new java.util.concurrent.CompletionException(e);
+                }
+              },
+              apcNativeBatchSubmitExecutor);
+    } catch (java.util.concurrent.RejectedExecutionException e) {
+      throw new IOException("Too many timed-out APC native batch submits are still in flight", e);
+    }
     try {
       return submit.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
     } catch (java.util.concurrent.TimeoutException | InterruptedException e) {
@@ -859,9 +875,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     StatementId id = StatementId.forCurrentSession(late.getStatementId(), session.getSessionInfo());
     try {
       cancelStatement(id);
+    } catch (Exception cleanupFailure) {
+      LOGGER.warn("Could not cancel timed-out APC native batch operation");
+    }
+    try {
       closeStatement(id);
     } catch (Exception cleanupFailure) {
-      LOGGER.warn("Could not release timed-out APC native batch operation");
+      LOGGER.warn("Could not close timed-out APC native batch operation");
     }
   }
 

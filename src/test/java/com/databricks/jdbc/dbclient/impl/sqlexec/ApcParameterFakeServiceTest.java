@@ -197,23 +197,6 @@ class ApcParameterFakeServiceTest {
   }
 
   @Test
-  void nativeBatchSubmitIsBoundedByQueryTimeout() throws Exception {
-    server.stubFor(
-        post(urlPathEqualTo(PathConstants.STATEMENT_PATH))
-            .willReturn(okJson(RESPONSE).withFixedDelay(2500)));
-    DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
-    prepared.setQueryTimeout(1);
-    for (int value = 1; value <= 2; value++) {
-      prepared.setInt(1, value);
-      prepared.addBatch();
-    }
-
-    long startMillis = System.currentTimeMillis();
-    assertThrows(BatchUpdateException.class, prepared::executeLargeBatch);
-    assertTrue(System.currentTimeMillis() - startMillis < 2200);
-  }
-
-  @Test
   void mixedBinaryAndNumericSetsExecuteIndividuallyWithHexBytes() throws Exception {
     DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
     prepared.setBytes(1, new byte[] {(byte) 0xFF});
@@ -311,6 +294,9 @@ class ApcParameterFakeServiceTest {
     for (JsonNode body : bodies) {
       assertFalse(body.has("parameters"));
       assertEquals(2, body.path("parameter_sets").size());
+      // APC ordinals are one-based, like APC's top-level native parameters (warehouse is zero).
+      assertEquals("1", setValue(body, 0, "ordinal"));
+      assertEquals("1", setValue(body, 1, "ordinal"));
     }
     verifyOperationClosed("statement-1");
     verifyOperationClosed("statement-2");

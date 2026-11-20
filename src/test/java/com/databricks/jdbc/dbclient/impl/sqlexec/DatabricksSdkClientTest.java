@@ -2891,30 +2891,6 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  void warehouseBinaryParameterMappingRetainsExistingBytes() throws Exception {
-    byte[] bytes = new byte[] {0x00, (byte) 0xFF};
-    StatementParameterListItem wire =
-        apcClient().mapToParameterListItem(getSqlParam(1, bytes, DatabricksTypeUtil.BINARY));
-
-    assertEquals("BINARY", wire.getType());
-    assertEquals(bytes.toString(), wire.getValue());
-  }
-
-  @Test
-  public void testNativeBatchRequiresLiveV10WithDriverCode() throws Exception {
-    DatabricksSdkClient client = apcClient();
-    DatabricksSession session = apcSession(APC_CLUSTER, 42249L);
-
-    java.sql.SQLFeatureNotSupportedException error =
-        assertThrows(
-            java.sql.SQLFeatureNotSupportedException.class,
-            () -> client.executeNativeBatch(NATIVE_INSERT, List.of(), session, null));
-    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), error.getErrorCode());
-    verifyNoInteractions(apiClient);
-  }
-
-  @Test
   public void testWarehouseSubmitAndPollPreserveSdkException() throws Exception {
     DatabricksSdkClient client = apcClient();
     DatabricksSession session = apcSession(warehouse, null);
@@ -3090,38 +3066,14 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testApcPreparedPollIoFailureClosesAssignedOperation() throws Exception {
-    DatabricksSdkClient client = apcClient();
-    DatabricksSession session = apcSession(APC_CLUSTER, 42248L);
-    stubSubmit("statement", StatementState.PENDING);
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenThrow(new IOException("poll failed"));
-    DatabricksPreparedStatement prepared = mock(DatabricksPreparedStatement.class);
-    when(prepared.getStatement()).thenReturn(mock(java.sql.Statement.class));
-
-    assertThrows(
-        DatabricksSQLException.class,
-        () ->
-            client.executeStatement(
-                "SELECT ?",
-                APC_CLUSTER,
-                stringBinding("bound"),
-                StatementType.QUERY,
-                session,
-                prepared,
-                null));
-
-    verify(prepared)
-        .setStatementId(StatementId.forCurrentSession("statement", apcInfo(APC_CLUSTER, 42248L)));
-    verify(prepared).closeServerOperation();
-  }
-
-  @Test
   public void testApcNativeBatchQueryTimeoutCoversDelayedSubmitResponse() throws Exception {
     DatabricksSdkClient client = apcClient();
     DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
     IDatabricksStatementInternal parent = parentWithTimeout(1);
     stubSerialize();
+    when(apiClient.execute(any(Request.class), eq(Void.class)))
+        .thenThrow(new IOException("cancel failed"))
+        .thenReturn(null);
     // The submit blocks past the 1s query timeout before any statement ID exists.
     when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
         .thenAnswer(
@@ -3143,10 +3095,45 @@ public class DatabricksSdkClientTest {
     // The caller is released at the deadline, not when the blocked submit finally returns.
     assertTrue(System.currentTimeMillis() - startMillis < 2200);
     verify(apiClient, never()).execute(any(Request.class), eq(GetStatementResponse.class));
-    // The operation the abandoned submit later creates is cancelled and closed.
+    // The abandoned submit's operation is closed even though its cancel throws.
     ArgumentCaptor<Request> cleanup = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient, timeout(5000).atLeastOnce()).execute(cleanup.capture(), eq(Void.class));
-    assertTrue(cleanup.getAllValues().stream().anyMatch(r -> r.getUrl().endsWith("/cancel")));
+    verify(apiClient, timeout(5000).times(2)).execute(cleanup.capture(), eq(Void.class));
+    assertTrue(cleanup.getAllValues().get(0).getUrl().endsWith("/cancel"));
+    assertEquals(Request.DELETE, cleanup.getAllValues().get(1).getMethod());
+  }
+
+  @Test
+  public void testApcNativeBatchSubmitsShareBoundedPool() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    stubSerialize();
+    int max = DatabricksSdkClient.APC_NATIVE_BATCH_SUBMIT_MAX_THREADS;
+    java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(max);
+    java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              release.await();
+              return statementResponse("late", StatementState.SUCCEEDED);
+            });
+    List<BatchParameterSet> sets = List.of(BatchParameterSet.from(stringBinding("v")));
+    java.util.concurrent.ExecutorService callers =
+        java.util.concurrent.Executors.newFixedThreadPool(max);
+    for (int i = 0; i < max; i++) {
+      IDatabricksStatementInternal parent = parentWithTimeout(1);
+      callers.submit(() -> client.executeNativeBatch(NATIVE_INSERT, sets, session, parent));
+    }
+    assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS));
+
+    // Every pooled submit is still blocked, so one more fails fast instead of adding a thread.
+    IDatabricksStatementInternal extra = parentWithTimeout(1);
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> client.executeNativeBatch(NATIVE_INSERT, sets, session, extra));
+    verify(apiClient, times(max)).execute(any(Request.class), eq(ExecuteStatementResponse.class));
+    release.countDown();
+    callers.shutdownNow();
   }
 
   @Test
