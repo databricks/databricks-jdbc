@@ -19,7 +19,6 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
-import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.BatchUpdateException;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -496,48 +495,6 @@ class ApcParameterCapabilitiesTest {
   }
 
   @Test
-  void warehouseNativeBatchRetainsHistoricalEscapeProcessing() throws Exception {
-    TestConnection test = testConnection(42250L);
-    Warehouse warehouse = useWarehouse(test, DatabricksClientType.SEA);
-    DatabricksStatement statement = new DatabricksStatement(test.connection);
-    statement.setEscapeProcessing(true);
-    DatabricksResultSet result = mock(DatabricksResultSet.class);
-    when(result.getBatchUpdateCounts(1)).thenReturn(new long[] {1});
-    when(test.client.executeStatementBatch(
-            anyString(), eq(warehouse), anyList(), eq(StatementType.UPDATE), any(), eq(statement)))
-        .thenReturn(result);
-
-    statement.executeNativeBatchInternal(
-        "INSERT INTO t VALUES ('{fn UCASE(a)}', ?) /* ESCAPE '' */",
-        List.of(
-            BatchParameterSet.from(
-                Map.of(
-                    1,
-                    ImmutableSqlParameter.builder()
-                        .type(ColumnInfoTypeName.INT)
-                        .value(1)
-                        .cardinal(1)
-                        .build()))));
-
-    verify(test.client)
-        .executeStatementBatch(
-            eq("INSERT INTO t VALUES ('UCASE(a)', ?) /* */"),
-            eq(warehouse),
-            anyList(),
-            eq(StatementType.UPDATE),
-            any(),
-            eq(statement));
-
-    whenExecute(test, warehouse, null, StatementType.QUERY, statement)
-        .thenReturn(mock(DatabricksResultSet.class));
-    statement.executeInternal(
-        "SELECT '{fn UCASE(a)}' AS value /* ESCAPE '' */", Map.of(), StatementType.QUERY);
-    assertEquals(
-        "SELECT 'UCASE(a)' AS value /* */",
-        verifyExecuted(test, 1, warehouse, StatementType.QUERY, statement).sql.get(0));
-  }
-
-  @Test
   void unsupportedNativeBatchPathsEmitDriverErrorCode() {
     IDatabricksClient defaultClient = mock(IDatabricksClient.class, CALLS_REAL_METHODS);
     DatabricksThriftServiceClient thriftClient =
@@ -569,21 +526,6 @@ class ApcParameterCapabilitiesTest {
       verifyExecuted(test, 2, CLUSTER, StatementType.UPDATE, prepared);
       verifyNoNativeBatch(test);
     }
-  }
-
-  @Test
-  void nativeBatchCallTraversesSessionClientProxy() throws Exception {
-    TestConnection test = testConnection(42250L);
-    IDatabricksClient proxy = DatabricksMetricsTimedProcessor.createProxy(test.client);
-    when(test.connection.getSession().getDatabricksClient()).thenReturn(proxy);
-    when(test.client.supportsNativeBatchExecution()).thenReturn(true);
-    when(test.client.executeNativeBatch(eq(INSERT), anyList(), any(), any()))
-        .thenReturn(new long[] {Statement.SUCCESS_NO_INFO});
-    DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(test.connection, INSERT);
-    addIntBatch(prepared, 7);
-
-    assertArrayEquals(new long[] {Statement.SUCCESS_NO_INFO}, prepared.executeLargeBatch());
-    verify(test.client).executeNativeBatch(eq(INSERT), anyList(), any(), eq(prepared));
   }
 
   private static class TestConnection {

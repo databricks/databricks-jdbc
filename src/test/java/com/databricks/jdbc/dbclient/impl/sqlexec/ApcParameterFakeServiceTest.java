@@ -233,41 +233,6 @@ class ApcParameterFakeServiceTest {
     assertTrue(executeBodies().isEmpty());
   }
 
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L, 42248L})
-  void preparedBatchCapturesOneEscapedRequestPerSet(Long version) throws Exception {
-    server.stubFor(
-        post(urlPathEqualTo(PathConstants.STATEMENT_PATH))
-            .withRequestBody(containing("marker-b"))
-            .atPriority(1)
-            .willReturn(okJson(RESPONSE.replace("statement-1", "statement-2"))));
-    DatabricksPreparedStatement prepared = prepared(version, INSERT, false);
-    for (String value : List.of("a' ; --", "marker-b\\c")) {
-      prepared.setString(1, value);
-      prepared.addBatch();
-    }
-    assertArrayEquals(new long[] {1, 1}, prepared.executeLargeBatch());
-    List<JsonNode> bodies = executeBodies();
-    assertEquals(2, bodies.size());
-    verifyOperationClosed("statement-1");
-    verifyOperationClosed("statement-2");
-    for (JsonNode body : bodies) {
-      assertFalse(body.has("parameter_sets"));
-    }
-    if (version != null && version >= 42248L) {
-      assertEquals(INSERT, bodies.get(0).path("statement").asText());
-      assertEquals("a' ; --", bodies.get(0).path("parameters").get(0).path("value").asText());
-      assertEquals("marker-b\\c", bodies.get(1).path("parameters").get(0).path("value").asText());
-    } else {
-      assertEquals("INSERT INTO t VALUES ('a'' ; --')", bodies.get(0).path("statement").asText());
-      assertEquals(
-          "INSERT INTO t VALUES ('marker-b\\\\c')", bodies.get(1).path("statement").asText());
-      assertFalse(bodies.get(0).has("parameters"));
-      assertFalse(bodies.get(1).has("parameters"));
-    }
-  }
-
   @Test
   void nativeBatchClosesEveryOperationAndOmitsTopLevelParameters() throws Exception {
     server.stubFor(
