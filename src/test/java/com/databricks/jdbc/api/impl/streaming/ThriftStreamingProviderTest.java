@@ -54,6 +54,39 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
+  void testSingleBatchDoesNotStartPrefetchThread() throws SQLException {
+    ThriftStreamingProvider<ColumnarRowView> provider =
+        ThriftStreamingProvider.forColumnar(
+            batchFetcher, createResponseWithStringData(2, false), 3, 30);
+    assertFalse(provider.hasPrefetchThread());
+    assertTrue(provider.nextBatch());
+    assertEquals(2, provider.getCurrentBatch().getRowCount());
+    assertFalse(provider.nextBatch());
+    provider.close();
+
+    verify(batchFetcher, never()).fetchNextBatch();
+    verify(batchFetcher).close();
+  }
+
+  @Test
+  void testMultiBatchStartsPrefetchThread() throws SQLException {
+    when(batchFetcher.fetchNextBatch()).thenReturn(createResponseWithStringData(1, false));
+    ThriftStreamingProvider<ColumnarRowView> provider =
+        ThriftStreamingProvider.forColumnar(
+            batchFetcher, createResponseWithStringData(2, true), 3, 30);
+    try {
+      assertTrue(provider.hasPrefetchThread());
+      assertTrue(provider.nextBatch());
+      assertTrue(provider.nextBatch());
+      assertEquals(1, provider.getCurrentBatch().getRowCount());
+      assertFalse(provider.nextBatch());
+      assertEquals(3, provider.getTotalRowsFetched());
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
   void testSlidingWindowBoundsMemory() throws SQLException, InterruptedException {
     int maxBatchesInMemory = 3;
 

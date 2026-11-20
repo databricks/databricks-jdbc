@@ -13,6 +13,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -74,7 +75,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   private final Condition consumerAdvanced = prefetchLock.newCondition();
   private final AtomicInteger chunksInMemory = new AtomicInteger(0);
 
-  // Prefetch thread
+  // Prefetch thread; null when the initial result data already holds the whole result.
   private final Thread prefetchThread;
 
   SeaInlineArrowChunkProvider(
@@ -120,12 +121,16 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
       endOfStream = true;
     }
 
-    // Start prefetch thread (mirrors ThriftStreamingProvider)
-    this.prefetchThread = new Thread(this::prefetchLoop, PREFETCH_THREAD_NAME);
-    this.prefetchThread.setDaemon(true);
-    this.prefetchThread.start();
-
-    notifyConsumerAdvanced();
+    if (endOfStream) {
+      // Nothing to prefetch; avoids a thread start/join per small result.
+      this.prefetchThread = null;
+    } else {
+      // Start prefetch thread (mirrors ThriftStreamingProvider)
+      this.prefetchThread = new Thread(this::prefetchLoop, PREFETCH_THREAD_NAME);
+      this.prefetchThread.setDaemon(true);
+      this.prefetchThread.start();
+      notifyConsumerAdvanced();
+    }
 
     LOGGER.debug(
         "SeaInlineArrowChunkProvider created: statement={}, maxBatches={}, endOfStream={}",
@@ -207,12 +212,14 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     notifyChunkAvailable();
 
     // Interrupt and wait for prefetch thread (mirrors ThriftStreamingProvider)
-    prefetchThread.interrupt();
-    try {
-      prefetchThread.join(5000);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
+    if (prefetchThread != null) {
+      prefetchThread.interrupt();
+      try {
+        prefetchThread.join(5000);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
+      }
     }
 
     // Release all chunks
@@ -239,6 +246,11 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   @Override
   public boolean isClosed() {
     return closed;
+  }
+
+  @VisibleForTesting
+  boolean hasPrefetchThread() {
+    return prefetchThread != null;
   }
 
   // ==================== Prefetch Logic ====================
