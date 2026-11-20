@@ -1024,14 +1024,25 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (zone == null) {
       return;
     }
-    // LOCAL and INTERVAL offsets are resolved by the server, so read back what it applied.
+    // LOCAL, INTERVAL offsets and zone IDs java.time rejects (e.g. Spark's short ID "PST") are
+    // resolved by the server, so read back what it applied.
     if ("LOCAL".equalsIgnoreCase(zone)
         || (zone.regionMatches(true, 0, "INTERVAL", 0, 8)
             && zone.length() > 8
-            && Character.isWhitespace(zone.charAt(8)))) {
+            && Character.isWhitespace(zone.charAt(8)))
+        || !isJavaTimeZoneId(zone)) {
       zone = readEffectiveSessionTimeZone(connection);
     }
     publishSessionTimeZone(connection, zone);
+  }
+
+  private static boolean isJavaTimeZoneId(String zone) {
+    try {
+      java.time.ZoneId.of(zone);
+      return true;
+    } catch (java.time.DateTimeException e) {
+      return false;
+    }
   }
 
   static boolean isApcSea(DatabricksConnection connection) {

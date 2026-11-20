@@ -99,10 +99,13 @@ public class ArrowStreamResult implements IExecutionResult {
             createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
       }
     }
+    // DDL-style manifests can carry a schema with no (null) columns.
+    Collection<ColumnInfo> manifestColumns = resultManifest.getSchema().getColumns();
     this.columnInfos =
-        !apc && Long.valueOf(0).equals(resultManifest.getSchema().getColumnCount())
+        (!apc && Long.valueOf(0).equals(resultManifest.getSchema().getColumnCount()))
+                || manifestColumns == null
             ? new ArrayList<>()
-            : new ArrayList<>(resultManifest.getSchema().getColumns());
+            : new ArrayList<>(manifestColumns);
   }
 
   /**

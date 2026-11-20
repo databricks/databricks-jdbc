@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -50,11 +51,14 @@ public final class ArrowBatchSchemaBuilder {
 
   public static Schema build(ResultSchema resultSchema, String sessionTimeZone)
       throws DatabricksParsingException {
-    if (resultSchema == null || resultSchema.getColumns() == null) {
+    if (resultSchema == null) {
       throw invalidSchema("APC result manifest has no schema", null);
     }
     List<Field> fields = new ArrayList<>();
-    for (ColumnInfo column : resultSchema.getColumns()) {
+    // DDL manifests have a schema with null columns; that is an empty schema, not an error.
+    Collection<ColumnInfo> columns =
+        resultSchema.getColumns() == null ? Collections.emptyList() : resultSchema.getColumns();
+    for (ColumnInfo column : columns) {
       if (column.getName() == null) {
         throw invalidSchema("APC result schema has an unnamed column", null);
       }

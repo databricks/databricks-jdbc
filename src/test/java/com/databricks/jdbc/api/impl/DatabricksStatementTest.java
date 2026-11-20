@@ -226,6 +226,35 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void setTimeZoneWithShortIdJavaTimeRejectsReadsTheEffectiveServerZone() throws Exception {
+    IDatabricksConnectionContext context = apcSeaContext();
+    DatabricksConnection connection = spy(new DatabricksConnection(context, client));
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    Statement zoneStatement = mock(Statement.class);
+    ResultSet zoneResult = mock(ResultSet.class);
+    doReturn(zoneStatement).when(connection).createStatement();
+    when(zoneStatement.executeQuery("SELECT current_timezone()")).thenReturn(zoneResult);
+    when(zoneResult.next()).thenReturn(true);
+    when(zoneResult.getString(1)).thenReturn("America/Los_Angeles");
+    String sql = "SET TIME ZONE 'PST'";
+    when(client.executeStatement(
+            eq(sql),
+            eq(APC_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    statement.executeInternal(sql, new HashMap<>(), StatementType.SQL);
+
+    assertEquals(
+        "America/Los_Angeles", connection.getSession().getSessionConfigs().get("timezone"));
+    verify(zoneStatement).executeQuery("SELECT current_timezone()");
+  }
+
+  @Test
   public void setTimeZoneLocalWithoutServerZoneUsesDriverErrorCode() throws Exception {
     IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));

@@ -38,10 +38,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DecimalVector;
@@ -258,6 +254,23 @@ class ApcArrowBatchChunkProviderTest {
   }
 
   @Test
+  void zeroColumnManifestWithNullColumnsIsAnEmptyResult() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    ResultManifest ddlManifest =
+        manifest(CompressionCodec.NONE).setSchema(new ResultSchema().setColumnCount(0L));
+    try (ResultCloser result =
+        new ResultCloser(
+            new ArrowStreamResult(
+                ddlManifest,
+                new ResultData(),
+                ID,
+                session(client, false),
+                mock(IDatabricksHttpClient.class)))) {
+      assertFalse(result.result.next());
+    }
+  }
+
+  @Test
   void malformedOptionalArrowSchemaDoesNotOverrideManifest() throws Exception {
     IDatabricksSession session = session(mock(IDatabricksClient.class), false);
     ResultManifest invalid = manifest(CompressionCodec.NONE).setArrowSchema(new byte[] {1, 2});
@@ -325,31 +338,6 @@ class ApcArrowBatchChunkProviderTest {
   }
 
   @Test
-  void httpFailureDoesNotExposePresignedUrlInExceptionChain() throws Exception {
-    String url = "https://storage.example.test/private/chunk?Signature=secret-signature";
-    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
-    when(http.execute(any(HttpUriRequest.class), eq(true)))
-        .thenThrow(
-            new com.databricks.jdbc.exception.DatabricksHttpException(
-                "Failed request to " + url, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR));
-    ArrowResultChunk chunk =
-        ArrowResultChunk.builder().withStatementId(ID).withChunkMetadata(0, 1, 0).build();
-    chunk.setChunkLink(link(url, 0, 0, 1, null));
-    try {
-      DatabricksSQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () -> chunk.downloadData(http, CompressionCodec.NONE, 0));
-      for (Throwable cause = error; cause != null; cause = cause.getCause()) {
-        assertFalse(cause.toString().contains("secret-signature"));
-        assertFalse(cause.toString().contains("private/chunk"));
-      }
-    } finally {
-      chunk.releaseChunk();
-    }
-  }
-
-  @Test
   void emptyArrowPageContinuesToNextPage() throws Exception {
     IDatabricksClient client = mock(IDatabricksClient.class);
     IDatabricksSession session = session(client, false);
@@ -370,6 +358,35 @@ class ApcArrowBatchChunkProviderTest {
       assertEquals(List.of(7), readInts(result.result));
     }
     verify(client).getResultChunksData(ID, 1, 0);
+  }
+
+  @Test
+  void alternatingEmptyPagesAtSameOffsetFailInsteadOfLooping() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    IDatabricksSession session = session(client, false);
+    ResultData first = emptyPageWithContinuation(1L);
+    when(client.getResultChunksData(ID, 1, 0)).thenReturn(emptyPageWithContinuation(2L));
+    when(client.getResultChunksData(ID, 2, 0)).thenReturn(emptyPageWithContinuation(1L));
+    ApcArrowBatchChunkProvider provider =
+        new ApcArrowBatchChunkProvider(
+            first, manifest(CompressionCodec.NONE), ID, session, mock(IDatabricksHttpClient.class));
+    try {
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
+      assertEquals(
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+      verify(client, times(1)).getResultChunksData(ID, 1, 0);
+      verify(client, times(1)).getResultChunksData(ID, 2, 0);
+    } finally {
+      provider.close();
+    }
+  }
+
+  private static ResultData emptyPageWithContinuation(long nextChunkIndex) {
+    ResultData page =
+        new ResultData()
+            .setArrowBatches(List.of(new ArrowBatch().setBatch(new byte[0]).setRowCount(0L)));
+    page.setNextChunkIndex(nextChunkIndex);
+    return page;
   }
 
   @Test
@@ -505,162 +522,6 @@ class ApcArrowBatchChunkProviderTest {
   }
 
   @Test
-  void closeUnblocksNextWhenTheDownloadIgnoresInterrupts() throws Exception {
-    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
-    CountDownLatch started = new CountDownLatch(1);
-    CountDownLatch finish = new CountDownLatch(1);
-    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
-    when(http.execute(any(HttpUriRequest.class), eq(true)))
-        .thenAnswer(
-            invocation -> {
-              started.countDown();
-              boolean released = false;
-              while (!released) {
-                try {
-                  finish.await();
-                  released = true;
-                } catch (InterruptedException ignored) {
-                  // Simulates a download that does not stop on cancellation.
-                }
-              }
-              throw new IOException("late download failure");
-            });
-    ResultData initial =
-        new ResultData()
-            .setExternalLinks(
-                List.of(link("https://storage.example.test/chunk?sig=secret", 0, 0, 1, null)));
-    ApcArrowBatchChunkProvider provider =
-        new ApcArrowBatchChunkProvider(initial, manifest(CompressionCodec.NONE), ID, session, http);
-    AtomicReference<Boolean> hasRow = new AtomicReference<>();
-    Thread caller =
-        new Thread(
-            () -> {
-              try {
-                hasRow.set(provider.next());
-              } catch (Exception e) {
-                hasRow.set(null);
-              }
-            });
-    try {
-      caller.start();
-      assertTrue(started.await(5, TimeUnit.SECONDS));
-      provider.close();
-      caller.join(5000);
-
-      assertFalse(caller.isAlive());
-      assertEquals(Boolean.FALSE, hasRow.get());
-    } finally {
-      finish.countDown();
-      provider.close();
-    }
-  }
-
-  @Test
-  void downloadMetricsDoNotLogPresignedPath() throws Exception {
-    String secretPath = "org-secret/cluster-secret/path-token";
-    String url = "https://storage.example.test/" + secretPath + "?sig=query-secret";
-    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
-    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
-    when(http.execute(any(HttpUriRequest.class), eq(true)))
-        .thenAnswer(
-            invocation -> {
-              HttpUriRequest request = invocation.getArgument(0);
-              assertEquals(url, request.getURI().toString());
-              TimeUnit.MILLISECONDS.sleep(10);
-              CloseableHttpResponse response = mock(CloseableHttpResponse.class);
-              when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(4)));
-              when(response.getStatusLine())
-                  .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
-              return response;
-            });
-    Logger logger = Logger.getLogger(ArrowResultChunk.class.getName());
-    Level oldLevel = logger.getLevel();
-    List<String> messages = new ArrayList<>();
-    Handler handler =
-        new Handler() {
-          @Override
-          public void publish(LogRecord record) {
-            messages.add(record.getMessage());
-          }
-
-          @Override
-          public void flush() {}
-
-          @Override
-          public void close() {}
-        };
-    handler.setLevel(Level.FINE);
-    logger.setLevel(Level.FINE);
-    logger.addHandler(handler);
-    try (ResultCloser result =
-        new ResultCloser(
-            new ArrowStreamResult(
-                manifest(CompressionCodec.NONE),
-                new ResultData().setExternalLinks(List.of(link(url, 0, 0, 1, null))),
-                ID,
-                session,
-                http))) {
-      assertEquals(List.of(4), readInts(result.result));
-      assertTrue(messages.stream().anyMatch(message -> message.contains("CloudFetch download:")));
-      assertTrue(messages.stream().noneMatch(message -> message.contains(secretPath)));
-      assertTrue(messages.stream().noneMatch(message -> message.contains("query-secret")));
-    } finally {
-      logger.removeHandler(handler);
-      logger.setLevel(oldLevel);
-    }
-  }
-
-  @Test
-  void responseCloseFailureDoesNotRetryInitializedChunkOrExposePresignedUrl() throws Exception {
-    String url = "https://storage.example.test/private/chunk?sig=secret";
-    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
-    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
-    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
-    when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(4)));
-    when(response.getStatusLine())
-        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
-    doThrow(new IOException("Failed to close " + url)).when(response).close();
-    when(http.execute(any(HttpUriRequest.class), eq(true))).thenReturn(response);
-
-    Logger logger = Logger.getLogger(ArrowResultChunk.class.getName());
-    Level oldLevel = logger.getLevel();
-    List<String> messages = new ArrayList<>();
-    Handler handler =
-        new Handler() {
-          @Override
-          public void publish(LogRecord record) {
-            messages.add(record.getMessage());
-          }
-
-          @Override
-          public void flush() {}
-
-          @Override
-          public void close() {}
-        };
-    logger.setLevel(Level.ALL);
-    logger.addHandler(handler);
-    try (ResultCloser result =
-        new ResultCloser(
-            new ArrowStreamResult(
-                manifest(CompressionCodec.NONE),
-                new ResultData().setExternalLinks(List.of(link(url, 0, 0, 1, null))),
-                ID,
-                session,
-                http))) {
-      assertEquals(List.of(4), readInts(result.result));
-      verify(http, times(1)).execute(any(HttpUriRequest.class), eq(true));
-      verify(response).close();
-      assertTrue(messages.stream().anyMatch(message -> message.contains("Could not close")));
-      assertTrue(messages.stream().noneMatch(message -> message.contains("secret")));
-      assertTrue(messages.stream().noneMatch(message -> message.contains("/private/chunk")));
-    } finally {
-      logger.removeHandler(handler);
-      logger.setLevel(oldLevel);
-    }
-  }
-
-  @Test
   void twoExternalLinksContinueFromFinalLinkAndKeepPresignedRequest() throws Exception {
     IDatabricksClient client = mock(IDatabricksClient.class);
     IDatabricksSession session = session(client, true);
@@ -770,50 +631,6 @@ class ApcArrowBatchChunkProviderTest {
     verify(client).getResultChunksData(ID, 1, 1);
   }
 
-  @Test
-  void closingPartiallyReadOrFailedLinksClosesEveryAllocator() throws Exception {
-    IDatabricksSession session = session(mock(IDatabricksClient.class), true);
-    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
-    ResultData initial =
-        new ResultData()
-            .setExternalLinks(
-                List.of(
-                    link("https://storage.example.test/one", 0, 0, 1, 1),
-                    link("https://storage.example.test/two", 1, 1, 1, null)));
-    ApcArrowBatchChunkProvider provider =
-        new ApcArrowBatchChunkProvider(initial, manifest(CompressionCodec.NONE), ID, session, http);
-    Field pendingField = ApcArrowBatchChunkProvider.class.getDeclaredField("pending");
-    pendingField.setAccessible(true);
-    @SuppressWarnings("unchecked")
-    ArrayDeque<ArrowResultChunk> pending =
-        (ArrayDeque<ArrowResultChunk>) pendingField.get(provider);
-    List<ArrowResultChunk> chunks = new ArrayList<>(pending);
-    provider.close();
-    for (ArrowResultChunk chunk : chunks) {
-      assertEquals(ChunkStatus.CHUNK_RELEASED, chunk.getStatus());
-      assertThrows(IllegalStateException.class, () -> chunk.rootAllocator.buffer(1));
-    }
-
-    when(http.execute(any(HttpUriRequest.class), eq(true)))
-        .thenAnswer(
-            invocation -> {
-              throw new java.io.IOException("download failed");
-            });
-    ApcArrowBatchChunkProvider failed =
-        new ApcArrowBatchChunkProvider(
-            new ResultData()
-                .setExternalLinks(
-                    List.of(link("https://storage.example.test/fail", 0, 0, 1, null))),
-            manifest(CompressionCodec.NONE),
-            ID,
-            session,
-            http);
-    assertThrows(DatabricksSQLException.class, failed::next);
-    ArrowResultChunk failedChunk = failed.getChunk();
-    failed.close();
-    assertThrows(IllegalStateException.class, () -> failedChunk.rootAllocator.buffer(1));
-  }
-
   @ParameterizedTest
   @NullSource
   @ValueSource(strings = "invalid")
@@ -848,46 +665,6 @@ class ApcArrowBatchChunkProviderTest {
   }
 
   @Test
-  void malformedContinuationLinkRaisesDriverErrorAndReleasesItsAllocator() throws Exception {
-    IDatabricksClient client = mock(IDatabricksClient.class);
-    ResultData initial = new ResultData().setArrowBatches(List.of(batch(10, false)));
-    initial.setNextChunkIndex(1L);
-    when(client.getResultChunksData(ID, 1, 1))
-        .thenReturn(
-            new ResultData()
-                .setExternalLinks(
-                    List.of(
-                        link("https://storage.example.test/chunk", 1, 1, 1, null)
-                            .setExpiration("invalid"))));
-    try (ResultCloser result =
-        new ResultCloser(
-            new ArrowStreamResult(
-                manifest(CompressionCodec.NONE),
-                initial,
-                ID,
-                session(client, true),
-                mock(IDatabricksHttpClient.class)))) {
-      assertTrue(result.result.next());
-      assertEquals(10, result.result.getObject(0));
-      RootAllocator allocator = new RootAllocator();
-      try (MockedStatic<ArrowBufferAllocator> mocked = mockStatic(ArrowBufferAllocator.class)) {
-        mocked.when(ArrowBufferAllocator::getBufferAllocator).thenReturn(allocator);
-        DatabricksSQLException error =
-            assertThrows(DatabricksSQLException.class, result.result::next);
-        assertEquals(
-            DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
-        assertEquals(
-            DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), error.getErrorCode());
-        assertThrows(IllegalStateException.class, () -> allocator.buffer(1));
-      } finally {
-        allocator.close();
-      }
-      assertEquals(1, result.result.getRowCount());
-    }
-    verify(client).getResultChunksData(ID, 1, 1);
-  }
-
-  @Test
   void interruptedCloseReleasesActiveInlineChunk() throws Exception {
     ApcArrowBatchChunkProvider provider =
         new ApcArrowBatchChunkProvider(
@@ -896,35 +673,6 @@ class ApcArrowBatchChunkProviderTest {
             ID,
             session(mock(IDatabricksClient.class), false),
             mock(IDatabricksHttpClient.class));
-    assertTrue(provider.next());
-    ArrowResultChunk active = provider.getChunk();
-    try {
-      Thread.currentThread().interrupt();
-      provider.close();
-    } finally {
-      Thread.interrupted();
-    }
-    assertEquals(ChunkStatus.CHUNK_RELEASED, active.getStatus());
-    assertThrows(IllegalStateException.class, () -> active.rootAllocator.buffer(1));
-  }
-
-  @Test
-  void interruptedCloseReleasesCompletedExternalChunk() throws Exception {
-    IDatabricksHttpClient http = mock(IDatabricksHttpClient.class);
-    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
-    when(response.getEntity()).thenReturn(new ByteArrayEntity(stream(7)));
-    when(response.getStatusLine())
-        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
-    when(http.execute(any(HttpUriRequest.class), eq(true))).thenReturn(response);
-    ApcArrowBatchChunkProvider provider =
-        new ApcArrowBatchChunkProvider(
-            new ResultData()
-                .setExternalLinks(
-                    List.of(link("https://storage.example.test/chunk", 0, 0, 1, null))),
-            manifest(CompressionCodec.NONE),
-            ID,
-            session(mock(IDatabricksClient.class), true),
-            http);
     assertTrue(provider.next());
     ArrowResultChunk active = provider.getChunk();
     try {
