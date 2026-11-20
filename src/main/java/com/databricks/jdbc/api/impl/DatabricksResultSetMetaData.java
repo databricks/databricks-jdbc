@@ -107,6 +107,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             }
           }
 
+          // Thrift NULL_TYPE is exposed as STRING metadata, while its values remain SQL NULL.
+          // Match that metadata for SEA results as well.
+          if (columnTypeName == ColumnInfoTypeName.NULL) {
+            columnTypeName = ColumnInfoTypeName.STRING;
+          }
+
           // For collated string columns (e.g. "STRING COLLATE UTF8_LCASE") getTypeName() returns
           // null because the collated type name does not map to a ColumnInfoTypeName. Recover
           // STRING from the typeText so the java.sql type resolves to VARCHAR instead of OTHER; the
@@ -739,10 +745,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
-    int[] result = getBasePrecisionAndScale(columnType, ctx);
+    int[] result =
+        columnType == Types.DECIMAL && columnInfo.getTypeText() != null
+            ? getPrecisionAndScale(columnInfo.getTypeText(), columnType)
+            : getBasePrecisionAndScale(columnType, ctx);
     if (columnInfo.getTypePrecision() != null) {
       result[0] = Math.toIntExact(columnInfo.getTypePrecision()); // precision
-      result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
+      if (columnInfo.getTypeScale() != null) {
+        result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
+      }
     }
     return result;
   }
