@@ -588,6 +588,17 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
+  void testGetMoreResultLinksDelegatesToLinkFetch() throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TFetchResultsResp response = new TFetchResultsResp();
+    when(thriftAccessor.getMoreResultLinks(parentStatement)).thenReturn(response);
+
+    assertSame(response, client.getMoreResultLinks(parentStatement));
+    verify(thriftAccessor, never()).getMoreResults(any());
+  }
+
+  @Test
   void testGetResultChunksReturnsEmptyWhenNoLinks() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
+import static com.databricks.jdbc.common.EnvironmentVariables.CLOUD_FETCH_LINKS_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED;
@@ -41,6 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -464,6 +466,33 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.FetchResults(expectedReq))
         .thenReturn(fetchResultsResponse); // request has includeResultSetMetadata
     accessor.getMoreResults(parentStatement);
+  }
+
+  @Test
+  void testGetMoreResultLinksUsesCloudFetchLinksByteLimit() throws TException, SQLException {
+    TOperationHandle operationHandle =
+        new TOperationHandle()
+            .setOperationId(handleIdentifier)
+            .setHasResultSet(false)
+            .setOperationType(TOperationType.UNKNOWN);
+    DatabricksThriftAccessor accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+    when(parentStatement.getStatementId()).thenReturn(StatementId.deserialize(TEST_STMT_ID));
+    when(thriftClient.FetchResults(any(TFetchResultsReq.class))).thenReturn(fetchResultsResponse);
+
+    accessor.getMoreResultLinks(parentStatement);
+    accessor.getMoreResults(parentStatement);
+
+    ArgumentCaptor<TFetchResultsReq> requests = ArgumentCaptor.forClass(TFetchResultsReq.class);
+    verify(thriftClient, times(2)).FetchResults(requests.capture());
+    TFetchResultsReq expectedLinksReq =
+        getFetchResultsRequest(true)
+            .setOperationHandle(operationHandle)
+            .setMaxBytes(CLOUD_FETCH_LINKS_BYTE_LIMIT);
+    assertEquals(expectedLinksReq, requests.getAllValues().get(0));
+    // Inline fetches keep the default limit: their responses carry the row data itself.
+    assertEquals(DEFAULT_BYTE_LIMIT, requests.getAllValues().get(1).getMaxBytes());
   }
 
   @Test
