@@ -96,6 +96,6 @@ public class BigDecimalConverter implements ObjectConverter {
 
   @Override
   public String toString(Object object) throws DatabricksSQLException {
-    return toBigDecimal(object).toString();
+    return toBigDecimal(object).toPlainString();
   }
 }
