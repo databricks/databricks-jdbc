@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
@@ -359,27 +360,53 @@ public class ArrowToJavaObjectConverter {
   static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
     if (timeZoneOpt.isPresent()) {
       String tz = timeZoneOpt.get();
-      try {
-        // Try standard parsing first
-        return ZoneId.of(tz);
-      } catch (DateTimeException e) {
-        if (tz.matches("[+-]\\d+:\\d+")) {
-          // Parse custom format like +4:15
-          boolean isNegative = tz.startsWith("-");
-          String[] parts = tz.substring(1).split(":");
-          int hours = Integer.parseInt(parts[0]);
-          int minutes = Integer.parseInt(parts[1]);
-
-          // Always pass positive values and use the sign parameter
-          return ZoneOffset.ofHoursMinutes(
-              isNegative ? -hours : hours, isNegative ? -minutes : minutes);
-        } else {
-          throw e;
+      // Called for every value; time zone strings come from a small set, so cache the parse.
+      ZoneId zoneId = ZONE_ID_CACHE.get(tz);
+      if (zoneId == null) {
+        zoneId = parseZoneId(tz);
+        if (ZONE_ID_CACHE.size() < MAX_CACHED_ZONE_IDS) {
+          ZONE_ID_CACHE.putIfAbsent(tz, zoneId);
         }
       }
+      return zoneId;
     }
     // This will happen when reading timestamp_ntz columns
     return ZoneId.systemDefault();
+  }
+
+  // The cap only guards against unbounded growth; real time zone strings stay far below it.
+  static final int MAX_CACHED_ZONE_IDS = 1024;
+
+  private static final ConcurrentHashMap<String, ZoneId> ZONE_ID_CACHE = new ConcurrentHashMap<>();
+
+  // Test hooks for the zone cache.
+  static int zoneIdCacheSize() {
+    return ZONE_ID_CACHE.size();
+  }
+
+  static void clearZoneIdCache() {
+    ZONE_ID_CACHE.clear();
+  }
+
+  private static ZoneId parseZoneId(String tz) {
+    try {
+      // Try standard parsing first
+      return ZoneId.of(tz);
+    } catch (DateTimeException e) {
+      if (tz.matches("[+-]\\d+:\\d+")) {
+        // Parse custom format like +4:15
+        boolean isNegative = tz.startsWith("-");
+        String[] parts = tz.substring(1).split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+
+        // Always pass positive values and use the sign parameter
+        return ZoneOffset.ofHoursMinutes(
+            isNegative ? -hours : hours, isNegative ? -minutes : minutes);
+      } else {
+        throw e;
+      }
+    }
   }
 
   private static Object convertArrowTextToTimestamp(String arrowText)
@@ -435,7 +462,11 @@ public class ArrowToJavaObjectConverter {
   static BigDecimal convertToDecimal(Object object, ColumnInfo columnInfo)
       throws DatabricksValidationException {
     if (object instanceof Text || object instanceof Number) {
-      BigDecimal bigDecimal = new BigDecimal(object.toString());
+      // BigDecimal(String) recovers a BigDecimal's toString() exactly, so skip the round trip.
+      BigDecimal bigDecimal =
+          object.getClass() == BigDecimal.class
+              ? (BigDecimal) object
+              : new BigDecimal(object.toString());
       Optional<Integer> bigDecimalScale =
           columnInfo.getTypeScale() != null
               ? Optional.of(columnInfo.getTypeScale().intValue())
