@@ -240,8 +240,14 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
                 () -> {},
                 DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
                 true);
-        return immediateHandle(
-            request, fallbackAcrossCatalogs(failed, session, timeout, new AtomicReference<>()));
+        // The fan-out is fully consumed here, so its SHOW CATALOGS and per-catalog operations are
+        // never reachable through a handle and must be closed before returning.
+        try {
+          return immediateHandle(
+              request, fallbackAcrossCatalogs(failed, session, timeout, new AtomicReference<>()));
+        } finally {
+          closeFallbackOperations(failed);
+        }
       }
       if (shouldReturnEmpty(request, catalog, e)) {
         return immediateHandle(request, emptyResult(request, catalog));
@@ -295,15 +301,29 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       throw e;
     } finally {
       closeMetadataOperation(handle.getStatementId());
-      for (StatementId id : handle.getFallbackStatementIds()) {
-        closeMetadataOperation(id);
-      }
+      closeFallbackOperations(handle);
+    }
+  }
+
+  private void closeFallbackOperations(MetadataAsyncHandle handle) {
+    for (StatementId id : handle.getFallbackStatementIds()) {
+      closeMetadataOperation(id);
     }
   }
 
   private DatabricksResultSet convertCompletedMetadata(
       MetadataAsyncHandle handle, IDatabricksSession session, TimeoutHandler timeout)
       throws SQLException {
+    // Submission can resolve to an empty/fan-out result without ever creating a statement.
+    if (handle.getImmediateResult() != null) {
+      return handle.getImmediateResult();
+    }
+    if (handle.getStatementId() == null) {
+      throw new DatabricksSQLException(
+          "Metadata handle has neither a statement id nor a result",
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
     DatabricksResultSet source = awaitMetadata(handle.getStatementId(), session, timeout);
     try {
       return convertMetadata(handle, source);
@@ -534,6 +554,18 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     }
   }
 
+  /** Immediate handles (empty or not-found results) own no server operation to cancel or close. */
+  private static void trackFallbackOperation(
+      MetadataAsyncHandle parent,
+      MetadataAsyncHandle child,
+      AtomicReference<StatementId> activeId) {
+    if (child.getStatementId() == null) {
+      return;
+    }
+    activeId.set(child.getStatementId());
+    parent.addFallbackStatementId(child.getStatementId());
+  }
+
   private DatabricksResultSet fallbackAcrossCatalogs(
       MetadataAsyncHandle handle,
       IDatabricksSession session,
@@ -542,8 +574,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       throws SQLException {
     MetadataAsyncHandle catalogsHandle =
         executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), session);
-    activeId.set(catalogsHandle.getStatementId());
-    handle.addFallbackStatementId(catalogsHandle.getStatementId());
+    trackFallbackOperation(handle, catalogsHandle, activeId);
     DatabricksResultSet catalogs = convertCompletedMetadata(catalogsHandle, session, timeout);
     List<List<Object>> rows = new ArrayList<>();
     try (ResultSet catalogRows = catalogs) {
@@ -561,8 +592,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         try {
           timeout.checkTimeout();
           MetadataAsyncHandle child = executeMetadataAsync(request, session);
-          activeId.set(child.getStatementId());
-          handle.addFallbackStatementId(child.getStatementId());
+          trackFallbackOperation(handle, child, activeId);
           try (ResultSet converted = convertCompletedMetadata(child, session, timeout)) {
             ResultSetMetaData metadata = converted.getMetaData();
             while (converted.next()) {
