@@ -473,9 +473,9 @@ public class DatabricksTypeUtil {
       case Types.BOOLEAN:
         return BOOLEAN;
       case Types.DOUBLE:
+      case Types.FLOAT: // JDBC FLOAT is a synonym for DOUBLE (8-byte double precision)
         return DOUBLE;
-      case Types.FLOAT:
-      case Types.REAL: // REAL is float(24)
+      case Types.REAL: // REAL is float(24), 4-byte single precision
         return FLOAT;
       case Types.INTEGER:
         return INT;
