@@ -121,6 +121,17 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void resetStatementsAffectTheSessionTimeZone() {
+    for (String sql :
+        new String[] {
+          "RESET", "reset;", "RESET TIME ZONE", "RESET spark.sql.session.timeZone", "-- c\nRESET"
+        }) {
+      assertTrue(DatabricksStatement.isTimeZoneAffecting(sql), sql);
+    }
+    assertFalse(DatabricksStatement.isTimeZoneAffecting("RESET spark.sql.shuffle.partitions"));
+  }
+
+  @Test
   public void setTimeZoneIntervalWithoutQuotesReadsTheEffectiveServerZone() throws Exception {
     IDatabricksConnectionContext context = apcSeaContext();
     DatabricksConnection connection = spy(new DatabricksConnection(context, client));
