@@ -185,8 +185,7 @@ public class TimeoutHandler {
     return new TimeoutHandler(
         timeoutSeconds,
         startTimeMillis,
-        "Statement ID: "
-            + (redactDetails ? "[REDACTED]" : StatementId.loggableStatementId(statementId)),
+        "Statement ID: " + StatementId.loggableStatementId(statementId),
         () -> {
           try {
             client.cancelStatement(statementId);
