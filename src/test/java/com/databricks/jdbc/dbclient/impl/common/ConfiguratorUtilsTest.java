@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -15,6 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
 import java.security.cert.CertificateException;
+import java.security.cert.PKIXBuilderParameters;
+import java.security.cert.PKIXCertPathChecker;
+import java.security.cert.PKIXRevocationChecker;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
@@ -24,6 +28,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
 import org.apache.http.config.Registry;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -663,6 +668,75 @@ public class ConfiguratorUtilsTest {
 
       keyStoreStatic.verify(() -> KeyStore.getInstance(TRUST_STORE_TYPE, providerName));
       verify(mockKeyStore).load(any(), eq(TRUST_STORE_PASSWORD.toCharArray()));
+    }
+  }
+
+  @Test
+  void trustSettingsKeyChangesWhenRevocationSettingIsProvided() {
+    IDatabricksConnectionContext omitted = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext explicit = mock(IDatabricksConnectionContext.class);
+    when(explicit.isPropertyPresent(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION))
+        .thenReturn(true);
+    assertNotEquals(
+        ConfiguratorUtils.trustSettingsKey(omitted), ConfiguratorUtils.trustSettingsKey(explicit));
+  }
+
+  @Test
+  void softFailFirstPassUsesOnlySoftFailOption() throws Exception {
+    KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+    keyPairGen.initialize(2048);
+    Set<TrustAnchor> anchors =
+        Set.of(new TrustAnchor(generateBarebonesCertificate(keyPairGen.generateKeyPair()), null));
+
+    PKIXBuilderParameters pkix =
+        (PKIXBuilderParameters)
+            ConfiguratorUtils.buildTrustManagerParameters(anchors, true, true).getParameters();
+    for (PKIXCertPathChecker checker : pkix.getCertPathCheckers()) {
+      if (checker instanceof PKIXRevocationChecker) {
+        assertEquals(
+            Set.of(PKIXRevocationChecker.Option.SOFT_FAIL),
+            ((PKIXRevocationChecker) checker).getOptions());
+        return;
+      }
+    }
+    fail("no revocation checker was registered");
+  }
+
+  @Test
+  void softFailFallsBackToOcspFirstWhenPassIsNotExtended() {
+    X509TrustManager plain = new PlainTrustManager();
+    TrustManager[] ocspFirst = new TrustManager[] {plain};
+    // A plain X509TrustManager cannot run the CRL-only pass, so the OCSP-first managers are kept.
+    assertSame(
+        ocspFirst, ConfiguratorUtils.softFailTrustManagers(plain, plain, Set.of(), ocspFirst));
+  }
+
+  @Test
+  void softFailWrapsBothExtendedPasses() throws Exception {
+    TrustManagerFactory factory =
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    factory.init((KeyStore) null);
+    X509ExtendedTrustManager extended = (X509ExtendedTrustManager) factory.getTrustManagers()[0];
+    TrustManager[] ocspFirst = new TrustManager[] {extended};
+
+    TrustManager[] result =
+        ConfiguratorUtils.softFailTrustManagers(extended, extended, Set.of(), ocspFirst);
+    assertEquals(1, result.length);
+    assertNotSame(ocspFirst, result);
+    assertTrue(result[0] instanceof X509ExtendedTrustManager);
+  }
+
+  /** Minimal X509TrustManager that is not an X509ExtendedTrustManager. */
+  private static final class PlainTrustManager implements X509TrustManager {
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+      return new X509Certificate[0];
     }
   }
 }
