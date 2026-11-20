@@ -186,10 +186,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
                     .getDatabricksClient()
                     .executeNativeBatch(
                         processJdbcEscapes(
-                            ApcParameterCapabilities.hasConsistentBinaryPositions(parameterSets)
-                                ? wrapNativeBinaryPlaceholders(
-                                    batchSql, parameterSets.get(0).getParameterBindings())
-                                : batchSql),
+                            wrapNativeBinaryPlaceholders(
+                                batchSql, parameterSets.get(0).getParameterBindings())),
                         parameterSets,
                         connection.getSession(),
                         DatabricksPreparedStatement.this);

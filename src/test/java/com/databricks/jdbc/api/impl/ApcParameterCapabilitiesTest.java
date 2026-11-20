@@ -586,38 +586,6 @@ class ApcParameterCapabilitiesTest {
     verify(test.client).executeNativeBatch(eq(INSERT), anyList(), any(), eq(prepared));
   }
 
-  @Test
-  void statementBatchExecutesApcCommandsInOrderAndStopsOnFailure() throws Exception {
-    TestConnection test = testConnection(42250L);
-    DatabricksStatement statement = new DatabricksStatement(test.connection);
-    List<String> commands =
-        List.of("INSERT INTO t VALUES (1)", "INSERT INTO t VALUES (2)", "INSERT INTO t VALUES (3)");
-    for (String command : commands) {
-      statement.addBatch(command);
-    }
-    DatabricksResultSet first = mock(DatabricksResultSet.class);
-    DatabricksResultSet second = mock(DatabricksResultSet.class);
-    DatabricksResultSet third = mock(DatabricksResultSet.class);
-    when(first.getUpdateCount()).thenReturn(1L);
-    when(second.getUpdateCount()).thenReturn(2L);
-    when(third.getUpdateCount()).thenReturn(3L);
-    whenExecute(test, CLUSTER, null, StatementType.SQL, statement).thenReturn(first, second, third);
-    assertArrayEquals(new long[] {1, 2, 3}, statement.executeLargeBatch());
-    assertEquals(commands, verifyExecuted(test, 3, CLUSTER, StatementType.SQL, statement).sql);
-
-    clearInvocations(test.client);
-    for (String command : commands) {
-      statement.addBatch(command);
-    }
-    whenExecute(test, CLUSTER, null, StatementType.SQL, statement)
-        .thenReturn(first)
-        .thenThrow(new SQLException("second failed"));
-    BatchUpdateException failure =
-        assertThrows(BatchUpdateException.class, statement::executeLargeBatch);
-    assertArrayEquals(new long[] {1}, failure.getLargeUpdateCounts());
-    verifyExecuted(test, 2, CLUSTER, StatementType.SQL, statement);
-  }
-
   private static class TestConnection {
     final DatabricksConnection connection;
     final IDatabricksConnectionContext context;

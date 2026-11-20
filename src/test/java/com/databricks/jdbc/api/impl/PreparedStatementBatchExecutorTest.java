@@ -428,6 +428,21 @@ class PreparedStatementBatchExecutorTest {
   }
 
   @Test
+  void apcUpdateCountReadFailureAfterCommitReportsSuccessNoInfo() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    useApcSession(42247L);
+    when(statementExecutor.execute(anyString(), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenReturn(firstResultSet, secondResultSet);
+    when(firstResultSet.getUpdateCount()).thenThrow(new SQLException("count failed"));
+    when(secondResultSet.getUpdateCount()).thenReturn(1L);
+
+    assertArrayEquals(
+        new long[] {Statement.SUCCESS_NO_INFO, 1},
+        newExecutor(INSERT_SQL, false).executeBatch(createBatch(2)));
+    verify(firstResultSet).closeForNativeBatch();
+  }
+
+  @Test
   void interpolatedApcBatchUnexpectedFailureRedactsValue() throws Exception {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     useApcSession(null);

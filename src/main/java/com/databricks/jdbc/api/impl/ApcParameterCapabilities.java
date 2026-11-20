@@ -63,7 +63,10 @@ public final class ApcParameterCapabilities {
     }
   }
 
-  /** Whether every set can use the same SQL-level unhex wrapper for binary placeholders. */
+  /**
+   * Whether every set can use the same SQL-level unhex wrapper for binary placeholders. Binding
+   * count mismatches are left to binding validation.
+   */
   public static boolean hasConsistentBinaryPositions(List<BatchParameterSet> sets) {
     if (sets.isEmpty()) {
       return true;
@@ -71,11 +74,9 @@ public final class ApcParameterCapabilities {
     Map<Integer, ImmutableSqlParameter> first = sets.get(0).getParameterBindings();
     for (BatchParameterSet set : sets) {
       Map<Integer, ImmutableSqlParameter> current = set.getParameterBindings();
-      if (!first.keySet().equals(current.keySet())) {
-        return false;
-      }
-      for (Integer index : first.keySet()) {
-        if (isBinaryBytes(first.get(index)) != isBinaryBytes(current.get(index))) {
+      for (Map.Entry<Integer, ImmutableSqlParameter> entry : first.entrySet()) {
+        ImmutableSqlParameter other = current.get(entry.getKey());
+        if (other != null && isBinaryBytes(entry.getValue()) != isBinaryBytes(other)) {
           return false;
         }
       }

@@ -195,6 +195,13 @@ class LegacyPreparedStatementBatchExecutor {
             statementExecutor.execute(sqlToExecute, parametersToSend, StatementType.UPDATE, false);
         try {
           largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
+        } catch (SQLException | RuntimeException countFailure) {
+          if (!apc) {
+            throw countFailure;
+          }
+          // The write is already committed; reporting it as failed would invite a duplicate retry.
+          largeUpdateCount[sqlQueryIndex] = Statement.SUCCESS_NO_INFO;
+          LOGGER.warn("Could not read APC batch update count; reporting SUCCESS_NO_INFO");
         } finally {
           if (apc) {
             // APC replaces the statement ID on the next request. Preserve the legacy Warehouse

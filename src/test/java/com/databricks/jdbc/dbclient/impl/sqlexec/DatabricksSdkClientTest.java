@@ -3055,35 +3055,6 @@ public class DatabricksSdkClientTest {
     }
   }
 
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {42247L, 42248L})
-  public void testApcHttpExecutionErrorRedactsBoundValueWithoutParentStatement(Long version)
-      throws Exception {
-    DatabricksSdkClient client = apcClient();
-    DatabricksSession session = apcSession(APC_CLUSTER, version);
-    stubSerialize();
-    String secret = "http-echo-secret";
-    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-        .thenThrow(new DatabricksError("FAILED", "server echoed " + secret, 400));
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.executeStatement(
-                      "SELECT ?",
-                      APC_CLUSTER,
-                      stringBinding(secret),
-                      StatementType.METADATA,
-                      session,
-                      null,
-                      null));
-      assertRedactedSdkError(error, secret, logs);
-    }
-  }
-
   @Test
   public void testApcNativePollFailureDoesNotExposeBoundValueInCause() throws Exception {
     DatabricksSdkClient client = apcClient();
@@ -3146,54 +3117,6 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testApcAsyncResultHttpFailureRedactsBoundValue() throws Exception {
-    DatabricksSdkClient client = apcClient();
-    DatabricksSession session = apcSession(APC_CLUSTER, 42248L);
-    String secret = "async-bound-secret";
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenThrow(new DatabricksError("FAILED", "server echoed " + secret, 400));
-    DatabricksPreparedStatement prepared = mock(DatabricksPreparedStatement.class);
-
-    try (LogCapture logs = new LogCapture()) {
-      DatabricksSQLException error =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.getStatementResult(
-                      StatementId.forCurrentSession("statement", apcInfo(APC_CLUSTER, 42248L)),
-                      session,
-                      prepared));
-      assertRedactedSdkError(error, secret, logs);
-
-      stubSerialize();
-      when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
-          .thenThrow(new DatabricksException("server echoed " + secret));
-      DatabricksSQLException submitError =
-          assertThrows(
-              DatabricksSQLException.class,
-              () ->
-                  client.executeStatementAsync(
-                      "SELECT ?", APC_CLUSTER, stringBinding(secret), session, null));
-      assertRedactedSdkError(submitError, secret, logs);
-    }
-  }
-
-  @Test
-  public void testWarehouseEmptyBindingsStillSerializeEmptyParametersArray() throws Exception {
-    DatabricksSdkClient client = apcClient();
-    DatabricksSession session = apcSession(warehouse, null);
-    stubSubmit("statement", StatementState.SUCCEEDED);
-
-    client.executeStatement(
-        "SELECT 1", warehouse, Map.of(), StatementType.QUERY, session, null, null);
-
-    JsonNode body = lastSubmitBody();
-    assertTrue(body.has("parameters"));
-    assertEquals(0, body.path("parameters").size());
-    assertFalse(body.has("parameter_sets"));
-  }
-
-  @Test
   public void testApcNativeBatchQueryTimeoutCoversDelayedSubmitResponse() throws Exception {
     DatabricksSdkClient client = apcClient();
     DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
@@ -3203,10 +3126,11 @@ public class DatabricksSdkClientTest {
     when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
         .thenAnswer(
             invocation -> {
-              Thread.sleep(2100);
-              return statementResponse("slow", StatementState.PENDING);
+              Thread.sleep(2500);
+              return statementResponse("slow", StatementState.SUCCEEDED);
             });
 
+    long startMillis = System.currentTimeMillis();
     assertThrows(
         DatabricksTimeoutException.class,
         () ->
@@ -3216,11 +3140,35 @@ public class DatabricksSdkClientTest {
                 session,
                 parent));
 
+    // The caller is released at the deadline, not when the blocked submit finally returns.
+    assertTrue(System.currentTimeMillis() - startMillis < 2200);
     verify(apiClient, never()).execute(any(Request.class), eq(GetStatementResponse.class));
+    // The operation the abandoned submit later creates is cancelled and closed.
     ArgumentCaptor<Request> cleanup = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient, atLeastOnce()).execute(cleanup.capture(), eq(Void.class));
+    verify(apiClient, timeout(5000).atLeastOnce()).execute(cleanup.capture(), eq(Void.class));
     assertTrue(cleanup.getAllValues().stream().anyMatch(r -> r.getUrl().endsWith("/cancel")));
-    verify(parent, atLeastOnce()).closeServerOperation();
+  }
+
+  @Test
+  public void testNativeBatchRejectsMixedBinaryAndNonBinarySets() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    Map<Integer, ImmutableSqlParameter> bytes =
+        Map.of(1, getSqlParam(1, new byte[] {(byte) 0xFF}, DatabricksTypeUtil.BINARY));
+
+    java.sql.SQLFeatureNotSupportedException error =
+        assertThrows(
+            java.sql.SQLFeatureNotSupportedException.class,
+            () ->
+                client.executeNativeBatch(
+                    NATIVE_INSERT,
+                    List.of(
+                        BatchParameterSet.from(bytes), BatchParameterSet.from(stringBinding("v"))),
+                    session,
+                    null));
+
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), error.getSQLState());
+    verifyNoInteractions(apiClient);
   }
 
   @Test

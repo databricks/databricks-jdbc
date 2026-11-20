@@ -125,7 +125,10 @@ class PreparedStatementBatchExecutor {
                 .length
             > 0
         && batchParameterSets.stream().allMatch(set -> !set.isEmpty())
-        && (!apc || ApcParameterCapabilities.supportsNativeBatch(connection.getSession()))
+        && (!apc
+            || (ApcParameterCapabilities.supportsNativeBatch(connection.getSession())
+                // Binary bytes travel as hex under unhex(?), which cannot vary per set.
+                && ApcParameterCapabilities.hasConsistentBinaryPositions(batchParameterSets)))
         && nativeExecutor.isSupported();
   }
 }

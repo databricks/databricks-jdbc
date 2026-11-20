@@ -197,24 +197,40 @@ class ApcParameterFakeServiceTest {
   }
 
   @Test
-  void mixedBinaryAndNumericSetsUseOneNativeBatch() throws Exception {
+  void nativeBatchSubmitIsBoundedByQueryTimeout() throws Exception {
+    server.stubFor(
+        post(urlPathEqualTo(PathConstants.STATEMENT_PATH))
+            .willReturn(okJson(RESPONSE).withFixedDelay(2500)));
+    DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
+    prepared.setQueryTimeout(1);
+    for (int value = 1; value <= 2; value++) {
+      prepared.setInt(1, value);
+      prepared.addBatch();
+    }
+
+    long startMillis = System.currentTimeMillis();
+    assertThrows(BatchUpdateException.class, prepared::executeLargeBatch);
+    assertTrue(System.currentTimeMillis() - startMillis < 2200);
+  }
+
+  @Test
+  void mixedBinaryAndNumericSetsExecuteIndividuallyWithHexBytes() throws Exception {
     DatabricksPreparedStatement prepared = prepared(42250L, INSERT, true);
     prepared.setBytes(1, new byte[] {(byte) 0xFF});
     prepared.addBatch();
     prepared.setInt(1, 7);
     prepared.addBatch();
 
-    assertArrayEquals(NO_INFO_PAIR, prepared.executeLargeBatch());
+    assertArrayEquals(new long[] {1, 1}, prepared.executeLargeBatch());
 
     List<JsonNode> bodies = executeBodies();
-    assertEquals(1, bodies.size());
-    JsonNode body = bodies.get(0);
-    assertEquals(INSERT, body.path("statement").asText());
-    assertFalse(body.has("parameters"));
-    assertEquals("BINARY", setValue(body, 0, "type"));
-    assertEquals("/w==", setValue(body, 0, "value"));
-    assertEquals("INT", setValue(body, 1, "type"));
-    assertEquals("7", setValue(body, 1, "value"));
+    assertEquals(2, bodies.size());
+    assertFalse(bodies.get(0).has("parameter_sets"));
+    assertEquals("INSERT INTO t VALUES (unhex(?))", bodies.get(0).path("statement").asText());
+    assertEquals("STRING", bodies.get(0).path("parameters").get(0).path("type").asText());
+    assertEquals("FF", bodies.get(0).path("parameters").get(0).path("value").asText());
+    assertEquals(INSERT, bodies.get(1).path("statement").asText());
+    assertEquals("INT", bodies.get(1).path("parameters").get(0).path("type").asText());
   }
 
   @ParameterizedTest

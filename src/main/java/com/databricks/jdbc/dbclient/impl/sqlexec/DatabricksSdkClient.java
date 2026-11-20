@@ -436,12 +436,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
           DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
           DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
     }
-    boolean mixedBinaryPositions =
-        !ApcParameterCapabilities.hasConsistentBinaryPositions(parameterSets);
     int placeholderCount = SqlCommentParser.findApcPlaceholderPositions(sql).length;
     for (BatchParameterSet set : parameterSets) {
       ApcParameterCapabilities.rejectComplexBindings(set.getParameterBindings());
       SQLInterpolator.validateApcBindings(placeholderCount, set.getParameterBindings());
+    }
+    if (!ApcParameterCapabilities.hasConsistentBinaryPositions(parameterSets)) {
+      // Bytes are sent as hex under a statement-wide unhex(?), so sets cannot mix binary and
+      // non-binary values at one position.
+      throw new java.sql.SQLFeatureNotSupportedException(
+          "APC parameter_sets cannot mix binary and non-binary values at one position",
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
     }
     List<StatementParameterSet> wireSets =
         parameterSets.stream()
@@ -449,9 +455,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 set ->
                     new StatementParameterSet(
                         set.getParameters().stream()
-                            .map(
-                                parameter ->
-                                    mapToParameterListItem(parameter, true, mixedBinaryPositions))
+                            .map(parameter -> mapToParameterListItem(parameter, true))
                             .collect(Collectors.toList())))
             .collect(Collectors.toList());
     AwaitedStatement awaited = null;
@@ -616,7 +620,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
         }
       }
       req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
-      response = execute(req, ExecuteStatementResponse.class);
+      response =
+          parameterSets != null && parentStatement != null
+              ? submitWithinQueryTimeout(
+                  req, session, parentStatement.getStatement().getQueryTimeout())
+              : execute(req, ExecuteStatementResponse.class);
       updateSessionVersion(session, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
@@ -791,6 +799,70 @@ public class DatabricksSdkClient implements IDatabricksClient {
       }
     }
     return new AwaitedStatement(typedStatementId, response, responseState);
+  }
+
+  /**
+   * Bounds a native batch submit by the query timeout. The submit can block before any statement ID
+   * exists, where the polling-based timeout check never runs.
+   */
+  private ExecuteStatementResponse submitWithinQueryTimeout(
+      Request request, IDatabricksSession session, int timeoutSeconds)
+      throws IOException, DatabricksTimeoutException {
+    if (timeoutSeconds <= 0) {
+      return execute(request, ExecuteStatementResponse.class);
+    }
+    java.util.concurrent.CompletableFuture<ExecuteStatementResponse> submit =
+        new java.util.concurrent.CompletableFuture<>();
+    Thread worker =
+        new Thread(
+            () -> {
+              try {
+                submit.complete(execute(request, ExecuteStatementResponse.class));
+              } catch (Throwable failure) {
+                submit.completeExceptionally(failure);
+              }
+            },
+            "apc-native-batch-submit");
+    worker.setDaemon(true);
+    worker.start();
+    try {
+      return submit.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
+    } catch (java.util.concurrent.TimeoutException | InterruptedException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      // The abandoned submit can still reach the server; release the operation it creates.
+      submit.thenAccept(late -> releaseAbandonedSubmit(late, session));
+      throw new DatabricksTimeoutException(
+          "Statement execution timed-out before the APC native batch was accepted",
+          e,
+          DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+    } catch (java.util.concurrent.ExecutionException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
+      }
+      if (cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
+      }
+      if (cause instanceof Error) {
+        throw (Error) cause;
+      }
+      throw new RuntimeException(cause);
+    }
+  }
+
+  private void releaseAbandonedSubmit(ExecuteStatementResponse late, IDatabricksSession session) {
+    if (late.getStatementId() == null) {
+      return;
+    }
+    StatementId id = StatementId.forCurrentSession(late.getStatementId(), session.getSessionInfo());
+    try {
+      cancelStatement(id);
+      closeStatement(id);
+    } catch (Exception cleanupFailure) {
+      LOGGER.warn("Could not release timed-out APC native batch operation");
+    }
   }
 
   private void closeFailedApcOperation(
@@ -1468,30 +1540,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private StatementParameterListItem mapToParameterListItem(
       ImmutableSqlParameter parameter, int ordinal) {
-    return mapToParameterListItem(parameter, ordinal, false, false);
+    return mapToParameterListItem(parameter, ordinal, false);
   }
 
   private StatementParameterListItem mapToParameterListItem(
       ImmutableSqlParameter parameter, boolean apc) {
-    return mapToParameterListItem(parameter, parameter.cardinal(), apc, false);
+    return mapToParameterListItem(parameter, parameter.cardinal(), apc);
   }
 
   private StatementParameterListItem mapToParameterListItem(
-      ImmutableSqlParameter parameter, boolean apc, boolean nativeBinaryWireType) {
-    return mapToParameterListItem(parameter, parameter.cardinal(), apc, nativeBinaryWireType);
-  }
-
-  private StatementParameterListItem mapToParameterListItem(
-      ImmutableSqlParameter parameter, int ordinal, boolean apc, boolean nativeBinaryWireType) {
+      ImmutableSqlParameter parameter, int ordinal, boolean apc) {
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (apc && parameter.type() == ColumnInfoTypeName.BINARY && value instanceof byte[]) {
-      if (nativeBinaryWireType) {
-        return new PositionalStatementParameterListItem()
-            .setOrdinal(parameter.cardinal())
-            .setType("BINARY")
-            .setValue(java.util.Base64.getEncoder().encodeToString((byte[]) value));
-      }
       // SEA's parameter value is a JSON string. Keep arbitrary bytes intact by decoding the
       // hex value at the matching native placeholder with unhex(?).
       return new PositionalStatementParameterListItem()
