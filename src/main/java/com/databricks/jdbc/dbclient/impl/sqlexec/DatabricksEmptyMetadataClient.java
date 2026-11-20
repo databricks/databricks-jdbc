@@ -4,10 +4,14 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.MetadataAsyncHandle;
+import com.databricks.jdbc.dbclient.MetadataAsyncRequest;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +30,24 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
+  }
+
+  @Override
+  public MetadataAsyncHandle executeMetadataAsync(
+      MetadataAsyncRequest request, IDatabricksSession session) throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Asynchronous metadata requires an active SEA session",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+  }
+
+  @Override
+  public DatabricksResultSet getMetadataExecutionResult(
+      MetadataAsyncHandle handle, IDatabricksSession session) throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Asynchronous metadata requires an active SEA session",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
   }
 
   @Override

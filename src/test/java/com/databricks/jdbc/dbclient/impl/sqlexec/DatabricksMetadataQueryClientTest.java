@@ -19,15 +19,20 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
@@ -42,6 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -202,6 +208,45 @@ public class DatabricksMetadataQueryClientTest {
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), GET_CATALOGS_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 2);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void synchronousMetadataClosesServerOperationOnlyForApc(boolean warehouse) throws SQLException {
+    IDatabricksComputeResource compute =
+        warehouse ? new Warehouse("warehouse") : new AllPurposeCluster("org", "cluster");
+    when(session.getComputeResource()).thenReturn(compute);
+    when(session.getSessionInfo())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .clientType(DatabricksClientType.SEA)
+                .sessionId("session")
+                .computeResource(compute)
+                .build());
+    when(mockClient.executeStatement(
+            eq("SHOW CATALOGS"),
+            eq(compute),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_CATALOGS)))
+        .thenReturn(mockedCatalogResultSet);
+    when(mockedCatalogResultSet.getStatementId()).thenReturn("server-operation");
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+
+    if (warehouse) {
+      when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
+      metadataClient.listCatalogs(session);
+      verify(mockClient, never()).closeStatement(any(StatementId.class));
+    } else {
+      when(mockedCatalogResultSet.next()).thenThrow(new SQLException("conversion failed"));
+      SQLException error =
+          assertThrows(SQLException.class, () -> metadataClient.listCatalogs(session));
+      assertEquals("conversion failed", error.getMessage());
+      verify(mockClient).closeStatement(new StatementId("server-operation"));
+    }
+    verify(mockedCatalogResultSet).close();
   }
 
   @Test

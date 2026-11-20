@@ -14,6 +14,12 @@ public interface IDatabricksMetadataClient {
    */
   IDatabricksConnectionContext getConnectionContext();
 
+  MetadataAsyncHandle executeMetadataAsync(MetadataAsyncRequest request, IDatabricksSession session)
+      throws SQLException;
+
+  DatabricksResultSet getMetadataExecutionResult(
+      MetadataAsyncHandle handle, IDatabricksSession session) throws SQLException;
+
   /** Returns information about types supported by Databricks server */
   @DatabricksMetricsTimed
   DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException;

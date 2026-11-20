@@ -23,6 +23,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.MetadataAsyncRequest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -38,6 +39,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -1438,5 +1440,17 @@ public class DatabricksThriftServiceClientTest {
         .thenThrow(new org.apache.thrift.TException("Connection refused"));
 
     assertThrows(DatabricksSQLException.class, () -> client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  void asyncMetadataIsExplicitlyUnsupported() {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> client.executeMetadataAsync(MetadataAsyncRequest.forCatalogs(), session));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> client.getMetadataExecutionResult(null, session));
   }
 }

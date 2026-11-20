@@ -31,4 +31,22 @@ public enum MetadataOperationType {
   public boolean isThriftNativeSupported() {
     return thriftNativeSupported;
   }
+
+  /**
+   * Whether this operation is issued as a SHOW command rather than an information_schema SELECT.
+   */
+  public boolean isShowOperation() {
+    switch (this) {
+      case GET_CATALOGS:
+      case GET_SCHEMAS:
+      case GET_TABLES:
+      case GET_COLUMNS:
+      case GET_FUNCTIONS:
+      case GET_PRIMARY_KEYS:
+      case GET_CROSS_REFERENCE:
+        return true;
+      default:
+        return false;
+    }
+  }
 }

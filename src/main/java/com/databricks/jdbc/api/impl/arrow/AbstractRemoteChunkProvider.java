@@ -233,7 +233,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
   }
 
   private void initializeData() throws DatabricksSQLException {
-    DatabricksThreadContextHolder.setStatementId(statementId);
+    DatabricksThreadContextHolder.setStatementId(StatementId.loggableStatementId(statementId));
     // No chunks are downloaded, we need to start from first one
     nextChunkToDownload = 0;
     // Initialize current chunk to -1, since we don't have anything to read
