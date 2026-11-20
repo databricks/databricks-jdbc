@@ -10,6 +10,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
@@ -115,8 +116,20 @@ public class DatabricksHttpClientTest {
     assertFalse(error.getMessage().contains("query-secret"));
     assertTrue(error.getMessage().contains("/REDACTED"));
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+    assertEquals(DatabricksVendorCode.getVendorCode(error.getCause()), error.getErrorCode());
     assertNotNull(error.getCause());
+  }
+
+  @Test
+  void retryFailureKeepsVendorCodeDerivedFromCause() throws Exception {
+    HttpGet request = new HttpGet("https://storage.example.test/chunk");
+    when(mockHttpClient.execute(request))
+        .thenThrow(new DatabricksRetryHandlerException("java.net.UnknownHostException: host", 503));
+
+    DatabricksHttpException error =
+        assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
+
+    assertEquals(DatabricksVendorCode.INCORRECT_HOST.getCode(), error.getErrorCode());
   }
 
   @Test
@@ -129,7 +142,7 @@ public class DatabricksHttpClientTest {
         assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
 
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), error.getErrorCode());
+    assertEquals(DatabricksVendorCode.getVendorCode(error.getCause()), error.getErrorCode());
     assertNotNull(error.getCause());
   }
 

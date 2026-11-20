@@ -352,6 +352,11 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void setSessionConfig(String name, String value) {
     LOGGER.debug("public void setSessionConfig(String name = {}, String value = {})", name, value);
+    if (value == null && sessionConfigs instanceof ConcurrentHashMap) {
+      // ConcurrentHashMap rejects null values; a null value means the setting is cleared.
+      sessionConfigs.remove(name);
+      return;
+    }
     sessionConfigs.put(name, value);
   }
 

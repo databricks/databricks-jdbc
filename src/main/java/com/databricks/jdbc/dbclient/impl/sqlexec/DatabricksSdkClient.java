@@ -982,6 +982,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean boundedSeaInline =
         arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
     boolean apc = SeaComputeTarget.of(computeResource).isApc();
+    if (apc && !arrowEnabled) {
+      LOGGER.warn("EnableArrow=0 is ignored for all-purpose cluster SEA; Arrow batches are used");
+    }
     Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition;
     if (cloudFetch) {

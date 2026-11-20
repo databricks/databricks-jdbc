@@ -46,7 +46,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
               + "\\s*;?\\s*$");
   private static final Pattern RESET_TIME_ZONE =
       Pattern.compile(
-          "(?is)^\\s*RESET\\s+(?:TIME\\s*ZONE|spark\\.sql\\.session\\.timeZone)\\s*;?\\s*$");
+          "(?is)^\\s*RESET(?:\\s+(?:TIME\\s*ZONE|spark\\.sql\\.session\\.timeZone))?\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -1048,7 +1048,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             DatabricksDriverErrorCode.INVALID_STATE.name(),
             DatabricksDriverErrorCode.INVALID_STATE);
       }
-      return zoneResult.getString(1);
+      String zone = zoneResult.getString(1);
+      if (zone == null || zone.isEmpty()) {
+        throw new DatabricksSQLException(
+            "Server returned an empty effective session time zone",
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      return zone;
     }
   }
 
