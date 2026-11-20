@@ -10,7 +10,6 @@
 
 ### Updated
 
-- SEA result metadata now maps `NULL` columns to `STRING` (matching Thrift) and derives DECIMAL precision/scale from `type_text` when the server omits separate precision/scale fields.
 - `WITH ... INSERT/UPDATE/DELETE/MERGE` statements are now treated as updates: `executeUpdate()` and `executeLargeUpdate()` return the affected-row count instead of throwing after the write. This changes behavior for existing callers: `execute()` now returns `false`, and `executeQuery()` throws `RESULT_SET_ERROR` after the statement has run. To keep receiving the affected-row ResultSet, set `NonRowcountQueryPrefixes=WITH`. Prefixes match the start of the statement, so `NonRowcountQueryPrefixes=INSERT` alone does not opt out for a statement beginning with `WITH`.
 - SQL classification and client-side placeholder detection recognize backslash-escaped quotes, raw string literals, and backslash-continued line comments.
 - Updated JSON-java to 20260814 to address CVE-2026-59171.
@@ -21,8 +20,6 @@
 
 ### Fixed
 
-- Inline SEA columnar results reject multi-chunk payloads instead of silently dropping rows after the first chunk.
-- Present SEA columnar value wrappers with an omitted repeated `values` field (proto3 JSON empty lists) are treated as zero-length columns.
 - Fixed numeric getters returning shifted values for BC and pre-1582 dates: `getLong`, `getInt` and `getShort` (and `getObject(column, Long/Integer/Short/BigInteger)`) on DATE columns, and `getLong` (and `getObject(column, Long/BigInteger)`) on TIMESTAMP columns. For example, `DATE '1582-10-05'` returned epoch day -141427 instead of -141437. Values after the 1582 Gregorian cutover are unchanged. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
 - Fixed reading ARRAY, STRUCT and MAP values that contain a TIMESTAMP_NTZ with zero seconds (for example `2023-10-05 15:20:00`), which failed with `Invalid TIMESTAMP_NTZ array representation`. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.
