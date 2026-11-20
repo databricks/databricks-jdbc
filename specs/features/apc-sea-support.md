@@ -86,8 +86,9 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   assumes is 100% ON — so default warehouse connections use SEA with bounded inline Arrow.
   - Arrow defaults off on AIX/PowerPC unless `EnableArrow=1` is explicit; it is always on
   elsewhere, where `EnableArrow=0` is deprecated and ignored.
-  - `isBoundedSeaApiEnabled` (`UseBoundedSeaApi`) uses `resolveFeatureFlag`, which returns `false`
-  for any non-warehouse compute unless the user sets the param explicitly.
+  - `isBoundedSeaApiEnabled` reads `UseBoundedSeaApi` directly, defaulting to `1` for warehouses
+  and all-purpose clusters independently of server-side flags. Explicit `UseBoundedSeaApi=0`
+  disables it.
   - `DatabricksSession#open` builds `DatabricksThriftServiceClient` or `DatabricksSdkClient`.
   The HTTP 307 fallback was removed in #1749; the 429 fallback and `SeaCircuitBreakerManager`
   were removed in #1744. There is no remaining SEA→Thrift fallback. `UseQueryForMetadata` was

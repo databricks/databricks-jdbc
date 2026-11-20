@@ -208,7 +208,7 @@ class DatabricksResultSetArrowConversionTest {
             .setSchema(new ResultSchema().setColumnCount((long) columns.size()).setColumns(columns))
             .setTotalRowCount(3L)
             .setTotalChunkCount(1L);
-    ResultData data = new ResultData();
+    ResultData data = new ResultData().setRowCount(3L).setRowOffset(0L);
     data.setAttachment(arrowBytes());
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
