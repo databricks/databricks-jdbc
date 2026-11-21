@@ -289,8 +289,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .clientType(DatabricksClientType.SEA)
             .sessionId(sessionId)
             .realtimeSession(!target.isApc() && realtimeSession)
-            .negotiatedProtocolVersion(createSessionResponse.getNegotiatedProtocolVersion())
-            .liveProtocolVersion(true);
+            .negotiatedProtocolVersion(createSessionResponse.getNegotiatedProtocolVersion());
     SessionVersion initialVersion = createSessionResponse.getSessionVersion();
     if (initialVersion != null && initialVersion.getVersionId() != null) {
       sessionInfo.sessionVersionId(initialVersion.getVersionId());

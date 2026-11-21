@@ -99,7 +99,7 @@ public class DatabricksThriftServiceClientTest {
     assertEquals(actualResponse.sessionHandle(), SESSION_HANDLE);
     assertEquals(
         com.databricks.jdbc.common.DatabricksClientType.THRIFT, actualResponse.clientType());
-    assertNull(actualResponse.nativeProtocolVersion());
+    assertNull(actualResponse.negotiatedProtocolVersion());
   }
 
   @ParameterizedTest
