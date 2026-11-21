@@ -135,7 +135,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
               e.getMessage(), e.getSQLState(), e.getErrorCode(), failed, e);
         }
       }
-    } else if (ApcParameterCapabilities.isApcSea(connection.getSession())
+    } else if (ApcParameterCapabilities.isParameterDowngrade(connection.getSession())
         && batchParameterSets.stream().anyMatch(set -> !set.isEmpty())) {
       recordParameterDowngrade();
     }
@@ -960,7 +960,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     if (nativeParameters) {
       ApcParameterCapabilities.rejectComplexBindings(
           databricksParameterMetaData.getParameterBindings());
-    } else if (apc && !databricksParameterMetaData.getParameterBindings().isEmpty()) {
+    } else if (ApcParameterCapabilities.isParameterDowngrade(connection.getSession())
+        && !databricksParameterMetaData.getParameterBindings().isEmpty()) {
       recordParameterDowngrade();
     }
     String interpolatedSql =

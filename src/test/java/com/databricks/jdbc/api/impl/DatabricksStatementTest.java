@@ -593,7 +593,6 @@ public class DatabricksStatementTest {
                 .sessionId("session")
                 .computeResource(APC_COMPUTE)
                 .clientType(DatabricksClientType.SEA)
-                .liveProtocolVersion(true)
                 .build());
     DatabricksStatement statement = spy(new DatabricksStatement(connection));
     String sql = "SELECT 'interpolated-secret'";
