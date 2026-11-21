@@ -15,7 +15,6 @@ import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
-import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.sql.BatchUpdateException;
@@ -65,10 +64,6 @@ class ApcParameterCapabilitiesTest {
   }
 
   private TestConnection testConnection(Long version) throws Exception {
-    return testConnection(version, true);
-  }
-
-  private TestConnection testConnection(Long version, boolean live) throws Exception {
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     IDatabricksSession session = mock(IDatabricksSession.class);
     IDatabricksClient client = mock(IDatabricksClient.class);
@@ -79,7 +74,6 @@ class ApcParameterCapabilitiesTest {
             .computeResource(CLUSTER)
             .clientType(DatabricksClientType.SEA)
             .negotiatedProtocolVersion(version)
-            .liveProtocolVersion(live)
             .build();
     lenient().when(connection.getConnectionContext()).thenReturn(context);
     lenient().when(connection.getSession()).thenReturn(session);
@@ -89,6 +83,7 @@ class ApcParameterCapabilitiesTest {
     lenient().when(context.isNativeBatchingEnabled()).thenReturn(true);
     lenient().when(context.isBatchedInsertsEnabled()).thenReturn(true);
     lenient().when(session.getSessionInfo()).thenReturn(info);
+    lenient().when(session.getConnectionContext()).thenReturn(context);
     lenient().when(session.getComputeResource()).thenReturn(CLUSTER);
     lenient().when(session.getDatabricksClient()).thenReturn(client);
     return new TestConnection(connection, context, client);
@@ -391,18 +386,42 @@ class ApcParameterCapabilitiesTest {
   }
 
   @Test
-  void savedVersionDoesNotGrantNativeParameters() throws Exception {
-    TestConnection test = testConnection(42250L, false);
+  void supportManyParametersInterpolatesEvenWhenServerSupportsNativeParameters() throws Throwable {
+    TestConnection test = testConnection(42250L);
+    when(test.context.supportManyParameters()).thenReturn(true);
     DatabricksPreparedStatement prepared =
-        new DatabricksPreparedStatement(test.connection, "SELECT ?");
-    prepared.setString(1, "saved");
+        new DatabricksPreparedStatement(test.connection, "SELECT ?, ?");
+    prepared.setString(1, "text");
+    prepared.setBytes(2, new byte[] {1, 2});
     whenQuery(test, prepared).thenReturn(mock(DatabricksResultSet.class));
 
-    prepared.executeQuery();
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      prepared.executeQuery();
+      // Interpolation the caller asked for is not a downgrade.
+      telemetry.verifyNoInteractions();
+    }
 
     Executed executed = verifyQueryExecuted(test, prepared);
-    assertEquals("SELECT 'saved'", executed.sql.get(0));
+    assertEquals("SELECT 'text', X'0102'", executed.sql.get(0));
     assertTrue(executed.bindings.get(0).isEmpty());
+  }
+
+  @Test
+  void supportManyParametersDisablesNativeBatching() throws Exception {
+    TestConnection test = testConnection(42250L);
+    when(test.context.supportManyParameters()).thenReturn(true);
+    when(test.client.supportsNativeBatchExecution()).thenReturn(true);
+    DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(test.connection, INSERT);
+    addIntBatch(prepared, 1, 2);
+    DatabricksResultSet result = mock(DatabricksResultSet.class);
+    when(result.getUpdateCount()).thenReturn(1L);
+    whenUpdate(test, prepared).thenReturn(result);
+
+    assertArrayEquals(new long[] {1, 1}, prepared.executeLargeBatch());
+
+    Executed executed = verifyExecuted(test, 2, CLUSTER, StatementType.UPDATE, prepared);
+    assertEquals(List.of("INSERT INTO t VALUES (1)", "INSERT INTO t VALUES (2)"), executed.sql);
+    verifyNoNativeBatch(test);
   }
 
   @Test

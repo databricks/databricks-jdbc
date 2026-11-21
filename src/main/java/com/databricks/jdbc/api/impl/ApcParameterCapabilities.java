@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -9,7 +10,9 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.List;
 import java.util.Map;
 
-/** Capabilities granted only by the current APC SEA CreateSession response. */
+/**
+ * Parameter capabilities of an APC SEA session: its CreateSession response and connection options.
+ */
 public final class ApcParameterCapabilities {
   public static final long NATIVE_PARAMETERS_VERSION = 42248L;
   public static final long NATIVE_BATCH_VERSION = 42250L;
@@ -23,25 +26,52 @@ public final class ApcParameterCapabilities {
         && info.computeResource() instanceof AllPurposeCluster;
   }
 
+  /**
+   * Native parameters need both server support and no request for client-side interpolation, which
+   * callers set with {@code supportManyParameters=1} to bypass the server's parameter-count limit.
+   */
   public static boolean supportsNativeParameters(IDatabricksSession session) {
-    return supportsVersion(session, NATIVE_PARAMETERS_VERSION);
+    return !isInterpolationRequested(session)
+        && supportsVersion(session, NATIVE_PARAMETERS_VERSION);
   }
 
+  /**
+   * Native batches send every set as bound parameters, so they share the parameter-count limit that
+   * {@code supportManyParameters=1} exists to avoid.
+   */
   public static boolean supportsNativeBatch(IDatabricksSession session) {
-    return supportsVersion(session, NATIVE_BATCH_VERSION);
+    return !isInterpolationRequested(session) && supportsVersion(session, NATIVE_BATCH_VERSION);
+  }
+
+  /**
+   * Whether the driver is interpolating only because the server cannot take native parameters.
+   * Interpolation the caller asked for is not a downgrade.
+   */
+  public static boolean isParameterDowngrade(IDatabricksSession session) {
+    return isApcSea(session)
+        && !isInterpolationRequested(session)
+        && !supportsVersion(session, NATIVE_PARAMETERS_VERSION);
   }
 
   public static String downgradeReason(IDatabricksSession session) {
+    if (isInterpolationRequested(session)) {
+      return "supportManyParameters";
+    }
     ImmutableSessionInfo info = session.getSessionInfo();
     if (info == null || info.negotiatedProtocolVersion() == null) {
       return "missing version";
     }
-    return info.liveProtocolVersion() ? "below V8" : "non-live version";
+    return "below V8";
+  }
+
+  private static boolean isInterpolationRequested(IDatabricksSession session) {
+    IDatabricksConnectionContext context = session == null ? null : session.getConnectionContext();
+    return context != null && context.supportManyParameters();
   }
 
   private static boolean supportsVersion(IDatabricksSession session, long minimum) {
     ImmutableSessionInfo info = session == null ? null : session.getSessionInfo();
-    Long version = info == null ? null : info.nativeProtocolVersion();
+    Long version = info == null ? null : info.negotiatedProtocolVersion();
     return isApcSea(session) && version != null && version >= minimum;
   }
 

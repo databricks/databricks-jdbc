@@ -2739,7 +2739,6 @@ public class DatabricksSdkClientTest {
         .sessionId("session")
         .computeResource(compute)
         .negotiatedProtocolVersion(version)
-        .liveProtocolVersion(version != null)
         .build();
   }
 
