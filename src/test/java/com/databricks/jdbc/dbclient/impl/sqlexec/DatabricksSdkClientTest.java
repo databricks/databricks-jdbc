@@ -2668,7 +2668,6 @@ public class DatabricksSdkClientTest {
             .sessionId("session")
             .computeResource(cluster)
             .negotiatedProtocolVersion(version)
-            .liveProtocolVersion(true)
             .build();
     DatabricksSession session = mock(DatabricksSession.class);
     when(session.getSessionInfo()).thenReturn(info);
@@ -2720,8 +2719,7 @@ public class DatabricksSdkClientTest {
     DatabricksSession session = apcSession(null);
     lenient()
         .when(session.getSessionInfo())
-        .thenReturn(
-            apcInfoBuilder().negotiatedProtocolVersion(42248L).liveProtocolVersion(true).build());
+        .thenReturn(apcInfoBuilder().negotiatedProtocolVersion(42248L).build());
     when(session.getComputeResource()).thenReturn(new AllPurposeCluster("org", "cluster"));
     stubJsonSerialization();
     when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))

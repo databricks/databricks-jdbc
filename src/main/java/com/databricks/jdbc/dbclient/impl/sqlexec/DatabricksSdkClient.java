@@ -757,8 +757,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           } catch (InterruptedException e) {
             String timeoutErrorMessage =
                 String.format(
-                    "Thread interrupted due to statement timeout. StatementID %s",
-                    statementId);
+                    "Thread interrupted due to statement timeout. StatementID %s", statementId);
             LOGGER.error(timeoutErrorMessage);
             throw new DatabricksTimeoutException(
                 timeoutErrorMessage, null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
