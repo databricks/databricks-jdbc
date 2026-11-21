@@ -509,7 +509,6 @@ public class DatabricksConnectionTest {
             .sessionId("session")
             .computeResource(cluster)
             .negotiatedProtocolVersion(8L)
-            .liveProtocolVersion(true)
             .build();
     when(databricksClient.createSession(
             eq(cluster), nullable(String.class), nullable(String.class), any()))
@@ -517,7 +516,7 @@ public class DatabricksConnectionTest {
     try (DatabricksConnection apcConnection =
         new DatabricksConnection(apcContext, databricksClient)) {
       apcConnection.open();
-      assertEquals("s|a|org|cluster|session|8", apcConnection.getConnectionId());
+      assertEquals("s|a|org|cluster|session", apcConnection.getConnectionId());
       assertFalse(apcConnection.getSession().toString().contains("org"));
       assertFalse(apcConnection.getSession().toString().contains("{cluster}"));
       DatabricksStatement recovered = (DatabricksStatement) apcConnection.getStatement("statement");

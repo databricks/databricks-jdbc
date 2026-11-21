@@ -43,7 +43,7 @@ class DriverTest {
       factory
           .when(() -> DatabricksConnectionContextFactory.create(URL, properties))
           .thenReturn(context);
-      Driver.getInstance().closeConnection(URL, properties, "s|a|org|cluster|session|8");
+      Driver.getInstance().closeConnection(URL, properties, "s|a|org|cluster|session");
       assertEquals(1, sdk.constructed().size());
       assertTrue(thrift.constructed().isEmpty());
       verify(sdk.constructed().get(0))
@@ -132,7 +132,7 @@ class DriverTest {
       manager.when(DatabricksClientConfiguratorManager::getInstance).thenReturn(configurators);
       httpFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClients);
 
-      Driver.getInstance().closeConnection(URL, properties, "s|a|org|cluster|session|8");
+      Driver.getInstance().closeConnection(URL, properties, "s|a|org|cluster|session");
 
       verify(sdk.constructed().get(0)).deleteSession(any());
       verify(configurators).removeInstance(context);
@@ -172,7 +172,7 @@ class DriverTest {
               SQLException.class,
               () ->
                   Driver.getInstance()
-                      .closeConnection(URL, properties, "s|a|org|cluster|session|8")));
+                      .closeConnection(URL, properties, "s|a|org|cluster|session")));
 
       verify(sdk.constructed().get(0)).deleteSession(any());
       verify(configurators).removeInstance(context);

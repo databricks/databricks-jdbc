@@ -18,20 +18,9 @@ public interface SessionInfo {
     return sessionHandle() == null ? DatabricksClientType.SEA : DatabricksClientType.THRIFT;
   }
 
+  /** Set only from the CreateSession response; never serialized into a {@code SessionId}. */
   @Nullable
   Long negotiatedProtocolVersion();
-
-  /** A saved identifier's version is diagnostic and cannot grant protocol capabilities. */
-  @Value.Default
-  default boolean liveProtocolVersion() {
-    return false;
-  }
-
-  /** Returns a version only when it came from this connection's CreateSession response. */
-  @Nullable
-  default Long nativeProtocolVersion() {
-    return liveProtocolVersion() ? negotiatedProtocolVersion() : null;
-  }
 
   @Nullable
   Long sessionVersionId();
