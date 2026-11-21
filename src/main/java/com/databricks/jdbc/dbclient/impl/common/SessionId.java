@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
+import com.databricks.jdbc.dbclient.impl.sqlexec.SeaComputeTarget;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -61,14 +62,17 @@ public class SessionId {
 
   /** Creates a SessionId identifier for a given Thrift Server session-Id */
   public static SessionId create(ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.computeResource() instanceof Warehouse) {
-      return new SessionId(
-          sessionInfo.sessionId(), sessionInfo.computeResource(), sessionInfo.realtimeSession());
-    } else {
+    if (sessionInfo.clientType() == DatabricksClientType.THRIFT) {
       assert sessionInfo.sessionHandle() != null;
       return new SessionId(
           sessionInfo.sessionHandle().getSessionId(), sessionInfo.computeResource());
     }
+    return new SessionId(
+        DatabricksClientType.SEA,
+        sessionInfo.sessionId(),
+        null,
+        sessionInfo.computeResource(),
+        sessionInfo.realtimeSession());
   }
 
   /** Deserializes a SessionId from a serialized string */
@@ -76,35 +80,67 @@ public class SessionId {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
     // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
-    String[] parts = serializedSessionId.split("\\|");
-    boolean realtimeSession = parts.length == 4 && "s".equals(parts[0]) && "r".equals(parts[3]);
-    if (parts.length != 3 && !realtimeSession) {
-      String errorMessage =
-          String.format("Session ID has invalid number of parts %s", serializedSessionId);
-      LOGGER.error(errorMessage);
-      throw new DatabricksParsingException(
-          errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
+    // For APC SEA: s|a|org-id|cluster-id|session-id
+    if (serializedSessionId == null) {
+      throw invalid("Session ID has invalid structure");
+    }
+    String[] parts = serializedSessionId.split("\\|", -1);
+    if (parts.length == 5 && "s".equals(parts[0]) && "a".equals(parts[1])) {
+      for (int i = 2; i < 5; i++) {
+        if (parts[i].isEmpty()) {
+          throw invalid("APC session ID has an empty segment");
+        }
+      }
+      return new SessionId(
+          DatabricksClientType.SEA,
+          parts[4],
+          null,
+          new AllPurposeCluster(parts[2], parts[3]),
+          false);
+    }
+    if (parts.length < 3 || parts.length > 4 || parts[0].isEmpty()) {
+      throw invalid("Session ID has invalid structure");
+    }
+    for (String part : parts) {
+      if (part.isEmpty()) {
+        throw invalid("Session ID has an empty segment");
+      }
     }
     switch (parts[0]) {
       case "s":
-        return new SessionId(parts[2], new Warehouse(parts[1]), realtimeSession);
+        if (parts.length == 4 && !"r".equals(parts[3])) {
+          throw invalid("Session ID has invalid route marker");
+        }
+        return new SessionId(parts[2], new Warehouse(parts[1]), parts.length == 4);
 
       case "t":
-        return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null, false);
+        if (parts.length == 3) {
+          return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null, false);
+        }
+        break;
     }
-    String errorMessage =
-        String.format("Session ID has 3 parts but is invalid %s", serializedSessionId);
+    throw invalid("Session ID has invalid structure");
+  }
+
+  private static DatabricksParsingException invalid(String errorMessage) {
     LOGGER.error(errorMessage);
-    throw new DatabricksParsingException(
-        errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
+    return new DatabricksParsingException(
+        errorMessage,
+        null,
+        DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION.name(),
+        DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION.getCode());
   }
 
   @Override
   public String toString() {
     switch (clientType) {
       case SEA:
+        if (SeaComputeTarget.of(clusterResource).isApc()) {
+          AllPurposeCluster cluster = (AllPurposeCluster) clusterResource;
+          return String.format("s|a|%s|%s|%s", cluster.getOrgId(), cluster.getClusterId(), guid);
+        }
         String serialized =
-            String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
+            String.format("s|%s|%s", SeaComputeTarget.of(clusterResource).warehouseId(), guid);
         return realtimeSession ? serialized + "|r" : serialized;
       case THRIFT:
         return String.format("t|%s|%s", guid, secret);
@@ -117,6 +153,7 @@ public class SessionId {
     switch (clientType) {
       case THRIFT:
         return ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.THRIFT)
             .sessionId(
                 DatabricksThriftUtil.byteBufferToString(
                     ByteBuffer.wrap(ResourceId.fromBase64(guid).toBytes())))
@@ -132,6 +169,7 @@ public class SessionId {
             .build();
       case SEA:
         return ImmutableSessionInfo.builder()
+            .clientType(DatabricksClientType.SEA)
             .sessionHandle(null)
             .sessionId(guid)
             .computeResource(clusterResource)

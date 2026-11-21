@@ -1,11 +1,13 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.HTTP_CLUSTER_PATH_PATTERN;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowBufferAllocator;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
@@ -187,6 +189,11 @@ public class TelemetryHelper {
       // This would mean, telemetry data cannot be sent.
       return null;
     }
+    String httpPath = connectionContext.getHttpPath();
+    boolean isApcHttpPath =
+        connectionContext.getComputeResource() instanceof AllPurposeCluster
+            && httpPath != null
+            && HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath).find();
     DriverConnectionParameters connectionParameters = new DriverConnectionParameters();
     try {
       connectionParameters
@@ -231,7 +238,7 @@ public class TelemetryHelper {
           .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())
           .setAsyncPollIntervalMillis(connectionContext.getAsyncExecPollInterval())
           .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
-          .setHttpPath(connectionContext.getHttpPath())
+          .setHttpPath(isApcHttpPath ? "/sql/protocolv1/o/[REDACTED]/[REDACTED]" : httpPath)
           .setEnableMetricViewMetadata(connectionContext.getEnableMetricViewMetadata())
           .setQueryTags(connectionContext.getSessionConfigs().get(QUERY_TAGS));
     } catch (DatabricksValidationException e) {

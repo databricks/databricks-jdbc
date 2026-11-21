@@ -3,12 +3,19 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,12 +36,52 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 public class ArrowResultChunkTest {
   private final Random random = new Random();
   private final int rowsInRecordBatch = 20;
   private final long totalRows = 110;
+
+  @Test
+  public void testPresignedChunkDownloadKeepsUrlAndHeaders() throws Exception {
+    String presignedUrl = "https://storage.example.com/chunk?sig=a%2Bb%2Fc&part=2";
+    Map<String, String> presignedHeaders =
+        Map.of(
+            "x-amz-server-side-encryption-customer-algorithm", "AES256",
+            "x-amz-server-side-encryption-customer-key-MD5", "signed-value");
+    ExternalLink link =
+        new ExternalLink()
+            .setExternalLink(presignedUrl)
+            .setHttpHeaders(presignedHeaders)
+            .setExpiration("2099-01-01T00:00:00Z")
+            .setChunkIndex(2L)
+            .setRowOffset(7L)
+            .setRowCount(1L);
+    ArrowResultChunk chunk =
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkMetadata(2, 1, 7)
+            .build();
+    chunk.setChunkLink(link);
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    when(httpClient.execute(any(HttpUriRequest.class), eq(true)))
+        .thenThrow(new DatabricksHttpException("captured request", "HY000"));
+
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> chunk.downloadData(httpClient, CompressionCodec.NONE, 0.1));
+
+    ArgumentCaptor<HttpUriRequest> request = ArgumentCaptor.forClass(HttpUriRequest.class);
+    verify(httpClient).execute(request.capture(), eq(true));
+    assertEquals(presignedUrl, request.getValue().getURI().toString());
+    assertEquals("GET", request.getValue().getMethod());
+    assertEquals(presignedHeaders.size(), request.getValue().getAllHeaders().length);
+    presignedHeaders.forEach(
+        (name, value) -> assertEquals(value, request.getValue().getFirstHeader(name).getValue()));
+  }
 
   @Test
   public void testReleaseUnusedChunk() throws Exception {
