@@ -668,8 +668,7 @@ public class DatabricksSdkClientTest {
             true, StatementType.METADATA, Collections.emptyMap(), null));
     Map<Integer, ImmutableSqlParameter> bound = new HashMap<Integer, ImmutableSqlParameter>();
     bound.put(1, mock(ImmutableSqlParameter.class));
-    assertTrue(
-        DatabricksSdkClient.redactApcServerErrorText(true, StatementType.SQL, bound, null));
+    assertTrue(DatabricksSdkClient.redactApcServerErrorText(true, StatementType.SQL, bound, null));
     assertFalse(
         DatabricksSdkClient.redactApcServerErrorText(
             false, StatementType.METADATA, Collections.emptyMap(), null));
@@ -3992,7 +3991,10 @@ public class DatabricksSdkClientTest {
             DatabricksSQLException.class,
             () ->
                 client.getStatementResult(
-                    StatementId.forCurrentSession("private-statement", info), session, null));
+                    StatementId.forCurrentSession("private-statement", info),
+                    session,
+                    null,
+                    StatementType.METADATA));
 
     assertEquals("22000", failure.getSQLState());
     assertTrue(failure.getMessage().contains("BAD_REQUEST"));
@@ -4029,7 +4031,10 @@ public class DatabricksSdkClientTest {
               DatabricksSQLException.class,
               () ->
                   client.getStatementResult(
-                      StatementId.forCurrentSession("private-statement", info), session, null));
+                      StatementId.forCurrentSession("private-statement", info),
+                      session,
+                      null,
+                      StatementType.METADATA));
       assertTrue(failure.getMessage().contains("SERVER_ERROR"));
       assertFalse(failure.getMessage().contains("private-secret"));
       assertFalse(logs.getOutput().contains("private-secret"));
