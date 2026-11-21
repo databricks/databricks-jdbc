@@ -75,26 +75,32 @@ public class ArrowStreamResult implements IExecutionResult {
     } else if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
-          statementId.toSQLExecStatementId());
+          StatementId.loggableStatementId(statementId));
       this.chunkProvider = new EmptyChunkProvider();
     } else {
       boolean isInlineArrow = resultData.getAttachment() != null;
       IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-      if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
+      // APC native metadata inline attachments use manifest.total_row_count; unlike bounded
+      // query chunks, their ResultData may omit row_count entirely.
+      boolean apcNativeMetadata =
+          statementId != null
+              && statementId.computeResource() != null
+              && Boolean.TRUE.equals(resultManifest.getIsNativeMetadataResult());
+      if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled() && !apcNativeMetadata) {
         LOGGER.debug(
             "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
-            statementId.toSQLExecStatementId());
+            StatementId.loggableStatementId(statementId));
         this.chunkProvider =
             new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
       } else if (isInlineArrow) {
         LOGGER.debug(
             "Creating ArrowStreamResult with inline attachment for statementId: {}",
-            statementId.toSQLExecStatementId());
+            StatementId.loggableStatementId(statementId));
         this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
       } else {
         LOGGER.debug(
             "Creating ArrowStreamResult with remote links for statementId: {}",
-            statementId.toSQLExecStatementId());
+            StatementId.loggableStatementId(statementId));
         this.chunkProvider =
             createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
       }
@@ -132,7 +138,8 @@ public class ArrowStreamResult implements IExecutionResult {
     if (connectionContext.isStreamingChunkProviderEnabled()
         || connectionContext.isBoundedSeaApiEnabled()) {
       LOGGER.info(
-          "Using StreamingChunkProvider for statementId: {}", statementId.toSQLExecStatementId());
+          "Using StreamingChunkProvider for statementId: {}",
+          StatementId.loggableStatementId(statementId));
 
       ChunkLinkFetcher linkFetcher = new SeaChunkLinkFetcher(session, statementId);
       CompressionCodec compressionCodec = resultManifest.getResultCompression();
