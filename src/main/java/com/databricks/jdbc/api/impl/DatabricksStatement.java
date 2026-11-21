@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.batch.DatabricksBatchExecutor;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -16,6 +17,7 @@ import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -36,6 +38,15 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       Pattern.compile("\\)\\s*(\\w+)", Pattern.UNICODE_CHARACTER_CLASS);
   private static final Pattern DML_PATTERN =
       Pattern.compile("INSERT|UPDATE|DELETE|MERGE", Pattern.CASE_INSENSITIVE);
+  private static final Pattern SET_TIME_ZONE =
+      Pattern.compile(
+          "(?is)^\\s*SET\\s+(?:TIME\\s*ZONE\\s*(?:=\\s*)?|spark\\.sql\\.session\\.timeZone\\s*=\\s*)"
+              + "(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z0-9_+./:-]+)"
+              + "|(INTERVAL\\s+[^;]+?))"
+              + "\\s*;?\\s*$");
+  private static final Pattern RESET_TIME_ZONE =
+      Pattern.compile(
+          "(?is)^\\s*RESET(?:\\s+(?:TIME\\s*ZONE|spark\\.sql\\.session\\.timeZone))?\\s*;?\\s*$");
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -50,6 +61,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
+  private String pendingAsyncTimeZoneSql;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
@@ -710,12 +722,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
     IDatabricksClient client = connection.getSession().getDatabricksClient();
     DatabricksThreadContextHolder.setStatementType(StatementType.SQL);
-    return client.executeStatementAsync(
-        sql,
-        connection.getSession().getComputeResource(),
-        Collections.emptyMap(),
-        connection.getSession(),
-        this);
+    DatabricksResultSet result =
+        client.executeStatementAsync(
+            sql,
+            connection.getSession().getComputeResource(),
+            Collections.emptyMap(),
+            connection.getSession(),
+            this);
+    pendingAsyncTimeZoneSql = isApcSea(connection) && isTimeZoneAffecting(sql) ? sql : null;
+    updateAsyncTimeZoneIfSucceeded(result);
+    return result;
   }
 
   @Override
@@ -745,10 +761,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
-    return connection
-        .getSession()
-        .getDatabricksClient()
-        .getStatementResult(statementId, connection.getSession(), this);
+    DatabricksResultSet result =
+        connection
+            .getSession()
+            .getDatabricksClient()
+            .getStatementResult(statementId, connection.getSession(), this);
+    updateAsyncTimeZoneIfSucceeded(result);
+    return result;
   }
 
   @Override
@@ -958,7 +977,110 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully {}", resultSet.toString());
+    updateSessionTimeZone(sql);
     return resultSet;
+  }
+
+  static boolean isTimeZoneAffecting(String sql) {
+    String stripped = SqlCommentParser.stripCommentsAndWhitespaces(sql);
+    return SET_TIME_ZONE.matcher(stripped).matches() || RESET_TIME_ZONE.matcher(stripped).matches();
+  }
+
+  static String sessionTimeZoneSetBy(String sql) {
+    Matcher match = SET_TIME_ZONE.matcher(SqlCommentParser.stripCommentsAndWhitespaces(sql));
+    if (!match.matches()) {
+      return null;
+    }
+    for (int i = 1; i <= 4; i++) {
+      if (match.group(i) != null) {
+        return match.group(i);
+      }
+    }
+    return null;
+  }
+
+  private void updateAsyncTimeZoneIfSucceeded(DatabricksResultSet result) throws SQLException {
+    if (pendingAsyncTimeZoneSql == null
+        || result == null
+        || result.getStatementStatus() == null
+        || result.getStatementStatus().getState() != StatementState.SUCCEEDED) {
+      return;
+    }
+    String sql = pendingAsyncTimeZoneSql;
+    updateSessionTimeZone(sql);
+    pendingAsyncTimeZoneSql = null;
+  }
+
+  private void updateSessionTimeZone(String sql) throws SQLException {
+    if (!isApcSea(connection)) {
+      return;
+    }
+    String stripped = SqlCommentParser.stripCommentsAndWhitespaces(sql);
+    if (RESET_TIME_ZONE.matcher(stripped).matches()) {
+      publishSessionTimeZone(connection, readEffectiveSessionTimeZone(connection));
+      return;
+    }
+    String zone = sessionTimeZoneSetBy(sql);
+    if (zone == null) {
+      return;
+    }
+    // LOCAL, INTERVAL offsets and zone IDs java.time rejects (e.g. Spark's short ID "PST") are
+    // resolved by the server, so read back what it applied.
+    if ("LOCAL".equalsIgnoreCase(zone)
+        || (zone.regionMatches(true, 0, "INTERVAL", 0, 8)
+            && zone.length() > 8
+            && Character.isWhitespace(zone.charAt(8)))
+        || !isJavaTimeZoneId(zone)) {
+      zone = readEffectiveSessionTimeZone(connection);
+    }
+    publishSessionTimeZone(connection, zone);
+  }
+
+  private static boolean isJavaTimeZoneId(String zone) {
+    try {
+      java.time.ZoneId.of(zone);
+      return true;
+    } catch (java.time.DateTimeException e) {
+      return false;
+    }
+  }
+
+  static boolean isApcSea(DatabricksConnection connection) {
+    return connection.getConnectionContext().isAllPurposeCluster()
+        && connection.getConnectionContext().getClientType() == DatabricksClientType.SEA;
+  }
+
+  static String readEffectiveSessionTimeZone(DatabricksConnection connection) throws SQLException {
+    try (Statement zoneStatement = connection.createStatement();
+        ResultSet zoneResult = zoneStatement.executeQuery("SELECT current_timezone()")) {
+      if (!zoneResult.next()) {
+        throw new DatabricksSQLException(
+            "Unable to read effective session time zone",
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      String zone = zoneResult.getString(1);
+      if (zone == null || zone.isEmpty()) {
+        throw new DatabricksSQLException(
+            "Server returned an empty effective session time zone",
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      return zone;
+    }
+  }
+
+  static void publishSessionTimeZone(DatabricksConnection connection, String zone) {
+    Map<String, String> configs = connection.getSession().getSessionConfigs();
+    connection.getSession().setSessionConfig("timezone", zone);
+    connection.getSession().setSessionConfig("spark.sql.session.timezone", zone);
+    configs
+        .keySet()
+        .removeIf(
+            key ->
+                ("timezone".equalsIgnoreCase(key) && !"timezone".equals(key))
+                    || ("spark.sql.session.timeZone".equalsIgnoreCase(key)
+                        && !"spark.sql.session.timezone".equals(key)));
   }
 
   DatabricksResultSet executeInternal(
@@ -1151,6 +1273,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
    * statementId so a failed execution doesn't leave stale state.
    */
   private void resetForNewExecution() {
+    pendingAsyncTimeZoneSql = null;
     noMoreResults = false;
     updateCount = -1;
 

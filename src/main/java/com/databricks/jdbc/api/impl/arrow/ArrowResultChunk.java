@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -21,7 +22,12 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.input.CloseShieldInputStream;
 import org.apache.commons.io.input.CountingInputStream;
@@ -32,6 +38,7 @@ import org.apache.http.client.utils.URIBuilder;
 public class ArrowResultChunk extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
   private final IDatabricksConnectionContext connectionContext;
+  private volatile int failedHttpStatus;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     super(
@@ -48,8 +55,14 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       // Data is already available
       try {
         initializeData(builder.inputStream);
-      } catch (DatabricksSQLException | IOException e) {
-        handleFailure(e, ChunkStatus.PROCESSING_FAILED);
+      } catch (DatabricksSQLException | IOException | RuntimeException e) {
+        try {
+          handleFailure(e, ChunkStatus.PROCESSING_FAILED);
+        } finally {
+          // A failed inline chunk never reaches a provider, so its allocator has no later
+          // cleanup owner. ArrowStreamReader already purges partial vectors on parse failure.
+          rootAllocator.close();
+        }
       }
     }
   }
@@ -75,14 +88,25 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
       throws DatabricksParsingException, IOException {
     CloseableHttpResponse response = null;
+    failedHttpStatus = 0;
     long startTime = System.nanoTime();
     try {
-      URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
-      HttpGet getRequest = new HttpGet(uriBuilder.build());
+      HttpGet getRequest;
+      try {
+        URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
+        getRequest = new HttpGet(uriBuilder.build());
+      } catch (URISyntaxException | IllegalArgumentException e) {
+        throw new IOException("Invalid external result URL");
+      }
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
-      checkHTTPError(response);
+      try {
+        checkHTTPError(response);
+      } catch (DatabricksHttpException e) {
+        failedHttpStatus = response.getStatusLine().getStatusCode();
+        throw e;
+      }
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
 
       // Record chunk download latency telemetry
@@ -119,7 +143,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       }
       long contentLength = response.getEntity().getContentLength();
       long size = contentLength > 0 ? contentLength : counted.getByteCount();
-      logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
+      logDownloadMetrics(downloadTimeMs, size, speedThreshold);
       LOGGER.debug(
           "Chunk download complete: statementId={}, chunkIndex={}, compressedBytes={}, "
               + "httpResponseMs={}, readAndParseMs={}",
@@ -144,7 +168,17 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
       if (response != null) {
-        response.close();
+        try {
+          response.close();
+        } catch (Exception e) {
+          // Closing can fail after initializeData has transferred vectors to this chunk. Do not
+          // retry an initialized chunk or replace an earlier failure with a close exception. The
+          // exception may contain the presigned URL, so neither log nor retain it.
+          LOGGER.warn(
+              "Could not close result response for chunk index {} and statement {}",
+              chunkIndex,
+              StatementId.loggableStatementId(statementId));
+        }
       }
     }
   }
@@ -163,13 +197,44 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
   @Override
   protected void handleFailure(Exception exception, ChunkStatus failedStatus)
       throws DatabricksParsingException {
+    // HTTP client exceptions can embed the presigned URL. Keep both the public exception chain
+    // and driver logs free of the bearer path and query.
+    Exception safeCause =
+        chunkLink == null
+            ? exception
+            : exception instanceof SocketTimeoutException
+                ? new SocketTimeoutException("SocketTimeoutException")
+                : new IOException(sanitizedDescription(exception));
     errorMessage =
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
-            this.chunkIndex, StatementId.loggableStatementId(this.statementId), exception);
+            this.chunkIndex, StatementId.loggableStatementId(this.statementId), safeCause);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
-    throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
+    throw new DatabricksParsingException(errorMessage, safeCause, failedStatus.toString());
+  }
+
+  // Exception messages can embed the presigned URL, so only the class name and numeric codes
+  // survive.
+  private String sanitizedDescription(Exception exception) {
+    StringBuilder description = new StringBuilder(exception.getClass().getSimpleName());
+    List<String> details = new ArrayList<>();
+    if (failedHttpStatus != 0) {
+      details.add("httpStatus=" + failedHttpStatus);
+    }
+    if (exception instanceof SQLException) {
+      SQLException sqlException = (SQLException) exception;
+      if (sqlException.getSQLState() != null) {
+        details.add("sqlState=" + sqlException.getSQLState());
+      }
+      if (sqlException.getErrorCode() != 0) {
+        details.add("errorCode=" + sqlException.getErrorCode());
+      }
+    }
+    if (!details.isEmpty()) {
+      description.append(" [").append(String.join(", ", details)).append("]");
+    }
+    return description.toString();
   }
 
   private static InterruptedIOException cancellation(Exception cause) {
@@ -192,16 +257,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     }
   }
 
-  private void logDownloadMetrics(
-      long downloadTimeMs, long contentLength, String url, double speedThreshold) {
+  private void logDownloadMetrics(long downloadTimeMs, long contentLength, double speedThreshold) {
     if (downloadTimeMs > 0 && contentLength > 0) {
       double speedMBps = (contentLength / 1024.0 / 1024.0) / (downloadTimeMs / 1000.0);
-      String baseUrl = url.split("\\?")[0];
-
       LOGGER.debug(
           String.format(
-              "CloudFetch download: %.4f MB/s, %d bytes in %dms from %s",
-              speedMBps, contentLength, downloadTimeMs, baseUrl));
+              "CloudFetch download: %.4f MB/s, %d bytes in %dms",
+              speedMBps, contentLength, downloadTimeMs));
 
       if (speedMBps < speedThreshold) {
         LOGGER.warn(

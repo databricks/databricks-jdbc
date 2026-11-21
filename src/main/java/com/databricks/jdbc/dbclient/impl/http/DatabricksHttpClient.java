@@ -188,17 +188,23 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(
-            cause.getMessage(), cause, DatabricksDriverErrorCode.INVALID_STATE);
+        DatabricksRetryHandlerException retry = (DatabricksRetryHandlerException) cause;
+        // Keep historical INVALID_STATE + cause chain for every HTTP path; only sanitize the URL.
+        String errorMsg =
+            String.format(
+                "Retry handler failed for http request: [%s]. HTTP error code: %d",
+                RequestSanitizer.sanitizeRequest(request), retry.getErrCode());
+        LOGGER.error(errorMsg);
+        throw new DatabricksHttpException(errorMsg, retry, DatabricksDriverErrorCode.INVALID_STATE);
       }
       cause = cause.getCause();
     }
     String errorMsg =
         String.format(
-            "Caught error while executing http request: [%s]. Error Message: [%s]",
-            RequestSanitizer.sanitizeRequest(request), e);
+            "Caught error while executing http request: [%s]. Exception [%s]",
+            RequestSanitizer.sanitizeRequest(request), e.getClass().getSimpleName());
     LOGGER.error(e, errorMsg);
-    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    throw new DatabricksHttpException(errorMsg, e, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   @VisibleForTesting

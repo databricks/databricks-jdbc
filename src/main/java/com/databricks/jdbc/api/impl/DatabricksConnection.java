@@ -85,6 +85,34 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void open() throws SQLException {
     this.session.open();
+    resolveApcSessionTimeZone();
+  }
+
+  /**
+   * APC Arrow batches carry no wire time zone, so the driver must know the session zone. Without a
+   * URL-configured zone the server default applies, which is not necessarily UTC. Fail open rather
+   * than silently decoding timestamps as UTC when the lookup fails.
+   */
+  @VisibleForTesting
+  void resolveApcSessionTimeZone() throws SQLException {
+    if (!DatabricksStatement.isApcSea(this)) {
+      return;
+    }
+    boolean zoneConfigured;
+    Map<String, String> configs = session.getSessionConfigs();
+    synchronized (configs) {
+      zoneConfigured =
+          configs.keySet().stream()
+              .anyMatch(
+                  key ->
+                      "timezone".equalsIgnoreCase(key)
+                          || "spark.sql.session.timeZone".equalsIgnoreCase(key));
+    }
+    if (zoneConfigured) {
+      return;
+    }
+    DatabricksStatement.publishSessionTimeZone(
+        this, DatabricksStatement.readEffectiveSessionTimeZone(this));
   }
 
   @Override
