@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -30,6 +31,7 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
@@ -44,9 +46,11 @@ import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.core.SqlExecResultFormat;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
@@ -60,6 +64,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 import java.util.stream.Stream;
@@ -76,6 +81,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -2537,6 +2543,7 @@ public class DatabricksSdkClientTest {
     assertEquals("ARROW_BATCH", executeBody.path("format").asText());
     assertEquals("INLINE_OR_EXTERNAL_LINKS", executeBody.path("disposition").asText());
     assertFalse(executeBody.has("statements"));
+    assertFalse(executeBody.has("parameters"));
     if (directMode.isEmpty()) {
       assertFalse(executeBody.hasNonNull("wait_timeout"));
     } else {
@@ -2651,7 +2658,12 @@ public class DatabricksSdkClientTest {
     client.closeStatement(id);
     client.deleteSession(info);
 
-    assertEquals(9, sent.size());
+    assertEquals(10, sent.size());
+    assertEquals(Request.GET, sent.get(2).getMethod());
+    assertEquals(Request.DELETE, sent.get(3).getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, "statement"), sent.get(3).getUri().getPath());
+    sent.remove(3);
     assertEquals(SESSION_PATH, sent.get(0).getUri().getPath());
     assertFalse(new ObjectMapper().readTree(sent.get(0).getBodyString()).has("warehouse_id"));
     assertEquals(
@@ -2709,5 +2721,350 @@ public class DatabricksSdkClientTest {
             .path("all_purpose_cluster_compute")
             .path("cluster_id")
             .asText());
+  }
+
+  private static final AllPurposeCluster APC_CLUSTER = new AllPurposeCluster("org", "cluster");
+  private static final String NATIVE_INSERT = "INSERT INTO t VALUES (?)";
+  private IDatabricksConnectionContext apcContext;
+
+  private DatabricksSdkClient apcClient() throws Exception {
+    apcContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "TelemetryLogLevel=OFF;", new Properties());
+    return new DatabricksSdkClient(apcContext, statementExecutionService, apiClient);
+  }
+
+  private static ImmutableSessionInfo apcInfo(IDatabricksComputeResource compute, Long version) {
+    return ImmutableSessionInfo.builder()
+        .clientType(DatabricksClientType.SEA)
+        .sessionId("session")
+        .computeResource(compute)
+        .negotiatedProtocolVersion(version)
+        .build();
+  }
+
+  private DatabricksSession apcSession(IDatabricksComputeResource compute, Long version) {
+    DatabricksSession session = mock(DatabricksSession.class);
+    lenient().when(session.getSessionInfo()).thenReturn(apcInfo(compute, version));
+    lenient().when(session.getSessionId()).thenReturn("session");
+    lenient().when(session.getComputeResource()).thenReturn(compute);
+    lenient().when(session.getConnectionContext()).thenReturn(apcContext);
+    lenient().when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    return session;
+  }
+
+  private void stubSerialize() throws Exception {
+    lenient()
+        .when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> new ObjectMapper().writeValueAsString(invocation.getArgument(0)));
+  }
+
+  private static ExecuteStatementResponse statementResponse(String id, StatementState state) {
+    return new ExecuteStatementResponse()
+        .setStatementId(id)
+        .setStatus(new StatementStatus().setState(state));
+  }
+
+  private void stubSubmit(String id, StatementState state) throws Exception {
+    stubSerialize();
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(statementResponse(id, state));
+  }
+
+  private static Map<Integer, ImmutableSqlParameter> stringBinding(String value) {
+    return Map.of(1, getSqlParam(1, value, DatabricksTypeUtil.STRING));
+  }
+
+  private static IDatabricksStatementInternal parentWithTimeout(int timeoutSeconds)
+      throws Exception {
+    IDatabricksStatementInternal parent = mock(IDatabricksStatementInternal.class);
+    java.sql.Statement statement = mock(java.sql.Statement.class);
+    lenient().when(statement.getQueryTimeout()).thenReturn(timeoutSeconds);
+    when(parent.getStatement()).thenReturn(statement);
+    return parent;
+  }
+
+  private JsonNode lastSubmitBody() throws Exception {
+    ArgumentCaptor<Request> execute = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(execute.capture(), eq(ExecuteStatementResponse.class));
+    return new ObjectMapper().readTree(execute.getValue().getBodyString());
+  }
+
+  private static void assertRedactedSdkError(
+      DatabricksSQLException error, String secret, LogCapture logs) {
+    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.SDK_CLIENT_ERROR.getCode(), error.getErrorCode());
+    assertFalse(error.getMessage().contains(secret));
+    assertNull(error.getCause());
+    assertFalse(logs.getOutput().contains(secret));
+  }
+
+  @Test
+  void failedApcExecutionClosesRecordedOperation() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42247L);
+    IDatabricksStatementInternal parent = parentWithTimeout(0);
+    stubSubmit("failed-operation", StatementState.FAILED);
+
+    assertThrows(
+        SQLException.class,
+        () ->
+            client.executeStatement(
+                "INSERT INTO t VALUES (7)",
+                APC_CLUSTER,
+                Map.of(),
+                StatementType.UPDATE,
+                session,
+                parent,
+                null));
+
+    verify(parent).setStatementId(any(StatementId.class));
+    verify(parent).closeServerOperation();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testNativeBatchSucceedsDespiteCleanupOrDecodeFailure(boolean cleanupFails)
+      throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    stubSerialize();
+    // A manifest without a format cannot be decoded into a result set.
+    ExecuteStatementResponse response =
+        statementResponse("statement", StatementState.SUCCEEDED)
+            .setManifest(new ResultManifest().setTotalRowCount(1L))
+            .setResult(new ResultData().setRowCount(1L));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(response);
+    if (cleanupFails) {
+      when(apiClient.execute(any(Request.class), eq(Void.class)))
+          .thenThrow(new IOException("cleanup failed"));
+    }
+
+    long[] counts =
+        client.executeNativeBatch(
+            NATIVE_INSERT, List.of(BatchParameterSet.from(stringBinding("v"))), session, null);
+
+    assertArrayEquals(new long[] {java.sql.Statement.SUCCESS_NO_INFO}, counts);
+    verify(apiClient).execute(any(Request.class), eq(Void.class));
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(longs = {42247L, 42248L})
+  public void testApcDirectClientParametersFollowLiveVersion(Long version) throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, version);
+    stubSubmit("statement", StatementState.SUCCEEDED);
+
+    client.executeStatement(
+        "SELECT ? AS value, '?' AS literal /* ? */",
+        APC_CLUSTER,
+        stringBinding("x';--\\tail"),
+        StatementType.QUERY,
+        session,
+        null,
+        null);
+
+    JsonNode body = lastSubmitBody();
+    if (version != null && version >= 42248L) {
+      assertEquals("SELECT ? AS value, '?' AS literal /* ? */", body.path("statement").asText());
+      assertEquals(1, body.path("parameters").size());
+    } else {
+      assertEquals(
+          "SELECT 'x'';--\\\\tail' AS value, '?' AS literal /* ? */",
+          body.path("statement").asText());
+      assertFalse(body.has("parameters"));
+    }
+    assertFalse(body.has("parameter_sets"));
+  }
+
+  @Test
+  public void testApcNativeFailuresRedactBindingsAndClassifyRawError() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    stubSerialize();
+    String secret = "native-bound-secret";
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            statementResponse("failed", StatementState.FAILED)
+                .setStatus(
+                    new StatementStatus()
+                        .setState(StatementState.FAILED)
+                        .setSqlState("XXUCC")
+                        .setError(
+                            new ServiceError()
+                                .setMessage(
+                                    "[UC_CLIENT_EXCEPTION] Failed to contact the Unity Catalog "
+                                        + "server. HTTP/1.1 504 Gateway Timeout, "
+                                        + "DEADLINE_EXCEEDED: "
+                                        + secret))));
+    Map<Integer, ImmutableSqlParameter> bindings = stringBinding(secret);
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException single =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT ?", APC_CLUSTER, bindings, StatementType.QUERY, session, null, null));
+      assertEquals("08S01", single.getSQLState());
+      assertFalse(single.getMessage().contains(secret));
+
+      DatabricksSQLException batch =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.executeNativeBatch(
+                      NATIVE_INSERT, List.of(BatchParameterSet.from(bindings)), session, null));
+      assertEquals("08S01", batch.getSQLState());
+      assertFalse(batch.getMessage().contains(secret));
+      assertFalse(logs.getOutput().contains(secret));
+    }
+  }
+
+  @Test
+  public void testApcNativePollFailureDoesNotExposeBoundValueInCause() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42248L);
+    stubSubmit("statement", StatementState.PENDING);
+    String secret = "native-poll-secret";
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenThrow(
+            new RuntimeException(
+                "retry wrapper echoed " + secret,
+                new DatabricksException("server echoed " + secret)));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksSQLException error =
+          assertThrows(
+              DatabricksSQLException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT ?",
+                      APC_CLUSTER,
+                      stringBinding(secret),
+                      StatementType.QUERY,
+                      session,
+                      null,
+                      null));
+      assertRedactedSdkError(error, secret, logs);
+    }
+    ArgumentCaptor<Request> cleanup = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(cleanup.capture(), eq(Void.class));
+    assertEquals(Request.DELETE, cleanup.getValue().getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, "statement"), cleanup.getValue().getUri().getPath());
+  }
+
+  @Test
+  public void testApcNativeBatchQueryTimeoutCoversDelayedSubmitResponse() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    IDatabricksStatementInternal parent = parentWithTimeout(1);
+    stubSerialize();
+    when(apiClient.execute(any(Request.class), eq(Void.class)))
+        .thenThrow(new IOException("cancel failed"))
+        .thenReturn(null);
+    // The submit blocks past the 1s query timeout before any statement ID exists.
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(2500);
+              return statementResponse("slow", StatementState.SUCCEEDED);
+            });
+
+    long startMillis = System.currentTimeMillis();
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () ->
+            client.executeNativeBatch(
+                NATIVE_INSERT,
+                List.of(BatchParameterSet.from(stringBinding("v"))),
+                session,
+                parent));
+
+    // The caller is released at the deadline, not when the blocked submit finally returns.
+    assertTrue(System.currentTimeMillis() - startMillis < 2200);
+    verify(apiClient, never()).execute(any(Request.class), eq(GetStatementResponse.class));
+    // The abandoned submit's operation is closed even though its cancel throws.
+    ArgumentCaptor<Request> cleanup = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient, timeout(5000).times(2)).execute(cleanup.capture(), eq(Void.class));
+    assertTrue(cleanup.getAllValues().get(0).getUrl().endsWith("/cancel"));
+    assertEquals(Request.DELETE, cleanup.getAllValues().get(1).getMethod());
+  }
+
+  @Test
+  public void testApcNativeBatchSubmitsShareBoundedPool() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    stubSerialize();
+    int max = DatabricksSdkClient.APC_NATIVE_BATCH_SUBMIT_MAX_THREADS;
+    java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(max);
+    java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              release.await();
+              return statementResponse("late", StatementState.SUCCEEDED);
+            });
+    List<BatchParameterSet> sets = List.of(BatchParameterSet.from(stringBinding("v")));
+    java.util.concurrent.ExecutorService callers =
+        java.util.concurrent.Executors.newFixedThreadPool(max);
+    for (int i = 0; i < max; i++) {
+      IDatabricksStatementInternal parent = parentWithTimeout(1);
+      callers.submit(() -> client.executeNativeBatch(NATIVE_INSERT, sets, session, parent));
+    }
+    assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS));
+
+    // Every pooled submit is still blocked, so one more fails fast instead of adding a thread.
+    IDatabricksStatementInternal extra = parentWithTimeout(1);
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> client.executeNativeBatch(NATIVE_INSERT, sets, session, extra));
+    verify(apiClient, times(max)).execute(any(Request.class), eq(ExecuteStatementResponse.class));
+    release.countDown();
+    callers.shutdownNow();
+  }
+
+  @Test
+  public void testNativeBatchRejectsMixedBinaryAndNonBinarySets() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42250L);
+    Map<Integer, ImmutableSqlParameter> bytes =
+        Map.of(1, getSqlParam(1, new byte[] {(byte) 0xFF}, DatabricksTypeUtil.BINARY));
+
+    java.sql.SQLFeatureNotSupportedException error =
+        assertThrows(
+            java.sql.SQLFeatureNotSupportedException.class,
+            () ->
+                client.executeNativeBatch(
+                    NATIVE_INSERT,
+                    List.of(
+                        BatchParameterSet.from(bytes), BatchParameterSet.from(stringBinding("v"))),
+                    session,
+                    null));
+
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), error.getSQLState());
+    verifyNoInteractions(apiClient);
+  }
+
+  @Test
+  public void testNonPreparedApcDowngradeWarnsAndEmitsTelemetryOncePerClient() throws Exception {
+    DatabricksSdkClient client = apcClient();
+    DatabricksSession session = apcSession(APC_CLUSTER, 42247L);
+    stubSubmit("statement", StatementState.SUCCEEDED);
+
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      for (int i = 0; i < 3; i++) {
+        client.executeStatement(
+            "SELECT ?", APC_CLUSTER, stringBinding("v"), StatementType.QUERY, session, null, null);
+      }
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  eq(apcContext), eq("APC_PARAMETER_DOWNGRADE"), eq("below V8"), any()),
+          times(1));
+    }
   }
 }

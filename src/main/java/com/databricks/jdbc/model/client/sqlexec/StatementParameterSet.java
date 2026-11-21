@@ -8,6 +8,11 @@ import java.util.Objects;
 
 /** Driver-owned SEA model for one ordered statement parameter set. */
 public class StatementParameterSet {
+  public StatementParameterSet() {}
+
+  public StatementParameterSet(List<StatementParameterListItem> parameters) {
+    setParameters(parameters);
+  }
 
   @JsonProperty("parameters")
   private Collection<StatementParameterListItem> parameters;

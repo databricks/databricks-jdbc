@@ -3,12 +3,15 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.InsertStatementParser;
+import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +51,7 @@ class LegacyPreparedStatementBatchExecutor {
     }
 
     // Try to optimize INSERT statements with multi-row batching
-    if (canUseBatchedInsert()) {
+    if (!ApcParameterCapabilities.isApcSea(connection.getSession()) && canUseBatchedInsert()) {
       return executeBatchedInsert(batchParameterSets);
     } else {
       // Fall back to individual execution for non-INSERT or incompatible statements
@@ -178,13 +181,67 @@ class LegacyPreparedStatementBatchExecutor {
     for (int sqlQueryIndex = 0; sqlQueryIndex < batchParameterSets.size(); sqlQueryIndex++) {
       BatchParameterSet batchParameterSet = batchParameterSets.get(sqlQueryIndex);
       try {
+        Map<Integer, ImmutableSqlParameter> parameters = batchParameterSet.getParameterBindings();
+        boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
+        boolean interpolate =
+            apc && !ApcParameterCapabilities.supportsNativeParameters(connection.getSession());
+        String sqlToExecute =
+            interpolate
+                ? SQLInterpolator.interpolateApcSQL(sql, parameters)
+                : apc ? SQLInterpolator.wrapNativeBinaryPlaceholders(sql, parameters) : sql;
+        Map<Integer, ImmutableSqlParameter> parametersToSend =
+            interpolate ? new HashMap<>() : parameters;
         DatabricksResultSet resultSet =
-            statementExecutor.execute(
-                sql, batchParameterSet.getParameterBindings(), StatementType.UPDATE, false);
-        largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
+            statementExecutor.execute(sqlToExecute, parametersToSend, StatementType.UPDATE, false);
+        try {
+          largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
+        } catch (SQLException | RuntimeException countFailure) {
+          if (!apc) {
+            throw countFailure;
+          }
+          // The write is already committed; reporting it as failed would invite a duplicate retry.
+          largeUpdateCount[sqlQueryIndex] = Statement.SUCCESS_NO_INFO;
+          LOGGER.warn("Could not read APC batch update count; reporting SUCCESS_NO_INFO");
+        } finally {
+          if (apc) {
+            // APC replaces the statement ID on the next request. Preserve the legacy Warehouse
+            // and Thrift request sequence, which has no close between batch executions.
+            try {
+              resultSet.closeForNativeBatch();
+            } catch (Exception cleanupFailure) {
+              // The statement already ran; a cleanup error must not invite a retry of the write.
+              LOGGER.warn("Could not close APC batch operation after execution");
+            }
+          }
+        }
       } catch (Exception e) {
-        LOGGER.error(
-            "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
+        boolean apc = ApcParameterCapabilities.isApcSea(connection.getSession());
+        String errorMessage = apc ? "APC batch execution failed: [REDACTED]" : e.getMessage();
+        if (apc) {
+          LOGGER.error("Error executing APC batch update for index {}", sqlQueryIndex);
+        } else {
+          LOGGER.error(
+              "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
+        }
+        if (apc) {
+          // APC stops at the failed set. JDBC counts describe only earlier executed sets.
+          long[] completedCounts = Arrays.copyOf(largeUpdateCount, sqlQueryIndex);
+          if (e instanceof SQLException) {
+            SQLException sqlError = (SQLException) e;
+            throw new DatabricksBatchUpdateException(
+                errorMessage,
+                sqlError.getSQLState(),
+                sqlError.getErrorCode(),
+                completedCounts,
+                null);
+          }
+          throw new DatabricksBatchUpdateException(
+              errorMessage,
+              DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.name(),
+              DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.getCode(),
+              completedCounts,
+              null);
+        }
         // Set the current failed statement's count
         largeUpdateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
         // Set all remaining statements as failed
@@ -194,7 +251,7 @@ class LegacyPreparedStatementBatchExecutor {
         // WARNING: Due to lack of transaction support, any successfully executed statements
         // before this failure have already been committed and cannot be rolled back
         throw new DatabricksBatchUpdateException(
-            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
+            errorMessage, DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
     }
     return largeUpdateCount;

@@ -322,6 +322,7 @@ public class TelemetryHelper {
         return OperationType.CREATE_SESSION;
       case "executeStatement":
       case "executeStatementBatch":
+      case "executeNativeBatch":
         return OperationType.EXECUTE_STATEMENT;
       case "executeStatementAsync":
         return OperationType.EXECUTE_STATEMENT_ASYNC;

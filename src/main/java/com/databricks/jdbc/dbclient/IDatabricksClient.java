@@ -12,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
@@ -72,6 +73,25 @@ public interface IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       MetadataOperationType metadataOperationType)
       throws SQLException;
+
+  /** Whether this client can send APC parameter_sets in one ExecuteStatement request. */
+  default boolean supportsNativeBatchExecution() {
+    return false;
+  }
+
+  /** Executes an ordered prepared INSERT batch using APC parameter_sets. */
+  @DatabricksMetricsTimed
+  default long[] executeNativeBatch(
+      String sql,
+      List<BatchParameterSet> parameterSets,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    throw new SQLFeatureNotSupportedException(
+        "Native batch execution is not supported",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+  }
 
   /**
    * Returns whether this client can execute a native parameter batch for the given compute.

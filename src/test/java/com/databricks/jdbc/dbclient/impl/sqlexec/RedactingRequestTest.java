@@ -2,10 +2,12 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import java.util.ArrayList;
@@ -24,7 +26,13 @@ class RedactingRequestTest {
     String body =
         "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
             + cluster
-            + "\"}}}";
+            + "\"}},\"statement\":\"SELECT ?\",\"parameters\":[{\"value\":\"native-secret\"}],"
+            + "\"parameter_sets\":[{\"parameters\":[{\"value\":\"batch-secret\"}]}]}";
+    String echoed = "response-secret-918273";
+    String interpolatedBody =
+        "{\"backend_compute\":{\"all_purpose_cluster_compute\":{\"cluster_id\":\""
+            + cluster
+            + "\"}},\"statement\":\"SELECT 'interpolated-secret'\"}";
     List<String> wireBodies = new ArrayList<>();
     List<String> wireUrls = new ArrayList<>();
     ApiClient client =
@@ -38,6 +46,14 @@ class RedactingRequestTest {
                       if (request.getUri().getPath().startsWith("/api/2.0/sql/")) {
                         wireBodies.add(request.getBodyString());
                         wireUrls.add(request.getUri().toString());
+                      }
+                      if (request.getUri().getPath().endsWith("/echo-error")) {
+                        return new Response(
+                            request,
+                            400,
+                            "Bad Request",
+                            Map.of(),
+                            "{\"message\":\"" + echoed + "\"}");
                       }
                       return new Response(request, 204, "No Content", Map.of());
                     }),
@@ -68,6 +84,9 @@ class RedactingRequestTest {
       client.execute(
           new RedactingRequest(Request.POST, "/api/2.0/sql/statements/", body), Void.class);
       client.execute(
+          new RedactingRequest(Request.POST, "/api/2.0/sql/statements/", interpolatedBody),
+          Void.class);
+      client.execute(
           new RedactingRequest(Request.POST, "/api/2.0/sql/statements/id/cancel", body),
           Void.class);
       client.execute(
@@ -79,16 +98,27 @@ class RedactingRequestTest {
                   + cluster,
               null),
           Void.class);
+      assertThrows(
+          DatabricksError.class,
+          () ->
+              client.execute(
+                  new RedactingRequest(Request.POST, "/api/2.0/sql/statements/echo-error", body),
+                  Void.class));
     } finally {
       logger.removeHandler(handler);
       logger.setLevel(previousLevel);
     }
-    assertEquals(5, wireBodies.size());
-    for (int i = 0; i < 4; i++) {
+    assertEquals(7, wireBodies.size());
+    for (int i : List.of(0, 1, 3, 4)) {
       assertEquals(body, wireBodies.get(i));
     }
-    assertTrue(wireUrls.get(4).contains(cluster));
+    assertEquals(interpolatedBody, wireBodies.get(2));
+    assertTrue(wireUrls.get(5).contains(cluster));
     assertTrue(logged.toString().contains("[REDACTED]"));
     assertFalse(logged.toString().contains(cluster));
+    assertFalse(logged.toString().contains("native-secret"));
+    assertFalse(logged.toString().contains("batch-secret"));
+    assertFalse(logged.toString().contains("interpolated-secret"));
+    assertFalse(logged.toString().contains(echoed));
   }
 }
