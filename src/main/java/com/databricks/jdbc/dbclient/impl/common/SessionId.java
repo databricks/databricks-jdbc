@@ -26,21 +26,18 @@ public class SessionId {
   final String secret;
   final IDatabricksComputeResource clusterResource;
   private final boolean realtimeSession;
-  private final Long negotiatedProtocolVersion;
 
   private SessionId(
       DatabricksClientType clientType,
       String guid,
       String secret,
       IDatabricksComputeResource clusterResource,
-      boolean realtimeSession,
-      Long negotiatedProtocolVersion) {
+      boolean realtimeSession) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
     this.clusterResource = clusterResource;
     this.realtimeSession = realtimeSession;
-    this.negotiatedProtocolVersion = negotiatedProtocolVersion;
   }
 
   /** Constructs a SessionId identifier for a given SQL Exec session-Id */
@@ -50,7 +47,7 @@ public class SessionId {
 
   public SessionId(
       String sessionId, IDatabricksComputeResource warehouseId, boolean realtimeSession) {
-    this(DatabricksClientType.SEA, sessionId, null, warehouseId, realtimeSession, null);
+    this(DatabricksClientType.SEA, sessionId, null, warehouseId, realtimeSession);
   }
 
   /** Constructs a SessionId identifier for a given Thrift Server session-Id */
@@ -60,8 +57,7 @@ public class SessionId {
         ResourceId.fromBytes(identifier.getGuid()).toString(),
         ResourceId.fromBytes(identifier.getSecret()).toString(),
         computeResource,
-        false,
-        null);
+        false);
   }
 
   /** Creates a SessionId identifier for a given Thrift Server session-Id */
@@ -76,10 +72,7 @@ public class SessionId {
         sessionInfo.sessionId(),
         null,
         sessionInfo.computeResource(),
-        sessionInfo.realtimeSession(),
-        SeaComputeTarget.of(sessionInfo.computeResource()).isApc()
-            ? sessionInfo.negotiatedProtocolVersion()
-            : null);
+        sessionInfo.realtimeSession());
   }
 
   /** Deserializes a SessionId from a serialized string */
@@ -87,26 +80,15 @@ public class SessionId {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
     // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
-    // For APC SEA: s|a|org-id|cluster-id|session-id|protocol-version-or--
+    // For APC SEA: s|a|org-id|cluster-id|session-id
     if (serializedSessionId == null) {
       throw invalid("Session ID has invalid structure");
     }
     String[] parts = serializedSessionId.split("\\|", -1);
-    if (parts.length == 6 && "s".equals(parts[0]) && "a".equals(parts[1])) {
+    if (parts.length == 5 && "s".equals(parts[0]) && "a".equals(parts[1])) {
       for (int i = 2; i < 5; i++) {
         if (parts[i].isEmpty()) {
           throw invalid("APC session ID has an empty segment");
-        }
-      }
-      Long version = null;
-      if (!"-".equals(parts[5])) {
-        if (!parts[5].matches("[0-9]+")) {
-          throw invalid("APC session ID has an invalid protocol version");
-        }
-        try {
-          version = Long.parseLong(parts[5]);
-        } catch (NumberFormatException e) {
-          throw invalid("APC session ID has an invalid protocol version");
         }
       }
       return new SessionId(
@@ -114,8 +96,7 @@ public class SessionId {
           parts[4],
           null,
           new AllPurposeCluster(parts[2], parts[3]),
-          false,
-          version);
+          false);
     }
     if (parts.length < 3 || parts.length > 4 || parts[0].isEmpty()) {
       throw invalid("Session ID has invalid structure");
@@ -134,7 +115,7 @@ public class SessionId {
 
       case "t":
         if (parts.length == 3) {
-          return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null, false, null);
+          return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null, false);
         }
         break;
     }
@@ -156,12 +137,7 @@ public class SessionId {
       case SEA:
         if (SeaComputeTarget.of(clusterResource).isApc()) {
           AllPurposeCluster cluster = (AllPurposeCluster) clusterResource;
-          return String.format(
-              "s|a|%s|%s|%s|%s",
-              cluster.getOrgId(),
-              cluster.getClusterId(),
-              guid,
-              negotiatedProtocolVersion == null ? "-" : negotiatedProtocolVersion);
+          return String.format("s|a|%s|%s|%s", cluster.getOrgId(), cluster.getClusterId(), guid);
         }
         String serialized =
             String.format("s|%s|%s", SeaComputeTarget.of(clusterResource).warehouseId(), guid);
@@ -198,7 +174,6 @@ public class SessionId {
             .sessionId(guid)
             .computeResource(clusterResource)
             .realtimeSession(realtimeSession)
-            .negotiatedProtocolVersion(negotiatedProtocolVersion)
             .build();
     }
     // should not reach here
@@ -219,8 +194,6 @@ public class SessionId {
     return Objects.equals(this.guid, ((SessionId) otherSession).guid)
         && Objects.equals(this.secret, ((SessionId) otherSession).secret)
         && this.realtimeSession == ((SessionId) otherSession).realtimeSession
-        && Objects.equals(
-            this.negotiatedProtocolVersion, ((SessionId) otherSession).negotiatedProtocolVersion)
         // For Thrift client type, cluster resource is ignored
         && (this.clientType == DatabricksClientType.THRIFT
             || Objects.equals(this.clusterResource, ((SessionId) otherSession).clusterResource));

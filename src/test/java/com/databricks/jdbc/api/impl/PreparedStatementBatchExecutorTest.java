@@ -474,7 +474,6 @@ class PreparedStatementBatchExecutorTest {
                 .computeResource(new AllPurposeCluster("org", "cluster"))
                 .clientType(DatabricksClientType.SEA)
                 .negotiatedProtocolVersion(version)
-                .liveProtocolVersion(true)
                 .build());
   }
 

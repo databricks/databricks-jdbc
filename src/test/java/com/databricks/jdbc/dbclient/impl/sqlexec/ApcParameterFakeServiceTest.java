@@ -136,7 +136,6 @@ class ApcParameterFakeServiceTest {
             .computeResource(CLUSTER)
             .clientType(DatabricksClientType.SEA)
             .negotiatedProtocolVersion(version)
-            .liveProtocolVersion(true)
             .build();
     when(connection.getConnectionContext()).thenReturn(context);
     when(connection.getSession()).thenReturn(session);
@@ -171,7 +170,7 @@ class ApcParameterFakeServiceTest {
 
   @Test
   void nativeBinaryValuesArePreservedAndCopiedFromCallerArray() throws Exception {
-    DatabricksPreparedStatement single = prepared(42248L, INSERT, false, true);
+    DatabricksPreparedStatement single = prepared(42248L, INSERT, false);
     byte[] bytes = new byte[] {0x00, (byte) 0xFF, 0x41};
     single.setBytes(1, bytes);
     bytes[0] = 0x7F;
@@ -194,6 +193,30 @@ class ApcParameterFakeServiceTest {
     assertFalse(batchBody.has("parameters"));
     assertEquals("8000", setValue(batchBody, 0, "value"));
     assertEquals("FF7F", setValue(batchBody, 1, "value"));
+  }
+
+  @Test
+  void supportManyParametersSendsInterpolatedSqlWithoutParametersOrBatchSets() throws Exception {
+    DatabricksPreparedStatement single = prepared(42250L, INSERT, true, true);
+    single.setBytes(1, new byte[] {0x00, (byte) 0xFF});
+    single.executeUpdate();
+
+    JsonNode body = executeBodies().get(0);
+    assertEquals("INSERT INTO t VALUES (X'00FF')", body.path("statement").asText());
+    assertFalse(body.has("parameters"));
+
+    DatabricksPreparedStatement batch = prepared(42250L, INSERT, true, true);
+    batch.setInt(1, 1);
+    batch.addBatch();
+    batch.setInt(1, 2);
+    batch.addBatch();
+    batch.executeLargeBatch();
+
+    List<JsonNode> bodies = executeBodies();
+    assertEquals(3, bodies.size());
+    assertEquals("INSERT INTO t VALUES (1)", bodies.get(1).path("statement").asText());
+    assertEquals("INSERT INTO t VALUES (2)", bodies.get(2).path("statement").asText());
+    assertFalse(bodies.get(2).has("parameter_sets"));
   }
 
   @Test

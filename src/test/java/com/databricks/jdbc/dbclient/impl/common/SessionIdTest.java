@@ -118,7 +118,7 @@ public class SessionIdTest {
   }
 
   @Test
-  public void testApcSeaRoundTripAndSavedVersionCannotGrantCapabilities() throws Exception {
+  public void testApcSeaRoundTripOmitsNegotiatedProtocolVersion() throws Exception {
     for (Long version : new Long[] {8L, null}) {
       ImmutableSessionInfo live =
           ImmutableSessionInfo.builder()
@@ -126,22 +126,16 @@ public class SessionIdTest {
               .sessionId("session")
               .computeResource(new AllPurposeCluster("org", "cluster"))
               .negotiatedProtocolVersion(version)
-              .liveProtocolVersion(true)
               .build();
       String serialized = SessionId.create(live).toString();
-      assertEquals("s|a|org|cluster|session|" + (version == null ? "-" : version), serialized);
-      ImmutableSessionInfo saved = SessionId.deserialize(serialized).getSessionInfo();
+      assertEquals("s|a|org|cluster|session", serialized);
+      SessionId restored = SessionId.deserialize(serialized);
+      ImmutableSessionInfo saved = restored.getSessionInfo();
       assertEquals(DatabricksClientType.SEA, saved.clientType());
       assertEquals(live.computeResource(), saved.computeResource());
-      assertEquals(version, saved.negotiatedProtocolVersion());
-      assertNull(saved.nativeProtocolVersion());
-      assertFalse(saved.liveProtocolVersion());
-      assertEquals(version, live.nativeProtocolVersion());
+      assertNull(saved.negotiatedProtocolVersion());
+      assertEquals(SessionId.create(live), restored);
     }
-    assertNull(
-        SessionId.deserialize("s|a|org|cluster|session|99")
-            .getSessionInfo()
-            .nativeProtocolVersion());
   }
 
   @Test
@@ -149,12 +143,11 @@ public class SessionIdTest {
     for (String input :
         new String[] {
           "s|a|org|cluster",
-          "s|a|org|cluster|session",
-          "s|a|org|cluster|session|-|extra",
-          "s|a||cluster|session|-",
-          "s|a|org|cluster||-",
-          "s|a|org|cluster|session|invalid",
-          "s|a|org|cluster|session|-1"
+          "s|a|org|cluster|session|-",
+          "s|a|org|cluster|session|8",
+          "s|a||cluster|session",
+          "s|a|org||session",
+          "s|a|org|cluster|"
         }) {
       DatabricksParsingException error =
           assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(input));
