@@ -2363,7 +2363,7 @@ public class DatabricksSdkClientTest {
 
     ImmutableSessionInfo info = client.createSession(cluster, null, null, null);
     assertEquals(DatabricksClientType.SEA, info.clientType());
-    assertEquals(8L, info.nativeProtocolVersion());
+    assertEquals(8L, info.negotiatedProtocolVersion());
     assertFalse(info.realtimeSession());
     client.deleteSession(info);
 
@@ -2594,7 +2594,7 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(context, statementExecutionService, realApiClient);
     AllPurposeCluster cluster = new AllPurposeCluster("org", "cluster");
     ImmutableSessionInfo info = client.createSession(cluster, null, null, null);
-    assertEquals(8L, info.nativeProtocolVersion());
+    assertEquals(8L, info.negotiatedProtocolVersion());
     StatementId id = StatementId.forCurrentSession("statement", info);
     DatabricksSession session = mock(DatabricksSession.class);
     when(session.getSessionInfo()).thenReturn(info);
