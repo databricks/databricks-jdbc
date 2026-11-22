@@ -568,11 +568,11 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` is one prerequisite tree with a JDBC PR spine. The flag/partner server
-package deploys before SELECT; the independent server command-result package deploys
-after linked SELECT and before public DDL/DML. Cross-repository parent edges mean
-deployment/approval order, while each repository's PRs branch from their
-same-repository predecessor. The first two JDBC slices prove single-chunk
+`plan.json` has two repository-local PR stacks: one Universe stack and one JDBC
+spine. A `parent` is always a branch parent in the same repository. Deployment
+gates across repositories are explicit in package notes: the flag/partner server
+package deploys before flag-on SELECT validation, and the server command-result
+package deploys before public DDL/DML approval. The first two JDBC slices prove single-chunk
 SELECT and then lifecycle/transport controls. Continuation, saved IDs, and linked/async
 SELECT precede commands and batches. Catalog/schema and table/column discovery precede
 their async handles; procedure metadata follows scalar binding, and relation handles
