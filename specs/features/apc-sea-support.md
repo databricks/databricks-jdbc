@@ -423,6 +423,7 @@ nulls, and errors match APC Thrift and warehouse SEA. For vector types unavailab
 captured contract fixtures with distinct non-null and null rows; cover all eight vectors,
 least-significant-bit ordering, short/long masks, and Arrow IPC following columnar data.
 The live method's emitted shapes remain a release gate; a fixture alone cannot replace them.
+The integrated gate closes the complete vector matrix after every metadata method is exposed.
 - AC17: GIVEN live V10 APC, or a captured V10 contract fixture when unavailable live, WHEN
 enabled native prepared INSERT batches succeed or fail THEN one ordered `parameter_sets`
 request returns every per-set count on success, or only server-confirmed prefix counts on
@@ -610,17 +611,17 @@ single-request timeout THEN APC SEA completes, including result polling, without
 Record duration, retry/final error identity, and connection usability against APC Thrift and warehouse SEA;
 a server limit remains pending without cause, caller impact, and PECO approval.
 - AC61: GIVEN four nonempty catalogs with 25 tables and 16 columns each WHEN synchronous
-and typed async metadata run at 32 callers THEN rows/errors match paired APC SEA/Thrift and
-warehouse SEA/Thrift results, `42601` recovery submits at most N+2 requests for N catalogs,
-and median client latency regresses by at most 10% within each compute type. For server cost,
-compare candidate JDBC against a recorded, fixed reference SEA request trace for the same
-method mix: replay APC requests on the same APC cluster and warehouse requests on the same
-warehouse, with the same Reyder build, data, cache state, and 32-caller schedule. Normalize
-Reyder CPU seconds per 1,000 returned cells and peak memory per concurrent request; record
-reference trace, raw measures, request counts, and three repeated medians. Candidate CPU and
-memory may exceed its own compute-type reference by at most 10% and 20%. APC Thrift bypasses
-Reyder and is not a Reyder resource baseline. Exceptions require server limit, caller impact,
-and PECO/Perf Eng approval.
+and typed async metadata run at 32 callers THEN rows/errors match paired APC SEA/Thrift on
+one APC cluster and warehouse SEA/Thrift on one warehouse; `42601` recovery submits at most
+N+2 requests for N catalogs, and median client latency regresses by at most 10% within each
+compute type. For server cost, record a fixed, contract-correct direct-SEA reference trace
+before candidate testing for each compute type and method mix, then replay it on the same
+APC cluster or warehouse as candidate JDBC, with the same Reyder build, data, cache state,
+and 32-caller schedule. Compare candidate against its own compute-type reference using
+Reyder CPU seconds per 1,000 returned cells and peak RSS above idle per 32 callers;
+limits are 10% CPU and 20% memory. Record trace hash, raw measures, request counts, and
+three repeated medians. APC Thrift bypasses Reyder and cannot be its resource baseline.
+Exceptions require server limit, caller impact, and PECO/Perf Eng approval.
 - AC63: GIVEN valid delayed APC SHOW within its configured metadata wait WHEN it crosses the measured
 single-request timeout THEN APC SEA completes, including polling, without premature server timeout. Record
 duration, retry/final error identity, and connection usability against APC Thrift and warehouse SEA; a
@@ -744,8 +745,9 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` is the authoritative stacked-PR tree. JDBC connection opening, lifecycle, primitive
-SELECT, and statement controls precede
+`plan.json` is the authoritative plan for separate JDBC and Universe stacked-PR trees;
+cross-repo deployment gates are stated in package notes. JDBC connection opening, lifecycle,
+primitive SELECT, and statement controls precede
 inline continuation, DDL, linked results, logical types, SQL async, prepared execution,
 batches, and method-scoped metadata slices. Each package exposes its public call
 behind the default-off flag and passes its live gate before approval. Siblings own disjoint
