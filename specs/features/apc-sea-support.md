@@ -29,9 +29,10 @@ the SEA service and Reyden is the runtime backend.
   against the assumed server contract with a fake service.
 - Reyder's current APC `GetStatementResult` path fetches missing metadata after a successful
   poll, then requires metadata and an Arrow schema to build a manifest. A polled DDL response
-  with neither schema nor result data is therefore not yet a proven live server response. T32
-  supplies a successful no-result contract (including a zero-column manifest) before the DDL
-  live gate can pass.
+  with neither schema nor result data is therefore not yet a proven live server response. Counted
+  DML also needs a result schema and affected-rows data: SEA has no separate update-count field,
+  and the driver reads the `num_affected_rows` result column. T32 proves both server result
+  contracts before their live JDBC gates can pass.
 - Client-config flags come from connector-service
 (`/api/2.0/connector-service/feature-flags/OSS_JDBC/{version}`), which returns sub-flags of
 `databricks.partnerplatform.clientConfigsFeatureFlags`
@@ -71,6 +72,7 @@ is unchanged. The prototype enables APC SEA by default and emits `JDBC_APC_ROUTE
   | `UseBoundedSeaApi=0` | Not used by Thrift | Changes the warehouse SEA inline/provider path | APC still uses `ARROW_BATCH` and `next_chunk_index`/`row_offset` paging because Reyder's wire contract requires it; the setting cannot disable APC paging (R4, R12; AC8). |
   | `EnableBatchedInserts=1` without APC native batching | Eligible sets may be combined into a multi-row INSERT | Legacy SEA may combine sets; native batching is separately opted in | APC executes each set individually (Phase II DD2/DD3 and Q4), preserving counts and stop-on-error but increasing request count and potentially lowering throughput; V10 native mode restores one request for the batch (AC17, AC32). |
   | `BatchInsertSize` | Caps interpolated multi-row INSERT groups | Caps eligible legacy multi-row INSERT groups | Has no effect on APC fallback (one request per set) or native V10 batches; a configured size no longer limits APC batch request count, so the request-count and latency cost is explicit (R6; AC44). |
+  | `RowsFetchedPerBlock` | Limits direct-result rows and Thrift fetch request rows | No effect on SEA result page size | Follow warehouse SEA: APC SEA page size comes from Reyder, so changing this property cannot tune its request count, latency, or buffered rows. Compare those effects live against APC Thrift (R17; AC31). |
   | `QueryResultCompressionType` / `EnableQueryResultLZ4Compression` | Requests the configured compression on Thrift | Sends the configured compression on SEA requests | Reyder always returns LZ4 APC results. APC requests use LZ4 and the decoder follows the response; values selecting another codec cannot change APC wire compression. This can raise client decompression CPU but reduce transferred bytes versus an uncompressed choice; measure both (R4; AC45). Documented server-contract exception. |
   | `EnableStreamingChunkProvider` | Selects the streaming external-link provider when enabled | Also forced by bounded SEA paging | APC external links use a streaming provider regardless of this toggle because totals may be absent; `0` cannot select the legacy provider (R12; AC39). |
   | `EnableInlineStreaming` and `ThriftMaxBatchesInMemory` | Toggle inline streaming and bound its buffered batches | Bounded SEA inline uses a streaming provider and the memory bound | APC inline paging requires streaming even at `EnableInlineStreaming=0`; `ThriftMaxBatchesInMemory` still bounds buffered inline batches (minimum two), while neither property changes external-link concurrency (R12, R17; AC39). |
@@ -129,8 +131,10 @@ Positive `Statement.setMaxRows` sends SEA `row_limit` and caps exposed rows acro
 zero is unlimited, matching APC Thrift.
 Successful no-result statements, including zero-column manifests, expose no ResultSet and zero
 update count; `getMoreResults()` then changes the count to `-1` (AC33). Sequential Statement
-batches record zero for each such command. DML exposes its affected row count without a schema
-fetch. Server failures propagate; live polled DDL depends on T32.
+batches record zero for each such command. Counted DML must supply a manifest schema containing
+`num_affected_rows` and its row data, including a zero count; the driver must fetch and sum it
+as on APC Thrift. An absent or zero-column schema is a no-result statement, never evidence of a
+nonzero DML count. Server failures propagate; live polled DDL and DML gates depend on T32.
 - R5: The seven APC metadata SHOW operations (`GET_CATALOGS`, `GET_SCHEMAS`,
 `GET_TABLES`, `GET_COLUMNS`, `GET_FUNCTIONS`, `GET_PRIMARY_KEYS`, and
 `GET_CROSS_REFERENCE`) send `X-Databricks-Metadata-Operation-Type`, request
@@ -247,17 +251,13 @@ update-count behavior. It never sends the unsupported `statements` field.
 (wire value 6) for APC metadata while preserving existing warehouse wire values. Unknown future
 response formats deserialize safely and fail clearly if decoded; requested `ARROW_STREAM` must
 not prevent decoding a `COLUMN_BASED_SET` metadata response.
-- R17: APC uses warehouse SEA's SDK retry policy and pool for statement/result/link
-GETs and its separate streaming CloudFetch download path for presigned links.
-`HttpMaxConnectionsPerRoute` and `HttpConnectionPoolSize` set SDK per-route and total
-limits through `ClientConfigurator`; neither sizes the presigned-link pool.
-The matrix's six retry settings apply through `DatabricksHttpRetryHandler` on Thrift HTTP,
-not SDK GETs; `HttpConnectionRequestTimeout` likewise does not set the SDK pool wait.
-Preserve matrix scopes for chunk wait, download warning, prefetch, streaming, and metadata
-headers. No APC-only retry policy, concurrency cap, or full-result buffer is allowed.
-Reyder fixes APC compression at LZ4; request LZ4 and decode the returned codec regardless of
-client compression settings. Explain any measured APC Thrift difference by a server limit or
-warehouse SEA precedent and its client impact (AC30–AC32, AC45–AC46, AC51).
+- R17: APC uses warehouse SEA's SDK GET retry and pool behavior and its separate streaming
+CloudFetch download path for presigned links. Preserve the matrix's tuning-property scopes,
+including the SDK total and per-route limits and the non-effect of Thrift retry settings and
+`RowsFetchedPerBlock` on SEA fetches. No APC-only retry policy, concurrency cap, or full-result
+buffer is allowed. Reyder fixes APC compression at LZ4; request LZ4 and decode the returned
+codec. Explain measured APC Thrift differences by a server limit or warehouse SEA precedent and
+their client impact (AC30–AC32, AC45–AC46, AC51).
 - R18: Until the integration package activates R1, production APC routing remains on Thrift,
 including explicit `UseThriftClient=0`. A package-local route exercises each completed public
 JDBC slice; unfinished operations fail before network execution when known, and unsupported
@@ -301,32 +301,22 @@ response and fetch return all rows once (AC27).
 
 ## Acceptance Criteria
 
-Before activation, package gates use public JDBC calls through a package-local SEA test route;
-production APC routing stays on Thrift. After the stack integrates, staging checks use explicit
-`UseThriftClient=0` and the deployed flag. Flag-on checks remain pending until T17 and T35 deploy;
-server-dependent checks remain pending until their fixes deploy. Local evidence does not pass a
-missing live gate. A package's `plan.json` acceptance list identifies the contract it implements;
-its completion gate is the package-local live staging comparison stated in that package's notes.
-Flag-on clauses are separate T18 release gates, not evidence that a pre-activation slice passed.
-For induced faults and slow links, T26 owns a test-only forwarding proxy on the live staging
-request path. It forwards ordinary SDK and presigned-link requests to staging, can return a
-chosen 429/503/custom code for selected GETs, hold responses to saturate pools, and throttle
-a live result download or chunk response. Each probe captures forwarded and injected requests; a fixture
-without live upstream traffic does not close a live gate.
-
-- AC1: On flag-off, absent-flag, lookup-failure, partner-overridden-false, or legacy
-`cliservice` APC staging connections, public JDBC uses Thrift and sends no SEA request even
-if the warehouse flag is ON. With the APC flag ON and Arrow available, it uses SEA. The
-legacy path never sends placeholder `default` ids.
+Before activation, each JDBC package proves its completed public call on a package-local
+staging route while production APC stays on Thrift. After activation, T18 repeats the gates via
+explicit override and the deployed flag. A missing live or server-dependent check remains pending;
+fixtures alone cannot pass it. The development plan owns test procedures and evidence capture.
+- AC1: GIVEN flag-off, absent-flag, lookup-failure, partner-overridden-false, or legacy
+`cliservice` APC staging paths WHEN public JDBC connects THEN it uses Thrift and sends no SEA
+request regardless of the warehouse flag. GIVEN the APC flag ON and Arrow available WHEN a
+cluster HTTP path connects THEN it uses SEA; legacy placeholder `default` ids are never sent.
 - AC2: GIVEN a cluster HTTP path with APC-SEA enabled (R1) WHEN a connection is opened THEN the
 CreateSession request body contains `backend_compute.all_purpose_cluster_compute.cluster_id`
 equal to the URL's cluster id and contains no `warehouse_id`.
-- AC3: Capture APC SEA execute, poll, fetch, cancel, ordinary close, and termination
-requests on staging: each has R2's target; GETs and CloseStatement DELETE have no body
-and one encoded cluster query field; polling GETs omit `chunk_index` even at zero, while
-GetResultData has the required URL chunk index. TerminateSession DELETE carries the target body.
-No `/status` call occurs, and warehouse fixtures remain unchanged. Live termination
-extraction waits for its server binding fix.
+- AC3: GIVEN live APC SEA execute, poll, fetch, cancel, close, and termination calls WHEN their
+requests are observed THEN each carries R2's target in the correct body or query position;
+polling omits `chunk_index`, chunk GET includes its URL index, and bodyless calls stay bodyless.
+No `/status` call occurs; warehouse requests remain unchanged. Live termination proof waits for
+the server binding fix.
 - AC4: GIVEN flag-on staging APC inline and linked results WHEN public JDBC drains multi-batch
 chunks and large linked files THEN rows, values, metadata, and errors match APC Thrift;
 warehouse SEA supplies the request precedent. Sync and async requests retain R4's wire shape
@@ -335,12 +325,13 @@ at both `EnableSQLExecHybridResults` settings.
 `columnar_data` responses alternate THEN native-flag conversion, JDBC rows, errors, timeout,
 and null-catalog behavior match APC Thrift on flag-on staging. Procedure SELECTs remain ordinary
 queries; warehouse metadata requests remain unchanged. AC50 covers the async API.
-- AC6: GIVEN an APC session below V8 WHEN prepared SQL or a procedure metadata SELECT binds values
-THEN safe interpolation preserves quoting and omits `parameters`. WHEN `getMetaData()` runs
-before prepared execution at any version THEN binding-free `DESCRIBE QUERY` returns JDBC
-metadata without changing the SQL or bindings. On flag-on staging, compare pre-execution column
-names, JDBC types, and unchanged later execution bindings with APC Thrift and warehouse SEA; test
-below-V8 or missing-version interpolation through the package-local route if staging is V8+.
+- AC6: GIVEN a live APC session at V8+ WHEN a scalar prepared query executes THEN its returned
+values and native `parameters` match APC Thrift and warehouse SEA on staging. GIVEN a session
+below V8 or without a live version WHEN the same query executes THEN safe interpolation preserves
+values and quoting and omits `parameters`. GIVEN a prepared statement before execution WHEN
+`getMetaData()` runs THEN binding-free `DESCRIBE QUERY` returns the expected JDBC metadata and
+later execution retains its bindings. Versions unavailable live remain pending gates with
+contract fixtures.
 - AC7: GIVEN `UseThriftClient=0` and the APC flag ON on AIX/PowerPC with Arrow unavailable WHEN a
 connection is opened THEN the Arrow prerequisite takes precedence, the pre-connection routing
 decision selects Thrift, and the driver logs the routing reason.
@@ -384,11 +375,13 @@ only one shape, the other remains a named live gate with a contract fixture unti
 string, or binary vectors and least-significant-bit null masks are decoded THEN JDBC values
 match APC Thrift; short masks leave later rows non-null and long masks ignore extra bits.
 A subsequent Arrow IPC response on the same connection also decodes correctly.
-- AC17: At live V10 with `EnableNativeBatching=1`, an INSERT batch sends one ordered
-`parameter_sets` request, no top-level `parameters`, and returns `SUCCESS_NO_INFO` per
-set on aggregate success without claiming partial success on failure. Otherwise it sends
-one request per set, with V8+ scalar bindings or below-V8 interpolation, ordered counts,
-stop-on-first-failure, and no multi-row rewrite. Compare with APC Thrift on staging.
+- AC17: GIVEN live V10 and `EnableNativeBatching=1` WHEN a public prepared INSERT batch runs
+on staging THEN one ordered `parameter_sets` request, no top-level `parameters`, and
+`SUCCESS_NO_INFO` per set on aggregate success match the R6 contract. GIVEN native batching is
+unavailable or disabled WHEN the batch runs THEN it sends one request per set, preserves ordered
+counts, and stops on failure; V8+ uses native scalar bindings and older sessions interpolate.
+Compare public counts, errors, request count, and connection usability with APC Thrift and
+warehouse SEA. An unavailable V10 live route remains pending.
 - AC18: GIVEN an APC-SEA statement with `setQueryTimeout(n)` WHEN it runs longer than `n`
 seconds THEN the driver cancels it via CancelStatement with `backend_compute` and raises the
 standard timeout SQLException. On flag-on staging, compare elapsed time, SQLState/vendor code,
@@ -413,172 +406,136 @@ warehouse SEA supplies the wire precedent.
 runs THEN capability is below V8 even if an ID encodes a version: safe interpolation works with
 `supportManyParameters=0`, each batch set is separate, no `parameters` or `parameter_sets`
 property is sent, and telemetry records the missing-version downgrade. AC6 covers metadata.
-- AC24: GIVEN an APC-SEA connection with `EnableHeartbeat=1` WHEN a completed ResultSet remains
-open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
-`GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
-logs that heartbeat is unsupported for APC. Keep a completed ResultSet open on the package-local
-staging route for at least two configured intervals, capture requests, and compare the lack of
-APC status traffic with APC Thrift and warehouse SEA.
-- AC25: GIVEN APC session/statement IDs WHEN serialized and parsed THEN R9's grammar, public raw
-statement ID, compound connection ID, and warehouse/Thrift compatibility hold; an embedded
-version grants no capability. Malformed APC-prefixed IDs fail without warehouse fallthrough or
-identifier disclosure, using `SESSION_ID_PARSING_EXCEPTION` for sessions.
-- AC26: GIVEN APC `ARROW_BATCH`, metadata `COLUMN_BASED_SET`, and existing warehouse
-`JSON_ARRAY`/`ARROW_STREAM` wire responses WHEN their formats are serialized and decoded THEN
-exact wire names and JDBC rows/metadata are preserved; `COLUMN_BASED_SET` selects columnar
-metadata even after an `ARROW_STREAM` request. An unknown future format deserializes safely
-and fails clearly if result decoding is attempted. The core verifies wire values; synchronous
-metadata closes the full decoding criterion with flag-on staging and APC Thrift comparison.
-- AC27: GIVEN a package-local and later flag-on staging APC query with at least three RUNNING result polls WHEN payload
-bytes are measured THEN RUNNING responses transfer zero result bytes and terminal/fetch calls
-return all rows once. Record poll count, bytes, and APC Thrift/warehouse SEA comparison;
-package-local proof closes the slice and flag-on proof remains a T18 release gate.
+- AC24: GIVEN an APC SEA connection with `EnableHeartbeat=1` WHEN a completed ResultSet
+remains open on live staging beyond two heartbeat intervals THEN no heartbeat task, `/status`,
+`GetStatementStatus`, or heartbeat result poll occurs; execution polling still works. Compare
+request traffic with APC Thrift and warehouse SEA and log the unsupported APC heartbeat.
+- AC25: GIVEN APC session and statement IDs WHEN serialized and parsed THEN R9's grammar,
+compound public connection ID, raw public statement ID, and warehouse/Thrift compatibility hold.
+Malformed APC IDs fail without fallback or identifier disclosure, using
+`SESSION_ID_PARSING_EXCEPTION` for sessions; embedded versions grant no capability.
+- AC26: GIVEN APC `ARROW_BATCH` and metadata `COLUMN_BASED_SET` plus existing warehouse
+`JSON_ARRAY`/`ARROW_STREAM` responses WHEN serialized and decoded THEN wire values and JDBC
+results remain correct. Unknown formats deserialize safely and fail clearly on decode; APC native
+metadata selects its emitted physical format on live staging.
+- AC27: GIVEN a live APC query with at least three RUNNING result polls WHEN response bytes
+and rows are observed on package-local and flag-on routes THEN RUNNING polls contain no result
+payload and terminal/fetch responses deliver all rows once; compare APC Thrift and warehouse SEA.
 - AC28: GIVEN the T17 SAFE configuration WHEN the flag definition is inspected THEN
 `databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc` exists as a
 sub-flag of `databricks.partnerplatform.clientConfigsFeatureFlags` and its default is OFF.
 Configuration evidence records the exact name, parent batch flag, and default value.
-- AC29: GIVEN flag-on staging APC bindings include ARRAY, MAP, STRUCT, or another complex value at V8+, below V8,
-or with no live version WHEN single or batch execution starts THEN the same tested driver-owned
-error name/code appears before any request, including a complex value after scalar batch sets.
-Cover `Types.ARRAY` and `Types.STRUCT`; no complex value reaches native binding or interpolation.
-Scalar values still bind natively at V8+ and interpolate below V8. Compare the public JDBC
-exception and connection usability with APC Thrift and warehouse SEA; use contract fixtures for
-versions staging cannot negotiate.
-- AC30: GIVEN paired APC and warehouse SEA SDK GETs receive retryable 429/503 responses WHEN
-retries succeed or exhaust THEN attempts, timing, status, SQLState, and vendor code match.
-`RateLimitRetry=0` and `HttpConnectionRequestTimeout` retain warehouse SEA scope;
-`HttpMaxConnectionsPerRoute` sets the SDK pool's per-route limit while
-`HttpConnectionPoolSize` sets its total limit. Under a saturated paired SDK workload, changing
-the per-route limit changes concurrent in-flight requests up to the total limit on APC and
-warehouse SEA alike. Presigned links keep URL/headers. Induce 429 and 503 on result GETs through
-T26's live forwarding proxy on the package-local APC route and warehouse SEA; compare
-with APC Thrift's retry/error outcome and retain the injected-request trace.
-- AC31: GIVEN fixed schema, row count, result size, fetch size, and identical settings on warmed APC Thrift, warehouse
-Thrift, warehouse SEA, and APC SEA WHEN five complete-result reads run at one and eight
-connections for linked and inline-only results THEN rows match. Report median rows/second,
-unadjusted `executeQuery`-to-final-`next()` latency, peak live heap above baseline, compressed
-payload bytes, retries/errors, and request counts. Between two five-run windows, each route's
-median must vary by at most 5%. APC SEA needs ≥85% of APC Thrift throughput, ≤115% latency, and
-≤125% heap or 32 MiB extra, whichever permits more; a warehouse SEA/Thrift breach permits an
-APC ratio within 5% relative of that warehouse ratio. APC and warehouse SEA transfer ≤5% more
-payload bytes than one required fetch per page/link. Unexplained excess, an APC-only concurrency
-cap, or full-result buffering blocks release; a server exception must state client impact.
-Inline-only live proof waits for its server fix.
-- AC32: GIVEN the same 100-set INSERT, warmed connections, and `EnableBatchedInserts=1` WHEN
-five APC Thrift legacy, APC SEA fallback, and V10 native opt-in runs execute THEN report median
-sets/second, raw `executeBatch` latency, and request count. A fake service adds 50 ms per
-ExecuteStatement; subtract `50 ms × request count` per run before taking adjusted medians.
-Fallback sends 100 requests, native V10 sends one and reaches ≥85% of fallback throughput. An
-adjusted fallback latency >115% of Thrift needs a documented precedent or server limit and client
-impact. On live staging, report unadjusted values versus APC Thrift and warehouse SEA: native
-V10 needs ≥85% of Thrift throughput and ≤115% latency, with the AC31 warehouse-ratio exception.
-An unexplained breach blocks release; unavailable live V10 evidence stays pending.
+- AC29: GIVEN an APC complex binding at V8+, below V8, or without a live version WHEN a
+single or batch execution starts THEN the same driver-owned error name/code appears before
+network execution, including after scalar batch sets; `Types.ARRAY` and `Types.STRUCT` are
+covered and the connection remains usable. Compare live public JDBC behavior with APC Thrift and
+warehouse SEA and retain fixtures for unavailable versions. Scalar values still follow R6's
+version gate.
+- AC30: GIVEN comparable live APC and warehouse SEA SDK requests WHEN retryable 429/503 GET
+faults succeed or exhaust THEN attempts, elapsed time, and JDBC errors match warehouse SEA;
+APC Thrift supplies the property-scope comparison. GIVEN independent low and high
+`HttpMaxConnectionsPerRoute` and `HttpConnectionPoolSize` limits WHEN each pool limit saturates
+THEN APC and warehouse SEA in-flight requests and wait/error outcomes track the configured
+per-route and total limits respectively. `HttpConnectionRequestTimeout` retains warehouse SEA
+scope; presigned links retain their URL and headers.
+- AC31: GIVEN matched rows, result size, connection concurrency, and download settings on live
+APC SEA, APC Thrift, and warehouse SEA WHEN complete linked and inline results are read THEN
+rows match and the comparison records throughput, end-to-end latency, peak heap, transfer bytes,
+request count, retries, and errors. GIVEN low and high `RowsFetchedPerBlock` values WHEN the
+same live query runs THEN APC Thrift direct/fetch request sizes change as configured, while APC
+SEA follows warehouse SEA page sizing; record the resulting request-count, latency, and memory
+impact. Any APC-only cap, full-result buffering, or incomplete result blocks release. PECO and
+Perf Eng must sign off the measured comparison and any regression exception with its client
+impact before release. Inline-only proof remains pending until server support is deployed.
+- AC32: GIVEN the same prepared INSERT batch on live APC SEA fallback, V10 native mode,
+APC Thrift, and warehouse SEA WHEN `executeBatch` completes THEN counts and errors match the R6
+contract and evidence records request count, sets per second, end-to-end latency, and version.
+Fallback must issue one request per set and native V10 one request for the batch. PECO and
+Perf Eng must sign off the live fallback comparison and any request-count exception with its
+client impact before release.
+Missing live V10 evidence remains pending.
 - AC33: GIVEN successful APC SEA DDL with absent or zero-column manifest and no data WHEN
-public `Statement.execute`, `executeUpdate`, or `executeLargeUpdate` runs THEN no ResultSet or
-result fetch occurs: `execute` is `false`, update count is `0`, and `getMoreResults()` is `false`
-before count becomes `-1`. Failed DDL retains its server error. AC48 owns DML counts.
-
-- AC34: GIVEN the default-off APC SAFE sub-flag exists WHEN APC flag assignment or ramp is
-considered THEN deployment evidence shows connector-service returns that sub-flag as `false`
-for every partner User-Agent, including a JDBC partner allowlisted for the warehouse flag,
-and retains its ordinary value for a non-partner OSS JDBC User-Agent.
-The evidence identifies the deployed service version and test region. Without it, assignment
-and ramp remain blocked even if AC28 passes (Q9).
-
-- AC35: GIVEN equivalent completed calls across APC SEA, APC Thrift, and warehouse SEA WHEN live
-errors and telemetry are compared at each release gate THEN APC SEA retains warehouse SEA
-SQLState/vendor codes and event fields. Every APC Thrift difference has a matrix precedent or
-server limit, reason, and client impact; missing events or identifiers fail the gate.
-- AC36: GIVEN a staging public query with a manifest-only start and multiple inline
-continuations WHEN consumed through the package-local route THEN all rows arrive once,
-fetch failures propagate, and an unsupported type fails before false success. Compare
-rows, errors, and request count with APC Thrift and warehouse SEA; linked continuation is AC14.
-- AC37: GIVEN T32 deployed WHEN public JDBC DDL polls RUNNING on package-local and later
-flag-on staging routes THEN AC33's outcome matches APC Thrift; warehouse SEA supplies the
-request precedent. Keep each live gate pending until its prerequisites deploy.
-- AC38: After integration, run a primitive public query and retryable fetch
-failure through explicit override and then the deployed flag on staging. Rows, order,
-SQLState, and vendor code match APC Thrift with warehouse SEA as error precedent; AC31
-owns performance. Server-dependent inline checks remain pending until deployed.
-- AC39: GIVEN APC inline pages and external links WHEN `EnableStreamingChunkProvider` and
-`EnableInlineStreaming` are each set to `0` and `1`, and `ThriftMaxBatchesInMemory` is set to
-`1` and `3`, THEN row completeness and peak buffered inline batches follow the parity-matrix
-dispositions; disabling either streaming toggle cannot truncate a result, and the effective
-minimum two-batch buffer is recorded. Compare flag-on staging with APC Thrift and warehouse
-SEA; where inline-only server support is missing, leave that check pending.
-- AC40: GIVEN a partial stack checkpoint WHEN a production APC connection sets
-`UseThriftClient=0` or the APC flag is ON THEN it still uses Thrift. WHEN the package-local
-test route calls a known unfinished prepared, batch, or metadata API THEN it fails before
-ExecuteStatement; an unsupported query response fails before false successful completion.
-Each package validates its completed public JDBC call on
-that test route and checks that the production route is still closed.
-- AC41: GIVEN a recovered statement or saved APC connection after a flag change WHEN fetch,
-cancel, close, or termination runs on flag-on staging THEN recovered statements use the current
-connection's APC target and saved-session close uses the saved protocol and target, matching
-APC Thrift or warehouse SEA where applicable. Binding-fix-dependent termination stays pending.
-- AC42: GIVEN a RUNNING APC statement and ordinary close on flag-on staging WHEN the statement
-is closed THEN JDBC closes it once without a `/status` call or losing connection usability;
-compare APC Thrift and warehouse SEA. AC3 owns target and body serialization.
-- AC43: GIVEN synchronous APC SHOW on flag-on staging WHEN `EnableSeaSyncMetadata` is `1`
-and `0` THEN R5's header changes while rows, errors, and JDBC values match APC Thrift at both
-settings; compare latency and the warehouse SEA request precedent. AC5/AC16 own physical
-formats and procedures; server-dependent live cases remain pending.
-- AC44: GIVEN identical prepared INSERT batches with `BatchInsertSize=1` and `1000` WHEN APC
-fallback and native V10 paths run on flag-on staging THEN fallback sends one request per set and
-native sends one request for the batch at both settings; counts and errors are unchanged versus
-APC Thrift where the wire permits. Record the lost sizing effect and latency/request-count
-impact; unavailable V10 stays pending.
-- AC45: GIVEN `QueryResultCompressionType` or `EnableQueryResultLZ4Compression` values selecting
-LZ4, another codec, or no compression WHEN an APC SEA query executes on flag-on staging THEN
-the APC request and response use LZ4, values decode correctly, and warehouse SEA still sends
-its configured value. Compare compressed bytes, decode CPU, and end-to-end latency with APC
-Thrift and warehouse SEA; record the client impact of the fixed APC codec.
-- AC46: GIVEN low and high `cloudFetchThreadPoolSize` and `LinkPrefetchWindow` values WHEN
-presigned-link downloads saturate the CloudFetch download pool on flag-on staging THEN download
-concurrency and prefetch follow those controls. AC30 owns SDK pool limits and AC31 owns
-throughput and heap. With low and high `ChunkReadyTimeoutSeconds`, make a chunk exceed the lower wait and
-complete within the higher one; compare timeout error name/code and connection usability with
-APC Thrift and warehouse SEA on both inline and external paths. With low and high
-`CloudFetchSpeedThreshold`, use the same slow external download and compare warning emission,
-rows, bytes, retries, and latency; the threshold must not throttle or alter results. Use a
-T26 live forwarding proxy to induce slow links and chunk waits; record the throttle and
-upstream request trace. A no-op APC control or unexplained extra
-resource cost blocks release.
-
-- AC47: GIVEN a primitive single-chunk APC query with inline LZ4 `ARROW_BATCH` and no
+public JDBC executes it on live staging THEN no ResultSet or fetch occurs, `execute` is false,
+update count is zero, and `getMoreResults()` changes the count to `-1`. Failed DDL keeps its
+server error; AC48 owns counted DML.
+- AC34: GIVEN the deployed default-off APC flag WHEN partner and non-partner User-Agents
+request client flags THEN connector-service returns false for every partner, including JDBC
+warehouse-allowlisted partners, and retains the ordinary APC value for non-partners. Record the
+service version and region before any APC assignment or ramp.
+- AC35: GIVEN equivalent live APC SEA, APC Thrift, and warehouse SEA calls WHEN errors and
+telemetry are compared THEN APC SEA keeps warehouse SEA SQLState/vendor codes and event fields;
+each APC Thrift difference has a matrix precedent or server limit and stated client impact.
+- AC36: GIVEN a manifest-only start and multiple inline continuations on live staging WHEN
+public JDBC drains them THEN rows arrive once, errors propagate, and unsupported types fail
+before false success; compare APC Thrift and warehouse SEA. AC14 covers linked continuation.
+- AC37: GIVEN T32 deployed WHEN public JDBC polls a no-result DDL through package-local and
+flag-on staging routes THEN AC33's outcome matches APC Thrift and warehouse SEA precedent. Both
+live gates remain pending until the server contract is deployed.
+- AC38: GIVEN the integrated stack WHEN a public primitive query and retryable fetch
+failure run through explicit override and deployed flag on staging THEN rows, order, SQLState,
+and vendor code match APC Thrift with warehouse SEA error precedent. Server-dependent cases
+remain pending until deployed.
+- AC39: GIVEN live APC inline pages and external links WHEN `EnableStreamingChunkProvider`,
+`EnableInlineStreaming`, and `ThriftMaxBatchesInMemory` vary THEN rows remain complete and
+buffered inline batches follow the matrix's minimum-two bound; compare APC Thrift and warehouse
+SEA. An unavailable inline-only server path remains pending.
+- AC40: GIVEN a partial JDBC stack WHEN production APC sets `UseThriftClient=0` or sees the
+APC flag ON THEN it remains on Thrift. WHEN the package-local route calls an unfinished public
+API or receives an unsupported result shape THEN it fails before false success; each package
+proves its completed public call live.
+- AC41: GIVEN a recovered statement or saved APC session after a flag change WHEN fetch,
+cancel, close, or termination runs on live staging THEN the current or saved target/protocol
+follows R9 and connection usability matches APC Thrift or warehouse SEA. Termination proof waits
+for the server binding fix.
+- AC42: GIVEN a RUNNING APC statement WHEN public JDBC closes it on live staging THEN one
+close request, no `/status` call, and a usable connection match APC Thrift and warehouse SEA.
+AC3 covers request targeting.
+- AC43: GIVEN live synchronous APC SHOW WHEN `EnableSeaSyncMetadata` changes between 0 and 1
+THEN only R5's sync header changes; rows, errors, JDBC values, and latency are compared with
+APC Thrift and warehouse SEA. Server-dependent shapes remain pending.
+- AC44: GIVEN identical live prepared INSERT batches WHEN `BatchInsertSize` changes between
+small and large values THEN APC fallback still sends one request per set and V10 native sends
+one per batch; counts and errors remain correct. Record request-count and latency impact against
+APC Thrift; unavailable V10 remains pending.
+- AC45: GIVEN APC compression settings requesting LZ4, another codec, or none WHEN live APC
+SEA queries execute THEN request and response use LZ4 and values decode correctly; warehouse SEA
+retains configured compression. Compare bytes, decode CPU, and latency with APC Thrift and
+warehouse SEA and state the fixed-codec client impact.
+- AC46: GIVEN low and high `cloudFetchThreadPoolSize`, `LinkPrefetchWindow`,
+`ChunkReadyTimeoutSeconds`, and `CloudFetchSpeedThreshold` values WHEN live APC linked and inline
+results are consumed under contention or slow delivery THEN row completeness, observed
+concurrency, timeout errors, connection usability, and warnings follow those controls and
+warehouse SEA precedent. Compare APC Thrift outcomes and record any server-limited exception; no APC control
+may silently become a no-op.
+- AC47: GIVEN a primitive single-chunk APC inline `ARROW_BATCH` result without
 `manifest.arrow_schema` WHEN public JDBC consumes it on the package-local staging route THEN
-rows, order, JDBC types, and fetch errors match APC Thrift; warehouse SEA supplies the request
-and error precedent. Production APC remains on Thrift, and linked or continuation results remain
-guarded until AC4/AC14 pass. Record a one-connection throughput/heap baseline for this slice.
-- AC48: GIVEN a successful APC DML response with an affected-row count WHEN public
-`executeUpdate` or `executeLargeUpdate` runs on the package-local staging route THEN the reported
-count matches APC Thrift, and warehouse SEA establishes the result-format precedent; missing
-or zero-column schema causes no fetch or decode error. A server failure retains its error.
-- AC49: GIVEN identical queries with `Statement.setMaxRows(0)`, `1`, and a limit crossing an
-inline page or external-link boundary WHEN consumed on package-local and flag-on staging routes
-THEN positive limits are sent as SEA `row_limit`, zero is unlimited, and returned rows never exceed
-the limit. Compare row count, order, and JDBC values with APC Thrift and warehouse SEA; the
-driver stops continuation GETs after reaching the limit. A server contract fixture covers a
-boundary unavailable live.
-- AC50: GIVEN the seven R5 SHOW operations through the session-reachable async metadata API
-WHEN live CreateSession is V9+ THEN the typed handle polls to the same JDBC rows, errors,
-null-catalog fallback, timeout, and cancellation outcome as synchronous APC SHOW and APC Thrift
-on package-local and flag-on staging routes. Below V9 or with no live version, the returned
-handle is already complete and result retrieval sends no poll. Async procedure SELECTs fail
-before network I/O. If V9+ staging is unavailable, the live gate remains pending.
-- AC51: GIVEN paired flag-on APC and warehouse SEA queries through T26's live forwarding proxy
-WHEN each of `RateLimitRetry`, `TemporarilyUnavailableRetry`,
+rows, order, JDBC types, and errors match APC Thrift, with warehouse SEA as the request and error
+precedent. Continued or linked shapes remain guarded until their slices pass.
+- AC48: GIVEN a successful counted APC DML response with an affected-rows schema and data,
+including a zero count, WHEN public `executeUpdate` or `executeLargeUpdate` runs on live staging
+THEN its count matches APC Thrift and the driver does not treat the DML as a no-result DDL.
+GIVEN a DML response without that schema or data WHEN a nonzero count is expected THEN the
+contract fails rather than reporting success with count zero. Server failures retain their
+errors; T32 proves the server response prerequisite.
+- AC49: GIVEN live APC queries with `setMaxRows(0)`, `1`, and a boundary-crossing limit
+WHEN inline or linked results are read THEN positive limits send SEA `row_limit`, zero is
+unlimited, and rows never exceed the limit; compare rows and request count with APC Thrift and
+warehouse SEA. A boundary unavailable live remains pending with a contract fixture.
+- AC50: GIVEN the seven async SHOW operations on live V9+ APC staging WHEN a typed handle
+completes THEN rows, errors, null-catalog fallback, timeout, and cancellation match synchronous
+APC SHOW and APC Thrift. Below V9 or without live version, the handle completes synchronously
+without result polling; procedure SELECTs fail before async submission. Unavailable V9 staging
+remains pending.
+- AC51: GIVEN paired live APC and warehouse SEA result GETs under retryable 429, 503, and
+configured custom-code faults WHEN each of `RateLimitRetry`, `TemporarilyUnavailableRetry`,
 `TemporarilyUnavailableRetryTimeout`, `RateLimitRetryTimeout`, `ApiRetriableHttpCodes`, and
-`ApiRetryTimeout` varies across disabled and enabled or low and high values under injected
-429/503/custom-code result GET faults THEN APC and warehouse SEA have the same SDK retry
-attempts, exhaustion errors, and latency for each setting. Compare APC Thrift's differing
-`DatabricksHttpRetryHandler` behavior and record the client impact of controls that cannot tune
-SEA GETs. Live traces show both injected and forwarded requests.
-- AC52: GIVEN Reyder's APC `GetStatementResult` server route after RUNNING polls WHEN a
-successful no-result DDL completes THEN direct server contract tests return success with absent
-or zero-column manifest and no Arrow payload, while failed DDL retains its error. This Universe
-gate is proven independently of the JDBC package-local route; AC33 and AC37 own public JDBC proof.
-
+`ApiRetryTimeout` varies THEN SDK attempts, exhaustion errors, and elapsed time retain warehouse
+SEA behavior. Compare APC Thrift to identify and document each JDBC property's differing scope
+and client impact.
+- AC52: GIVEN Reyder's APC `GetStatementResult` route after RUNNING polls WHEN no-result DDL
+or counted DML completes THEN direct server contract evidence returns, respectively, success
+with absent or zero-column manifest and no data, or a schema and affected-rows data including
+zero. Failed statements retain their errors. AC33, AC37, and AC48 own public JDBC proof.
 ## Constraints
 
 - APC default protocol follows R1. No change to warehouse requests or routing.
@@ -608,19 +565,18 @@ propagate without fallback.
 
 ### Approach
 
-Use eleven bounded JDBC slices in a dependency chain (see `plan.json`): no-result DDL,
-single-chunk query, inline continuation, SDK retry/pool parity, linked-result download,
-logical types, lifecycle, prepared execution, synchronous metadata, asynchronous metadata,
-and activation.
-Each slice proves its public JDBC behavior on the package-local staging route against APC
-Thrift and warehouse SEA, while production APC stays on Thrift. The chain avoids competing
-edits to shared execution and result paths. The final slice alone activates routing, owns
-`docs/` and `NEXT_CHANGELOG.md`, and repeats flag-on gates. Keep each PR below roughly
+Use seven bounded JDBC slices (see `plan.json`): no-result DDL, inline query and paging,
+linked results and logical types, lifecycle and single prepared execution, prepared batching,
+metadata, and activation. Linked-result work can branch beside lifecycle work after inline
+queries pass; their scopes avoid the same lines. Each slice proves its public JDBC behavior on
+the package-local staging route against APC Thrift and warehouse SEA, while production APC stays
+on Thrift. The final slice alone activates routing, owns `docs/` and `NEXT_CHANGELOG.md`, and
+repeats flag-on gates. Keep each PR below roughly
 1,500 changed lines; split a slice before review if it exceeds that bound.
 
-Independent Universe packages own the no-result DDL response (T32), default-off flag (T17),
-and blanket partner override (T35). T32 deployment gates live DDL; T17 and T35 deployments
-gate flag-on validation. A partial stack is not released. T18 blocks release on open live
+Independent Universe packages own the DDL/DML result contract (T32), default-off flag (T17),
+and blanket partner override (T35). T32 deployment gates live DDL and counted DML; T17 and T35
+deployments gate flag-on validation. A partial stack is not released. T18 blocks release on open live
 or server-dependent gates.
 
 ### Affected Components
@@ -671,10 +627,10 @@ on Thrift; T18 repeats the live checks after activation. External gates are pend
 - [ ] T10: Decode primitive LZ4 inline bare Arrow batches for a single-chunk public query (R4, R11).
 - [ ] T11: Fetch every inline continuation, including manifest-only starts, by `next_chunk_index` and `row_offset`; T33 covers linked continuation (R12).
 - [ ] T25: Target result-chunk GETs once, with null body and unchanged presigned URLs/headers (R2).
-- [ ] T26: Build the test-only live forwarding proxy and prove SDK GET retry and pool parity against warehouse SEA, including retry-setting scope (R17; AC30, AC51).
+- [ ] T26: Prove SDK GET retry and both pool-limit scopes through live APC and warehouse SEA traffic, including retry-setting scope (R17; AC30, AC51).
 - [ ] T33: Stream complete external-link Arrow IPC results, without treating them as bare batches (R4, R11).
 - [ ] T34: Preserve `Statement.setMaxRows` across APC SEA inline and linked results (R4).
-- [ ] T36: Prove linked-result CloudFetch download, compression, streaming, chunk waits, and performance parity through public JDBC and T26's live proxy (R17; AC31, AC39, AC45, AC46).
+- [ ] T36: Prove linked-result CloudFetch download, compression, streaming, chunk waits, and performance parity through public JDBC (R17; AC31, AC39, AC45, AC46).
 - [ ] T20: Complete the AC13 logical-type matrix without silent coercion (R11, Q7).
 - [ ] T6: Preserve selected APC protocol on connection errors and KP001 Thrift failure (R7).
 - [ ] T12: Apply warehouse SEA timeout behavior with targeted APC cancellation (R14).
@@ -693,7 +649,7 @@ on Thrift; T18 repeats the live checks after activation. External gates are pend
 ### Independent Universe prerequisites
 
 - [ ] T17: Define the default-off APC SAFE sub-flag without assigning or ramping it (R1, Q8).
-- [ ] T32: Make APC `GetStatementResult` return a successful no-result DDL outcome after polling, including an absent or zero-column manifest, without requiring Arrow result data (R4, AC52).
+- [ ] T32: Prove APC `GetStatementResult` returns successful no-result DDL without Arrow data and counted DML with `num_affected_rows` schema and data after polling; fix either server path if needed (R4, AC52).
 - [ ] T35: In connector-service, override the APC sub-flag to false for every partner User-Agent before flag assignment, without changing the warehouse flag's partner allowlist (Q9, AC34).
 
 ### Integration and release
