@@ -592,14 +592,15 @@ propagate without fallback.
 `plan.json` assigns every task once. Twelve JDBC packages each expose a bounded public
 outcome behind the default-off APC flag, with a target of fewer than about 1,500 changed
 lines per PR. This exceeds the original 4–7-package aim because the live command, batch,
-SHOW, and typed-handle outcomes need separate review and staging gates. The packages form
-one dependency chain: server flag and terminal-command wire proof precede the JDBC stack;
-connection, inline, linked, and scalar SELECT behavior precede metadata procedures; the
-write modes and synchronous SHOW groups precede the final typed handles and assembled
-validation. Each JDBC child branches from its JDBC parent. A cross-repository `parent`
-in the plan denotes a deployed prerequisite, not a Git branch across repositories.
-The chain avoids an undeclared sibling merge before the final gate; independent code
-preparation can proceed in parallel, but each package is validated on its declared parent.
+SHOW, and typed-handle outcomes need separate review and staging gates. Each repository has
+one branch stack: `parent` identifies a package in that same repository. The deployed server
+flag and partner exclusion gate the first live JDBC slice; terminal-command wire proof gates
+the JDBC command slice. Within the JDBC stack, connection, inline, linked, and scalar SELECT
+behavior precede metadata procedures; write modes and synchronous SHOW groups precede the
+final typed handles and assembled validation. Each JDBC child branches from its JDBC parent,
+so the final gate has no undeclared sibling merge dependency. Independent code preparation
+can proceed in parallel, but each package is validated on its declared parent and its named
+server deployment gates.
 Each package checks newly exposed request classes against AC3/11/40/51/84/85, AC30 for
 a new pool, and AC10 for a new DEBUG path. The first SELECT package proves
 `EnableQueryResultDownload=0` for a single inline chunk; its multi-page behavior is
