@@ -752,8 +752,11 @@ async follow. Prepared DML/batches and metadata then branch from the completed r
 with disjoint code ownership. Metadata exposes catalogs/schemas, tables/columns/functions,
 and keys/procedures in three bounded slices, each with its available typed async handles.
 
-The package tree starts with T17/T35 and T32, which deploy before flag-on JDBC approval;
-tracked server fixes gate their affected live checks. A child branches from its parent and
+`plan.json` has one PR tree per repository: the Universe flag/partner package precedes its
+result-contract child, and the JDBC connection package is the root of the JDBC tree. Universe
+T17/T35 must deploy before flag-on JDBC approval; T32 must deploy before DDL/DML signoff.
+These are deployment gates because a JDBC PR cannot branch from a Universe PR. Tracked server
+fixes gate their affected live checks. A child branches from its same-repository parent and
 cannot merge before that parent. Merge the prepared/batch sibling before rebasing the metadata
 branch for merge, then merge metadata descendants in parent order. Each slice passes its own
 live, fixture, warehouse-regression, and scoped standing gates before approval. T18/T-val
@@ -884,7 +887,9 @@ changed lines; if a slice exceeds the review cap, split its end-to-end calls bef
 - [ ] T53: Expose typed async `GET_CROSS_REFERENCE` with both JDBC conversions (AC71).
 - [ ] T16: Document the fully gated feature and add the sole JDBC changelog entry.
 - [ ] T18: On a temporary composite of the final candidate and all previously approved JDBC tips, run local and live integrated evidence after T17/T35/T32 and tracked fixes deploy; close every defined AC.
-- [ ] T-val: Record each AC's pass, failure, or justified unavailable-version fixture, with exact commands and evidence; block release on all other open gates.
+- [ ] T-val: Record each AC's pass, failure, or justified unavailable-version fixture with
+exact commands and evidence. After merge, record flag-on/flag-off connection, SELECT, DML,
+and metadata smoke; block release on any open gate (R18).
 
 ### Independent Universe prerequisites
 
