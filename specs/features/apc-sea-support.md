@@ -630,13 +630,15 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` orders independently reviewable public slices. Its single parent chain
-places the flag and both server result paths before JDBC exposure and makes the
-last package a descendant of every functional slice. Cross-repository parent
-links mean deployment prerequisites; JDBC PRs branch from the preceding JDBC
-package. The tracked termination, inline-only, and metadata server fixes gate
-their affected live checks. T16 alone owns JDBC docs/changelog; T18/T-val close
-the assembled stack. Open live or performance gates block release and ramp.
+`plan.json` uses one parent chain per repository, because stacked PR parents must
+belong to the same repository. The JDBC chain starts at `origin/main`; its last
+package descends from every JDBC slice. The Universe flag and partner exclusion
+deploy before scoped flag-on staging; the Universe direct and polled result contract
+gates public DDL and counted DML. These cross-repository deployment prerequisites
+are recorded in package notes. The tracked termination, inline-only, and metadata
+server fixes gate their affected live checks. T16 alone owns JDBC docs/changelog;
+T18/T-val close the assembled stack. Open live or performance gates block release
+and ramp.
 
 ### Affected Components
 
