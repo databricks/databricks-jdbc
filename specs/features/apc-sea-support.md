@@ -72,43 +72,16 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
   fall back to Thrift.
   - Rollout (M15): opt-in first, then default APC to Reyder. This spec implements that with a
   dedicated APC client-config flag and a client override (R1, Q8).
-- Driver baseline verified against `origin/main` @ `840f3a407` (which includes the
-  approved spec from #1809 and the `UseBoundedSeaApi` default change in #1827):
-  - `AllPurposeCluster` parses concrete `/o/<org>/<cluster>` paths, while legacy
-    `cliservice` uses placeholder ids. `DatabricksConnectionContext.getClientTypeFromContext`
-    currently routes every APC to Thrift before consulting `UseThriftClient` or flags.
-    Warehouse routing honors explicit `UseThriftClient`, then catalog-pattern, CloudFetch,
-    Arrow, and `enableSqlExecForJdbc` gates. `UseBoundedSeaApi` defaults to `1` independently
-    of the server flag; AIX/PowerPC disables Arrow by default.
-  - `DatabricksSession.open` chooses `DatabricksThriftServiceClient` or
-    `DatabricksSdkClient`. Its KP001 Thrift-to-SEA recovery checks the default Thrift path
-    without restricting compute type. The old HTTP 307/429 SEA-to-Thrift fallbacks are gone.
-  - `DatabricksSdkClient` assumes warehouse targets in session, execution, and statement
-    calls. It uses warehouse-scoped CreateSession and an `x-databricks-rt-session` response
-    header for warehouse Real-time follow-up URLs. Statement polling uses
-    `GET /statements/{id}`, while result heartbeats call unsupported
-    `GET /statements/{id}/status`. Standard statement GET/DELETE requests currently serialize
-    SDK request bodies.
-  - Warehouse SEA with CloudFetch and `EnableSQLExecHybridResults=0` requests
-    `EXTERNAL_LINKS`; with CloudFetch off, bounded inline Arrow is available. The existing
-    bounded provider and CloudFetch reader supply streaming, LZ4, and external-link handling.
-    SEA result decoding currently accepts `ARROW_STREAM` and `JSON_ARRAY` only.
-  - `DatabricksResultSet` constructs schema and a decoder only when result data is present.
-    Its update-count path iterates result rows; a successful APC DDL response without schema
-    or result data therefore needs an explicit no-result path (R4, AC33).
-  - `DatabricksMetadataQueryClient` has synchronous SHOW metadata only. The seven SHOW
-    operations are distinct from internal catalog/schema SELECTs and the two parameterized
-    procedure SELECTs. Sync null-catalog schemas/columns already fan out after SQL state
-    `42601`. `ResultData` has no `columnar_data`; `ColumnInfo` has no `type_json`.
-  - Native prepared batching exists for warehouse SEA and eligible APC Thrift, but SEA
-    reports support only for warehouses. The legacy batch path can combine rows with
-    `EnableBatchedInserts=1`, and its individual path does not interpolate each set.
-    `PreparedStatement.getMetaData()` uses a quoted-placeholder `DESCRIBE QUERY` path.
-  - `DatabricksSdkClient` execute logs and `DatabricksSession.toString()` can expose APC
-    identifiers if APC is routed through SEA. `RateLimitRetry` and
-    `HttpConnectionRequestTimeout` affect `DatabricksHttpClient`, while SDK statement
-    requests use the SDK retry and pool policy; `HttpMaxConnectionsPerRoute` reaches the
-    SDK pool.
+- Driver baseline verified against `origin/main` @ `840f3a407` (including approved spec #1809
+  and the `UseBoundedSeaApi` default change #1827): APC currently routes to Thrift before
+  `UseThriftClient` or flags; warehouse routing honors those controls and AIX/PowerPC disables
+  Arrow by default. SEA session and statement requests assume warehouse targets. Statement
+  polling uses `GET /statements/{id}`; result heartbeat uses unsupported APC `/status`.
+  The result set creates no decoder without result data, and SEA decoding lacks `ARROW_BATCH`.
+  Metadata SHOW is synchronous, with no `columnar_data` model; native SEA prepared batching
+  reports warehouse support only. Existing SEA CloudFetch and bounded inline paths stream
+  results, while SDK retries and pooling differ from the separate `DatabricksHttpClient`
+  property scope described in R17. These are starting conditions, not prescribed edits.
 - Draft implementation PR [#1771](https://github.com/databricks/databricks-jdbc/pull/1771)
 ports the 41-file APC-over-SEA prototype onto current `main`; frozen benchmarking PR
 [#1756](https://github.com/databricks/databricks-jdbc/pull/1756) remains unchanged. The draft
@@ -152,32 +125,17 @@ alongside `TreatMetadataCatalogNameAsPattern=1`, the Thrift-only property is ign
 normal SEA SHOW-command semantics. This applies to HTTP paths with a concrete
 `/o/<org>/<cluster>` target; the legacy `cliservice` path has only placeholder `default` ids and
 continues on Thrift rather than sending an invalid APC SEA target.
-- R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
-GetResultData, CancelStatement, CloseStatement, and TerminateSession) carries
-`backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
-`deleteSession` method and existing `DeleteSessionRequest` model implement the TerminateSession server RPC.
-CreateSession, ExecuteStatement, and CancelStatement encode `backend_compute` in the JSON body.
-GetStatementResult, GetResultData, and CloseStatement encode the cluster id as the
-URL-encoded dotted query field
-`backend_compute.all_purpose_cluster_compute.cluster_id`. Query fields are merged with existing
-parameters such as `row_offset` through a query builder; they are not appended as a second `?`
-fragment. The `row_offset` field is added only to the SEA
-`GET /statements/{id}/result/chunks/{n}` GetResultData request. Presigned external-link URLs and
-their required headers are used byte-for-byte as
-returned, without adding the compute field or otherwise modifying them. The driver-owned body
-models are `CreateSessionRequest`, `ExecuteStatementRequest`, `CancelStatementRequest`, and
-`DeleteSessionRequest`. `GetStatementRequest` and `GetStatementResultChunkNRequest` come from
-the SDK, so APC GET targeting is built on the request URL rather than by changing the SDK classes.
-CloseStatement DELETE is also targeted in the URL. For APC, GetStatementResult GET (both execution
-polling and explicit result fetch), GetResultData GET (both chunk-fetch paths), and CloseStatement
-DELETE have a null request body: do not serialize the SDK request object or send `{}` or an empty
-JSON body. This overrides the current `DatabricksSdkClient.serializeStatementRequest` behavior on
-standard statement URLs only for these APC bindings. Preserve warehouse request bodies, including
-the standard and Real-time URL variants.
-TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding, which
-declares `body: "*"`: send `backend_compute` in the `DeleteSessionRequest` JSON body. Preserve
-the existing warehouse DELETE serialization and verify the outgoing APC DELETE body with a
-fake-service request test; dogfood verifies server target extraction after the external fix.
+- R2: Every APC SEA CreateSession, ExecuteStatement, GetStatementResult, GetResultData,
+CancelStatement, CloseStatement, and TerminateSession targets
+`backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`.
+CreateSession, ExecuteStatement, CancelStatement, and TerminateSession carry the target in the
+JSON body; TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding.
+Statement/result GETs and CloseStatement DELETE carry the URL-encoded dotted query field
+`backend_compute.all_purpose_cluster_compute.cluster_id` exactly once, alongside `row_offset`
+on result-chunk GETs. Those GETs and CloseStatement DELETE have no request body. Presigned
+external-link URLs and headers are unchanged. Warehouse standard and Real-time request
+serialization remains unchanged. Dogfood target extraction for TerminateSession depends on the
+tracked server binding fix.
 - R3: For APC over SEA, execution polling uses `GetStatementResult`. Result heartbeats are
 disabled for APC even when `EnableHeartbeat=1`, because `GetStatementStatus` is unsupported and
 using full `GetStatementResult` after completion can re-download result payloads. The driver logs
@@ -241,48 +199,20 @@ empty-result behavior. Ordinary per-catalog SQL errors warn and skip that catalo
 cancellation and metadata timeout propagate. Other initial errors, a null SQL state,
 or a non-null catalog do not trigger fan-out.
 
-- R6: The driver records `negotiated_protocol_version` from CreateSession and gates native
-parameters at ≥ 42248 (V8). For APC sessions at V8 or newer, native `parameters` and
-`parameter_sets` accept only scalar bindings: reject ARRAY, MAP, STRUCT, and other complex logical
-parameter types with a clear unsupported-parameter SQLException before sending any
-ExecuteStatement request, regardless of whether the value came from `setObject` or a prepared
-batch. A batch with any such binding is rejected before its first set is sent; below V8, the
-existing interpolation path applies. The error uses a driver-owned error code and its emitted
-name/numeric code are tested and classified in the telemetry taxonomy per repository rules.
-It sends `parameter_sets` only for a parameterized INSERT at
-≥ 42250 (V10) when `EnableNativeBatching=1` and an APC-capable `NativeBatchExecutor` is selected;
-the version alone never enables native batching. The native ExecuteStatement JSON contains
-`"parameter_sets":[{"parameters":[...]}]`, one nested `parameters` array per ordered input set,
-and omits the mutually exclusive top-level `parameters` field entirely. For APC below V10, with
-native batching off, or without that executor, execute each parameter set separately rather than
-combining sets through `EnableBatchedInserts`. V8–V9 use native `parameters` per execution; below V8 uses the existing
-interpolation and escaping path even when `supportManyParameters` is unset. For prepared-batch
-fallback below V8, interpolate each set's SQL separately and send an empty parameter map to
-`executeInternal`. For APC, the SEA request builder omits the `parameters` property entirely
-whenever the resulting map is empty, including interpolated single executions and procedure
-SELECTs; `"parameters":[]` does not satisfy this rule. Preserve warehouse serialization for an
-empty map. Setting the interpolation flag alone does not affect
-`LegacyPreparedStatementBatchExecutor.executeIndividualStatements`. When an APC session
-below V8 downgrades to client-side parameter interpolation, the driver records that downgrade
-in logs and telemetry. A missing protocol version is treated conservatively as below V8:
-native parameters and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
-present but old version. Only the live CreateSession response on the current connection grants
-capabilities. Keep its nullable negotiated version in a session field distinct from the
-diagnostic version parsed from `SessionId`; recovery without CreateSession leaves the live field
-absent. A reconstructed version must never enable native `parameters`, `parameter_sets`, or
-asynchronous metadata by itself.
-For APC `PreparedStatement.getMetaData()` before execution, build `DESCRIBE QUERY` from the
-original SQL with real placeholders quoted as literal `'?'`, then execute that metadata query
-with no original parameter bindings at any protocol version. Do not run ordinary interpolation
-over the quoted DESCRIBE SQL: its literals are deliberately excluded by `SQLInterpolator`, so
-passing the original bindings would cause a parameter-count error below V8 or with a missing
-version. This metadata lookup does not execute the original prepared SQL or change its bindings.
-One native `parameter_sets` execution has one aggregate response, without affected-row counts
-for individual input sets. On success, return a JDBC count array with one
-`Statement.SUCCESS_NO_INFO` entry per input set in order; do not divide or copy the aggregate
-count into fabricated per-set counts. If native execution fails, report batch failure without
-claiming any individual set succeeded; mark each set `Statement.EXECUTE_FAILED` in the
-`BatchUpdateException` counts.
+- R6: Use the live CreateSession `negotiated_protocol_version` to gate native scalar parameters
+at V8 (42248), asynchronous metadata at V9 (42249), and native parameterized INSERT batches at
+V10 (42250) with `EnableNativeBatching=1`; an absent version grants none. A serialized diagnostic
+version cannot grant capabilities. Native complex bindings (ARRAY, MAP, STRUCT, and other complex
+logical types) fail before any request with a tested driver-owned error name/code and taxonomy
+classification. Below V8, each prepared execution, including each fallback batch set, uses the
+existing safe SQL interpolation and omits the `parameters` property; a missing version has a
+distinct telemetry downgrade reason. At V8–V9, fallback batches use native scalar `parameters`
+one set at a time. Native V10 sends ordered nested `parameter_sets` and no top-level `parameters`;
+on aggregate success, return `SUCCESS_NO_INFO` per set, and on failure claim no set succeeded.
+All other APC prepared batches execute one request per set even with `EnableBatchedInserts=1`,
+preserve ordered counts, and stop on failure. A pre-execution `PreparedStatement.getMetaData()`
+uses a binding-free `DESCRIBE QUERY`, preserves the original bindings, and works at every version.
+Warehouse behavior is unchanged.
 - R7: APC uses Thrift only when the pre-connection routing decision selects Thrift (an explicit
 `UseThriftClient=1`, `TreatMetadataCatalogNameAsPattern=1` with no explicit `UseThriftClient`, the
 APC client-config flag is off or unavailable, or Arrow is unavailable). `UseBoundedSeaApi` does
@@ -298,28 +228,15 @@ or warehouse Thrift OpenSession fails. When explicit `UseThriftClient=0` selects
 effect under SEA. APC SEA diagnostics,
 including existing execute logs and session stringification, must not print org/cluster ids or
 compound session/statement ids; use a redacted compute-type label instead.
-- R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient`, `SessionId`, and
-`StatementId` is type-safe — no unchecked cast to `Warehouse`. `ImmutableSessionInfo` records the
-client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
-SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
-id: sessions use `s|a|orgId|clusterId|sessionId|protocolVersion-or--`, and statements use
-`s|a|orgId|clusterId|statementId`. The `-` marker preserves an absent protocol version. Dispatch
-is by prefix: any identifier whose first two segments are exactly `s|a` uses the APC grammar only,
-never the warehouse grammar. Session ids must have exactly six segments and statement ids exactly
-five; any other count, or an empty segment, raises the malformed-id error (`SESSION_ID_PARSING_EXCEPTION`
-for sessions). Parsing of all other identifiers remains backward-compatible with existing warehouse
-`s|warehouseId|sessionId[|r]` and raw SEA statement ids. The compound session form is also returned by the public
-`IDatabricksConnection.getConnectionId()` API so callers can later close that session; the
-compound statement form is internal routing serialization only: use a separate
-internal statement-id serializer. `StatementId.toString()`, `toSQLExecStatementId()`, and public
-`IDatabricksResultSet.getStatementId()` continue to expose only the raw server statement id;
-statement-id-bearing logs and telemetry use that raw id, not the compound form.
-`DatabricksConnection.getStatement(rawId)` attaches the current connection's
-APC SEA session and compute target to its reconstructed internal `StatementId`; fetch, cancel,
-and close use that target. It does not change the public raw id or infer a target from id text.
-`Driver.closeConnection(url, info, connectionId)` deserializes the public connection id before
-client construction and selects SEA or Thrift from that saved session type, not a fresh APC flag
-decision. It terminates the saved APC target even if the flag changed after the session opened.
+- R9: APC SEA session IDs serialize as `s|a|orgId|clusterId|sessionId|protocolVersion-or--`;
+internal statement IDs serialize as `s|a|orgId|clusterId|statementId`. The APC prefix selects
+only the APC grammar: sessions require exactly six nonempty segments and valid version, statements
+exactly five nonempty segments. Malformed IDs fail without exposing input or compute identifiers.
+Existing warehouse and raw SEA IDs remain compatible. Public `getConnectionId()` returns the
+compound session form for later `Driver.closeConnection`; public statement IDs remain raw server
+IDs. Recovered statements use the current connection target; saved-session close uses the saved
+protocol and target even after a flag change. Only a live CreateSession version grants capabilities,
+not a version embedded in an ID.
 - R10: APC ExecuteStatement preserves the existing SEA timeout behavior: `wait_timeout` is unset
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
 results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
@@ -327,7 +244,9 @@ APC-specific timeout override is needed.
 - R11: For APC `ARROW_BATCH` results, the driver builds the Arrow schema from
 `manifest.schema` (`type_text`/`type_json`, including nested types) and does not require
 `manifest.arrow_schema`; a populated `manifest.arrow_schema` or `total_byte_count` does not
-change decoding or paging.
+change decoding or paging. Until the complete logical-type matrix is supported, any deferred
+type fails clearly before a ResultSet can report successful completion; it is never silently
+coerced or omitted.
 - R12: APC result fetching pages by `next_chunk_index` and `row_offset`, never relies on
 `total_chunk_count`, `chunks`, or `total_row_count`, and accepts a `GetStatementResult`
 response with or without inline result data. For inline `arrow_batches`, advance `row_offset`
@@ -335,28 +254,20 @@ by the sum of batch `row_count` values in the page. For a page with multiple ext
 take both the continuation `next_chunk_index` and the next `row_offset` from the final link in
 response order:
 `finalLink.row_offset + finalLink.row_count`. A missing final-link `next_chunk_index` ends paging.
-- R13: The driver can read the SEA `columnar_data` (HIVE) result shape — the current
-`sql_exec_api_service.proto` `ColumnVector` oneof arms `bool_values`, `byte_values`,
-`i16_values`, `i32_values`, `i64_values`, `double_values`, `string_values`, and
-`binary_values` — into a JDBC ResultSet. Decode each physical vector using the
-`manifest.schema` logical type and apply least-significant-bit-first null masks, including
-placeholder values at null positions. A missing or short mask treats all rows beyond its last
-bit as non-null; a mask longer than `ceil(row_count/8)` ignores every excess bit and byte.
-Boolean, byte, short, int, long, double, string, and binary values must retain their JDBC values;
-string vectors also cover logical decimal,
-array, map, struct, union, and null types named by the schema. New oneof arms require an
-explicit model/reader update.
+- R13: For APC metadata, decode the emitted SEA `columnar_data` physical vectors (boolean,
+byte, short, int, long, double, string, binary) using `manifest.schema` and least-significant-bit
+first null masks. The server always sets a mask; short masks leave unrepresented rows non-null and
+long masks ignore excess bits. The decoded JDBC columns and values match the same metadata
+operation over APC Thrift. An unrecognized physical vector fails clearly.
 - R14: APC query timeouts use the client-side `TimeoutHandler` + CancelStatement path, as for
 warehouses.
 - R15: `Statement.addBatch(String)` / `executeBatch` on APC executes SQL commands sequentially,
 one ExecuteStatement request per SQL string, preserving the existing stop-on-first-failure and
 update-count behavior. It never sends the unsupported `statements` field.
-- R16: SEA request and response models use a driver-owned `SqlExecResultFormat` enum rather than
-the SDK-owned `com.databricks.sdk.service.sql.Format`. It preserves existing wire values, adds
-`ARROW_BATCH` and `COLUMN_BASED_SET` (wire value 6), serializes exact API names, tolerantly maps
-unknown response values to `UNKNOWN`, and produces a clear unsupported-format error if an unknown
-value reaches result decoding. `COLUMN_BASED_SET` selects the `columnar_data` reader for metadata
-even when the request asked for `ARROW_STREAM`.
+- R16: SEA result formats include `ARROW_BATCH` for APC queries and `COLUMN_BASED_SET`
+(wire value 6) for APC metadata while preserving existing warehouse wire values. Unknown future
+response formats deserialize safely and fail clearly if decoded; requested `ARROW_STREAM` must
+not prevent decoding a `COLUMN_BASED_SET` metadata response.
 - R17: APC SEA uses the same SDK `ApiClient` retry policy and SDK connection manager as warehouse
 SEA for statement/result GETs. On current `origin/main`, `RateLimitRetry` is consumed by
 `DatabricksHttpRetryHandler` for the separate `DatabricksHttpClient` path, and
@@ -440,6 +351,11 @@ or attachment bytes, then the completed response and subsequent fetch yield ever
 
 ## Acceptance Criteria
 
+Each client-visible criterion is also subject to the applicable flag-on live staging comparison
+in the package gate table under Plan. A package records the result for its exposed behavior
+before the child package starts. A server-fix-dependent check is recorded as externally pending,
+not passed, until the fix is deployed; its local contract check still runs.
+
 - AC1: GIVEN a cluster HTTP path with no client setting AND the APC flag OFF or absent (or the
 flag lookup fails), even with `enableSqlExecForJdbc` ON, WHEN a connection is opened THEN the
 driver uses `DatabricksThriftServiceClient` and no SEA request is sent; GIVEN the APC flag ON
@@ -449,72 +365,30 @@ HTTP path THEN the driver continues to use Thrift and never sends placeholder `d
 - AC2: GIVEN a cluster HTTP path with APC-SEA enabled (R1) WHEN a connection is opened THEN the
 CreateSession request body contains `backend_compute.all_purpose_cluster_compute.cluster_id`
 equal to the URL's cluster id and contains no `warehouse_id`.
-- AC3: GIVEN an open APC-SEA session WHEN a statement is executed, polled, fetched, cancelled, and
-closed, and separately when the session is terminated, THEN every corresponding SEA request
-includes the APC
-`backend_compute` using the body/query encoding in R2 and the driver issues no
-`GetStatementStatus` or `/status` call. Captured fake-service requests assert a null body for
-every APC GetStatementResult GET (execution poll and explicit result fetch), GetResultData GET
-(external-link and inline chunk fetch), and CloseStatement DELETE, while the cluster query field
-is present exactly once. Warehouse fixtures retain their existing bodies for the same bindings.
-A fake-service fixture asserts the TerminateSession
-DELETE body contains `backend_compute`; dogfood verifies server target extraction after the
-external binding fix is deployed. GIVEN `getConnectionId()` from that open session and an APC
-flag change from ON to OFF, WHEN public `Driver.closeConnection(url, info, connectionId)` is
-called THEN it selects SEA from the serialized session type and sends the targeted
-TerminateSession request. A saved APC Thrift id still selects Thrift if the flag later turns ON.
-- AC4: GIVEN an APC-SEA query whose LZ4-compressed Arrow result is returned inline or through
-multi-chunk external links WHEN the ResultSet is iterated THEN all rows and types match the same
-query executed over Thrift, with each payload decompressed before the generated Arrow schema
-message is prepended to inline bare record batches. External-link payloads remain complete Arrow
-IPC streams and are passed through the existing CloudFetch stream reader without a new schema.
-An inline `chunk.arrow_batches` containing two or
-more batches yields every row in batch order, with the sum of batch `row_count` values equal to
-the number of rows read. GIVEN ordinary APC synchronous and asynchronous executions with
-`EnableSQLExecHybridResults=0` WHEN a fake service captures each ExecuteStatement request THEN
-both contain `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, and the current
-`session_id`, and neither contains `statements`; the hybrid-results setting does not change those
-fields.
-- AC5: GIVEN an APC SEA connection WHEN each public synchronous metadata method backed by
-`GET_CATALOGS`, `GET_SCHEMAS`, `GET_TABLES`, `GET_COLUMNS`, `GET_FUNCTIONS`,
-`GET_PRIMARY_KEYS`, or `GET_CROSS_REFERENCE` (both imported keys and cross references) reaches
-the server THEN its SHOW request uses `ARROW_STREAM`,
-`INLINE_OR_EXTERNAL_LINKS`, and the matching metadata-operation header. It sends the
-sync header only with `EnableSeaSyncMetadata=1`; `EnableSQLExecHybridResults=0` does not change
-the disposition. Where supported, the existing Thrift-native metadata header remains present.
-Each operation returns the same JDBC columns and rows as Thrift for both Arrow IPC
-`chunk.attachment` and HIVE-shaped `chunk.columnar_data`, including a
-`COLUMN_BASED_SET` manifest. Alternate the two payloads on one connection to prove
-response-level decoder selection; preserve the synchronous null-catalog schemas/columns
-`42601` fallback and existing empty-result behavior.
-
-GIVEN internal catalog/schema SELECTs or either parameterized procedure SELECT on that APC
-connection THEN the requests use `ARROW_BATCH`, omit both metadata headers, and pass ordinary
-query results through their existing JDBC metadata converters. The procedure SELECTs retain
-native scalar bindings at V8+; below V8 or with a missing live version, captured requests
-contain escaped/interpolated SQL and no `parameters` property. Quoted, backslash, and
-SQL-delimiter patterns retain their values. An async request for either procedure operation
-fails before a SEA request. Warehouse metadata request fixtures remain unchanged.
-
-GIVEN a session-reachable async request for each of the seven SHOW operations at live V9+
-THEN submission omits the sync header but retains the operation header, `ARROW_STREAM`, and
-`INLINE_OR_EXTERNAL_LINKS`; a typed handle completes through PENDING/RUNNING to terminal
-state. Completion retains `StatementType.METADATA` and produces the same JDBC columns and
-rows as its synchronous counterpart for both legal payloads, including both
-`GET_CROSS_REFERENCE` conversions. Failure, cancellation, and metadata timeout propagate.
-At V8, below V8, or with no live version, the API instead returns a completed synchronous
-handle without async submit or result polling; an altered serialized version cannot change
-that gate.
-
-GIVEN V9+ async `GET_SCHEMAS` or `GET_COLUMNS` with a null catalog WHEN
-`SHOW ... IN ALL CATALOGS` fails with SQL state `42601` THEN completion asynchronously
-enumerates catalogs and queries each nonempty catalog, preserving the operation header and
-omitting the sync header. Rows and pattern filtering match the synchronous fallback, including
-an empty catalog list. A non-syntax error, null SQL state, or non-null catalog does not fan out;
-ordinary per-catalog SQL errors are warned and skipped, while cancellation and timeout
-propagate. Unit and fake-service evidence precedes dogfood; dogfood waits for the tracked
-metadata server fix.
-
+- AC3: GIVEN an APC SEA session WHEN a statement is executed, polled, fetched, cancelled,
+closed, or its session terminated THEN every SEA request uses the R2 APC target and no `/status`
+call occurs. Captured statement/result GETs and CloseStatement DELETE have null bodies and the
+cluster query field once; TerminateSession DELETE has the target body. Standard and Real-time
+warehouse request fixtures remain unchanged. GIVEN a saved APC SEA or Thrift connection ID and
+a flag change WHEN `Driver.closeConnection` runs THEN it uses the saved protocol and target.
+Live TerminateSession target extraction remains pending the tracked server binding fix.
+- AC4: GIVEN an APC query returning inline LZ4 bare Arrow batches, multiple batches in one
+chunk, or external Arrow IPC links WHEN the full ResultSet is read THEN row order, values,
+logical types, and metadata match APC Thrift. Inline batches use the reconstructed schema;
+external streams remain intact. GIVEN sync or async execution with
+`EnableSQLExecHybridResults=0` WHEN the request is captured THEN it still sends
+`ARROW_BATCH`, `INLINE_OR_EXTERNAL_LINKS`, the current session id, and no `statements` field.
+- AC5: GIVEN APC SEA synchronous or live-V9+ asynchronous SHOW metadata for all seven
+operations in R5 WHEN each public operation completes with Arrow IPC or `columnar_data` THEN
+request headers, format, disposition, JDBC columns, values, and errors match R5 and the same
+APC Thrift operation. The decoder follows each response representation, including
+`COLUMN_BASED_SET`, even when responses alternate on one connection. Async handles preserve
+metadata type and terminal, cancel, and timeout behavior; below V9 or with no live version,
+they complete through the synchronous path. Null-catalog schemas/columns preserve the `42601`
+fan-out and filtering in both modes. Internal catalog/schema and procedure SELECTs remain
+ordinary `ARROW_BATCH` queries without metadata headers; procedure bindings follow the V8 gate.
+An async procedure request fails before network I/O. Warehouse metadata requests remain unchanged.
+Live metadata checks depend on the tracked server fix; fake-service contract checks run first.
 - AC6: GIVEN an APC-SEA session with `negotiated_protocol_version` below V8 WHEN a
 parameterized PreparedStatement is executed THEN the driver uses the non-native
 (client-interpolated) path, omits the `parameters` property rather than sending `[]`, and emits a
@@ -554,6 +428,10 @@ warehouse SEA CreateSession, and warehouse Thrift OpenSession; none contains cre
 compound statement id. Captured APC SEA logs and telemetry from synchronous and
 asynchronous execute, session stringification, and connection failure contain no raw org id,
 cluster id, or compound session/statement id while retaining compute type and routing reason.
+At each package gate, compare standard execution, result, metadata, batch, cancellation, and
+failure telemetry fields with warehouse SEA for operations that package exposes; record the
+corresponding APC Thrift event and any documented SEA precedent. No operation silently drops
+its standard event.
 - AC11: GIVEN standard and Real-time SQL warehouse connections WHEN CreateSession, execute,
 poll, fetch, cancel, close, and TerminateSession run THEN serialized request bodies, URLs, and
 headers match pre-change fixtures, including warehouse `realtimeSession` behavior.
@@ -573,48 +451,28 @@ at zero and advancing by the sum of inline `arrow_batches.row_count` values on e
 GetResultData endpoint contains both
 `row_offset` and the dotted APC compute query
 field exactly once, while each presigned external-link URL and its headers are used unchanged.
-GIVEN a response page with multiple external links and no page-level `row_count` THEN the next
+GIVEN multiple external links in one page with no page-level `row_count` THEN the next
 SEA fetch uses the final link's `next_chunk_index` and
-`row_offset = finalLink.row_offset + finalLink.row_count`; a fixture with at least two links on
-that page and a following page returns every row once.
+`row_offset = finalLink.row_offset + finalLink.row_count`, returning every row once.
 - AC15: GIVEN a completed APC statement WHEN `GetStatementResult` returns a manifest without
 result data, and separately WHEN it returns a manifest with result data THEN both produce the
 full correct ResultSet.
-- AC16: GIVEN `columnar_data` chunks covering `bool_values`, `byte_values`, `i16_values`,
-`i32_values`, `i64_values`, `double_values`, `string_values`, and `binary_values`, plus empty
-vectors and least-significant-bit-first null masks crossing a
-byte boundary WHEN they are read THEN nulls and values land at the right row positions. Fixtures
-with an absent mask, a mask shorter than `ceil(row_count/8)`, and a longer mask prove that
-unrepresented rows are non-null and excess bits/bytes do not affect any row or cause an index
-failure;
-GIVEN string vectors with logical decimal, array, map, struct, union, and null schema types THEN
-the JDBC values and `ResultSetMetaData` match pinned Thrift fixtures for every type: for example,
-`DECIMAL(5,2)` text `123.45` yields a `BigDecimal` with scale 2 and JDBC `Types.DECIMAL` with
-precision 5/scale 2; `ARRAY<INT>` with `[1,null]` yields the same array elements and JDBC type as
-Thrift; `MAP<STRING,INT>` with `{"k":1}` and `STRUCT<x:INT>` with `{"x":1}` yield the same
-logical objects and nested type metadata as Thrift when complex-type support is enabled. A union
-fixture pins its Thrift JDBC value and type code, and a null fixture yields SQL `NULL` with
-`wasNull()=true`; a reader that returns the raw wire text for a type whose Thrift value is a
-different object fails the test;
-GIVEN the next metadata operation on the same connection returns Arrow IPC in `attachment` THEN
-it is decoded through the Arrow path,
-not the previously used `columnar_data` path.
-- AC17: GIVEN an APC-SEA session with `negotiated_protocol_version` ≥ 42250 (V10),
-`EnableNativeBatching=1`, and a supported native executor WHEN `executeBatch` runs a
-parameterized INSERT THEN one request uses `parameter_sets`, and successful `executeBatch` and
-`executeLargeBatch` return one `Statement.SUCCESS_NO_INFO` count per input set in order; the
-serialized request has one `{"parameters":[...]}` object per input set in `parameter_sets` and
-has no top-level `parameters` property; the aggregate affected-row count is never presented as an individual set count. GIVEN that native
-request fails THEN `BatchUpdateException` reports `Statement.EXECUTE_FAILED` for every set and
-does not claim a partial success. GIVEN V10 with `EnableNativeBatching=0` or no supported
-executor, or version 42248–42249 (V8–V9), THEN it sends one execution per set with native
-`parameters` and no `parameter_sets`. GIVEN a version below 42248 (below V8) or a missing
-version THEN it sends one execution per set with client-side interpolation and neither
-`parameters` nor `parameter_sets` property, including no empty arrays; a captured batch request
-verifies that each set's bound values
-were escaped into its own SQL text and no native bindings were sent.
-For every non-native case, `EnableBatchedInserts=1` does not combine sets into a multi-row INSERT;
-update counts preserve input order and a failure stops subsequent sets.
+- AC16: GIVEN a current APC metadata SHOW response with `columnar_data` WHEN any boolean,
+byte, short, int, long, double, string, or binary vector emitted by those operations is decoded
+THEN JDBC metadata columns and values match the same APC Thrift operation. Least-significant-bit-first null masks
+preserve null positions across byte boundaries; a short mask leaves later rows non-null and a
+long mask ignores excess bits. GIVEN the next response on the same connection uses Arrow IPC
+`attachment` THEN it decodes correctly through that response's representation. This criterion
+covers metadata columns the seven native operations can emit; it does not require synthetic
+complex-valued metadata columns or an absent mask.
+- AC17: GIVEN a live V10 APC session with `EnableNativeBatching=1` WHEN a parameterized
+INSERT batch succeeds THEN one request sends ordered nested `parameter_sets`, no top-level
+`parameters`, and both JDBC batch APIs return `SUCCESS_NO_INFO` per set rather than fabricated
+counts. A failed native request marks all sets `EXECUTE_FAILED` without claiming partial success.
+GIVEN native batching is disabled or unavailable WHEN the batch runs THEN one execution per set
+uses native scalar parameters at V8+ or safe interpolation below V8; missing versions act as
+below V8. No empty `parameters` field or combined multi-row INSERT is sent. Ordered counts
+and stop-on-first-failure behavior match APC Thrift where the wire permits.
 - AC18: GIVEN an APC-SEA statement with `setQueryTimeout(n)` WHEN it runs longer than `n`
 seconds THEN the driver cancels it via CancelStatement with `backend_compute` and raises the
 standard timeout SQLException.
@@ -638,45 +496,27 @@ parameterized query or prepared batch is executed THEN the driver treats the cap
 V8, uses the tested client-interpolation path even with `supportManyParameters=0`, never sends
 `parameters` or `parameter_sets` properties, including empty arrays, and emits telemetry
 identifying the protocol version as missing.
-For a prepared batch, each set takes the interpolation path before
-`LegacyPreparedStatementBatchExecutor.executeIndividualStatements` calls `executeInternal`;
-captured requests show escaped values in separate SQL statements with no native bindings.
-Calling `getMetaData()` before execution with bound `setObject(...)` values also succeeds on this
-missing-version session through the binding-free `DESCRIBE QUERY` path in AC6.
+Each fallback batch set sends escaped SQL separately without native bindings.
+Pre-execution `getMetaData()` with existing bindings also succeeds through the binding-free
+`DESCRIBE QUERY` path in AC6.
 - AC24: GIVEN an APC-SEA connection with `EnableHeartbeat=1` WHEN a completed ResultSet remains
 open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
 `GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
 logs that heartbeat is unsupported for APC.
-- AC25: GIVEN an APC-SEA session with org id, cluster id, session id, and a present or absent
-negotiated protocol version WHEN its `SessionId` and a derived `StatementId` are round-tripped
-through their internal serializers THEN client type, APC compute target, raw ids, and serialized protocol-version field
-round-trip unchanged; existing warehouse and Thrift serialized identifiers still parse identically. Creating
-an APC SEA `SessionId` never dereferences a Thrift session handle. The serialized APC forms match
-the R9 formats exactly, including `-` for a missing protocol version. Public
-`IDatabricksConnection.getConnectionId()` returns the compound APC session form so a caller can
-pass it to `Driver.closeConnection`; it is not written to logs or telemetry. Public
-`IDatabricksResultSet.getStatementId()` and `StatementId.toString()` return the raw server
-statement id. Statement-id-bearing logs and telemetry use the raw id and never expose the
-internal compound form, org id, or cluster id.
-GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments or a malformed
-version THEN parsing raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
-describe only the structural defect and never include the serialized input, org id, or cluster
-id. GIVEN a serialized version altered from the current connection's live CreateSession version
-THEN reconstruction may display the altered value for diagnostics but cannot enable native
-`parameters` or `parameter_sets`.
-GIVEN `connection.getStatement(resultSet.getStatementId())` on that APC SEA connection, WHEN the
-recovered statement fetches, cancels, and closes THEN all three SEA requests carry the current
-connection's `backend_compute`, while `getStatementId()` remains the raw server id.
-- AC26: GIVEN an ExecuteStatement request with `SqlExecResultFormat.ARROW_BATCH` WHEN serialized
-THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BATCH` WHEN
-deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
-succeeds as `UNKNOWN` and result decoding raises the standard unsupported-format error. GIVEN an
-`ARROW_STREAM` metadata request followed by a `COLUMN_BASED_SET` response THEN the enum retains
-that wire value and metadata decodes from `columnar_data`. GIVEN pre-change warehouse fixtures
-with `JSON_ARRAY` and `ARROW_STREAM` manifests WHEN each is deserialized and passed through
-`ExecutionResultFactory` and `DatabricksResultSet` THEN the enum round-trips the exact original
-wire name, `JSON_ARRAY` selects `InlineJsonResult`, `ARROW_STREAM` selects `ArrowStreamResult`,
-and rows and metadata match the pre-change fixtures.
+- AC25: GIVEN APC session and statement IDs with present or absent negotiated version
+WHEN serialized and parsed THEN they follow the exact R9 grammar; warehouse and Thrift IDs
+remain compatible, public connection ID is compound, and public statement ID is raw. A
+serialized version cannot grant capabilities without a live CreateSession. GIVEN malformed
+APC-prefixed session or statement IDs with missing, extra, empty, or invalid segments WHEN
+parsed THEN they fail without warehouse fallthrough or disclosure of input/compute identifiers;
+malformed sessions use `SESSION_ID_PARSING_EXCEPTION`. GIVEN a recovered statement or saved
+connection after flag change WHEN fetch, cancel, close, or termination runs THEN the current
+statement target or saved session target and protocol are used, respectively.
+- AC26: GIVEN APC `ARROW_BATCH`, metadata `COLUMN_BASED_SET`, and existing warehouse
+`JSON_ARRAY`/`ARROW_STREAM` wire responses WHEN their formats are serialized and decoded THEN
+exact wire names and JDBC rows/metadata are preserved; `COLUMN_BASED_SET` selects columnar
+metadata even after an `ARROW_STREAM` request. An unknown future format deserializes safely
+and fails clearly if result decoding is attempted.
 - AC27: GIVEN an APC query with a large result and at least three RUNNING
 `GetStatementResult` polls WHEN request and response payloads are captured in an integration run
 THEN those RUNNING responses contain no attachment, Arrow batches, columnar data, or external
@@ -693,65 +533,33 @@ error name and numeric code is raised before any ExecuteStatement request. A cap
 request log stays empty, including when a complex value appears after scalar sets in a batch;
 scalar bindings still use native parameters under the R6 capability gates. Cover at least
 `setObject(index, value, Types.ARRAY)` and `Types.STRUCT`.
-- AC30: GIVEN APC SEA and warehouse SEA sessions with identical SDK retry configuration and
-connection-pool settings WHEN a fake service returns 429/503 with a fixed `Retry-After` on a
-statement result GET or SEA chunk GET and then succeeds THEN both routes make the same number
-of SDK attempts and honor the same retry schedule within 250 ms per interval. When SDK retries
-are exhausted, APC retains the warehouse SEA error's HTTP
-status, SQLState, and vendor-code mapping. Repeat with `RateLimitRetry=0`: both SEA routes still
-follow the SDK policy, and the request count remains equal; this property only controls the
-separate `DatabricksHttpClient` retry handler on `origin/main`. With
-`HttpConnectionRequestTimeout` set, assert the same SDK pool-wait behavior for both routes and
-record that the property is not wired into `ClientConfigurator`; with
-`HttpMaxConnectionsPerRoute=1`, verify both routes share the configured SDK pool limit. An APC
-presigned CloudFetch link uses the existing download retry path and original URL/headers; no
-APC-specific retry or error mapping is introduced (R17).
-- AC31: GIVEN the same 100,000-row, fixed-schema result fetched over APC Thrift, warehouse
-Thrift, warehouse SEA, and APC SEA with the same `cloudFetchThreadPoolSize`,
-`HttpMaxConnectionsPerRoute`, and link-prefetch settings (and a recorded
-`HttpConnectionRequestTimeout`, whose SDK scope is stated in AC30) WHEN
-single-connection and eight-concurrent-connection runs are repeated three times each THEN the
-release record contains median rows/second, end-to-end latency, peak heap, transfer bytes, retry
-count, and SQLState/vendor code for injected timeout and rate-limit errors for all four routes.
-Run each mode in alternating order on the same host/network and fixed driver build, after one
-warm-up; retain raw runs and use the median of three measured runs. A paired fake-service replay
-serves the same row payload, link count, response delays, and errors to APC SEA and warehouse
-SEA; subtract the injected server delay from end-to-end latency before comparison. APC SEA
-passes this driver-cost gate when its median rows/second is at least 85% of warehouse SEA, its
-median adjusted latency is at most 115%, peak heap is at most 125% or 32 MiB higher (whichever
-allows more), and client-added transfer bytes are at most 5% of each route's captured server
-response bytes. All rows must match, and at eight connections there must be no APC-only queue, thread,
-or connection cap. The bounded-provider fixture with 2 versus 20 equal-sized links records peak
-simultaneous downloads at or below `cloudFetchThreadPoolSize` while eventually consuming all 20
-links. Peak complete chunks buffered before row consumption must be bounded by the configured
-prefetch window plus active downloads, independent of total link count. Record link scheduling
-at two `linkPrefetchWindow` settings. Measure client-added result transfer as the positive
-difference between APC SEA and paired warehouse SEA response-body bytes (SEA and presigned-link
-payloads, excluding headers and TLS framing), divided by the warehouse SEA bytes; the replay
-must serve byte-identical result payloads.
-Dogfood four-route measurements are reported separately with server execution and network
-timings, for both CloudFetch and `EnableQueryResultDownload=0` inline-only results. In each mode,
-APC SEA passes against APC Thrift when its median rows/second is at least 85%, adjusted median
-latency at most 115%, and peak heap at most 125% or 32 MiB higher, whichever allows more. If the
-same-mode warehouse SEA/Thrift pair breaches a bound, APC SEA may instead match that measured
-ratio within 15 percentage points for throughput or latency and 25 percentage points for heap;
-record the warehouse precedent or server-contract limit and client impact in the parity table.
-For inline-only results, record the bounded provider's prefetch and memory settings separately:
-CloudFetch thread-pool settings do not govern inline buffering. Any unexplained threshold
-failure blocks release (R17).
-- AC32: GIVEN a 100-set parameterized INSERT workload with a fixed per-request service delay,
-matched row contents, and `EnableBatchedInserts=1` WHEN APC Thrift legacy, APC SEA V8–V9
-fallback, APC SEA V10 fallback with native opt-out, and APC SEA V10 native opt-in each run three
-times after warm-up THEN record median rows/second, latency, and ExecuteStatement request count
-for each mode. APC SEA fallback makes exactly 100 requests, while V10 native makes exactly one;
-the APC Thrift legacy multi-row request count is recorded as the Q4 performance exception.
-Native APC SEA throughput must be no lower than 85% of APC SEA fallback under the controlled
-service delay. Report the fallback-to-Thrift throughput ratio and explain the request-count
-cost in release notes; any adjusted-latency gap above 15% after subtracting
-`(APC fallback requests - APC Thrift legacy requests) × fixed per-request delay` needs a
-server-contract or warehouse precedent recorded in the parity table or
-blocks release (R6, R17).
-
+- AC30: GIVEN APC SEA and warehouse SEA with the same SDK retry and pool settings WHEN
+statement/result GETs receive retryable 429/503 responses or exhaust retries THEN attempt count,
+retry timing, HTTP status, SQLState, and vendor code match. `RateLimitRetry=0` and
+`HttpConnectionRequestTimeout` retain their current warehouse SEA scope; `HttpMaxConnectionsPerRoute`
+sets the same SDK pool limit for both. Presigned links retain their original URL/headers and
+existing CloudFetch retry path. Record paired transport evidence and any exception.
+- AC31: GIVEN equivalent fixed-schema rows through APC Thrift, warehouse Thrift, warehouse
+SEA, and APC SEA under identical client tuning WHEN single and eight concurrent connections
+fetch CloudFetch and inline-only results THEN all rows match and the release record reports
+median throughput, adjusted latency, peak heap, transfer bytes, and retry/error outcomes.
+Against APC Thrift, APC SEA reaches at least 85% throughput, at most 115% adjusted latency,
+and at most 125% peak heap or 32 MiB extra, whichever permits more. If warehouse SEA versus
+warehouse Thrift breaches a bound, APC may match that measured ratio within 15 percentage
+points for throughput/latency and 25 for heap, with the precedent and client impact recorded.
+For paired APC SEA and warehouse SEA transport replays, compare equivalent rows while allowing
+each route's required wire format. Each route makes no duplicate or unnecessary result download;
+bytes transferred beyond one required fetch of each route's page or link are at most 5%
+of that route's required result payload bytes. The configured CloudFetch download pool and prefetch window bound concurrency and buffered chunks
+independently of total link count; no APC-only cap or full-result buffering appears. An
+unexplained breach blocks release. Inline-only dogfood remains pending until its server fix.
+- AC32: GIVEN equal 100-set INSERT workloads with a controlled service delay and
+`EnableBatchedInserts=1` WHEN APC Thrift legacy, APC SEA fallback, and APC SEA V10 native opt-in
+run THEN the release record reports median throughput, adjusted latency, and request counts.
+APC fallback sends 100 requests, native V10 sends one, and native throughput is at least 85%
+of APC fallback. Record APC fallback's request-count cost against Thrift; an adjusted latency
+gap above 15% after accounting for those extra requests requires a documented server or
+warehouse precedent and client impact, otherwise release is blocked.
 - AC33: GIVEN a successful APC SEA DDL response with neither result schema nor result data WHEN
 `Statement.execute`, `executeUpdate`, and `executeLargeUpdate` are called through public JDBC
 THEN `execute` returns `false`, `getResultSet()` is `null`, both update methods and the current
@@ -766,6 +574,29 @@ considered THEN deployment evidence shows connector-service returns that sub-fla
 for a partner User-Agent and retains its ordinary value for a non-partner OSS JDBC User-Agent.
 The evidence identifies the deployed service version and test region. Without it, assignment
 and ramp remain blocked even if AC28 passes (Q9).
+
+- AC35: GIVEN equivalent execution, result fetch, metadata, prepared batch, cancellation,
+and error scenarios on APC SEA, APC Thrift, and warehouse SEA WHEN the public JDBC calls and
+standard telemetry events are compared at each package gate THEN APC SEA preserves the
+warehouse SEA SQLState/vendor-code mapping and event fields for its completed operations;
+where APC Thrift differs, the parity matrix identifies the warehouse SEA precedent or server
+limit, reason, and client impact. An unexplained missing event, changed error, or unredacted
+identifier fails the package gate.
+
+- AC36: GIVEN a public APC primitive query with a manifest-only first result, multiple inline
+pages or external links, and no total-count fields WHEN its ResultSet is consumed THEN every
+row is returned exactly once and fetch errors propagate before successful completion. GIVEN a
+logical type deferred to T20 WHEN the same path is used THEN it fails with a clear unsupported
+result type error instead of returning incomplete rows or an incorrectly converted value.
+The flag-on live comparison with APC Thrift covers row completeness; warehouse SEA establishes
+the fetch and error precedent.
+
+- AC37: GIVEN an APC SEA flag-on connection WHEN public JDBC executes schema-less DDL and
+ordinarily closes the statement and connection THEN `execute` reports no ResultSet, the update
+count is zero, and close completes without unsupported status requests. Live flag-on staging
+compares the DDL outcome and route with APC Thrift and warehouse SEA; the local request capture
+verifies target shape and one redacted APC routing/statement event while server TerminateSession
+extraction remains pending its binding fix.
 
 ## Constraints
 
@@ -802,22 +633,33 @@ propagate without fallback.
 
 ### Approach
 
-Build seven JDBC PRs and one independent Universe SAFE-definition PR. The first JDBC slice
-executes schema-less DDL through public JDBC, with targeted polling, cancel and close, timeout,
-no unsupported heartbeat, and redacted diagnostics. The second adds a primitive single-chunk
-query using that safe lifecycle. Later slices complete paging and types, parameters and batches,
-synchronous metadata, asynchronous metadata, and release evidence. Each PR is behind the
-default-off APC flag; explicit
-`UseThriftClient=0` remains an opt-in. Every exposed operation accepts both legal server
-response shapes applicable to it. A package's acceptance list in `plan.json` names only full
-criteria completed by that package; its notes state the narrower public JDBC gate.
+Build seven JDBC PRs in a linear stack and one independent Universe SAFE-definition PR.
+Each JDBC package exposes an end-to-end public behavior behind the default-off flag. The
+first opens, executes, and ordinarily closes schema-less DDL; the second completes cancellation,
+timeout, saved-session close, heartbeat, and routing telemetry. The third exposes a **complete**
+primitive query: manifest-only starts, inline and external continuations, and all pages are
+handled before public `executeQuery` is enabled. Deferred logical types fail clearly rather
+than returning a partial or coerced ResultSet. Later packages complete logical types and
+transport parity, prepared execution and batches, synchronous metadata, and asynchronous
+metadata plus final release evidence. Each PR targets roughly 1,500 changed lines or less.
+The first JDBC package alone owns `docs/` and `NEXT_CHANGELOG.md`; later stacked PRs use
+`NO_CHANGELOG=true` for the unreleased feature. No package assigns or ramps the flag.
 
-JDBC packages form a linear stack because they edit common SDK, result, and session lines.
-The Universe SAFE-definition PR is an independent root. Keep each implementation PR below
-about 1,500 changed lines by limiting its exposed behavior to the slice named here. The
-first JDBC PR is the sole owner of `docs/` and `NEXT_CHANGELOG.md`, because it first makes
-APC statement behavior publicly usable. Later PRs use `NO_CHANGELOG=true` as changes to the
-unreleased stack. No package performs flag assignment or ramp.
+Live package gates use a flag-on APC staging account and an equivalent APC Thrift run; a
+warehouse SEA run establishes the precedent for SEA-only behavior. Record observed rows,
+counts, SQLState/vendor code, telemetry, and request/transfer evidence as applicable, plus
+build/unit/fake-service results. The listed server dependencies remain externally pending
+until the fix is deployed in the test region; they do not delay independent local checks.
+
+| JDBC package | Public live staging gate and comparison | External dependency |
+| --- | --- | --- |
+| APC DDL open | Connect with flag on/off and explicit override; execute/close schema-less DDL, compare count and routing with APC Thrift and warehouse SEA. | TerminateSession target extraction pending server binding fix. |
+| APC lifecycle | Cancel and time out running DDL; close saved session after flag change; inspect heartbeat absence, error and routing telemetry against APC Thrift and warehouse SEA. | Saved-session termination target extraction pending binding fix. |
+| APC complete primitive query | Read a multi-page primitive result, including manifest-only first result and inline/external delivery; compare all rows, SQLState, and fetch telemetry with APC Thrift and warehouse SEA. | Inline-only dogfood pending server fix. |
+| APC logical types and transport | Compare each AC13 type, retry and rate-limit errors, concurrent CloudFetch/inline resource and transfer gates with APC Thrift and warehouse SEA. | Inline-only dogfood pending server fix. |
+| APC prepared execution and batches | Exercise live V8/V10 available paths, DML counts and 100-set INSERT; compare values, requests, errors, and telemetry with APC Thrift and warehouse SEA. | Record unavailable protocol versions as externally pending. |
+| APC synchronous metadata | Run seven synchronous SHOW operations and procedure metadata against APC Thrift, checking emitted representation and errors; warehouse SEA supplies request precedent. | Metadata dogfood pending server fix. |
+| APC asynchronous metadata and release | Run V9 async SHOW, null-catalog, timeout/cancel, and final cross-route parity; check all remaining AC evidence and partner override. | Metadata and Q9 service evidence pending deployment. |
 
 ### Affected Components
 
@@ -857,90 +699,60 @@ continues to be the raw server ID.
 
 ## Tasks
 
-Each task belongs to exactly one package in `plan.json`. Implementation owners choose internal
-class and helper boundaries. Public JDBC and fake-service tests demonstrate each slice; T18 and
-T-val record final release evidence.
+Each task belongs to exactly one package in `plan.json`. A package passes its public live
+staging gate (or records the named external dependency) and local contract checks before its
+child starts. T18 consolidates evidence; it does not postpone earlier package validation.
 
-### Phase 1 — Wire models and compute targeting
+### Phase 1 — APC DDL open
 
-- [ ] T1: Add APC compute and SEA result-format models, preserving warehouse wire values and
-  unsupported-format behavior (R2, R16).
-- [ ] T2: Represent APC targets on session, execution, cancel, and termination request bodies,
-  preserving warehouse serialization (R2).
-- [ ] T3: Open a public APC SEA connection through `Driver`, execute a successful schema-less
-  DDL command, and close the statement and connection. Target CreateSession, execution,
-  polling, and TerminateSession on standard URLs; never send placeholder `cliservice` ids or
-  log raw org/cluster/compound ids (R1, R2, R4, R8).
-- [ ] T19: Round-trip APC session and internal statement identifiers, retain raw public
-  statement IDs, and reject malformed identifiers without exposing them in diagnostics (R9).
+- [ ] T1: Add APC compute and SEA result-format support while preserving warehouse wire values (R2, R16).
+- [ ] T2: Carry APC targets on session, execution, cancel, and termination calls without changing warehouse requests (R2).
+- [ ] T3: Open public APC SEA, execute schema-less DDL, and ordinarily close; target each request and emit redacted APC routing/statement telemetry (R1, R2, R4, R8).
+- [ ] T4: Apply Arrow-first APC routing, explicit override, catalog-pattern precedence, and the default-off dedicated flag without changing warehouse routing (R1, R7).
+- [ ] T19: Round-trip APC session and internal statement IDs, retain raw public statement IDs, and safely reject malformed forms (R9).
+- [ ] T28: Return a zero-count no-ResultSet outcome for successful schema-less DDL without unnecessary fetch; preserve DML counts and errors (R4).
+- [ ] T16: Document routing, batch cost, SEA tuning scope, and the user-visible changelog entry; this is the only docs/changelog package.
 
-### Phase 2 — Routing and session lifecycle
+### Phase 2 — APC lifecycle
 
-- [ ] T4: Implement Arrow-first APC routing, explicit override, catalog-pattern precedence,
-  default-off APC flag, and unchanged warehouse routing (R1, R7).
-- [ ] T5: Record client type and the live CreateSession protocol version separately from the
-  version serialized in a session identifier; only the live value grants capabilities (R6, R9).
-- [ ] T6: Preserve the selected protocol on APC connection errors and KP001 Thrift failure;
-  leave warehouse recovery unchanged (R7).
-- [ ] T7: Disable APC result heartbeats and unsupported status RPCs while retaining ordinary
-  execution polling (R3).
-- [ ] T27: Target ordinary APC statement cancel and close, including timeout cancellation,
-  without emitting raw APC identifiers. Recovered-statement targeting is T29 (R2, R8, R14).
-- [ ] T29: Use the current connection target for recovered statement fetch/cancel/close, and
-  the serialized session type and target for public `Driver.closeConnection` after a flag
-  change (R9).
+- [ ] T6: Preserve selected protocol on connection errors and APC KP001 Thrift failure (R7).
+- [ ] T7: Suppress APC result heartbeats and unsupported status calls while retaining execution polling (R3).
+- [ ] T12: Apply warehouse SEA timeout behavior with targeted APC cancellation (R14).
+- [ ] T15: Complete routing outcomes across APC and warehouse success/failure and redact APC IDs in synchronous/asynchronous diagnostics (R8).
+- [ ] T27: Target APC statement cancel and close, including timeout cancellation (R2, R14).
+- [ ] T29: Use the current target for recovered statement operations and the saved protocol/target for public saved-session close (R9).
 
-### Phase 3 — Execution and results
+### Phase 3 — Complete primitive query
 
-- [ ] T8: Execute a public single-chunk primitive APC query with the R4/R10 request shape,
-  including inline-only session configuration and safe request/log redaction. Capture sync and
-  async request shapes with hybrid results disabled (R4, R8, R10).
-- [ ] T10: Decode LZ4 bare Arrow batches from a single result chunk using
-  `manifest.schema`, preserving the external-link stream path and warehouse decoding (R4, R11).
-- [ ] T28: Treat successful schema-less, data-less DDL as a zero-count, no-ResultSet result
-  without an unnecessary result fetch; preserve DML affected counts and errors (R4, R15).
-- [ ] T25: Target APC result and chunk GETs with one compute query field, null body, correct
-  `row_offset`, and untouched presigned URLs and headers (R2).
-- [ ] T11: Complete inline and external multi-page reading using the final continuation and
-  row offset, including a manifest-only first result (R12).
-- [ ] T20: Complete the AC13 Arrow logical-type matrix from
-  `type_text`/`type_json` without silent coercion (R11, Q7).
-- [ ] T9: Gate single prepared execution on the live V8 capability, interpolate below V8,
-  and support binding-free pre-execution `DESCRIBE QUERY` metadata (R6).
-- [ ] T21: Support V10 opt-in native APC parameter batches, one-per-set fallback, sequential
-  Statement batches, and correct success/failure update counts (R6, R15).
-- [ ] T22: Reject native complex bindings before sending any request, with a tested
-  driver-owned error name/code and telemetry taxonomy disposition (R6).
-- [ ] T12: Use warehouse SEA timeout semantics and targeted APC cancellation (R14).
+- [ ] T8: Expose primitive public APC queries with the R4/R10 request shape only after complete fetching and clear rejection of deferred logical types (R4, R8, R11).
+- [ ] T10: Decode primitive LZ4 bare Arrow batches, including multiple batches per chunk and external-link streams (R4, R11).
+- [ ] T11: Fetch every inline or external continuation, including manifest-only first results, by final `next_chunk_index` and `row_offset` (R12).
+- [ ] T25: Target result/chunk GETs once, with null body and unchanged presigned URLs/headers (R2).
 
-### Phase 4 — Metadata, telemetry, and release
+### Phase 4 — Logical types and transport
 
-- [ ] T15: Emit one routing event per connection attempt, including failures; redact APC
-  org/cluster and compound IDs in synchronous and asynchronous diagnostics (R8).
-- [ ] T16: Document the public APC routing override, batch fallback cost, and SEA tuning
-  exceptions; add the user-visible changelog entry in the first JDBC PR.
-- [ ] T13: Complete synchronous SHOW and procedure SELECT metadata through public JDBC,
-  with operation-specific request shape, native conversion, and existing null-catalog fallback
-  (R5).
-- [ ] T14: Decode either Arrow IPC or `columnar_data` per metadata response, including the
-  physical vector and logical-value parity of AC16 (R5, R13).
-- [ ] T23: Add the seven-operation, session-reachable async SHOW API and live V9 gate.
-  Complete both legal payloads and below-V9 synchronous handles before exposure (R5).
-- [ ] T24: Preserve the null-catalog schemas/columns fan-out and error, timeout, and
-  cancellation behavior in async metadata (R5).
-- [ ] T17: (Universe) Define the default-off APC sub-flag under the existing client-config
-  batch flag; do not assign or ramp it (R1, Q8).
-- [ ] T26: Verify paired APC and warehouse SDK retry, pool, and presigned-link behavior
-  without introducing APC-only transport controls (R17).
+- [ ] T20: Complete the AC13 logical-type matrix from `type_text`/`type_json` without silent coercion (R11, Q7).
+- [ ] T26: Establish paired APC/warehouse SDK retry, pool, CloudFetch, and presigned-link parity without APC-only transport controls (R17).
 
-### Validation
+### Phase 5 — Prepared execution and batches
 
-- [ ] T18: Run build, unit, fake-service, and dogfood checks across the complete JDBC stack.
-  Record AC27 polling and AC30–AC32 parity measurements. Dogfood metadata, inline-only, and
-  TerminateSession checks wait for the tracked server fixes; local contract checks run first.
-  Verify the Universe flag exists and the Q9 connector-service partner override is deployed
-  before any APC flag assignment or ramp. Record externally gated checks as pending, never
-  passed, until evidence exists (R1–R17; AC1–AC34).
-- [ ] T-val: Record a pass/fail or externally pending evidence link for every AC1–AC34,
-  exact commands and failures, the AC13 type decision, and release-gate measurements. Do not
-  declare release readiness while Q7, Q9, or server-gated checks remain open.
+- [ ] T5: Keep the live CreateSession capability version separate from serialized ID diagnostics (R6, R9).
+- [ ] T9: Gate native scalar preparation at V8, interpolate below it, and support binding-free pre-execution metadata (R6).
+- [ ] T21: Support opt-in V10 native batches, per-set fallback, sequential Statement batches, and correct counts (R6, R15).
+- [ ] T22: Reject native complex bindings before requests with tested error name/code and telemetry taxonomy (R6).
+
+### Phase 6 — Synchronous metadata
+
+- [ ] T13: Complete synchronous SHOW and procedure SELECT metadata, with correct request shape and null-catalog fallback (R5).
+- [ ] T14: Decode each emitted Arrow IPC or columnar metadata representation with AC16 value/null parity (R5, R13).
+
+### Independent Universe flag package
+
+- [ ] T17: Define the default-off APC SAFE sub-flag under the existing client-config batch flag without assigning or ramping it (R1, Q8).
+
+### Phase 7 — Asynchronous metadata and release
+
+- [ ] T23: Expose seven-operation asynchronous SHOW metadata with the live V9 gate and completed synchronous handles below V9 (R5).
+- [ ] T24: Preserve async null-catalog fan-out, errors, timeout, and cancellation (R5).
+- [ ] T18: Consolidate per-package live and local evidence and final AC27/AC30–AC32 cross-route gates; keep server/Q9 checks pending until demonstrated (AC1–AC37).
+- [ ] T-val: Record pass/fail or externally pending evidence for AC1–AC37, exact commands and release measurements; do not declare release readiness with Q7, Q9, or server-gated checks open.
