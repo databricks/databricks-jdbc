@@ -596,9 +596,9 @@ lines by excluding neighboring behaviors from its scope.
 
 Universe packages own the DDL/DML result contract (T32), default-off flag (T17), and blanket
 partner override (T35). T32 gates live DDL/DML; T17 and T35 gate flag-on validation. They are
-separate repository PR stacks; `plan.json` uses cross-repo parent edges only for project gate
-ordering, never as a literal Git branch base. T18 blocks release on open live, server, or
-performance gates.
+separate repository PR stacks: every `plan.json` parent is a branch base in the same repo.
+The integration package lists the cross-repo deployment gates explicitly rather than treating
+them as Git parent edges. T18 blocks release on open live, server, or performance gates.
 
 ### Affected Components
 
