@@ -605,12 +605,13 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` assigns each task once in a single dependency tree. A cross-repo
-parent is a deployed integration gate; repository-local branches stack from
-their preceding package in the same repo. Server contract and scoped fault
-packages precede the first JDBC workflow they gate; each
+`plan.json` assigns each task once. JDBC and universe each have a repository-local
+stacked tree because a PR can branch only from a parent in its own repository.
+The plan names required deployed universe gates in each dependent JDBC package;
+those gates must pass before that JDBC package is considered complete. Server
+contract and scoped fault packages precede the first JDBC workflow they gate; each
 JDBC package closes a live paired workflow. Metadata packages pair synchronous
-and async forms of one SHOW operation. The tree serializes some independent
+and async forms of one SHOW operation. Each tree serializes some independent
 work so release inherits every prerequisite. It exceeds the four-to-seven JDBC
 package aim because the approved surface spans distinct result, SQL, and
 metadata workflows that cannot fit reviewable diffs. The partial stack is
