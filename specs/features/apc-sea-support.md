@@ -8,7 +8,7 @@ created: 2026-10-28
 ## Intent
 
 Let the OSS JDBC driver run all-purpose cluster (APC) workloads through the SQL Execution API
-(SEA), which now routes APC requests to Reyden server-side. This brings APC connections the same
+(SEA), which routes APC requests through Reyder to DPR and DBR. This brings APC connections the same
 Arrow/CloudFetch result path, telemetry, and future feature work as SQL warehouses, and unblocks
 retiring the direct-Thrift APC path. Routing is controlled by a dedicated APC server flag so APC
 can ramp and roll back independently of warehouses, with an explicit client setting taking
@@ -16,7 +16,7 @@ precedence so customers can force either protocol.
 
 ## Context
 
-- SEA routes APC `backend_compute` to Reyden through Reyder behind
+- SEA routes APC `backend_compute` through Reyder directly to DPR behind
   `databricks.sqlexecapi.enable_apc_reyder_routing`. APC polling uses
   `GetStatementResult`; native metadata intent, synchronous behavior, and
   per-hop result shape require deployed server proof (AC138).
@@ -55,7 +55,11 @@ precedence so customers can force either protocol.
   | Result codec | Honors requested codec | Forwards codec preference | Reyder sends LZ4 even for `NONE`; decode actual manifest codec. `NONE` cannot disable compression. | Server exception, AC101. |
   | Download/complex getters | Typed values | Hybrid `0` external-only; download-off JSON or Arrow | Hybrid `0` remains hybrid; use Arrow batches and representable getters. | Reyder transfer exception, AC13/112/145. |
   | `UseBoundedSeaApi=0/1` | No SEA setting | Format/provider vary | APC format and target stay fixed; absent totals alter buffering and transfer cost. | Reyder exception, AC39/112/165. |
-  | Transport and result controls | Thrift HTTP pool, fetched batches, and heartbeat | SDK/API pool, HTTP link pool, page bounds, and `/status` heartbeat | R17 governs pools, retries, streaming, and memory; APC suppresses heartbeat and may buffer multi-batch chunks. Timings and peak memory may change. | Warehouse transport precedent and APC server exception, AC30/39/51/84/109/136/165. |
+  | `RowsFetchedPerBlock` | Controls Thrift fetch size | SEA pages by server continuation | Does not change APC SEA paging; callers lose this page-size control. | Warehouse precedent, AC31/39. |
+  | `EnableInlineStreaming` | Selects Thrift inline reader | No SEA effect | Has no APC SEA effect; callers cannot use it to change inline memory behavior. | Warehouse precedent, AC39/109. |
+  | `ThriftMaxBatchesInMemory` | Bounds Thrift batches | Bounds SEA inline chunks | Bounds APC inline chunks, each possibly containing multiple batches; peak memory may rise. | Warehouse precedent and APC chunk shape, AC109. |
+  | API and link retry controls | Thrift requests use HTTP retry settings | SDK API retry is separate from presigned-link retry | APC API calls use SDK policy; link `Retry-After`, `ApiRetriableHttpCodes`, and pool controls govern links. Callers may see different retry counts, delay, or an uncertain write. | Warehouse precedent, AC51/154. |
+  | Other transport controls | Thrift HTTP pool and heartbeat | SDK/API pool, link HTTP pool, `/status` heartbeat | APC uses separate API/link pools and suppresses heartbeat; waits, peak memory, and cursor lifetime may differ. | Warehouse precedent and APC status limit, AC30/46/84/136/165. |
   | Null-catalog `getTables` on `42601` | Native RPC may return multiple catalogs | SHOW returns typed empty | Return typed empty; measure omitted Thrift rows and table types. | Warehouse precedent, AC105. |
   | Null-catalog `getFunctions` | Native RPC/Thrift SHOW differ | SHOW resolves current catalog | Use SHOW; measure gained current-catalog and lost other-catalog rows. | Warehouse precedent, AC82. |
   | Exported keys | Parent-only RPC returns rows | Typed empty; no parent-only SHOW | Require supported lookup or an approved, measured loss of foreign-key rows. | Server gap, AC54. |
@@ -160,7 +164,7 @@ They request `ARROW_STREAM` and `INLINE_OR_EXTERNAL_LINKS` at either hybrid
 setting. JDBC sends metadata-operation and fully-sync headers to SEA for
 applicable calls, but the APC direct route bypasses `ApiFiltering`'s
 require-native normalization. Before exposure, server work T58 must carry
-native-selection intent to Reyder/Reyden and preserve the synchronous behavior
+native-selection intent through Reyder to DPR and preserve the synchronous behavior
 requested by the fully-sync header; forwarding HTTP headers unchanged at every
 hop is not required. The current downstream allowlist excludes require-native
 and fully-sync, so AC138 proves the effective behavior at each hop.
@@ -389,7 +393,7 @@ wrapping and cause SQLState/vendor code, including driver fallback error names w
 - Q2: Fall back after an APC SEA error? A2: No; propagate the SEA error (R7).
 - Q3: How should Arrow IPC and HIVE metadata coexist? A3: Decode each response's Arrow IPC or HIVE `chunk.columnar_data`, including DD2/DD4 (R5, R13).
 - Q4: Emulate batches below V10? A4: Yes. Legacy INSERT batching follows R6's chunk bounds; only opt-in V10 uses `parameter_sets`. Statement batches remain sequential (R15).
-- Q5: Denylist govcloud/non-Reyden regions in the client? A5: No; keep the flag off there and propagate a selected SEA rejection.
+- Q5: Denylist govcloud/unsupported APC SEA regions in the client? A5: No; keep the flag off there and propagate a selected SEA rejection.
 - Q6: Add a special User-Agent or capability header? A6: No; ordinary User-Agent, path, and `backend_compute` identify APC.
 - Q7: Is manifest `type_text`/`type_json` sufficient for Arrow types? A7: AC13 proves lossless reconstruction; otherwise block release for a Reyder `arrow_schema` contract and driver support. Do not coerce or fall back.
 - Q8: Share `enableSqlExecForJdbc`? A8: No. Add default-off `databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc`; older drivers ignore it, and no connector-service version filter is needed.
@@ -411,12 +415,19 @@ packages and need not be repeated in each `plan.json` acceptance list.
 
 The shared paired-load gate uses one build, warmed cluster, identical data,
 and one/32 APC SEA and Thrift callers, all completing or returning bounded
-errors. At 32 callers, SEA/Thrift throughput is at least 0.90;
+errors. At 32 callers, SEA/Thrift completed operations per second are at least 0.90;
 median/p95/slowest latency at most 1.10/1.20/1.50, peak heap at most 1.20.
-Inline/linked SELECT CPU seconds/GiB and peak RSS are at most 1.20 at both
-loads; record idle and absolute RSS at 8/64 MiB inline and 64/128 MiB linked
-per caller. AC31 drains at least 8 MiB per single-chunk caller and 64 MiB per
-multi-page/linked caller at 0.90 of Thrift sustained bytes/s. AC32 inserts
+For SELECT, record both received HTTP body bytes and decoded logical bytes;
+download throughput uses received bytes per second, while rows and values
+establish equal work. CPU per 1,000 rows and peak RSS are at most 1.20 at both
+loads. Use a live, single-chunk inline result with a captured 0.5–2 MiB
+response below the server's 5 MiB large-result threshold for the first SELECT
+gate; record
+its body size, rows, and completed calls per second without requiring an
+8 MiB transfer. Multi-page inline uses an equally feasible below-threshold
+result. The sustained download gate starts with linked delivery: each caller
+drains at least 64 MiB of received link bodies at 0.90 of Thrift sustained
+bytes/s, with 64/128 MiB linked memory samples. AC32 inserts
 1,024 disjoint rows per caller over at least two requests/chunks/sets at 0.90
 of Thrift committed rows/s. Retained heap growth across two sizes is at most
 max(8 MiB, 5% of added bytes). Record rows, bytes, duration, errors, CPU and
@@ -425,8 +436,8 @@ limit/precedent, caller impact, and PECO/Perf Eng approval before release.
 
 AC138 is the server-readiness gate for each SHOW before its JDBC method is
 exposed: capture JDBC/SEA ingress headers, derived APC native/sync decisions,
-Reyden request/response, native mark, and Arrow/HIVE typed rows under direct
-and polled execution. Header identity across downstream hops is not required.
+Reyder-to-DPR request and DPR response, native mark, and Arrow/HIVE typed rows
+under direct and polled execution. Header identity across hops is not required.
 Each exposed JDBC method also closes AC16 or AC50 and AC61.
 
 - AC1: GIVEN flag-ON/OFF APC staging WHEN R1 overrides vary THEN protocol, target, partner exclusion and no-fallback match R1; cover Arrow absence, legacy `cliservice` and flag lookup failure. AC2 proves rows.
@@ -452,7 +463,7 @@ sub-flag of `databricks.partnerplatform.clientConfigsFeatureFlags`, defaults OFF
 independent of the warehouse flag.
 - AC29: GIVEN flag-on APC and paired routes WHEN complex binding enters a single statement, legacy batch, or V10 batch THEN each has live named/numeric driver error before ExecuteStatement, no accepted write, and a usable connection; record taxonomy/dashboard ownership or handoff.
 - AC30: GIVEN paired API/link-pool saturation WHEN pool size and acquisition wait vary THEN in-flight requests, waits, errors and completion meet the shared load gate; SDK acquisition ignores Thrift HTTP wait.
-- AC31: GIVEN each SELECT mode at exposure, including first single-chunk SELECT WHEN paired callers drain it THEN rows, errors, throughput, CPU, heap, and RSS meet the shared paired-load gate; varying `RowsFetchedPerBlock` does not alter SEA paging.
+- AC31: GIVEN a below-threshold inline SELECT or a linked SELECT of at least 64 MiB per caller WHEN paired callers drain it THEN rows, errors, mode-specific throughput, CPU, heap, and RSS meet the shared paired-load gate; received and decoded bytes are reported separately, and varying `RowsFetchedPerBlock` does not alter SEA paging.
 - AC32: GIVEN each batch mode WHEN paired callers insert disjoint keys THEN ordered counts and committed rows meet the shared batch-load gate.
 - AC34: GIVEN T57's deployed partner exclusion and scoped ON/default OFF states WHEN
 connector-service serves ordinary, partner, and allowlisted JDBC partner agents THEN only the
@@ -549,14 +560,14 @@ SEA IDs remain valid. T44 replaces this boundary after AC25/152.
 
 ## Out of Scope
 
-- Server-side Reyder, Reyden, connector-service, SAFE definition, and staging
+- Server-side SEA, Reyder, DPR, connector-service, SAFE definition, and staging
   fault-hook implementation are outside JDBC delivery. T56–T62 and their
   universe packages track these prerequisites and their deployment evidence.
 - Ramping the APC flag in SAFE (an operational step after the driver ships, owned by PECO).
 - Benchmark suites (`MultiJdbcDriverBenchmark` APC variant, Quicksilver `dust-cluster-benchmark`
 parameter sets).
 - ODBC, Python, Go, and Node.js connectors.
-- Govcloud / non-Reyden region enablement beyond keeping the APC flag off there; server errors
+- Govcloud / unsupported APC SEA region enablement beyond keeping the APC flag off there; server errors
 propagate without fallback.
 - Removing the direct-Thrift APC code path.
 
@@ -569,14 +580,13 @@ propagate without fallback.
 `plan.json` assigns each task once to a callable JDBC slice or a tracked universe
 prerequisite. Universe packages may run in parallel; their deployed contract
 evidence gates the corresponding JDBC slices, without cross-repository parents.
-The JDBC tree branches after connection for saved close, then after the first
-SELECT into result, command/binding, and metadata workflows with disjoint
-source ownership. A package that needs work from a sibling waits for that
-sibling to merge before exposure. Each slice
-closes its own live gate before merge. The final package validates the assembled
-stack after all branches merge and alone edits docs and `NEXT_CHANGELOG.md`.
-Split a slice before implementation if its review diff approaches 1,500 changed
-lines.
+JDBC packages form one ancestry chain: prepared binding precedes procedure
+metadata, synchronous mappings precede their async handles, and the release
+package inherits the entire implementation for T-val. This ordering sacrifices
+JDBC branch parallelism so each live gate can run before its package is reviewed.
+Each slice closes its own live gate before merge. The final package alone edits
+docs and `NEXT_CHANGELOG.md`. Split a package before implementation if its
+review diff approaches 1,500 changed lines.
 
 ### Affected Components
 
@@ -613,19 +623,18 @@ integration prerequisites, not JDBC code changes.
 | --- | --- |
 | Connection | T9 open and close APC SEA sessions. |
 | First SELECT | T10 single-chunk polling, fetch, cancel, and primitive inline `ARROW_BATCH` schema/value decoding; T40 direct/polled error identity; T39 `isValid`. |
-| Inline results and saved close | T11 inline continuation; T13 logical getters; T41 codec/API compression; T44 saved session close in its own package. |
-| Linked SELECT | T12 linked continuation; T32 SELECT settings and limits; T42 linked resource controls, each in a separate successive slice; T29 async SELECT and T43 download-off in their own slices. |
+| Results and saved close | T11 inline continuation; T13 logical getters; T41 codec/API compression; T12 linked continuation; T32 SELECT settings and limits; T42 linked resource controls; T29 async SELECT; T43 download-off; T44 saved session close at release. |
 | Commands and transactions | T14 terminal commands; T30 transactions; T33 CALL; T34 Statement batches. |
 | Prepared scalars | T28 negotiated scalar binding and prepared SELECT; T31 prepared DML; T38 prepared metadata. |
 | INSERT batches | T15 legacy INSERT batches; T27 V10 native batches. |
-| Metadata core | T16 catalogs; T17 schemas and the shared header/format contract. |
-| Metadata discovery | T48 tables; T18 columns; T49 functions, one callable workflow per package. |
+| Metadata core | T16 catalogs and the shared header/format contract; T17 schemas and fan-out. |
+| Metadata discovery | T48 tables; T18 columns; T49 functions, each exposed only after its live server gate. |
 | Metadata keys | T35 primary keys; T47 exported keys; T55 imported/cross-reference keys. |
 | Procedure metadata | T19 parameterized procedure SELECT after scalar binding and metadata transport. |
-| Async metadata discovery | T20 catalogs and first typed async lifecycle; T21 schemas; T22 tables; T23 columns; T24 functions, with tables/columns/functions in separate packages. |
+| Async metadata discovery | T20 catalogs and first typed async lifecycle; T21 schemas; T22 tables; T23 columns; T24 functions. |
 | Async metadata keys | T25 primary keys; T26 imported/cross-reference keys. |
 | Release | T36 docs/changelog; T-val assembled live gates and integration handoff. |
 | Server flag | T56 Partner Platform defines the default-off APC client-config sub-flag; T57 connector-service excludes all partners, including allowlisted JDBC agents (AC28/34). Track both under [SC-256186](https://databricks.atlassian.net/browse/SC-256186); the flag and exclusion packages own the deliverables, and the connection slice requires their deployed evidence. |
-| Server metadata | T58 SEA/Reyder/Reyden carries effective native and sync intent and returns native Arrow/HIVE metadata (AC138); [SC-256188](https://databricks.atlassian.net/browse/SC-256188). |
+| Server metadata | T58 SEA/Reyder/DPR carries effective native and sync intent and returns native Arrow/HIVE metadata (AC138); [SC-256188](https://databricks.atlassian.net/browse/SC-256188). |
 | Server result and session | T59 Reyder honors CreateSession inline-only override (AC119; [SC-258787](https://databricks.atlassian.net/browse/SC-258787)); T60 SEA/Reyder fixes APC TerminateSession target binding (AC168); T62 Reyder returns terminal/count command shapes (AC113; [SC-258842](https://databricks.atlassian.net/browse/SC-258842)). |
 | Staging faults | T61 SEA staging owns scoped request delays, 429/503 and accepted-write faults (AC144). |
