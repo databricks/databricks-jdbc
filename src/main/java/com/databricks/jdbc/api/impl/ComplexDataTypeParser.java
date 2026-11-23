@@ -668,7 +668,6 @@ public class ComplexDataTypeParser {
                 || DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT));
 
         StringBuilder result = new StringBuilder("{");
-        JsonStringEncoder stringEncoder = JsonStringEncoder.getInstance();
 
         for (int i = 0; i < node.size(); i++) {
           JsonNode entry = node.get(i);
@@ -687,7 +686,7 @@ public class ComplexDataTypeParser {
           }
 
           if (isStringKey) {
-            result.append("\"").append(stringEncoder.quoteAsString(keyNode.asText())).append("\"");
+            appendJsonString(result, keyNode.asText());
           } else {
             result.append(keyNode.asText());
           }
@@ -702,10 +701,7 @@ public class ComplexDataTypeParser {
             // container nodes, so emit the JSON directly (e.g. {0:[34277,0]}).
             result.append(valueNode.toString());
           } else if (isStringValue) {
-            result
-                .append("\"")
-                .append(stringEncoder.quoteAsString(valueNode.asText()))
-                .append("\"");
+            appendJsonString(result, valueNode.asText());
           } else {
             result.append(valueNode.asText());
           }
@@ -719,5 +715,26 @@ public class ComplexDataTypeParser {
     }
 
     return jsonString;
+  }
+
+  private static void appendJsonString(StringBuilder out, String text) {
+    out.append('"');
+    if (needsJsonEscaping(text)) {
+      JsonStringEncoder.getInstance().quoteAsString(text, out);
+    } else {
+      out.append(text);
+    }
+    out.append('"');
+  }
+
+  /** Same character set Jackson escapes by default, so the fast path output is identical. */
+  private static boolean needsJsonEscaping(String text) {
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (c < 0x20 || c == '"' || c == '\\') {
+        return true;
+      }
+    }
+    return false;
   }
 }

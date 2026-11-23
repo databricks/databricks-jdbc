@@ -17,6 +17,8 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -660,6 +662,27 @@ public class ComplexDataTypeParserTest {
 
     assertEquals(mapper.createObjectNode().put("key", value).toString(), result);
     assertEquals(value, mapper.readTree(result).get("key").asText());
+  }
+
+  @Test
+  void testFormatMapString_matchesJacksonForEveryAsciiCharacter() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    List<Integer> codePoints = new ArrayList<>(Arrays.asList(0xE9, 0x2028, 0x1F600));
+    for (int c = 0; c < 0x80; c++) {
+      codePoints.add(c);
+    }
+    for (int codePoint : codePoints) {
+      String text = "a" + new String(Character.toChars(codePoint)) + "b";
+      String jsonString =
+          mapper
+              .createArrayNode()
+              .add(mapper.createObjectNode().put("key", text).put("value", text))
+              .toString();
+
+      String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>");
+
+      assertEquals(mapper.createObjectNode().put(text, text).toString(), result);
+    }
   }
 
   @Test
