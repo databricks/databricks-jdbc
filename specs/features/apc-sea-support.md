@@ -630,12 +630,13 @@ The JDBC lineage separates session lifecycle, single-chunk SELECT, inline contin
 SQL controls, linked results, SQL async, prepared SELECT/metadata, no-result commands,
 counted DML, batches, synchronous discovery/details, and async discovery/details.
 These smaller vertical slices target fewer than about 1,500 changed lines per reviewed
-diff and give each public outcome a live gate. The default-off flag is the tree root;
-its command and metadata Universe children can proceed on disjoint lines. Its JDBC
-child records the required deployed-flag gate, not a cross-repository Git branch:
-the first JDBC PR branches from JDBC `origin/main`. Subsequent JDBC PRs form one
-lineage, so the final release package inherits the batch branch before combined
-validation. T32/AC113 gate public commands; T65/AC115 gate all APC metadata SHOW.
+diff and give each public outcome a live gate. Each repository has its own PR tree:
+the default-off flag roots the Universe tree, with command and metadata children on
+disjoint lines; the session lifecycle roots the JDBC tree from JDBC `origin/main`.
+The JDBC root's scoped flag-on gate requires T17/T35 to be deployed, but no JDBC PR
+branches from a Universe commit. Subsequent JDBC PRs form one lineage, so the final
+release package inherits the batch branch before combined validation. T32/AC113 gate
+public commands; T65/AC115 gate all APC metadata SHOW.
 Tracked metadata and TerminateSession fixes gate their affected live proof. The final
 JDBC package alone owns docs and changelog. Incomplete public calls fail before
 execution when known, and production assignment waits for assembled validation and
