@@ -631,9 +631,11 @@ form a single sequence of completed flag-gated workflows: primitive SELECT,
 inline paging, linked SELECT, transport and prepared controls, commands and
 batches, synchronous metadata, then async metadata and release. Keep each PR
 under about 1,500 changed lines and close its live gate before exposing behavior.
-The Universe flag package is the plan root; its JDBC child denotes a deployment
-prerequisite, while the JDBC branch starts from `origin/main`. Independent Universe
-work branches from the flag without sharing edited lines.
+The Universe flag and first JDBC SELECT packages root separate repository PR
+trees. The JDBC root branches from `origin/main`; its scoped flag-on gate depends
+on the Universe flag deployment, recorded in `plan.json` rather than as a
+cross-repository PR parent. Independent Universe work branches from the flag
+without sharing edited lines.
 T17/T35 gate scoped flag-on validation; T32/AC113 gate commands, T65/AC115 gate
 SHOW, T66/AC119 gate inline-only results, and AC87 gates APC SQL size.
 Tracked termination fixes gate close proof. The final JDBC package alone owns
