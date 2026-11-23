@@ -43,7 +43,7 @@ class DatabricksDriverFeatureFlagsContextTest {
   @Mock private ObjectMapper objectMapperMock;
   private static final String FEATURE_FLAG_NAME = "featureFlagName";
   private static final String FEATURE_FLAGS_ENDPOINT =
-      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.4.5";
+      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.4.6";
 
   private DatabricksDriverFeatureFlagsContext context;
 
@@ -72,7 +72,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     assertNotEquals(
         key,
         DatabricksDriverFeatureFlagsContext.snapshotKey(
-            "https://other-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.4.5",
+            "https://other-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.4.6",
             "UA",
             headers));
     assertNotEquals(
