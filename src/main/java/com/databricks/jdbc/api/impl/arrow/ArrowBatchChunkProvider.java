@@ -1,14 +1,15 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 
-/** Reads inline ARROW_BATCH pages on demand. */
+/** Reads inline ARROW_BATCH pages with bounded background prefetch. */
 final class ArrowBatchChunkProvider extends PagedArrowChunkProvider {
-  private static final String WORKER_NAME = "apc-arrow-batch-page-fetcher";
+  private static final String WORKER_NAME = "apc-arrow-batch-prefetcher";
 
   ArrowBatchChunkProvider(
       ResultData firstPage,
@@ -16,7 +17,13 @@ final class ArrowBatchChunkProvider extends PagedArrowChunkProvider {
       StatementId statementId,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    this(firstPage, resultManifest, statementId, session, 1, 0);
+    this(
+        firstPage,
+        resultManifest,
+        statementId,
+        session,
+        maxChunksInMemory(session),
+        chunkReadyTimeoutSeconds(session));
   }
 
   ArrowBatchChunkProvider(
@@ -39,5 +46,19 @@ final class ArrowBatchChunkProvider extends PagedArrowChunkProvider {
         true,
         false,
         WORKER_NAME);
+  }
+
+  private static int maxChunksInMemory(IDatabricksSession session) {
+    IDatabricksConnectionContext connectionContext =
+        session == null ? null : session.getConnectionContext();
+    return connectionContext == null
+        ? 2
+        : Math.max(2, connectionContext.getThriftMaxBatchesInMemory());
+  }
+
+  private static int chunkReadyTimeoutSeconds(IDatabricksSession session) {
+    IDatabricksConnectionContext connectionContext =
+        session == null ? null : session.getConnectionContext();
+    return connectionContext == null ? 0 : connectionContext.getChunkReadyTimeoutSeconds();
   }
 }

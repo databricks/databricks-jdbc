@@ -5,13 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -194,7 +194,7 @@ class ArrowBatchChunkProviderFactoryTest {
   }
 
   @Test
-  void fetchesPagesLazily() throws Exception {
+  void prefetchesPagesBeforeCurrentChunkIsConsumed() throws Exception {
     IDatabricksClient client = mock(IDatabricksClient.class);
     when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
         .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 1));
@@ -206,11 +206,40 @@ class ArrowBatchChunkProviderFactoryTest {
             STATEMENT_ID,
             session(client));
     try {
+      verify(client, timeout(1000)).getResultChunksData(STATEMENT_ID, 1L, 1L);
       assertTrue(provider.next());
-      verify(client, never()).getResultChunksData(any(), anyLong(), anyLong());
       assertTrue(provider.hasNextChunk());
       assertTrue(provider.next());
-      verify(client).getResultChunksData(STATEMENT_ID, 1L, 1L);
+      assertFalse(provider.hasNextChunk());
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void boundsPrefetchedPagesUntilConsumerAdvances() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 1).setNextChunkIndex(2L));
+    when(client.getResultChunksData(STATEMENT_ID, 2L, 2L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(3)), 2, 2));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            page(Collections.singletonList(arrowBatch(1)), 0, 0).setNextChunkIndex(1L),
+            pagedManifest(),
+            STATEMENT_ID,
+            session(client, 2));
+    try {
+      verify(client, timeout(1000)).getResultChunksData(STATEMENT_ID, 1L, 1L);
+      verify(client, after(100).never()).getResultChunksData(STATEMENT_ID, 2L, 2L);
+
+      assertTrue(provider.next());
+      verify(client, after(100).never()).getResultChunksData(STATEMENT_ID, 2L, 2L);
+
+      assertTrue(provider.next());
+      verify(client, timeout(1000)).getResultChunksData(STATEMENT_ID, 2L, 2L);
+      assertTrue(provider.next());
       assertFalse(provider.hasNextChunk());
     } finally {
       provider.close();
@@ -265,7 +294,8 @@ class ArrowBatchChunkProviderFactoryTest {
             session(client));
     try {
       assertTrue(provider.next());
-      assertThrows(DatabricksParsingException.class, provider::next);
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
+      assertInstanceOf(DatabricksParsingException.class, error.getCause());
     } finally {
       provider.close();
     }
@@ -377,8 +407,16 @@ class ArrowBatchChunkProviderFactoryTest {
 
   /** Stands in for the SEA chunk endpoint, which the provider calls for each later page. */
   private static IDatabricksSession session(IDatabricksClient client) {
+    return session(client, 2);
+  }
+
+  private static IDatabricksSession session(IDatabricksClient client, int maxBatchesInMemory) {
     IDatabricksSession session = mock(IDatabricksSession.class);
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
     when(session.getDatabricksClient()).thenReturn(client);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(maxBatchesInMemory);
+    when(connectionContext.getChunkReadyTimeoutSeconds()).thenReturn(5);
     return session;
   }
 
