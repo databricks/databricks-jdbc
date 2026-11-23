@@ -24,11 +24,13 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
@@ -640,6 +642,89 @@ public class DatabricksPreparedStatementTest {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setBigDecimal(1, BigDecimal.ONE));
+  }
+
+  public static Stream<Arguments> decimalBindings() {
+    return Stream.of(
+            new Object[] {"123.45", "123.45", "DECIMAL(5,2)"},
+            new Object[] {123.45d, "123.45", "DECIMAL(5,2)"},
+            new Object[] {0.5f, "0.5", "DECIMAL(1,1)"},
+            new Object[] {123L, "123", "DECIMAL(3,0)"},
+            new Object[] {9007199254740993L, "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {Long.MAX_VALUE, "9223372036854775807", "DECIMAL(19,0)"},
+            new Object[] {
+              new BigInteger("12345678901234567890"), "12345678901234567890", "DECIMAL(20,0)"
+            },
+            new Object[] {"-0.0000001", "-0.0000001", "DECIMAL(7,7)"},
+            new Object[] {new BigDecimal("-0.0000001"), "-0.0000001", "DECIMAL(7,7)"},
+            new Object[] {" 123.4500 ", "123.4500", "DECIMAL(7,4)"},
+            new Object[] {"1e-7", "0.0000001", "DECIMAL(7,7)"},
+            new Object[] {"1E+3", "1000", "DECIMAL(4,0)"},
+            new Object[] {"0.0000000", "0.0000000", "DECIMAL(7,7)"},
+            new Object[] {new BigDecimal("123.4567"), "123.4567", "DECIMAL(7,4)"},
+            new Object[] {new BigDecimal("1E+3"), "1000", "DECIMAL(4,0)"})
+        .flatMap(
+            binding ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC)
+                    .map(type -> Arguments.of(binding[0], type, binding[1], binding[2])));
+  }
+
+  @ParameterizedTest
+  @MethodSource("decimalBindings")
+  void testSetObjectDecimalPreservesValue(
+      Object value, int targetType, String expectedValue, String expectedType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, value, targetType);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    Object boundValue = metadata.getParameterBindings().get(1).value();
+    assertInstanceOf(BigDecimal.class, boundValue);
+    assertEquals(expectedValue, ((BigDecimal) boundValue).toPlainString());
+    assertEquals(expectedType, DatabricksTypeUtil.getDecimalTypeString((BigDecimal) boundValue));
+    statement.setObject(1, value, JDBCType.valueOf(targetType));
+    assertEquals(boundValue, metadata.getParameterBindings().get(1).value());
+    assertEquals(
+        boundValue,
+        BatchParameterSet.from(metadata.getParameterBindings()).getParameters().get(0).value());
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidDecimalBindings")
+  void testSetObjectDecimalRejectsInvalidNumber(Object value, int targetType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, new BigDecimal("123.45"), targetType);
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> statement.setObject(1, value, targetType));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), exception.getErrorCode());
+    assertEquals(1019, exception.getErrorCode());
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(new BigDecimal("123.45"), metadata.getParameterBindings().get(1).value());
+  }
+
+  static Stream<Arguments> invalidDecimalBindings() {
+    return Stream.of("abc", "", " ", Double.NaN, Double.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)
+        .flatMap(
+            value ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC).map(type -> Arguments.of(value, type)));
+  }
+
+  @Test
+  void testInterpolatedDecimalStringIsUnchanged() throws SQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    when(connection.getConnectionContext()).thenReturn(context);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, "123.45", Types.DECIMAL);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(
+        "SELECT '123.45'",
+        com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL(
+            "SELECT ?", metadata.getParameterBindings()));
   }
 
   @Test

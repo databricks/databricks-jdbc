@@ -1007,6 +1007,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
       typeString = getDecimalTypeString((BigDecimal) value);
+      value = ((BigDecimal) value).toPlainString();
     }
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)

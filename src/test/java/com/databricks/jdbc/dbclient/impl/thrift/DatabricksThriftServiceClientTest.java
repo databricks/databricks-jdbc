@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -1186,6 +1187,50 @@ public class DatabricksThriftServiceClientTest {
     assertEquals("DECIMAL(5,2)", result.getType());
     assertEquals("123.45", result.getValue().getStringValue());
     assertEquals(0, result.getOrdinal());
+  }
+
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest#decimalBindings")
+  void testDecimalBindingPreservesValue(
+      Object value, int targetType, String expectedValue, String expectedType) throws SQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties());
+    DatabricksConnection connection = mock(DatabricksConnection.class);
+    when(connection.getConnectionContext()).thenReturn(context);
+    DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(connection, "SELECT ?");
+    prepared.setObject(1, value, targetType);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) prepared.getParameterMetaData();
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, context);
+    TSparkParameter parameter =
+        client.mapToSparkParameterListItem(metadata.getParameterBindings().get(1));
+    assertEquals(expectedType, parameter.getType());
+    assertEquals(expectedValue, parameter.getValue().getStringValue());
+    assertEquals(1, parameter.getOrdinal());
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(parentStatement.getMaxRows()).thenReturn(10);
+    when(statement.getQueryTimeout()).thenReturn(15);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+    BatchParameterSet parameterSet = BatchParameterSet.from(metadata.getParameterBindings());
+    prepared.setObject(1, null, targetType);
+    client.executeStatementBatch(
+        "INSERT INTO target VALUES (?)",
+        WAREHOUSE_COMPUTE,
+        List.of(parameterSet, BatchParameterSet.from(metadata.getParameterBindings())),
+        StatementType.UPDATE,
+        session,
+        parentStatement);
+    ArgumentCaptor<TExecuteStatementReq> captor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(captor.capture(), eq(parentStatement), eq(session), eq(StatementType.UPDATE));
+    TSparkParameter batched = captor.getValue().getBatchParameters().get(0).get(0);
+    assertEquals(expectedType, batched.getType());
+    assertEquals(expectedValue, batched.getValue().getStringValue());
+    assertEquals(0, batched.getOrdinal());
+    assertNull(captor.getValue().getBatchParameters().get(1).get(0).getValue());
   }
 
   @Test

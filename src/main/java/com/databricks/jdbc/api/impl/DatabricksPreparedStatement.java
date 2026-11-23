@@ -361,6 +361,26 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     checkIfClosed();
     String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
     if (!Objects.equals(databricksType, NULL)) {
+      if (!interpolateParameters
+          && (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC)
+          && (x instanceof String || x instanceof Number)) {
+        try {
+          BigDecimal decimalValue;
+          if (x instanceof BigDecimal) {
+            decimalValue = (BigDecimal) x;
+          } else if (x instanceof Double || x instanceof Float) {
+            decimalValue = BigDecimal.valueOf(((Number) x).doubleValue());
+          } else {
+            decimalValue = new BigDecimal(x.toString().trim());
+          }
+          x = decimalValue.scale() < 0 ? decimalValue.setScale(0) : decimalValue;
+        } catch (NumberFormatException e) {
+          throw new DatabricksSQLException(
+              "Invalid value for DECIMAL/NUMERIC",
+              DatabricksDriverErrorCode.INVALID_STATE.name(),
+              DatabricksDriverErrorCode.INVALID_STATE);
+        }
+      }
       setObject(parameterIndex, x, databricksType);
       return;
     }

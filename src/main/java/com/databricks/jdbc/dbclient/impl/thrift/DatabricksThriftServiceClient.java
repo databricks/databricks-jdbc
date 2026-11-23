@@ -230,6 +230,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
       typeString = getDecimalTypeString((BigDecimal) value);
+      value = ((BigDecimal) value).toPlainString();
     }
     return new TSparkParameter()
         .setOrdinal(ordinal)
