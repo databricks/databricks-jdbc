@@ -21,6 +21,8 @@ import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class ComplexDataTypeParserTest {
 
@@ -624,6 +626,40 @@ public class ComplexDataTypeParserTest {
 
     String result = parser.formatMapString(jsonString, "MAP<STRING,STRING>");
     assertEquals(expected, result);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\"", "\\", "\t", "\n", "\r", "\b", "\f", "", "plain", "é/中文"})
+  void testFormatMapString_escapesStringKeys(String characters) throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    String key = "key" + characters;
+    String jsonString =
+        mapper
+            .createArrayNode()
+            .add(mapper.createObjectNode().put("key", key).put("value", "value"))
+            .toString();
+
+    String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>");
+
+    assertEquals(mapper.createObjectNode().put(key, "value").toString(), result);
+    assertEquals("value", mapper.readTree(result).get(key).asText());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\"", "\\", "\t", "\n", "\r", "\b", "\f", "", "plain", "é/中文"})
+  void testFormatMapString_escapesStringValues(String characters) throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    String value = "value" + characters;
+    String jsonString =
+        mapper
+            .createArrayNode()
+            .add(mapper.createObjectNode().put("key", "key").put("value", value))
+            .toString();
+
+    String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>");
+
+    assertEquals(mapper.createObjectNode().put("key", value).toString(), result);
+    assertEquals(value, mapper.readTree(result).get("key").asText());
   }
 
   @Test

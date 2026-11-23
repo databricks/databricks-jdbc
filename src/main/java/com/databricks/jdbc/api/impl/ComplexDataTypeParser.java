@@ -12,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
@@ -667,6 +668,7 @@ public class ComplexDataTypeParser {
                 || DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT));
 
         StringBuilder result = new StringBuilder("{");
+        JsonStringEncoder stringEncoder = JsonStringEncoder.getInstance();
 
         for (int i = 0; i < node.size(); i++) {
           JsonNode entry = node.get(i);
@@ -685,7 +687,7 @@ public class ComplexDataTypeParser {
           }
 
           if (isStringKey) {
-            result.append("\"").append(keyNode.asText()).append("\"");
+            result.append("\"").append(stringEncoder.quoteAsString(keyNode.asText())).append("\"");
           } else {
             result.append(keyNode.asText());
           }
@@ -700,7 +702,10 @@ public class ComplexDataTypeParser {
             // container nodes, so emit the JSON directly (e.g. {0:[34277,0]}).
             result.append(valueNode.toString());
           } else if (isStringValue) {
-            result.append("\"").append(valueNode.asText()).append("\"");
+            result
+                .append("\"")
+                .append(stringEncoder.quoteAsString(valueNode.asText()))
+                .append("\"");
           } else {
             result.append(valueNode.asText());
           }
