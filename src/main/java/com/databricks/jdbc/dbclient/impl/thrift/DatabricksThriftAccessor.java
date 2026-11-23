@@ -31,7 +31,6 @@ import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -350,7 +349,8 @@ final class DatabricksThriftAccessor {
       // TTransportException means a transport-level failure (e.g. HTTP 502 Bad Gateway)
       // after retries were exhausted. Other TException subtypes propagate unchanged.
       try {
-        statusResp = getOperationStatus(statusReq, statementId);
+        statusResp =
+            timeoutHandler.executeWithTimeout(() -> getOperationStatus(statusReq, statementId));
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId.toSQLExecStatementId(), e);
       }
@@ -360,7 +360,7 @@ final class DatabricksThriftAccessor {
         break;
       }
       try {
-        TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
+        timeoutHandler.sleep(asyncPollIntervalMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt(); // Restore interrupt flag
         cancelOperation(
@@ -803,7 +803,9 @@ final class DatabricksThriftAccessor {
     while (shouldContinuePolling(statusResp)) {
       metadataTimeoutHandler.checkTimeout();
       try {
-        statusResp = getThriftClient().GetOperationStatus(statusReq);
+        statusResp =
+            metadataTimeoutHandler.executeWithTimeout(
+                () -> getThriftClient().GetOperationStatus(statusReq));
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId, e);
       }
@@ -812,7 +814,7 @@ final class DatabricksThriftAccessor {
         break;
       }
       try {
-        TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
+        metadataTimeoutHandler.sleep(asyncPollIntervalMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         LOGGER.error(

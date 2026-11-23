@@ -5,12 +5,28 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Utility class to handle statement execution timeouts. */
 public class TimeoutHandler {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TimeoutHandler.class);
+  private static final ThreadPoolExecutor CANCELLATIONS =
+      new ThreadPoolExecutor(
+          0,
+          64,
+          30,
+          TimeUnit.SECONDS,
+          new SynchronousQueue<>(),
+          task -> {
+            Thread thread = new Thread(task, "databricks-jdbc-timeout-cancel");
+            thread.setDaemon(true);
+            return thread;
+          });
 
   private final long startTimeMillis;
   private final int timeoutSeconds;
@@ -50,26 +66,75 @@ public class TimeoutHandler {
       return; // Timeout not enabled
     }
 
-    long currentTimeMillis = System.currentTimeMillis();
-    long elapsedTimeSeconds = TimeUnit.MILLISECONDS.toSeconds(currentTimeMillis - startTimeMillis);
-
-    if (elapsedTimeSeconds > timeoutSeconds) {
-      // Attempt to execute the timeout action
-      try {
-        if (onTimeoutAction != null) {
-          onTimeoutAction.run();
-        }
-      } catch (Exception e) {
-        LOGGER.warn("Failed to execute timeout action: " + e.getMessage());
-      }
-
-      String timeoutErrorMessage =
-          String.format(
-              "Statement execution timed-out after %d seconds. Operation: %s",
-              timeoutSeconds, operationDescription);
-      LOGGER.error(timeoutErrorMessage);
-      throw new DatabricksTimeoutException(timeoutErrorMessage, /*cause*/ null, internalErrorCode);
+    if (remainingMillis() <= 0) {
+      throw timeoutException(null);
     }
+  }
+
+  @FunctionalInterface
+  public interface Poll<T, E extends Exception> {
+    T execute() throws E;
+  }
+
+  public <T, E extends Exception> T executeWithTimeout(Poll<T, E> poll)
+      throws E, DatabricksTimeoutException {
+    checkTimeout();
+    if (timeoutSeconds <= 0) {
+      return poll.execute();
+    }
+    try (PollingDeadline deadline = new PollingDeadline(Math.max(0, remainingMillis()))) {
+      T result;
+      try {
+        result = poll.execute();
+      } catch (Exception failure) {
+        if (deadline.isExpired() || remainingMillis() <= 0) {
+          throw timeoutException(failure);
+        }
+        @SuppressWarnings("unchecked")
+        E originalFailure = (E) failure;
+        throw originalFailure;
+      }
+      if (deadline.isExpired() || remainingMillis() <= 0) {
+        throw timeoutException(new TimeoutException("Status poll exceeded its deadline"));
+      }
+      return result;
+    }
+  }
+
+  public void sleep(long millis) throws InterruptedException, DatabricksTimeoutException {
+    executeWithTimeout(
+        () -> {
+          TimeUnit.MILLISECONDS.sleep(millis);
+          return null;
+        });
+  }
+
+  private long remainingMillis() {
+    return TimeUnit.SECONDS.toMillis(timeoutSeconds)
+        - (System.currentTimeMillis() - startTimeMillis);
+  }
+
+  private DatabricksTimeoutException timeoutException(Throwable cause) {
+    if (onTimeoutAction != null) {
+      try {
+        CANCELLATIONS.execute(
+            () -> {
+              try (PollingDeadline ignored = new PollingDeadline(TimeUnit.SECONDS.toMillis(30))) {
+                onTimeoutAction.run();
+              } catch (Exception failure) {
+                LOGGER.warn("Failed to execute timeout action");
+              }
+            });
+      } catch (RejectedExecutionException failure) {
+        LOGGER.warn("Timeout cancellation workers are busy");
+      }
+    }
+    String message =
+        String.format(
+            "Statement execution timed-out after %d seconds. Operation: %s",
+            timeoutSeconds, operationDescription);
+    LOGGER.error(message);
+    return new DatabricksTimeoutException(message, cause, internalErrorCode);
   }
 
   /**

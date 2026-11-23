@@ -1054,6 +1054,70 @@ public class DatabricksThriftAccessorTest {
     verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testHeldPollHonorsTimeout(boolean metadata) throws Exception {
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+    when(thriftClient.GetOperationStatus(any()))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(12000);
+              return operationStatusFinishedResp;
+            });
+    lenient().when(thriftClient.FetchResults(any())).thenReturn(fetchResultsResponse);
+    when(thriftClient.CancelOperation(any()))
+        .thenReturn(new TCancelOperationResp().setStatus(new TStatus(TStatusCode.SUCCESS_STATUS)));
+    if (metadata) {
+      when(connectionContext.getMetadataOperationTimeout()).thenReturn(2);
+      when(thriftClient.GetTables(any()))
+          .thenReturn(
+              new TGetTablesResp()
+                  .setStatus(new TStatus(TStatusCode.SUCCESS_STATUS))
+                  .setOperationHandle(tOperationHandle));
+    } else {
+      Statement statement = mock(Statement.class);
+      when(parentStatement.getStatement()).thenReturn(statement);
+      when(statement.getQueryTimeout()).thenReturn(2);
+      when(thriftClient.ExecuteStatement(any()))
+          .thenReturn(
+              new TExecuteStatementResp()
+                  .setStatus(new TStatus(TStatusCode.SUCCESS_STATUS))
+                  .setOperationHandle(tOperationHandle));
+    }
+    long started = System.nanoTime();
+    SQLException exception =
+        assertThrows(
+            SQLException.class,
+            () -> {
+              if (metadata) {
+                accessor.getThriftResponse(new TGetTablesReq());
+              } else {
+                accessor.execute(
+                    new TExecuteStatementReq(), parentStatement, session, StatementType.SQL);
+              }
+            });
+    assertTrue((System.nanoTime() - started) / 1e9 < 3.5, "Held poll exceeded deadline");
+    Throwable timeout = metadata ? exception.getCause() : exception;
+    assertInstanceOf(DatabricksTimeoutException.class, timeout);
+    assertEquals(
+        metadata ? "OPERATION_TIMEOUT_ERROR" : "STATEMENT_EXECUTION_TIMEOUT",
+        ((SQLException) timeout).getSQLState());
+    assertNotNull(timeout.getCause());
+    assertEquals(0, ((SQLException) timeout).getErrorCode());
+    assertEquals(
+        metadata ? 1036 : 1007,
+        (metadata
+                ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
+                : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT)
+            .getCode());
+    verify(thriftClient, timeout(1000)).CancelOperation(any());
+    if (!metadata) {
+      verify(thriftClient, times(1)).ExecuteStatement(any());
+    }
+    assertFalse(Thread.currentThread().isInterrupted());
+  }
+
   @Test
   void testServerSideTimeoutThrowsTimeoutException() throws TException, SQLException {
 

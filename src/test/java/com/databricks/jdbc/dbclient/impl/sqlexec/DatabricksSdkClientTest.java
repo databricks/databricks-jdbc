@@ -1317,6 +1317,63 @@ public class DatabricksSdkClientTest {
     verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
   }
 
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+  void testHeldPollHonorsTimeout(boolean metadata) throws Exception {
+    Properties properties = new Properties();
+    properties.setProperty("MetadataOperationTimeout", "2");
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    DatabricksSdkClient client =
+        spy(new DatabricksSdkClient(context, statementExecutionService, apiClient));
+    DatabricksConnection connection = new DatabricksConnection(context, client);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(new CreateSessionResponse().setSessionId(SESSION_ID));
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setQueryTimeout(2);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.RUNNING)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(12000);
+              return new GetStatementResponse()
+                  .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+            });
+    doNothing().when(client).cancelStatement(any());
+    long started = System.nanoTime();
+    DatabricksTimeoutException exception =
+        assertThrows(
+            DatabricksTimeoutException.class,
+            () ->
+                client.executeStatement(
+                    "SELECT 1",
+                    warehouse,
+                    new HashMap<>(),
+                    metadata ? StatementType.METADATA : StatementType.QUERY,
+                    connection.getSession(),
+                    metadata ? null : statement,
+                    null));
+    assertTrue((System.nanoTime() - started) / 1e9 < 3.5, "Held poll exceeded deadline");
+    assertEquals(
+        metadata ? "OPERATION_TIMEOUT_ERROR" : "STATEMENT_EXECUTION_TIMEOUT",
+        exception.getSQLState());
+    assertNotNull(exception.getCause());
+    assertEquals(0, exception.getErrorCode());
+    assertEquals(
+        metadata ? 1036 : 1007,
+        (metadata
+                ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
+                : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT)
+            .getCode());
+    verify(client, timeout(1000)).cancelStatement(STATEMENT_ID);
+    verify(apiClient, times(1)).execute(any(Request.class), eq(ExecuteStatementResponse.class));
+    assertFalse(Thread.currentThread().isInterrupted());
+  }
+
   @Test
   public void testNonMetadataWithNullParentHasNoTimeout() throws Exception {
     // Non-metadata with parentStatement=null should have timeout=0 (infinite)

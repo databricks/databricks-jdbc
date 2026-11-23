@@ -77,7 +77,7 @@ class TimeoutHandlerTest {
         assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
 
     // Verify timeout action was called
-    verify(mockTimeoutAction, times(1)).run();
+    verify(mockTimeoutAction, timeout(1000).times(1)).run();
 
     // Verify exception message
     assertTrue(exception.getMessage().contains("timed-out after 2 seconds"));
@@ -108,7 +108,7 @@ class TimeoutHandlerTest {
         assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
 
     // Verify timeout action was called
-    verify(mockTimeoutAction, times(1)).run();
+    verify(mockTimeoutAction, timeout(1000).times(1)).run();
 
     // Verify DatabricksTimeoutException is still thrown
     assertTrue(exception.getMessage().contains("timed-out after 2 seconds"));
@@ -163,7 +163,7 @@ class TimeoutHandlerTest {
     assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
 
     // Verify client.cancelStatement was called
-    verify(mockClient, times(1)).cancelStatement(mockStatementId);
+    verify(mockClient, timeout(1000).times(1)).cancelStatement(mockStatementId);
   }
 
   @Test
@@ -190,7 +190,7 @@ class TimeoutHandlerTest {
         assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
 
     // Verify client.cancelStatement was called
-    verify(mockClient, times(1)).cancelStatement(mockStatementId);
+    verify(mockClient, timeout(1000).times(1)).cancelStatement(mockStatementId);
 
     // Verify DatabricksTimeoutException is still thrown
     assertTrue(exception.getMessage().contains("timed-out after 5 seconds"));
