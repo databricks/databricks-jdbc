@@ -11,16 +11,16 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 
 /**
- * Reads an inline ARROW_BATCH result that spans several pages, exposing each page as one chunk.
+ * Reads an inline ARROW_BATCH result, exposing each response page as one chunk.
  *
  * <p>Pages are fetched one at a time by {@code next_chunk_index} and the row offset where the page
  * starts, which the all-purpose-cluster backend turns into a positioned fetch on the cluster. Only
  * the current page is held in memory. Empty pages are skipped so that a reader never sees an empty
  * chunk while more rows remain.
  */
-final class PagedArrowBatchChunkProvider implements ChunkProvider {
+final class ArrowBatchChunkProvider implements ChunkProvider {
   private static final JdbcLogger LOGGER =
-      JdbcLoggerFactory.getLogger(PagedArrowBatchChunkProvider.class);
+      JdbcLoggerFactory.getLogger(ArrowBatchChunkProvider.class);
 
   private final ResultManifest resultManifest;
   private final StatementId statementId;
@@ -30,9 +30,10 @@ final class PagedArrowBatchChunkProvider implements ChunkProvider {
   private Long nextChunkIndex;
   private long nextRowOffset;
   private long rowsLoaded;
+  private long chunksLoaded;
   private boolean isClosed;
 
-  PagedArrowBatchChunkProvider(
+  ArrowBatchChunkProvider(
       ResultData firstPage,
       ResultManifest resultManifest,
       StatementId statementId,
@@ -46,7 +47,8 @@ final class PagedArrowBatchChunkProvider implements ChunkProvider {
 
   @Override
   public boolean hasNextChunk() {
-    return !isClosed && (!currentChunkConsumed || nextChunkIndex != null);
+    return !isClosed
+        && ((!currentChunkConsumed && currentChunk.getNumRows() > 0) || nextChunkIndex != null);
   }
 
   @Override
@@ -56,18 +58,24 @@ final class PagedArrowBatchChunkProvider implements ChunkProvider {
     }
     if (!currentChunkConsumed) {
       currentChunkConsumed = true;
-      if (currentChunk.getNumRows() > 0 || nextChunkIndex == null) {
+      if (currentChunk.getNumRows() > 0) {
         return true;
+      }
+      if (nextChunkIndex == null) {
+        return false;
       }
     }
     do {
+      if (statementId == null || session == null) {
+        throw parsingError("Paginated ARROW_BATCH responses require a session to fetch pages");
+      }
       long chunkIndex = nextChunkIndex;
       long rowOffset = nextRowOffset;
       ResultData page =
           session.getDatabricksClient().getResultChunksData(statementId, chunkIndex, rowOffset);
       loadPage(page, chunkIndex, rowOffset);
     } while (currentChunk.getNumRows() == 0 && nextChunkIndex != null);
-    return true;
+    return currentChunk.getNumRows() > 0;
   }
 
   @Override
@@ -92,7 +100,7 @@ final class PagedArrowBatchChunkProvider implements ChunkProvider {
 
   @Override
   public long getChunkCount() {
-    return 0;
+    return chunksLoaded;
   }
 
   @Override
@@ -132,11 +140,20 @@ final class PagedArrowBatchChunkProvider implements ChunkProvider {
     nextChunkIndex = page.getNextChunkIndex();
     nextRowOffset = expectedRowOffset + chunk.getNumRows();
     rowsLoaded += chunk.getNumRows();
+    chunksLoaded++;
+    if (nextChunkIndex == null
+        && resultManifest.getTotalRowCount() != null
+        && resultManifest.getTotalRowCount() != rowsLoaded) {
+      throw parsingError(
+          String.format(
+              "Arrow batch row_count total %d does not match manifest total_row_count %d",
+              rowsLoaded, resultManifest.getTotalRowCount()));
+    }
     LOGGER.debug(
         "Loaded ARROW_BATCH page {} with {} rows for statementId {}, nextChunkIndex={}",
         expectedChunkIndex,
         chunk.getNumRows(),
-        statementId.toSQLExecStatementId(),
+        statementId == null ? "<initial>" : statementId.toSQLExecStatementId(),
         nextChunkIndex);
   }
 }

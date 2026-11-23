@@ -56,6 +56,7 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
   enum ResultSetType {
+    SEA_ARROW_BATCH,
     SEA_ARROW_ENABLED,
     SEA_INLINE,
     THRIFT_ARROW_ENABLED,
@@ -140,6 +141,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               session.getConnectionContext());
       switch (resultManifest.getFormat()) {
         case ARROW_BATCH:
+          this.resultSetType = ResultSetType.SEA_ARROW_BATCH;
+          break;
         case ARROW_STREAM:
           this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
           break;
