@@ -610,9 +610,10 @@ propagate without fallback.
 ### Approach
 
 `plan.json` assigns each task once to a callable JDBC slice or a tracked universe
-prerequisite. Parent links encode same-repository branch ancestry; the sole
-cross-repository edge from the server-flag root to the JDBC root means deployed
-prerequisite, since Git cannot branch across repositories. Siblings may
+prerequisite. Each repository has its own rooted package tree; parent links encode
+same-repository branch ancestry. The JDBC root has no Git parent and requires
+deployed server-flag and termination evidence as entry gates, since Git cannot
+branch across repositories. Siblings may
 proceed in parallel only where their owned lines do not overlap. A JDBC agent
 must verify the named universe package's deployed acceptance evidence before
 starting dependent implementation or live validation, and block its package if
