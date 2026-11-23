@@ -603,15 +603,15 @@ propagate without fallback.
 successive live workflows: SELECT, inline pages, links, download-off, commands,
 batches, async, prepared calls, and metadata families. Each package exposes only
 its completed workflow behind the APC flag after its named live gate; the final
-package repeats the assembled workload and owns docs/changelog. The single-parent
-plan schema cannot express independent server prerequisites as a DAG, so each
-server package precedes its first dependent JDBC slice in one chain. A cross-repository
-`parent` denotes a deployment gate; each PR branches from its nearest ancestor
-in the same repository. Eighteen JDBC packages exceed the 4–7 PR aim because
-the required live gates separate independently callable result, prepared, and
-metadata workflows. This serializes some work but makes T1/T37/T2/
-T40/T8/T3–T7 deployment gates scheduler-visible. Production assignment follows
-T27/T-val and post-merge smoke.
+package repeats the assembled workload and owns docs/changelog. `parent` is PR
+ancestry within one repository: the universe and JDBC stacks each have one root.
+The first JDBC package for each server-dependent workflow names its deployed
+universe gate. The factory
+starts the two roots independently, so a JDBC package must defer its live gate and
+caller exposure until that prerequisite is deployed; plan order alone is not
+proof of deployment. Eighteen JDBC packages exceed the 4–7 PR aim because the
+required live gates separate independently callable result, prepared, and
+metadata workflows. Production assignment follows T27/T-val and post-merge smoke.
 
 ### Affected Components
 
