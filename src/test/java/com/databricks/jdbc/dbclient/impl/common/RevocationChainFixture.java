@@ -193,6 +193,26 @@ public final class RevocationChainFixture implements AutoCloseable {
     };
   }
 
+  /**
+   * A self-signed root with the chain root's subject name and a different key. It is not in the
+   * chain, so trusting it beside the real root gives the path builder two anchors that share a
+   * subject name.
+   */
+  public X509Certificate sameNameRoot() throws Exception {
+    KeyPair keys = RevocationTestFixture.newKeyPair();
+    return issue(
+        ROOT_NAME,
+        ROOT_NAME,
+        keys,
+        keys,
+        BigInteger.valueOf(0x1F00L),
+        true,
+        null,
+        null,
+        null,
+        null);
+  }
+
   /** Points the JVM default trust store at a store that holds only the root. */
   public void installDefaultTrustStore() throws Exception {
     KeyStore store = KeyStore.getInstance("PKCS12");

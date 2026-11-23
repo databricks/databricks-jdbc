@@ -109,14 +109,15 @@ class RevocationPolicyHermeticTest {
             SOFT,
             true,
             Expect.ACCEPTED),
+        // Soft mode is CRL-only, as on main, so an OCSP-only revocation is not consulted.
         Arguments.of(
-            "soft: OCSP revoked only, rejected",
+            "soft: OCSP revoked only, accepted",
             Responder.GOOD,
             Responder.REVOKED,
             true,
             SOFT,
             true,
-            Expect.REVOKED),
+            Expect.ACCEPTED),
         Arguments.of(
             "soft: CRL revoked, OCSP unavailable, rejected",
             Responder.REVOKED,
@@ -181,8 +182,8 @@ class RevocationPolicyHermeticTest {
             "CheckCertRevocation=0",
             false,
             Expect.ACCEPTED),
-        // A definitive OCSP GOOD answers the check, so a conflicting CRL entry is not consulted.
-        // Strict and soft must agree on this input.
+        // Strict asks OCSP first, and a definitive OCSP GOOD answers the check, so the conflicting
+        // CRL entry is not consulted.
         Arguments.of(
             "strict: OCSP good overrides CRL revoked, accepted",
             Responder.REVOKED,
@@ -191,14 +192,15 @@ class RevocationPolicyHermeticTest {
             STRICT,
             true,
             Expect.ACCEPTED),
+        // Soft mode consults only the CRL, so its REVOKED entry rejects even though OCSP says GOOD.
         Arguments.of(
-            "soft: OCSP good overrides CRL revoked, accepted",
+            "soft: CRL revoked overrides OCSP good, rejected",
             Responder.REVOKED,
             Responder.GOOD,
             true,
             SOFT,
             true,
-            Expect.ACCEPTED));
+            Expect.REVOKED));
   }
 
   @ParameterizedTest(name = "{0}")
@@ -261,8 +263,7 @@ class RevocationPolicyHermeticTest {
   void soft_unanchoredChainRejected() throws Exception {
     try (RevocationTestFixture fixture =
         new RevocationTestFixture(Responder.GOOD, Responder.GOOD, true)) {
-      // Soft mode builds SoftFailTrustManager here, so this covers the path that rethrows the
-      // first-pass failure when neither pass determines a revoked status.
+      // The chain anchors nowhere, so soft mode refuses it whatever the revocation answers say.
       fixture.installDefaultTrustStoreWithUnrelatedCa();
       Outcome outcome =
           fetch(ConfiguratorUtils.getBaseConnectionManager(context(fixture, SOFT)), fixture);
@@ -274,17 +275,17 @@ class RevocationPolicyHermeticTest {
 
   /**
    * Chain root, then an intermediate with no OCSP URI and an unreachable CRL, then a leaf whose
-   * OCSP responder says REVOKED and whose CRL says GOOD. Soft mode must reject it, because the
-   * leaf's OCSP status is definitive, whatever the intermediate's status is.
+   * OCSP responder says REVOKED and whose CRL says GOOD. Soft mode is CRL-only, so it never asks
+   * OCSP, and the undetermined intermediate is accepted.
    */
   @Test
-  void soft_intermediateWithUnreachableCrl_leafOcspRevokedRejected() throws Exception {
+  void soft_intermediateWithUnreachableCrl_leafOcspRevokedAccepted() throws Exception {
     try (RevocationTestFixture fixture =
         new RevocationTestFixture(Responder.GOOD, Responder.REVOKED, true, true)) {
       fixture.installDefaultTrustStore(true);
       Outcome outcome =
           fetch(ConfiguratorUtils.getBaseConnectionManager(context(fixture, SOFT)), fixture);
-      assertOutcome(outcome, Expect.REVOKED);
+      assertOutcome(outcome, Expect.ACCEPTED);
     }
   }
 
@@ -302,20 +303,31 @@ class RevocationPolicyHermeticTest {
 
   /**
    * Chain: root, then intermediate one (no OCSP access location, unreachable CRL), then
-   * intermediate two (OCSP REVOKED, CRL GOOD), then the leaf. The first pass stops at intermediate
-   * one, before it reaches intermediate two, so soft mode must still check intermediate two's OCSP
-   * answer, which is the mapping this test pins down.
+   * intermediate two (CRL REVOKED, OCSP GOOD), then the leaf. Soft mode consults intermediate two's
+   * CRL, so the revoked entry rejects.
    */
   @Test
-  void soft_twoIntermediates_ocspRevokedIntermediateTwoRejected() throws Exception {
+  void soft_twoIntermediates_crlRevokedIntermediateTwoRejected() throws Exception {
+    try (RevocationChainFixture chain =
+        new RevocationChainFixture(
+            Map.of(RevocationChainFixture.Endpoint.CRL_INTERMEDIATE_TWO, Responder.REVOKED))) {
+      chain.installDefaultTrustStore();
+      assertOutcome(fetchChain(chain, SOFT), Expect.REVOKED);
+      assertTrue(
+          chain.requestCount(RevocationChainFixture.Endpoint.CRL_INTERMEDIATE_TWO) >= 1,
+          "intermediate two's CRL must be consulted");
+    }
+  }
+
+  /** Soft mode is CRL-only, as on main, so an OCSP-only revocation of intermediate two passes. */
+  @Test
+  void soft_twoIntermediates_ocspRevokedIntermediateTwoAccepted() throws Exception {
     try (RevocationChainFixture chain =
         new RevocationChainFixture(
             Map.of(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO, Responder.REVOKED))) {
       chain.installDefaultTrustStore();
-      assertOutcome(fetchChain(chain, SOFT), Expect.REVOKED);
-      assertTrue(
-          chain.requestCount(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO) >= 1,
-          "intermediate two's OCSP responder must be consulted");
+      assertOutcome(fetchChain(chain, SOFT), Expect.ACCEPTED);
+      assertEquals(0, chain.requestCount(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO));
     }
   }
 
@@ -325,30 +337,28 @@ class RevocationPolicyHermeticTest {
         new RevocationChainFixture(
             Map.of(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO, Responder.REVOKED))) {
       chain.installDefaultTrustStore();
-      // Strict stops at intermediate one, whose status cannot be determined, as before the fix.
+      // Strict stops at intermediate one, whose status cannot be determined.
       assertOutcome(fetchChain(chain, STRICT), Expect.REJECTED);
     }
   }
 
   /**
-   * With every responder unreachable, each endpoint of the chain is fetched exactly once in the
-   * handshake: the first pass does not repeat the endpoints it already tried, and the
-   * per-certificate check does not fetch the same endpoint twice.
+   * With the CRL endpoints unavailable, soft mode accepts, and each CRL endpoint of the chain is
+   * fetched exactly once in the handshake. Soft mode is CRL-only, so no OCSP endpoint is fetched.
    */
   @Test
-  void soft_twoIntermediates_allEndpointsUnavailable_fetchesEachOnce() throws Exception {
+  void soft_twoIntermediates_allCrlEndpointsUnavailable_fetchesEachCrlOnce() throws Exception {
     Map<RevocationChainFixture.Endpoint, Responder> unavailable =
         Map.of(
-            RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO, Responder.UNAVAILABLE,
             RevocationChainFixture.Endpoint.CRL_INTERMEDIATE_TWO, Responder.UNAVAILABLE,
-            RevocationChainFixture.Endpoint.OCSP_LEAF, Responder.UNAVAILABLE,
             RevocationChainFixture.Endpoint.CRL_LEAF, Responder.UNAVAILABLE);
     try (RevocationChainFixture chain = new RevocationChainFixture(unavailable)) {
       chain.installDefaultTrustStore();
       assertOutcome(fetchChain(chain, SOFT), Expect.ACCEPTED);
-      for (RevocationChainFixture.Endpoint endpoint : RevocationChainFixture.Endpoint.values()) {
-        assertEquals(1, chain.requestCount(endpoint), endpoint + " must be fetched once");
-      }
+      assertEquals(1, chain.requestCount(RevocationChainFixture.Endpoint.CRL_LEAF));
+      assertEquals(1, chain.requestCount(RevocationChainFixture.Endpoint.CRL_INTERMEDIATE_TWO));
+      assertEquals(0, chain.requestCount(RevocationChainFixture.Endpoint.OCSP_LEAF));
+      assertEquals(0, chain.requestCount(RevocationChainFixture.Endpoint.OCSP_INTERMEDIATE_TWO));
     }
   }
 
@@ -361,8 +371,8 @@ class RevocationPolicyHermeticTest {
 
   /**
    * A leaf whose extended key usage is not serverAuth is not a valid TLS server certificate, even
-   * with good revocation information. Soft mode must reject it: the structural JSSE check that
-   * follows the OCSP-first pass enforces the usage, and revocation fallback must not skip it.
+   * with good revocation information. Soft mode must reject it: the JSSE chain check enforces the
+   * usage, and revocation settings do not change that.
    */
   @Test
   void soft_wrongLeafUsageRejected() throws Exception {

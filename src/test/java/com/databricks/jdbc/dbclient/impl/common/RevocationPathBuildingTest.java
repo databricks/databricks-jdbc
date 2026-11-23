@@ -5,23 +5,16 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.dbclient.impl.common.RevocationChainFixture.Endpoint;
 import com.databricks.jdbc.dbclient.impl.common.RevocationTestFixture.Responder;
 import java.math.BigInteger;
-import java.net.Socket;
 import java.security.KeyPair;
-import java.security.cert.CertPath;
-import java.security.cert.CertPathValidatorException;
+import java.security.PublicKey;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509ExtendedTrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -31,99 +24,32 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
- * Soft-mode fallback over a presented chain that carries certificates outside the path: an
- * unrelated root, a cross-signed root, or a certificate the path does not need. The validated path
- * is built from the presented certificates, so extra ones are ignored, and a chain with a missing
- * intermediate is still refused.
+ * Chain validation over presented chains that carry certificates outside the path: an unrelated
+ * root, a cross-signed root, or an out-of-order order of the intermediates. The JDK's own path
+ * builder selects the path from the presented certificates, so extra ones are ignored, and a chain
+ * with a missing intermediate is still refused. Both modes use the trust manager the driver
+ * installs.
  */
 class RevocationPathBuildingTest {
 
-  /** Stands in for a JSSE pass: it accepts, or fails with the given exception. */
-  private static final class StubPass extends X509ExtendedTrustManager {
-    private final CertificateException failure;
-
-    StubPass(CertificateException failure) {
-      this.failure = failure;
-    }
-
-    private void check() throws CertificateException {
-      if (failure != null) {
-        throw failure;
-      }
-    }
-
-    @Override
-    public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket)
-        throws CertificateException {
-      check();
-    }
-
-    @Override
-    public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
-        throws CertificateException {
-      check();
-    }
-
-    @Override
-    public void checkClientTrusted(X509Certificate[] chain, String authType)
-        throws CertificateException {
-      check();
-    }
-
-    @Override
-    public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket)
-        throws CertificateException {
-      check();
-    }
-
-    @Override
-    public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
-        throws CertificateException {
-      check();
-    }
-
-    @Override
-    public void checkServerTrusted(X509Certificate[] chain, String authType)
-        throws CertificateException {
-      check();
-    }
-
-    @Override
-    public X509Certificate[] getAcceptedIssuers() {
-      return new X509Certificate[0];
-    }
+  /** The trust manager the driver installs for these trust anchors and mode. */
+  private static X509TrustManager trustManager(Set<TrustAnchor> anchors, boolean soft)
+      throws Exception {
+    TrustManagerFactory factory =
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    factory.init(ConfiguratorUtils.buildTrustManagerParameters(anchors, true, soft));
+    return (X509TrustManager) factory.getTrustManagers()[0];
   }
 
-  /** Runs the soft-fail server check, with the first pass failing without an index. */
+  /** Checks the chain in soft mode against the fixture's root, the only trust anchor. */
   private static void checkServer(RevocationChainFixture fixture, X509Certificate[] chain)
-      throws CertificateException {
-    checkServer(
-        fixture.certificates()[3],
-        chain,
-        new CertificateException("pass stopped without an index"));
+      throws Exception {
+    checkServer(Set.of(new TrustAnchor(fixture.certificates()[3], null)), chain, true);
   }
 
-  /**
-   * Runs the soft-fail server check against the given anchor, with the given first-pass failure.
-   */
-  private static void checkServer(
-      X509Certificate anchor, X509Certificate[] chain, CertificateException firstFailure)
-      throws CertificateException {
-    Set<TrustAnchor> anchors = Set.of(new TrustAnchor(anchor, null));
-    TrustManager[] managers =
-        ConfiguratorUtils.softFailTrustManagers(
-            new StubPass(firstFailure), new StubPass(null), anchors, new TrustManager[0]);
-    ((X509TrustManager) managers[0]).checkServerTrusted(chain, "RSA");
-  }
-
-  /** A first-pass failure that stopped at the given index of the chain it validated. */
-  private static CertificateException failedAt(int index, X509Certificate[] chain)
-      throws CertificateException {
-    CertPath validated =
-        CertificateFactory.getInstance("X.509").generateCertPath(Arrays.asList(chain));
-    return new CertificateException(
-        "pass stopped at index " + index,
-        new CertPathValidatorException("undetermined", null, validated, index));
+  private static void checkServer(Set<TrustAnchor> anchors, X509Certificate[] chain, boolean soft)
+      throws Exception {
+    trustManager(anchors, soft).checkServerTrusted(chain, "RSA");
   }
 
   /** Leaf, intermediate one, then intermediate two: the order a server may send. */
@@ -132,7 +58,7 @@ class RevocationPathBuildingTest {
   }
 
   private static X509Certificate[] with(X509Certificate[] chain, X509Certificate extra) {
-    X509Certificate[] result = java.util.Arrays.copyOf(chain, chain.length + 1);
+    X509Certificate[] result = Arrays.copyOf(chain, chain.length + 1);
     result[chain.length] = extra;
     return result;
   }
@@ -158,8 +84,7 @@ class RevocationPathBuildingTest {
   }
 
   private static X509Certificate issue(
-      X500Name issuer, X500Name subject, KeyPair signer, java.security.PublicKey subjectKey)
-      throws Exception {
+      X500Name issuer, X500Name subject, KeyPair signer, PublicKey subjectKey) throws Exception {
     Date now = new Date();
     JcaX509v3CertificateBuilder builder =
         new JcaX509v3CertificateBuilder(
@@ -177,21 +102,19 @@ class RevocationPathBuildingTest {
   @Test
   void validChainWithUnrelatedExtraCertificateIsAccepted() throws Exception {
     try (RevocationChainFixture fixture = new RevocationChainFixture(Map.of())) {
-      X509Certificate[] chain = with(fixture.certificates(), unrelatedRoot());
-      checkServer(fixture, chain);
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_LEAF));
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_INTERMEDIATE_TWO));
+      checkServer(fixture, with(fixture.certificates(), unrelatedRoot()));
+      assertEquals(1, fixture.requestCount(Endpoint.CRL_LEAF));
+      assertEquals(1, fixture.requestCount(Endpoint.CRL_INTERMEDIATE_TWO));
     }
   }
 
   @Test
   void validChainWithAppendedCrossSignedRootIsAccepted() throws Exception {
     try (RevocationChainFixture fixture = new RevocationChainFixture(Map.of())) {
-      X509Certificate[] chain =
-          with(fixture.certificates(), crossSignedRoot(fixture.certificates()[3]));
-      checkServer(fixture, chain);
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_LEAF));
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_INTERMEDIATE_TWO));
+      checkServer(
+          fixture, with(fixture.certificates(), crossSignedRoot(fixture.certificates()[3])));
+      assertEquals(1, fixture.requestCount(Endpoint.CRL_LEAF));
+      assertEquals(1, fixture.requestCount(Endpoint.CRL_INTERMEDIATE_TWO));
     }
   }
 
@@ -199,18 +122,28 @@ class RevocationPathBuildingTest {
   void outOfOrderChainWithExtraCertificateIsAccepted() throws Exception {
     try (RevocationChainFixture fixture = new RevocationChainFixture(Map.of())) {
       checkServer(fixture, with(outOfOrder(fixture.certificates()), unrelatedRoot()));
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_LEAF));
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_INTERMEDIATE_TWO));
+      assertEquals(1, fixture.requestCount(Endpoint.CRL_LEAF));
+      assertEquals(1, fixture.requestCount(Endpoint.CRL_INTERMEDIATE_TWO));
     }
   }
 
   @Test
   void revokedIntermediateOutOfOrderWithExtraCertificateIsRejected() throws Exception {
     try (RevocationChainFixture fixture =
-        new RevocationChainFixture(Map.of(Endpoint.OCSP_INTERMEDIATE_TWO, Responder.REVOKED))) {
+        new RevocationChainFixture(Map.of(Endpoint.CRL_INTERMEDIATE_TWO, Responder.REVOKED))) {
       X509Certificate[] chain = with(outOfOrder(fixture.certificates()), unrelatedRoot());
       assertThrows(CertificateException.class, () -> checkServer(fixture, chain));
-      assertTrue(fixture.requestCount(Endpoint.OCSP_INTERMEDIATE_TWO) >= 1);
+      assertTrue(fixture.requestCount(Endpoint.CRL_INTERMEDIATE_TWO) >= 1);
+    }
+  }
+
+  @Test
+  void revokedLeafOutOfOrderIsRejected() throws Exception {
+    try (RevocationChainFixture fixture =
+        new RevocationChainFixture(Map.of(Endpoint.CRL_LEAF, Responder.REVOKED))) {
+      X509Certificate[] chain = outOfOrder(fixture.certificates());
+      assertThrows(CertificateException.class, () -> checkServer(fixture, chain));
+      assertTrue(fixture.requestCount(Endpoint.CRL_LEAF) >= 1);
     }
   }
 
@@ -225,59 +158,34 @@ class RevocationPathBuildingTest {
     }
   }
 
+  /**
+   * Two trust anchors share the chain root's subject name but not its key, and the intermediate has
+   * no AKID, so the path builder can try the wrong anchor first. The intermediate is revoked by
+   * both CRL and OCSP. Each run uses fresh keys, which changes the order the anchors are tried in,
+   * and each run must reject in both modes.
+   */
   @Test
-  void reorderedChainChecksEveryCertificateWhenFirstPassIndexDoesNotMatchPresentedOrder()
-      throws Exception {
-    try (RevocationChainFixture fixture = new RevocationChainFixture(Map.of())) {
-      // Presented leaf, intermediate one, intermediate two. The built path is leaf, intermediate
-      // two, intermediate one, so the path index 2 (intermediate one, CRL-only and undetermined)
-      // is presented index 1. Intermediate two sits at presented index 2 but path index 1, and
-      // the first pass never reached it, so its OCSP must still be asked.
-      X509Certificate[] chain = outOfOrder(fixture.certificates());
-      checkServer(fixture.certificates()[3], chain, failedAt(2, chain));
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_INTERMEDIATE_TWO));
-      assertEquals(1, fixture.requestCount(Endpoint.OCSP_LEAF));
+  void sameNameAnchorsRejectRevokedIntermediateOnEveryRun() throws Exception {
+    Map<Endpoint, Responder> revoked =
+        Map.of(
+            Endpoint.CRL_INTERMEDIATE_TWO, Responder.REVOKED,
+            Endpoint.OCSP_INTERMEDIATE_TWO, Responder.REVOKED);
+    for (int run = 0; run < 12; run++) {
+      try (RevocationChainFixture fixture = new RevocationChainFixture(revoked)) {
+        Set<TrustAnchor> anchors =
+            Set.of(
+                new TrustAnchor(fixture.certificates()[3], null),
+                new TrustAnchor(fixture.sameNameRoot(), null));
+        for (boolean soft : new boolean[] {false, true}) {
+          assertThrows(
+              CertificateException.class,
+              () -> checkServer(anchors, fixture.certificates(), soft),
+              "run "
+                  + run
+                  + (soft ? " soft" : " strict")
+                  + " must reject the revoked intermediate");
+        }
+      }
     }
-  }
-
-  @Test
-  void revokedLeafInReorderedChainIsRejectedWhenFirstPassIndexDoesNotMatchPresentedOrder()
-      throws Exception {
-    try (RevocationChainFixture fixture =
-        new RevocationChainFixture(Map.of(Endpoint.OCSP_LEAF, Responder.REVOKED))) {
-      X509Certificate[] chain = outOfOrder(fixture.certificates());
-      assertThrows(
-          CertificateException.class,
-          () -> checkServer(fixture.certificates()[3], chain, failedAt(2, chain)));
-      assertTrue(fixture.requestCount(Endpoint.OCSP_LEAF) >= 1);
-    }
-  }
-
-  @Test
-  void chainWithSixIntermediatesIsAccepted() throws Exception {
-    // Root, six intermediates, leaf: more than the default PKIX maximum path length of five.
-    // The synthetic certificates carry no revocation pointers, so no endpoint is contacted.
-    KeyPair signerKeys = RevocationTestFixture.newKeyPair();
-    X500Name signerName = new X500Name("CN=Long Chain Root");
-    X509Certificate root = issue(signerName, signerName, signerKeys, signerKeys.getPublic());
-    List<X509Certificate> intermediates = new ArrayList<>();
-    for (int i = 1; i <= 6; i++) {
-      KeyPair keys = RevocationTestFixture.newKeyPair();
-      X500Name name = new X500Name("CN=Long Chain Intermediate " + i);
-      intermediates.add(issue(signerName, name, signerKeys, keys.getPublic()));
-      signerKeys = keys;
-      signerName = name;
-    }
-    KeyPair leafKeys = RevocationTestFixture.newKeyPair();
-    X509Certificate leaf =
-        issue(signerName, new X500Name("CN=Long Chain Leaf"), signerKeys, leafKeys.getPublic());
-
-    // Presented in the usual order: leaf, then the intermediates nearest the leaf first.
-    X509Certificate[] chain = new X509Certificate[intermediates.size() + 1];
-    chain[0] = leaf;
-    for (int i = 0; i < intermediates.size(); i++) {
-      chain[i + 1] = intermediates.get(intermediates.size() - 1 - i);
-    }
-    checkServer(root, chain, new CertificateException("pass stopped without an index"));
   }
 }

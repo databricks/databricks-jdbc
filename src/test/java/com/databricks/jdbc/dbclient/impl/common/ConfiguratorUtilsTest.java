@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
 import org.apache.http.config.Registry;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -682,7 +681,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void softFailFirstPassUsesOnlySoftFailOption() throws Exception {
+  void softModeUsesCrlOnlyOptionsAsOnMain() throws Exception {
     KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
     keyPairGen.initialize(2048);
     Set<TrustAnchor> anchors =
@@ -694,49 +693,14 @@ public class ConfiguratorUtilsTest {
     for (PKIXCertPathChecker checker : pkix.getCertPathCheckers()) {
       if (checker instanceof PKIXRevocationChecker) {
         assertEquals(
-            Set.of(PKIXRevocationChecker.Option.SOFT_FAIL),
+            Set.of(
+                PKIXRevocationChecker.Option.SOFT_FAIL,
+                PKIXRevocationChecker.Option.NO_FALLBACK,
+                PKIXRevocationChecker.Option.PREFER_CRLS),
             ((PKIXRevocationChecker) checker).getOptions());
         return;
       }
     }
     fail("no revocation checker was registered");
-  }
-
-  @Test
-  void softFailFallsBackToOcspFirstWhenPassIsNotExtended() {
-    X509TrustManager plain = new PlainTrustManager();
-    TrustManager[] ocspFirst = new TrustManager[] {plain};
-    // A plain X509TrustManager cannot run the CRL-only pass, so the OCSP-first managers are kept.
-    assertSame(
-        ocspFirst, ConfiguratorUtils.softFailTrustManagers(plain, plain, Set.of(), ocspFirst));
-  }
-
-  @Test
-  void softFailWrapsBothExtendedPasses() throws Exception {
-    TrustManagerFactory factory =
-        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-    factory.init((KeyStore) null);
-    X509ExtendedTrustManager extended = (X509ExtendedTrustManager) factory.getTrustManagers()[0];
-    TrustManager[] ocspFirst = new TrustManager[] {extended};
-
-    TrustManager[] result =
-        ConfiguratorUtils.softFailTrustManagers(extended, extended, Set.of(), ocspFirst);
-    assertEquals(1, result.length);
-    assertNotSame(ocspFirst, result);
-    assertTrue(result[0] instanceof X509ExtendedTrustManager);
-  }
-
-  /** Minimal X509TrustManager that is not an X509ExtendedTrustManager. */
-  private static final class PlainTrustManager implements X509TrustManager {
-    @Override
-    public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-
-    @Override
-    public void checkServerTrusted(X509Certificate[] chain, String authType) {}
-
-    @Override
-    public X509Certificate[] getAcceptedIssuers() {
-      return new X509Certificate[0];
-    }
   }
 }

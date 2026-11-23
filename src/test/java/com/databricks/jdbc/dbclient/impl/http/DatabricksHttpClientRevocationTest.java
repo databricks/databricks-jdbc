@@ -46,12 +46,13 @@ class DatabricksHttpClientRevocationTest {
     }
   }
 
+  /** Soft mode is CRL-only, as on main, so a certificate revoked only through OCSP passes. */
   @Test
-  void soft_ocspRevokedOnly_rejected() throws Exception {
+  void soft_ocspRevokedOnly_accepted() throws Exception {
     try (RevocationTestFixture fixture =
         new RevocationTestFixture(Responder.GOOD, Responder.REVOKED, true)) {
       fixture.installDefaultTrustStore(true);
-      assertFalse(acceptedThroughThrift(fixture, SOFT));
+      assertTrue(acceptedThroughThrift(fixture, SOFT));
     }
   }
 }
