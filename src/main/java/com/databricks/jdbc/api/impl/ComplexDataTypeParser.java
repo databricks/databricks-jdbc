@@ -668,6 +668,9 @@ public class ComplexDataTypeParser {
                 || DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT));
 
         StringBuilder result = new StringBuilder("{");
+        // Strict JSON carries '"', '\' and control characters in strings only as backslash
+        // escapes, so without a backslash in the input no string needs escaping.
+        boolean escapeStrings = jsonString.indexOf('\\') >= 0;
 
         for (int i = 0; i < node.size(); i++) {
           JsonNode entry = node.get(i);
@@ -686,7 +689,7 @@ public class ComplexDataTypeParser {
           }
 
           if (isStringKey) {
-            appendJsonString(result, keyNode.asText());
+            appendJsonString(result, keyNode.asText(), escapeStrings);
           } else {
             result.append(keyNode.asText());
           }
@@ -701,7 +704,7 @@ public class ComplexDataTypeParser {
             // container nodes, so emit the JSON directly (e.g. {0:[34277,0]}).
             result.append(valueNode.toString());
           } else if (isStringValue) {
-            appendJsonString(result, valueNode.asText());
+            appendJsonString(result, valueNode.asText(), escapeStrings);
           } else {
             result.append(valueNode.asText());
           }
@@ -717,24 +720,13 @@ public class ComplexDataTypeParser {
     return jsonString;
   }
 
-  private static void appendJsonString(StringBuilder out, String text) {
+  private static void appendJsonString(StringBuilder out, String text, boolean escape) {
     out.append('"');
-    if (needsJsonEscaping(text)) {
+    if (escape) {
       JsonStringEncoder.getInstance().quoteAsString(text, out);
     } else {
       out.append(text);
     }
     out.append('"');
-  }
-
-  /** Same character set Jackson escapes by default, so the fast path output is identical. */
-  private static boolean needsJsonEscaping(String text) {
-    for (int i = 0; i < text.length(); i++) {
-      char c = text.charAt(i);
-      if (c < 0x20 || c == '"' || c == '\\') {
-        return true;
-      }
-    }
-    return false;
   }
 }

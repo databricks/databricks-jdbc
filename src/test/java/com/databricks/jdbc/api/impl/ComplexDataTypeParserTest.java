@@ -686,6 +686,15 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testFormatMapString_unescapedControlCharacterInputIsReturnedUnchanged() {
+    // The no-backslash fast path relies on strict parsing rejecting raw control characters.
+    String jsonString = "[{\"key\":\"a\tb\",\"value\":\"v\"}]";
+
+    assertEquals(
+        jsonString, parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>"));
+  }
+
+  @Test
   void testFormatMapString_withMixedTypes() throws DatabricksParsingException {
     String jsonString = "[{\"key\":\"a\",\"value\":100},{\"key\":\"b\",\"value\":200}]";
     String expected = "{\"a\":100,\"b\":200}";
