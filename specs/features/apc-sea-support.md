@@ -41,7 +41,11 @@ precedence so customers can force either protocol.
   APC session IDs currently assume Thrift, and saved statement IDs carry no
   target. The SEA CreateSession response model does not read
   `negotiated_protocol_version`. These are implementation gaps for the tasks
-  below, not a change to the server contract.
+  below, not a change to the server contract. `DatabricksConnection` currently
+  implements `setCatalog` with `SET CATALOG` when multiple-catalog support is
+  enabled, `setSchema` with `USE SCHEMA`, and uncached `getCatalog`/`getSchema`
+  with `SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()`. Statement and
+  PreparedStatement share the `DatabricksResultSet` update-count path.
 - Draft [#1771](https://github.com/databricks/databricks-jdbc/pull/1771) is the
   prototype baseline; frozen benchmark [#1756](https://github.com/databricks/databricks-jdbc/pull/1756) is unchanged.
 - Parity uses one driver build on all routes. The shared gate below governs
@@ -381,6 +385,17 @@ boundary at every slice; T44 and all parity gates close before default flag ramp
 Default flag-OFF callers stay on Thrift. Complex bindings and R18's unsupported
 CALL forms remain rejected after release.
 
+On APC SEA before T10, `Connection.getCatalog` and `getSchema` return an already
+cached session value locally; if uncached, they reject before requesting current
+catalog/schema. T10 exposes the uncached lookup through a targeted SELECT and
+updates both cached values only after a valid row. Before T14,
+`Connection.setCatalog` with `enableMultipleCatalogSupport=1` and `setSchema`
+reject before their commands; disabled `setCatalog` remains the existing local
+no-op. T14 exposes enabled `setCatalog` and `setSchema` through the terminal
+command path and updates the cache only after success. Failures retain the
+previous cache and leave the connection usable (AC172/173). These boundaries apply
+to explicit SEA on every intermediate build and to flag-selected SEA at release.
+
 Counted prepared DML preserves
 `executeUpdate`/`execute` outcomes, including zero (AC146). CALL with rows
 exposes a ResultSet; no-result CALL returns `false` and count zero. OUT/named
@@ -539,7 +554,7 @@ DBR version/configuration and the HIVE null-cell sample.
 - AC146: GIVEN AC113 and isolated table WHEN live prepared INSERT/UPDATE/DELETE/MERGE run, including zero count THEN each yields one counted request, paired counts/rows/errors, `execute=false`, and no ResultSet under AC154/load.
 - AC147: GIVEN live IN-only CALL with rows, no result, or failure WHEN execute/executeQuery runs THEN R18 JDBC shapes and paired rows/errors hold; unsupported OUT/named/update forms reject before request.
 - AC148: GIVEN flag-on APC with explicit SEA and catalog-pattern preference WHEN live `getCatalogs` and `getTables` run THEN each captures SEA SHOW, paired rows, and ignored-pattern diagnostic at first exposure and release.
-- AC151: GIVEN each slice's live gates close before merge WHEN an intermediate flag-OFF build is distributed THEN completed explicit-SEA workflows pass and incomplete calls reject under AC40; its newly visible behavior has a changelog entry. Final docs/`NEXT_CHANGELOG.md` explain complete behavior and accepted-write uncertainty before ramp; internal PRs may use `NO_CHANGELOG=true`.
+- AC151: GIVEN each slice's live gates close before merge WHEN an intermediate flag-OFF build is tested internally THEN completed explicit-SEA workflows pass and incomplete calls reject under AC40. Intermediate builds are not distributed. Before any distribution, the release package's `NEXT_CHANGELOG.md` and docs cover every exposed slice and accepted-write uncertainty; only undistributed internal PRs may use `NO_CHANGELOG=true`.
 - AC152: GIVEN saved APC SEA session and raw statement IDs WHEN a connection flag or target changes THEN saved close uses the original session target and recovered statement uses the current connection; captures prove both outcomes without ID leakage.
 - AC154: GIVEN AC113 and AC144's post-acceptance write/count fault WHEN APC and warehouse SEA writes commit before their response is faulted THEN no APC-only replay occurs; missing counts fail and accepted writes report uncertain commit before each write exposure.
 - AC155: GIVEN AC168 on scoped ON/OFF APC and warehouse routes WHEN callers open/close without SQL THEN ON terminates its session, OFF follows R1, and paired load passes. Rejected termination leaves ordinary close locally successful with a redacted warning; AC25 covers saved IDs.
@@ -557,6 +572,8 @@ SEA IDs remain valid. T44 replaces this boundary after AC25/152.
 - AC168: GIVEN the tracked server termination binding fix is deployed WHEN a raw APC CreateSession and TerminateSession use the same cluster target THEN the created session is removed; a rejected termination remains identifiable for JDBC AC155.
 - AC169: GIVEN T22's typed async null-catalog `getTables` receives live `42601` WHEN APC SEA, APC Thrift, and warehouse SEA are compared THEN it returns the same typed empty result and no fan-out as AC105, with delayed RUNNING, await, timeout, and cancel proved under AC50 before T22 merges.
 - AC171: GIVEN T12 exposes linked results WHEN R11 complex/geospatial getters run with support on and off THEN paired types/values and representable typed getters hold, disabled getters reject, and unsupported live values remain pending as in AC13 before T12 merges.
+- AC172: GIVEN live APC SEA and paired APC Thrift/warehouse SEA connections WHEN `getCatalog` and `getSchema` run before and after T10 THEN cached reads remain local; uncached pre-T10 reads reject before a SEA request with a named error/code; post-T10 uncached reads issue one targeted `SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()`, cache both valid values, and match paired results. Capture flag-ON, flag-OFF, and explicit-SEA traces and connection usability.
+- AC173: GIVEN live APC SEA and paired APC Thrift/warehouse SEA connections WHEN `setCatalog` and `setSchema` run before and after T14 THEN disabled `setCatalog` remains a local no-op; enabled `setCatalog` and `setSchema` reject before a SEA request with a named error/code until T14; after T14 they issue `SET CATALOG` and `USE SCHEMA`, update the cache only on success, retain prior values after failure, and match paired results. Capture flag-ON, flag-OFF, and explicit-SEA traces and connection usability.
 
 ## Constraints
 
@@ -565,8 +582,9 @@ SEA IDs remain valid. T44 replaces this boundary after AC25/152.
 - Protocol selection is final before CreateSession; never switch from SEA to Thrift after an error.
 - New error paths use `DatabricksDriverErrorCode` values per the repo telemetry rules.
 - The final release package alone edits `docs/` and `NEXT_CHANGELOG.md`.
-  Intermediate internal PRs may use `NO_CHANGELOG=true`; a separately
-  distributed intermediate build requires its own changelog and AC151 gate.
+  Intermediate builds are internal and must not be distributed. They may use
+  `NO_CHANGELOG=true`; distribution waits for AC151 on the integrated release
+  commit.
 - Each JDBC slice closes its callable workflow and the applicable common gates
   defined above. Keep each PR below roughly 1,500 changed lines; revise the
   package plan before implementation if a scoped slice cannot meet that limit.
@@ -592,7 +610,9 @@ propagate without fallback.
 ### Approach
 
 `plan.json` assigns each task once to a callable JDBC slice or a tracked universe
-prerequisite. Same-repository parent links encode branch ancestry; siblings may
+prerequisite. Parent links encode same-repository branch ancestry; the sole
+cross-repository edge from the server-flag root to the JDBC root means deployed
+prerequisite, since Git cannot branch across repositories. Siblings may
 proceed in parallel only where their owned lines do not overlap. A JDBC agent
 must verify the named universe package's deployed acceptance evidence before
 starting dependent implementation or live validation, and block its package if
@@ -602,12 +622,17 @@ operation's AC138; download-off requires AC119; terminal/transaction/CALL/batch
 and prepared-write slices require AC113; delayed-read, retry, and write slices
 require the applicable AC144 fault evidence. A dependency outside a package's
 parent chain is also an entry gate recorded in its notes. Each slice closes its
-own live gate before merge. The release package alone edits docs and
-`NEXT_CHANGELOG.md`; T-val runs on the assembled integration of all approved
-siblings. Split a slice before implementation if its review diff approaches
-1,500 changed lines. This plan uses more than the 4–7 JDBC-package target
-because separately gated callable methods and the exported-key exception would
-otherwise produce oversized or blocked review units.
+own live gate before merge; linked SELECT includes its worker, prefetch, pool,
+retry, and timeout gates before callers can use links. The release package
+alone edits docs and `NEXT_CHANGELOG.md`. Branch release from the async
+metadata tip, merge the result-options branch, then merge the insert-batches
+branch. Resolve conflicts before applying T44/T36. Run T-val on that exact
+integrated release HEAD; any subsequent commit reruns T-val and its affected
+slice gates. The tested HEAD is the release candidate. No intermediate build
+is distributed.
+Split a slice before implementation if its review diff approaches 1,500 changed
+lines. The plan exceeds the 4–7 JDBC-package target to keep independently
+gated workflows reviewable; consolidation must not defer an exposure gate.
 
 ### Affected Components
 
@@ -643,9 +668,9 @@ integration prerequisites, not JDBC code changes.
 | Workflow | Task outcomes |
 | --- | --- |
 | Connection | T9 open and close APC SEA sessions. |
-| First SELECT | T10 single-chunk polling, fetch, cancel, and primitive inline `ARROW_BATCH` schema/value decoding; T40 direct/polled error identity; T39 `isValid`. |
-| Results and saved close | T11 inline continuation; T13 logical getters; T41 codec/API compression; T12 linked continuation; T32 SELECT settings and limits; T42 linked resource controls; T29 async SELECT; T43 download-off; T44 saved session close at release. |
-| Commands and transactions | T14 terminal commands; T30 transactions; T33 CALL; T34 Statement batches. |
+| First SELECT | T10 single-chunk polling, fetch, cancel, primitive inline `ARROW_BATCH` schema/value decoding, and uncached `Connection.getCatalog`/`getSchema`; T40 direct/polled error identity; T39 `isValid`. |
+| Results and saved close | T11 inline continuation; T13 logical getters; T41 codec/API compression; T12 linked continuation; T32 SELECT settings and limits; T42 linked resource controls, completed before linked SELECT exposure; T29 async SELECT; T43 download-off; T44 saved session close at release. |
+| Commands and transactions | T14 shared terminal-result handling, Statement commands, enabled `Connection.setCatalog` and `setSchema`; T30 transactions; T33 CALL; T34 Statement batches. |
 | Prepared scalars | T28 negotiated scalar binding and prepared SELECT; T31 prepared DML; T38 prepared metadata. |
 | INSERT batches | T15 legacy INSERT batches; T27 V10 native batches. |
 | Metadata core | T16 catalogs and the shared header/format contract; T17 schemas and fan-out. |
@@ -654,7 +679,7 @@ integration prerequisites, not JDBC code changes.
 | Procedure metadata | T19 parameterized procedure SELECT after scalar binding and metadata transport. |
 | Async metadata discovery | T20 catalogs and first typed async lifecycle; T21 schemas; T22 tables; T23 columns; T24 functions. |
 | Async metadata keys | T25 primary keys; T26 imported/cross-reference keys. |
-| Release | T36 docs/changelog; T-val assembled live gates and integration handoff. |
+| Release | T36 docs/changelog; T-val live gates on the exact integrated release HEAD containing every sibling slice. |
 | Server flag | T56 Partner Platform defines the default-off APC client-config sub-flag; T57 connector-service excludes all partners, including allowlisted JDBC agents (AC28/34). Track both under [SC-256186](https://databricks.atlassian.net/browse/SC-256186); the flag and exclusion packages own the deliverables, and the connection slice requires their deployed evidence. |
 | Server metadata | T58 SEA/Reyder/DPR admits APC `ARROW_STREAM` metadata while preserving `ARROW_BATCH` SQL, selects native SHOW unconditionally, carries sync intent, and returns native Arrow/HIVE metadata (AC138); [SC-256188](https://databricks.atlassian.net/browse/SC-256188). |
 | Server result and session | T59 Reyder honors CreateSession inline-only override (AC119; [SC-258787](https://databricks.atlassian.net/browse/SC-258787)); T60 SEA/Reyder fixes APC TerminateSession target binding (AC168); T62 Reyder returns terminal/count command shapes (AC113; [SC-258842](https://databricks.atlassian.net/browse/SC-258842)). |
