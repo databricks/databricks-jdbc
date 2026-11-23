@@ -3,11 +3,8 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TColumn;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
-import com.databricks.jdbc.model.core.ColumnVector;
-import com.databricks.jdbc.model.core.ColumnarData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -34,24 +31,6 @@ public class ColumnarRowView {
       for (int i = 0; i < columns.size(); i++) {
         this.columnAccessors[i] = createColumnAccessor(columns.get(i));
       }
-    }
-  }
-
-  public ColumnarRowView(ColumnarData columnarData) throws DatabricksSQLException {
-    List<ColumnVector> columns =
-        columnarData == null || columnarData.getColumns() == null
-            ? Collections.emptyList()
-            : columnarData.getColumns();
-    this.columnCount = columns.size();
-    this.rowCount = columns.isEmpty() ? 0 : getColumnSize(columns.get(0));
-    this.columnAccessors = new ColumnAccessor[columnCount];
-    for (int i = 0; i < columnCount; i++) {
-      if (getColumnSize(columns.get(i)) != rowCount) {
-        throw new DatabricksSQLException(
-            "Columnar result has inconsistent vector lengths",
-            DatabricksDriverErrorCode.INVALID_STATE);
-      }
-      this.columnAccessors[i] = createColumnAccessor(columns.get(i));
     }
   }
 
@@ -110,14 +89,6 @@ public class ColumnarRowView {
         "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
-  private static int getColumnSize(ColumnVector column) throws DatabricksSQLException {
-    if (column == null || column.getValues() == null) {
-      throw new DatabricksSQLException(
-          "Unsupported columnar values arm", DatabricksDriverErrorCode.INVALID_STATE);
-    }
-    return column.getValues().size();
-  }
-
   private static ColumnAccessor createColumnAccessor(TColumn column) throws DatabricksSQLException {
     if (column.isSetBinaryVal()) {
       return new TypedColumnAccessor<>(
@@ -156,43 +127,6 @@ public class ColumnarRowView {
         "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
-  private static ColumnAccessor createColumnAccessor(ColumnVector column)
-      throws DatabricksSQLException {
-    if (column.getBoolValues() != null) {
-      return new TypedColumnAccessor<>(
-          column.getBoolValues().getValues(), column.getNullMask());
-    }
-    if (column.getByteValues() != null) {
-      return new ByteColumnAccessor(column.getByteValues().getValues(), column.getNullMask());
-    }
-    if (column.getI16Values() != null) {
-      return new TypedColumnAccessor<>(
-          column.getI16Values().getValues(), column.getNullMask());
-    }
-    if (column.getI32Values() != null) {
-      return new TypedColumnAccessor<>(
-          column.getI32Values().getValues(), column.getNullMask());
-    }
-    if (column.getI64Values() != null) {
-      return new TypedColumnAccessor<>(
-          column.getI64Values().getValues(), column.getNullMask());
-    }
-    if (column.getDoubleValues() != null) {
-      return new TypedColumnAccessor<>(
-          column.getDoubleValues().getValues(), column.getNullMask());
-    }
-    if (column.getStringValues() != null) {
-      return new TypedColumnAccessor<>(
-          column.getStringValues().getValues(), column.getNullMask());
-    }
-    if (column.getBinaryValues() != null) {
-      return new TypedColumnAccessor<>(
-          column.getBinaryValues().getValues(), column.getNullMask());
-    }
-    throw new DatabricksSQLException(
-        "Unsupported columnar values arm", DatabricksDriverErrorCode.INVALID_STATE);
-  }
-
   /** Interface for accessing column values by index without materializing the entire column. */
   private interface ColumnAccessor {
     Object getValue(int rowIndex);
@@ -214,18 +148,6 @@ public class ColumnarRowView {
         return null;
       }
       return values.get(rowIndex);
-    }
-  }
-
-  private static class ByteColumnAccessor extends TypedColumnAccessor<Integer> {
-    ByteColumnAccessor(List<Integer> values, byte[] nulls) {
-      super(values, nulls);
-    }
-
-    @Override
-    public Object getValue(int rowIndex) {
-      Object value = super.getValue(rowIndex);
-      return value == null ? null : ((Integer) value).byteValue();
     }
   }
 }

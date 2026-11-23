@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowResult;
@@ -11,6 +12,7 @@ import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -48,11 +50,27 @@ public class ExecutionResultFactoryTest {
 
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   @Mock DatabricksSession session;
+  @Mock IDatabricksClient databricksClient;
   @Mock IDatabricksStatementInternal parentStatement;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
   @Mock TFetchResultsResp fetchResultsResp;
+
+  private static ResultData columnarStringPage(
+      long chunkIndex, long rowOffset, Long nextChunkIndex, String... values) {
+    return new ResultData()
+        .setChunkIndex(chunkIndex)
+        .setRowOffset(rowOffset)
+        .setRowCount((long) values.length)
+        .setNextChunkIndex(nextChunkIndex)
+        .setColumnarData(
+            new ColumnarData()
+                .setColumns(
+                    List.of(
+                        new ColumnVector()
+                            .setStringValues(new ColumnVector.Values<>(Arrays.asList(values))))));
+  }
 
   @Test
   public void testGetResultSet_jsonInline() throws SQLException {
@@ -85,6 +103,8 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_columnBasedSetInlineData() throws SQLException {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(2);
     ResultManifest manifest =
         new ResultManifest()
             .setFormat(Format.COLUMN_BASED_SET)
@@ -112,6 +132,38 @@ public class ExecutionResultFactoryTest {
     assertTrue(result.next());
     assertNull(result.getObject(0));
     assertEquals(Byte.valueOf((byte) 2), result.getObject(1));
+    result.close();
+  }
+
+  @Test
+  public void testGetResultSet_columnBasedSetMultipleChunksUsesSeaContinuation()
+      throws SQLException {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(session.getDatabricksClient()).thenReturn(databricksClient);
+    when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(2);
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(Format.COLUMN_BASED_SET)
+            .setSchema(new ResultSchema().setColumnCount(1L));
+    ResultData firstPage = columnarStringPage(0, 0, 3L, "first");
+    ResultData emptyMiddlePage = columnarStringPage(3, 1, 4L);
+    ResultData finalPage = columnarStringPage(4, 1, null, "last");
+    when(databricksClient.getResultChunksData(STATEMENT_ID, 3, 1)).thenReturn(emptyMiddlePage);
+    when(databricksClient.getResultChunksData(STATEMENT_ID, 4, 1)).thenReturn(finalPage);
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(
+            firstPage, manifest, STATEMENT_ID, session, parentStatement);
+
+    assertTrue(result.next());
+    assertEquals("first", result.getObject(0));
+    assertTrue(result.next());
+    assertEquals("last", result.getObject(0));
+    assertFalse(result.next());
+    assertEquals(2, ((ColumnarDataResult) result).getTotalRowsFetched());
+    result.close();
+    verify(databricksClient).getResultChunksData(STATEMENT_ID, 3, 1);
+    verify(databricksClient).getResultChunksData(STATEMENT_ID, 4, 1);
   }
 
   @Test

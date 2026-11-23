@@ -72,14 +72,14 @@ class ExecutionResultFactory {
         && data.getColumnarData() != null
         && (manifest.getFormat() == Format.ARROW_STREAM
             || manifest.getFormat() == Format.COLUMN_BASED_SET)) {
-      return new ColumnarDataResult(manifest, data);
+      return new ColumnarDataResult(manifest, data, statementId, session);
     }
     switch (manifest.getFormat()) {
       case ARROW_BATCH:
       case ARROW_STREAM:
         return new ArrowResult(manifest, data, statementId, session);
       case COLUMN_BASED_SET:
-        return new ColumnarDataResult(manifest, data);
+        return new ColumnarDataResult(manifest, data, statementId, session);
       case JSON_ARRAY:
         // This is used for metadata and update commands
         return new InlineJsonResult(manifest, data, statementId, session);

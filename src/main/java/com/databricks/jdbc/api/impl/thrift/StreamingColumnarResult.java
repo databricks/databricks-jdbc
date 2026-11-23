@@ -66,14 +66,18 @@ public class StreamingColumnarResult implements IExecutionResult {
       IDatabricksStatementInternal statement,
       IDatabricksSession session)
       throws DatabricksSQLException {
+    this(initialResponse, new ThriftBatchFetcherImpl(session, statement), session);
+  }
 
+  /** Creates a columnar result backed by a caller-provided batch fetcher. */
+  public StreamingColumnarResult(
+      TFetchResultsResp initialResponse, ThriftBatchFetcher fetcher, IDatabricksSession session)
+      throws DatabricksSQLException {
     this.globalRowIndex = -1;
     this.currentBatchRowIndex = -1;
     this.hasReachedEnd = false;
     this.isClosed = false;
 
-    // Create batch fetcher and type-safe generic provider
-    ThriftBatchFetcher fetcher = new ThriftBatchFetcherImpl(session, statement);
     this.provider =
         ThriftStreamingProvider.forColumnar(
             fetcher,
