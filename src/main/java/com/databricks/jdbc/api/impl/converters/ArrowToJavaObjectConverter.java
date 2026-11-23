@@ -116,7 +116,8 @@ public class ArrowToJavaObjectConverter {
       if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
         requiredType = ColumnInfoTypeName.TIMESTAMP;
       }
-      if (isTimeType(arrowMetadata)) {
+      if ((requiredType == null || requiredType == ColumnInfoTypeName.STRING)
+          && isTimeType(arrowMetadata)) {
         requiredType = ColumnInfoTypeName.TIME;
       }
       if (arrowMetadata.startsWith(GEOMETRY)) {
