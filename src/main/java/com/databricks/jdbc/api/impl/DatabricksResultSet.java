@@ -149,6 +149,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         case JSON_ARRAY:
           this.resultSetType = ResultSetType.SEA_INLINE;
           break;
+        case COLUMN_BASED_SET:
+          this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
+          break;
+        default:
+          break;
+      }
+      if (resultData.getColumnarData() != null) {
+        this.resultSetType = ResultSetType.SEA_INLINE;
       }
     } else {
       executionResult = null;

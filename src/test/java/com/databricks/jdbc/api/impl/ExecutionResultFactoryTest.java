@@ -16,10 +16,13 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ArrowBatch;
+import com.databricks.jdbc.model.core.ColumnVector;
+import com.databricks.jdbc.model.core.ColumnarData;
 import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.sql.SQLException;
@@ -77,6 +80,64 @@ public class ExecutionResultFactoryTest {
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
     assertInstanceOf(ArrowResult.class, result);
+  }
+
+  @Test
+  public void testGetResultSet_columnBasedSetInlineData() throws SQLException {
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(Format.COLUMN_BASED_SET)
+            .setSchema(new ResultSchema().setColumnCount(1L));
+    ResultData data =
+        new ResultData()
+            .setColumnarData(
+                new ColumnarData()
+                    .setColumns(
+                        List.of(
+                            new ColumnVector()
+                                .setStringValues(new ColumnVector.Values<>(List.of("catalog"))))));
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
+
+    assertInstanceOf(ColumnarDataResult.class, result);
+    assertTrue(result.next());
+    assertEquals("catalog", result.getObject(0));
+  }
+
+  @Test
+  public void testColumnBasedSetNumericWireFormat() throws Exception {
+    ResultManifest manifest = new ObjectMapper().readValue("{\"format\":6}", ResultManifest.class);
+
+    assertEquals(Format.COLUMN_BASED_SET, manifest.getFormat());
+  }
+
+  @Test
+  public void testGetResultSet_columnBasedSetArrowPayload() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(Format.COLUMN_BASED_SET)
+            .setTotalChunkCount(0L)
+            .setSchema(new ResultSchema().setColumnCount(0L));
+
+    ResultData inlineData = new ResultData();
+    inlineData.setAttachment(new byte[0]);
+    IExecutionResult inline =
+        ExecutionResultFactory.getResultSet(
+            inlineData, manifest, STATEMENT_ID, session, parentStatement);
+    IExecutionResult cloud =
+        ExecutionResultFactory.getResultSet(
+            new ResultData().setExternalLinks(Collections.emptyList()),
+            manifest,
+            STATEMENT_ID,
+            session,
+            parentStatement);
+
+    assertInstanceOf(ArrowStreamResult.class, inline);
+    assertInstanceOf(ArrowStreamResult.class, cloud);
   }
 
   @Test

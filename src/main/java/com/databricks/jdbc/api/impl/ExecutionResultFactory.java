@@ -68,10 +68,17 @@ class ExecutionResultFactory {
     TelemetryHelper.setResultFormat(
         session.getConnectionContext(), statementId, manifest.getFormat());
     LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
-    // JSON_ARRAY serves metadata and updates; Arrow formats serve query results.
+    if (data != null
+        && data.getColumnarData() != null
+        && (manifest.getFormat() == Format.ARROW_STREAM
+            || manifest.getFormat() == Format.COLUMN_BASED_SET)) {
+      return new ColumnarDataResult(manifest, data);
+    }
+    // COLUMN_BASED_SET may carry Arrow inline or cloud data when columnar_data is absent.
     switch (manifest.getFormat()) {
       case ARROW_BATCH:
       case ARROW_STREAM:
+      case COLUMN_BASED_SET:
         return new ArrowResult(manifest, data, statementId, session);
       case JSON_ARRAY:
         // This is used for metadata and update commands

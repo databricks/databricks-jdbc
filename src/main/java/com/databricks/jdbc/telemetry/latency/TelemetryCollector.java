@@ -220,6 +220,8 @@ public class TelemetryCollector {
         return ExecutionResultFormat.EXTERNAL_LINKS;
       case JSON_ARRAY:
         return ExecutionResultFormat.INLINE_JSON;
+      case COLUMN_BASED_SET:
+        return ExecutionResultFormat.COLUMNAR_INLINE;
       default:
         return ExecutionResultFormat.FORMAT_UNSPECIFIED;
     }
