@@ -550,10 +550,12 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` assigns each task once in one rooted dependency tree. Each package
-adds a working SEA or JDBC caller workflow; server readiness is an ancestor of
-its JDBC caller. The final package owns docs and `NEXT_CHANGELOG.md` and gates
-the assembled release before production assignment.
+`plan.json` assigns each task once. The factory requires package parents to stay
+within one repository, so universe and JDBC each have a rooted tree; JDBC
+package notes name the deployed universe gate required before caller exposure.
+The first JDBC package includes a working SELECT and close. The final package
+owns docs and `NEXT_CHANGELOG.md` and gates the assembled release before
+production assignment.
 
 ### Affected Components
 
@@ -583,8 +585,8 @@ presigned-link boundaries.
 Each active ID is assigned once in `plan.json`.
 
 - Server: T1 APC flag; T2 command wire; T3 catalog Arrow and metadata-header
-  forwarding; T4 schema/table
-  SHOW; T5 column/function SHOW; T6 key SHOW; T7 HIVE catalog/table;
+  forwarding; T4 schema/table Arrow SHOW; T5 column/function SHOW; T6 key SHOW;
+  T7 HIVE catalog/table SHOW;
   T8 inline override; T37 scoped read and post-acceptance write fault hooks.
 - Connection/results: T9 route/session; T10 first SELECT; T11 inline pages;
   T12 links; T13 pools; T41 codecs; T42 retries; T43 alternate modes;
