@@ -441,9 +441,12 @@ surface; AC11 protects its warehouse serialization; AC85 covers its telemetry;
 AC89 covers its callable SQL/metadata
 errors, not connection-only slices; AC106 applies in the PR that changes a
 driver-owned error. AC144 applies only to the request/fault classes the slice
-can issue. AC113/154 gate writes. Use fixtures only for cases staging cannot
-produce. T-val checks the assembled stack. These common gates are inherited by
-packages and need not be repeated in each `plan.json` acceptance list.
+can issue. AC113/154 gate writes. Use deterministic client-response fixtures
+for `42601` and a single failing fan-out catalog when scoped staging cannot
+produce those server faults; retain live paired row/type/error and
+connection-usability checks on ordinary SHOW responses. T-val checks the
+assembled stack. These common gates are inherited by packages and need not be
+repeated in each `plan.json` acceptance list.
 
 The shared paired-load gate uses one build, warmed cluster, identical data,
 and one/32 APC SEA and Thrift callers, all completing or returning bounded
@@ -527,7 +530,7 @@ ordinary scoped agent gets true; record the flag version and T56/T57 deployment 
 batch execution, and the two accepted commands remain executable in order.
 - AC75: GIVEN live parameterized procedure metadata WHEN pages/links or query/fetch/decode errors occur THEN header-free rows pass AC61 or errors propagate with paired identity; failure never becomes typed empty.
 - AC82: GIVEN current/other-catalog functions and both SHOW-switch values WHEN live `getFunctions(null, ...)` runs THEN APC SEA matches warehouse SEA current-catalog rows; record rows gained over Thrift SHOW and omitted from Thrift native RPC. Explicit-catalog rows/errors pass paired gates.
-- AC83: GIVEN an exposed synchronous or async null-catalog schema/column `42601` fan-out WHEN one live catalog raises `SQLException` THEN APC and warehouse SEA omit only its rows, warn, and remain usable; record Thrift delta, while timeout/interruption fails the call.
+- AC83: GIVEN paired live two-catalog schema/column rows and a deterministic client-response fixture returning `42601` for the null-catalog SHOW and `SQLException` for one named catalog WHEN synchronous or async fan-out runs THEN APC and warehouse SEA omit only the failed catalog's rows, warn, and remain usable; timeout/interruption fixtures fail the call. Record live paired rows/types/errors and the Thrift row delta; run the fault case live as well if scoped staging can produce it.
 - AC84: GIVEN each new live SDK or link request class WHEN socket, poll, and idle settings vary THEN one-request timeout, later-poll delay, and applicable idle eviction follow R17, with paired timing/errors and usable connections.
 - AC85: GIVEN each new path WHEN telemetry toggles vary THEN R8 event/error families match paired routes or approved exceptions, disabled export suppresses them, and logs/events redact secrets, targets, and IDs.
 - AC88: GIVEN two catalogs and a metric view WHEN catalog and metric-view settings vary on three live routes THEN discovery, table types/rows, and APC session config follow R5; record server-limited impact.
@@ -537,7 +540,7 @@ first chunk THEN it sends a bodyless APC-targeted GetResultData, returns every r
 and reports a failed fetch before false ResultSet success.
 - AC101: GIVEN live inline and linked results WHEN codec setting or alias is `0`, `1`, or invalid THEN manifest codec governs lossless decode, invalid keeps warehouse default, and paired bytes/CPU/load are recorded.
 - AC102: GIVEN an isolated live table WHEN transaction settings vary THEN R19 state, commit/rollback rows, counts, and errors match paired routes; no-result commands fetch nothing and fail on missing state.
-- AC105: GIVEN live synchronous null-catalog `getTables` receiving `42601` WHEN APC SEA, APC Thrift, and warehouse SEA are compared THEN APC returns warehouse SEA’s typed empty result without fan-out; record omitted Thrift row counts/types and caller impact before T48 merges.
+- AC105: GIVEN paired live null-catalog `getTables` rows/types and a deterministic client-response fixture returning SQLState `42601` for its SHOW WHEN APC SEA and warehouse SEA handle that response THEN both return a typed empty result without fan-out; compare with live APC Thrift rows/types and record omitted rows and caller impact before T48 merges. Repeat the fault case live if scoped staging can produce it.
 - AC106: GIVEN a changed driver-owned error WHEN emitted THEN a test asserts its code name/number, the PR records taxonomy/dashboard ownership or handoff, and the telemetry-error template is complete; server errors retain server identity.
 - AC107: GIVEN one/32 paired APC SEA and APC Thrift callers WHEN at least 100 open, partly read SELECT, and close cycles complete and resources quiesce THEN end-minus-start retained SEA heap is at most 8 MiB, paired cycle latency meets the shared load gate, and a subsequent connection succeeds. Record the cycle count, memory samples, and recovery.
 - AC108: GIVEN AC164 WHEN live legacy INSERT batching settings vary THEN R6 chunk limits, counts, committed rows, errors, AC32 load, and AC132 oversize behavior pass each binding mode.
@@ -579,7 +582,7 @@ open (T9) or successful SELECT (T10) THEN each slice's callable case raises
 uses the original cluster and a later connection works. APC Thrift/warehouse
 SEA IDs remain valid. T44 replaces this boundary after AC25/152.
 - AC168: GIVEN the tracked server termination binding fix is deployed WHEN a raw APC CreateSession and TerminateSession use the same cluster target THEN the created session is removed; a rejected termination remains identifiable for JDBC AC155.
-- AC169: GIVEN T22's typed async null-catalog `getTables` receives live `42601` WHEN APC SEA, APC Thrift, and warehouse SEA are compared THEN it returns the same typed empty result and no fan-out as AC105, with delayed RUNNING, await, timeout, and cancel proved under AC50 before T22 merges.
+- AC169: GIVEN T22's typed async null-catalog `getTables` and the AC105 `42601` client-response fixture WHEN the handle completes THEN it returns the same typed empty result without fan-out; paired live rows/types and AC50 delayed RUNNING, await, timeout, and cancel pass before T22 merges. Repeat the fault case live if scoped staging can produce it.
 - AC171: GIVEN T12 exposes linked results WHEN R11 complex/geospatial getters run with support on and off THEN paired types/values and representable typed getters hold, disabled getters reject, and unsupported live values remain pending as in AC13 before T12 merges.
 - AC172: GIVEN live APC SEA and paired APC Thrift/warehouse SEA connections WHEN `getCatalog` and `getSchema` run before and after T10 THEN cached reads remain local; uncached pre-T10 reads reject before a SEA request with a named error/code; post-T10 uncached reads issue one targeted `SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()`, cache both valid values, and match paired results. Capture flag-ON, flag-OFF, and explicit-SEA traces and connection usability.
 - AC173: GIVEN live APC SEA and paired APC Thrift/warehouse SEA connections WHEN `setCatalog` and `setSchema` run before and after T14 THEN disabled `setCatalog` remains a local no-op; enabled `setCatalog` and `setSchema` reject before a SEA request with a named error/code until T14; after T14 they issue `SET CATALOG` and `USE SCHEMA`, update the cache only on success, retain prior values after failure, and match paired results. Capture flag-ON, flag-OFF, and explicit-SEA traces and connection usability.
@@ -634,13 +637,14 @@ require the applicable AC144 fault evidence. A dependency outside a package's
 parent chain is also an entry gate recorded in its notes. Each slice closes its
 own live gate before merge; linked SELECT includes its worker, prefetch, pool,
 retry, and timeout gates before callers can use links. The release package
-alone edits docs and `NEXT_CHANGELOG.md`. Branch release from the async
-metadata tip and integrate the independent async SELECT, download-off,
-commands/prepared/batches, column/function, key, and procedure slices.
-Resolve conflicts before applying T44/T36. Run T-val on that exact
-integrated release HEAD; any subsequent commit reruns T-val and its affected
-slice gates. The tested HEAD is the release candidate. No intermediate build
-is distributed.
+alone edits docs and `NEXT_CHANGELOG.md`. Integrate each independent sibling
+slice in its own small package (T63–T66), rerun its live gate and affected
+shared gates on the integration HEAD, and close conflicts before starting
+descendants. T16's shared metadata transport precedes T19's procedure work;
+T31 owns and records AC164 on live APC and paired routes before T15 starts.
+Run T-val on the exact integrated release HEAD; any subsequent commit reruns
+T-val and its affected slice gates. The tested HEAD is the release candidate.
+No intermediate build is distributed.
 Split a slice before implementation if its review diff approaches 1,500 changed
 lines. The plan exceeds the 4–7 JDBC-package target because callable metadata,
 async, and write workflows have separate exposure gates; consolidation must not
@@ -691,8 +695,9 @@ integration prerequisites, not JDBC code changes.
 | Procedure metadata | T19 parameterized procedure SELECT after scalar binding and metadata transport. |
 | Async metadata discovery | T20 catalogs and first typed async lifecycle; T21 schemas; T22 tables; T23 columns; T24 functions. |
 | Async metadata keys | T25 primary keys; T26 imported/cross-reference keys. |
+| Sibling integration | T63 integrates async SELECT; T64 integrates download-off; T65 integrates transactions; T66 integrates columns. Each merges one completed sibling slice, resolves shared-code conflicts, and reruns its live gate before descendants start. |
 | Release | T36 docs/changelog; T-val live gates on the exact integrated release HEAD containing every sibling slice. |
 | Server flag | T56 Partner Platform defines the default-off APC client-config sub-flag; T57 connector-service excludes all partners, including allowlisted JDBC agents (AC28/34). Track both under [SC-256186](https://databricks.atlassian.net/browse/SC-256186); the flag and exclusion packages own the deliverables, and the connection slice requires their deployed evidence. |
 | Server metadata | T58 SEA/Reyder/DPR admits APC `ARROW_STREAM` metadata while preserving `ARROW_BATCH` SQL, selects native SHOW unconditionally, carries sync intent, and returns native Arrow/HIVE metadata (AC138); [SC-256188](https://databricks.atlassian.net/browse/SC-256188). |
 | Server result and session | T59 Reyder honors CreateSession inline-only override (AC119; [SC-258787](https://databricks.atlassian.net/browse/SC-258787)); T60 SEA/Reyder fixes APC TerminateSession target binding (AC168); T62 Reyder returns terminal/count command shapes (AC113; [SC-258842](https://databricks.atlassian.net/browse/SC-258842)). |
-| Staging faults | T61 SEA staging owns scoped request delays, 429/503 and accepted-write faults (AC144). |
+| Staging faults | T61 SEA staging owns scoped request delays, 429/503 and accepted-write faults (AC144); deterministic client-response fixtures cover unavailable `42601` and one-catalog `SQLException` cases under AC83/105/169. |
