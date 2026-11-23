@@ -544,7 +544,7 @@ public class DatabricksSdkClientTest {
     assertEquals(SESSION_ID, body.path("session_id").asText());
     assertEquals("SELECT 1", body.path("statement").asText());
     assertEquals("ARROW_BATCH", body.path("format").asText());
-    assertEquals("INLINE", body.path("disposition").asText());
+    assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
     assertEquals("NONE", body.path("result_compression").asText());
     assertEquals("CONTINUE", body.path("on_wait_timeout").asText());
     JsonNode waitTimeout = body.get("wait_timeout");

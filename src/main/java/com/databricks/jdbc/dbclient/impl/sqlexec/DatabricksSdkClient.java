@@ -1009,7 +1009,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     Disposition disposition;
     if (isApc) {
       format = Format.ARROW_BATCH;
-      disposition = Disposition.INLINE;
+      disposition = Disposition.INLINE_OR_EXTERNAL_LINKS;
     } else if (cloudFetch) {
       format = Format.ARROW_STREAM;
       disposition =
