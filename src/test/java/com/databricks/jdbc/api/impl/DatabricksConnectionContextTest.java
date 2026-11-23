@@ -1604,6 +1604,51 @@ class DatabricksConnectionContextTest {
     assertFalse(headers.containsKey("x-databricks-org-id"));
   }
 
+  @ParameterizedTest
+  @CsvSource({
+    "sql/protocolv1/o/6051921418418893/0528-cluster, 6051921418418893",
+    "/sql/protocolv1/o/6051921418418893/0528-cluster, 6051921418418893",
+    "/sql/protocolv1/o/9007199254740993/0528-cluster, 9007199254740993",
+    "/sql/protocolv1/o/000123/0528-cluster, 000123",
+    "/sql/protocolv1/o/123/0528-cluster?o=456, 456",
+    "sql/protocolv1/o/123/0528-cluster?o=456, 456",
+    "/sql/protocolv1/o/123/0528-cluster?o=fromquery, fromquery",
+    "/sql/protocolv1/o/123/0528-cluster?o=, 123",
+    "/sql/protocolv1/o/123/0528-cluster?other=456, 123",
+    "/sql/protocolv1/o/123/0528-cluster/extra, 123",
+    "/sql/protocolv1/o/not-numeric/0528-cluster,",
+    "/sql/protocolv1/o/123abc/0528-cluster,",
+    "/sql/protocolv1/o/-123/0528-cluster,",
+    "/sql/protocolv1/o/123/?other=456,",
+    "/sql/1.0/warehouses/abc123,",
+    "/sql/1.0/warehouses/abc123?path=/sql/protocolv1/o/123/0528-cluster,",
+    "/other/sql/protocolv1/o/123/0528-cluster,"
+  })
+  void testSpogContext_clusterPathOrgId(String httpPath, String expectedOrgId)
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;ssl=1;AuthMech=3;httpPath=" + httpPath, properties);
+
+    assertEquals(expectedOrgId, ctx.getCustomHeaders().get("x-databricks-org-id"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"http.header.x-databricks-org-id", "HTTP.HEADER.X-Databricks-Org-Id"})
+  void testSpogContext_explicitHeaderBeatsClusterPath(String headerProperty)
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;ssl=1;AuthMech=3;"
+                + "httpPath=/sql/protocolv1/o/123/0528-cluster?o=456;"
+                + headerProperty
+                + "=fromheader",
+            properties);
+
+    assertEquals("fromheader", ctx.getCustomHeaders().get("x-databricks-org-id"));
+    assertEquals(1, ctx.getCustomHeaders().size());
+  }
+
   @Test
   void testSpogContext_explicitHeaderTakesPrecedence() throws DatabricksSQLException {
     String url =

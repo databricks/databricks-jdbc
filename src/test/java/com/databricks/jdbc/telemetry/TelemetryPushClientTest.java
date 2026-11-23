@@ -1,6 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
@@ -8,20 +9,54 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksTelemetryException;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
+import java.util.Properties;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 public class TelemetryPushClientTest {
+
+  @Test
+  public void pushEvent_sendsClusterPathOrgId() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;AuthMech=3;"
+                + "httpPath=/sql/protocolv1/o/6051921418418893/0528-cluster",
+            new Properties());
+    DatabricksHttpClientFactory factory = mock(DatabricksHttpClientFactory.class);
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    StatusLine status = mock(StatusLine.class);
+    when(factory.getClient(context, HttpClientType.TELEMETRY)).thenReturn(httpClient);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(response);
+    when(response.getStatusLine()).thenReturn(status);
+    when(status.getStatusCode()).thenReturn(429);
+
+    try (MockedStatic<DatabricksHttpClientFactory> factoryStatic =
+        org.mockito.Mockito.mockStatic(DatabricksHttpClientFactory.class)) {
+      factoryStatic.when(DatabricksHttpClientFactory::getInstance).thenReturn(factory);
+      assertThrows(
+          DatabricksTelemetryException.class,
+          () -> new TelemetryPushClient(false, context, null).pushEvent(new TelemetryRequest()));
+
+      ArgumentCaptor<HttpPost> request = ArgumentCaptor.forClass(HttpPost.class);
+      verify(httpClient).execute(request.capture());
+      assertEquals(
+          "6051921418418893", request.getValue().getFirstHeader("x-databricks-org-id").getValue());
+    }
+  }
 
   @Test
   public void pushEvent_throwsTelemetryException_on429_whenCBEnabled() throws Exception {
