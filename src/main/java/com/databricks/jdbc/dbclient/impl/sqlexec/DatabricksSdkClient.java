@@ -6,6 +6,8 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.isDecimalWithinBounds;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.normalizeDecimal;
 import static com.databricks.jdbc.common.util.SqlStateClassifier.classifyTransientSqlState;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
@@ -1006,8 +1008,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
-      typeString = getDecimalTypeString((BigDecimal) value);
-      value = ((BigDecimal) value).toPlainString();
+      BigDecimal decimalValue = normalizeDecimal((BigDecimal) value, false);
+      typeString = getDecimalTypeString(decimalValue);
+      value =
+          isDecimalWithinBounds(decimalValue)
+              ? decimalValue.toPlainString()
+              : decimalValue.toString();
     }
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)

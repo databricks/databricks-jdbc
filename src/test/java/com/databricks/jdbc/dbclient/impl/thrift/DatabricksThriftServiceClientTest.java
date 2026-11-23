@@ -1190,15 +1190,24 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @ParameterizedTest
-  @MethodSource("com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest#decimalBindings")
+  @MethodSource("com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest#decimalWireBindings")
   void testDecimalBindingPreservesValue(
-      Object value, int targetType, String expectedValue, String expectedType) throws SQLException {
+      Object value,
+      int targetType,
+      String expectedValue,
+      String expectedType,
+      boolean useSetBigDecimal)
+      throws SQLException {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties());
     DatabricksConnection connection = mock(DatabricksConnection.class);
     when(connection.getConnectionContext()).thenReturn(context);
     DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(connection, "SELECT ?");
-    prepared.setObject(1, value, targetType);
+    if (useSetBigDecimal) {
+      prepared.setBigDecimal(1, (BigDecimal) value);
+    } else {
+      prepared.setObject(1, value, targetType);
+    }
     DatabricksParameterMetaData metadata =
         (DatabricksParameterMetaData) prepared.getParameterMetaData();
     DatabricksThriftServiceClient client =

@@ -600,6 +600,32 @@ public class DatabricksTypeUtil {
     }
   }
 
+  public static BigDecimal toBigDecimal(Object value) {
+    return value instanceof BigDecimal
+        ? (BigDecimal) value
+        : new BigDecimal(value.toString().trim());
+  }
+
+  public static boolean isDecimalWithinBounds(BigDecimal value) {
+    long scale = value.scale();
+    long normalizedScale = Math.max(0, scale);
+    long normalizedPrecision = Math.max(value.precision() - Math.min(0, scale), normalizedScale);
+    return normalizedPrecision <= 38 && normalizedScale <= 38;
+  }
+
+  public static BigDecimal normalizeDecimal(BigDecimal value, boolean validatePrecision) {
+    if (!isDecimalWithinBounds(value)) {
+      if (!validatePrecision) {
+        return value;
+      }
+      value = value.stripTrailingZeros();
+      if (!isDecimalWithinBounds(value)) {
+        throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
+      }
+    }
+    return value.scale() < 0 ? value.setScale(0) : value;
+  }
+
   /*
    * Returns the Databricks type string for a given BigDecimal object.
    * Format: DECIMAL(p,s) where p is the precision and s is the scale.

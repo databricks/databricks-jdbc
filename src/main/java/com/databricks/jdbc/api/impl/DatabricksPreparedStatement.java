@@ -3,6 +3,8 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.normalizeDecimal;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.toBigDecimal;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 import static com.databricks.jdbc.common.util.SQLInterpolator.surroundPlaceholdersWithQuotes;
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
@@ -365,20 +367,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           && (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC)
           && (x instanceof String || x instanceof Number)) {
         try {
-          BigDecimal decimalValue;
-          if (x instanceof BigDecimal) {
-            decimalValue = (BigDecimal) x;
-          } else if (x instanceof Double || x instanceof Float) {
-            decimalValue = BigDecimal.valueOf(((Number) x).doubleValue());
-          } else {
-            decimalValue = new BigDecimal(x.toString().trim());
-          }
-          x = decimalValue.scale() < 0 ? decimalValue.setScale(0) : decimalValue;
-        } catch (NumberFormatException e) {
+          x = normalizeDecimal(toBigDecimal(x), true);
+        } catch (NumberFormatException | ArithmeticException exception) {
           throw new DatabricksSQLException(
-              "Invalid value for DECIMAL/NUMERIC",
-              DatabricksDriverErrorCode.INVALID_STATE.name(),
-              DatabricksDriverErrorCode.INVALID_STATE);
+              "Invalid DECIMAL/NUMERIC value for parameter "
+                  + parameterIndex
+                  + "; expected a finite decimal with precision and scale at most 38",
+              DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+              DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(),
+              exception);
         }
       }
       setObject(parameterIndex, x, databricksType);
@@ -631,11 +628,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
     if (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC) {
       BigDecimal bd;
-      if (x instanceof BigDecimal) {
-        bd = (BigDecimal) x;
-      } else if (x instanceof Number) {
-        // Convert Number to BigDecimal. Using valueOf preserves the value for double inputs.
-        bd = BigDecimal.valueOf(((Number) x).doubleValue());
+      if (x instanceof Number) {
+        bd = toBigDecimal(x);
       } else {
         throw new DatabricksSQLException(
             "Invalid object type for DECIMAL/NUMERIC", DatabricksDriverErrorCode.INVALID_STATE);

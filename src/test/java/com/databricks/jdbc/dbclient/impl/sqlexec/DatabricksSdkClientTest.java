@@ -1434,9 +1434,14 @@ public class DatabricksSdkClientTest {
   }
 
   @ParameterizedTest
-  @MethodSource("com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest#decimalBindings")
+  @MethodSource("com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest#decimalWireBindings")
   void testDecimalBindingPreservesValue(
-      Object value, int targetType, String expectedValue, String expectedType) throws Exception {
+      Object value,
+      int targetType,
+      String expectedValue,
+      String expectedType,
+      boolean useSetBigDecimal)
+      throws Exception {
     setupClientMocks(true, false);
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -1445,7 +1450,11 @@ public class DatabricksSdkClientTest {
     DatabricksConnection connection = new DatabricksConnection(context, client);
     connection.open();
     DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(connection, "SELECT ?");
-    prepared.setObject(1, value, targetType);
+    if (useSetBigDecimal) {
+      prepared.setBigDecimal(1, (BigDecimal) value);
+    } else {
+      prepared.setObject(1, value, targetType);
+    }
     DatabricksParameterMetaData metadata =
         (DatabricksParameterMetaData) prepared.getParameterMetaData();
     StatementParameterListItem parameter =
