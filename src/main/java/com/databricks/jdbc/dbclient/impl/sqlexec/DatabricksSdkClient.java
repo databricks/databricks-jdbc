@@ -997,10 +997,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       boolean executeAsync)
       throws SQLException {
     boolean isApc = computeResource instanceof AllPurposeCluster;
-    if (isApc && !parameters.isEmpty()) {
-      throw new DatabricksValidationException(
-          "APC SEA prototype does not support statement parameters");
-    }
     boolean arrowEnabled = connectionContext.shouldEnableArrow();
     boolean cloudFetch = arrowEnabled && connectionContext.isCloudFetchEnabled();
     boolean boundedSeaInline =

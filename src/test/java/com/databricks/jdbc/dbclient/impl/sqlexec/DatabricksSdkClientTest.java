@@ -591,29 +591,41 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testApcRejectsStatementParameters() throws Exception {
+  public void testApcPassesStatementParameters() throws Exception {
+    useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
 
-    DatabricksSQLException exception =
-        assertThrows(
-            DatabricksSQLException.class,
-            () ->
-                databricksSdkClient.executeStatement(
-                    STATEMENT,
-                    allPurposeCluster,
-                    sqlParams,
-                    StatementType.QUERY,
-                    session,
-                    null,
-                    null));
+    databricksSdkClient.executeStatement(
+        STATEMENT, allPurposeCluster, sqlParams, StatementType.QUERY, session, null, null);
 
-    assertEquals("APC SEA prototype does not support statement parameters", exception.getMessage());
-    verify(apiClient, never()).serialize(any());
-    verify(apiClient, never()).execute(any(Request.class), any());
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient).serialize(captor.capture());
+    ExecuteStatementRequest request = captor.getValue();
+    assertEquals(SESSION_ID, request.getSessionId());
+    assertEquals(
+        CLUSTER_ID, request.getBackendCompute().getAllPurposeClusterCompute().getClusterId());
+    assertEquals(4, request.getParameters().size());
+    Map<Integer, PositionalStatementParameterListItem> parametersByOrdinal = new HashMap<>();
+    for (StatementParameterListItem parameter : request.getParameters()) {
+      PositionalStatementParameterListItem positional =
+          assertInstanceOf(PositionalStatementParameterListItem.class, parameter);
+      parametersByOrdinal.put(positional.getOrdinal(), positional);
+    }
+    assertEquals("100", parametersByOrdinal.get(1).getValue());
+    assertEquals("value", parametersByOrdinal.get(4).getValue());
   }
 
   @Test
