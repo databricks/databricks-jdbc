@@ -88,21 +88,8 @@ public class ArrowToJavaObjectConverter {
       return null;
     }
     Object object = columnVector.getObject(vectorIndex);
-    if (arrowMetadata == null) {
+    if (arrowMetadata == null && requiredType == null) {
       arrowMetadata = getArrowTypeText(columnVector.getField());
-    }
-    if (requiredType == ColumnInfoTypeName.TIME || isTimeType(arrowMetadata)) {
-      if (columnVector instanceof TimeSecVector) {
-        return LocalTime.ofSecondOfDay(((TimeSecVector) columnVector).get(vectorIndex));
-      }
-      if (columnVector instanceof TimeMilliVector) {
-        return LocalTime.ofNanoOfDay(
-            ((TimeMilliVector) columnVector).get(vectorIndex) * 1_000_000L);
-      }
-      if (columnVector instanceof TimeMicroVector) {
-        return LocalTime.ofNanoOfDay(((TimeMicroVector) columnVector).get(vectorIndex) * 1_000L);
-      }
-      return TimeConverter.toLocalTime(object);
     }
     ColumnInfoTypeName logicalGeospatialType = getLogicalGeospatialType(requiredType, columnInfo);
     boolean geospatialAsString =
@@ -128,6 +115,9 @@ public class ArrowToJavaObjectConverter {
       }
       if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
         requiredType = ColumnInfoTypeName.TIMESTAMP;
+      }
+      if (isTimeType(arrowMetadata)) {
+        requiredType = ColumnInfoTypeName.TIME;
       }
       if (arrowMetadata.startsWith(GEOMETRY)) {
         requiredType = ColumnInfoTypeName.GEOMETRY;
@@ -196,6 +186,18 @@ public class ArrowToJavaObjectConverter {
           timeZone = Optional.of(((TimeStampMicroTZVector) columnVector).getTimeZone());
         }
         return convertToTimestamp(object, timeZone);
+      case TIME:
+        if (columnVector instanceof TimeSecVector) {
+          return LocalTime.ofSecondOfDay(((TimeSecVector) columnVector).get(vectorIndex));
+        }
+        if (columnVector instanceof TimeMilliVector) {
+          return LocalTime.ofNanoOfDay(
+              ((TimeMilliVector) columnVector).get(vectorIndex) * 1_000_000L);
+        }
+        if (columnVector instanceof TimeMicroVector) {
+          return LocalTime.ofNanoOfDay(((TimeMicroVector) columnVector).get(vectorIndex) * 1_000L);
+        }
+        return TimeConverter.toLocalTime(object);
       case INTERVAL:
         if (arrowMetadata == null) {
           String errorMessage =

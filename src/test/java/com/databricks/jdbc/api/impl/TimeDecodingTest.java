@@ -207,6 +207,28 @@ class TimeDecodingTest {
   }
 
   @Test
+  void mutatedContainersDoNotReuseOriginalTime() throws Exception {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    DatabricksArray array = parser.parseJsonStringToDbArray("[33300123456000]", "ARRAY<TIME(6)>");
+    ((Object[]) array.getArray())[0] = Time.valueOf("12:34:56");
+    assertEquals("[\"12:34:56\"]", array.toString());
+    assertEquals(
+        LocalTime.parse("12:34:56"),
+        ((Object[]) array.getArray(Collections.singletonMap("TIME", LocalTime.class)))[0]);
+    DatabricksStruct struct =
+        parser.parseJsonStringToDbStruct("{\"at\":33300123456000}", "STRUCT<at:TIME(6)>");
+    ((Time) struct.getAttributes()[0]).setTime(Time.valueOf("12:34:56").getTime());
+    assertEquals("{\"at\":\"12:34:56\"}", struct.toString());
+    assertEquals(
+        LocalTime.parse("12:34:56"),
+        struct.getAttributes(Collections.singletonMap("TIME", LocalTime.class))[0]);
+    DatabricksMap<String, Object> map =
+        parser.parseJsonStringToDbMap("{\"a\":33300123456000}", "MAP<STRING,TIME(6)>");
+    map.put("a", Time.valueOf("12:34:56"));
+    assertEquals("{\"a\":\"12:34:56\"}", map.toString());
+  }
+
+  @Test
   void scalarAndNullArrowValues() throws Exception {
     try (RootAllocator allocator = new RootAllocator();
         BigIntVector vector = new BigIntVector("time", allocator)) {

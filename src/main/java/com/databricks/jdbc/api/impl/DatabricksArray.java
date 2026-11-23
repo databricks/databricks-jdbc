@@ -256,6 +256,11 @@ public class DatabricksArray implements Array {
     }
     Object source = this.temporalElements[i];
     Object exact = ComplexDataTypeParser.toExactTemporal(source, this.elementType);
+    if (exact != null
+        && DatabricksTypeUtil.isTimeType(elementType)
+        && !TimeConverter.toSqlTime(exact).equals(elements[i])) {
+      return null;
+    }
     if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
       if (exact == null && !this.warnedInexact) {
         this.warnedInexact = true;
@@ -440,10 +445,7 @@ public class DatabricksArray implements Array {
 
       Object value = elements[i];
       if (value != null && DatabricksTypeUtil.isTimeType(elementType)) {
-        Object exact =
-            temporalElements == null
-                ? value
-                : ComplexDataTypeParser.toExactTemporal(temporalElements[i], elementType);
+        Object exact = exactElement(i);
         value = TimeConverter.format(exact == null ? value : exact);
       }
       sb.append(JsonUtil.formatComplexValue(value));

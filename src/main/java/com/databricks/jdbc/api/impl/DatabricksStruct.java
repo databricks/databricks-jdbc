@@ -268,6 +268,11 @@ public class DatabricksStruct implements Struct {
     }
     Object source = temporalAttributes[i];
     Object exact = ComplexDataTypeParser.toExactTemporal(source, fieldType);
+    if (exact != null
+        && DatabricksTypeUtil.isTimeType(fieldType)
+        && !TimeConverter.toSqlTime(exact).equals(attributes[i])) {
+      return null;
+    }
     if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
       if (exact == null && !warnedInexact) {
         warnedInexact = true;
@@ -290,10 +295,7 @@ public class DatabricksStruct implements Struct {
       Object value = attributes[i];
       String fieldType = fieldTypes.get(i);
       if (value != null && DatabricksTypeUtil.isTimeType(fieldType)) {
-        Object exact =
-            temporalAttributes == null
-                ? value
-                : ComplexDataTypeParser.toExactTemporal(temporalAttributes[i], fieldType);
+        Object exact = exactAttribute(i, fieldType);
         value = TimeConverter.format(exact == null ? value : exact);
       }
       sb.append(JsonUtil.formatComplexValue(value));
