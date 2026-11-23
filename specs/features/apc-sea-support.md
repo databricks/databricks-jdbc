@@ -628,9 +628,12 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` owns each task once and records a single-root delivery tree.
-T1 is the cross-repository prerequisite for the first JDBC slice; Git PR
-ancestry remains within each repository. JDBC packages are small, live,
+`plan.json` owns each task once and records one Git PR tree per repository.
+Its `parent` field records only same-repository PR ancestry; `depends_on`
+records cross-repository deployment gates separately. T1 must be approved
+and deployed before the first flag-on JDBC live gate; the metadata, command,
+and inline-only JDBC gates likewise require their named Universe packages.
+JDBC packages are small, live,
 flag-gated vertical slices in a linear stack so the release package contains
 all approved changes. The count exceeds the preferred 4–7 because the seven
 typed async handles and independently gated metadata methods must remain
