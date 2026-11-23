@@ -54,6 +54,7 @@ precedence so customers can force either protocol.
   | Close and saved IDs | `Connection.close()` suppresses delete failure; saved close propagates | Same close behavior, warehouse target in saved ID | APC uses the original cluster target for both close APIs; ordinary close remains best effort, saved close propagates rejection after T44. | Match close semantics; interim ID error until saved-close slice, AC25/152/155. |
   | Result paging | Thrift fetch blocks | SEA continuation | APC pages by server continuation. | Follow SEA; AC14/31. |
   | Compression preference | Thrift honors requested codec | SEA forwards `QueryResultCompressionType`/`EnableQueryResultLZ4Compression` | APC forwards the preference, but Reyder always sends LZ4 even for `NONE`; decode the manifest codec. | Server exception; `NONE` cannot disable compression, AC101. |
+  | SEA HTTP response compression | APC Thrift does not use the SEA API setting | `EnableSeaResponseCompression=0` (the default) sends API `Accept-Encoding: identity`; `1` permits HTTP compression; presigned links are separate | APC SEA follows the warehouse SEA API setting and leaves link requests unchanged; wire bytes and decode CPU can change without changing rows. | Warehouse precedent; compare transferred bytes, CPU, and throughput at both settings, AC45. |
   | `RowsFetchedPerBlock` | Tunes Thrift fetch | No SEA paging effect | No APC SEA paging effect because SEA continuation controls pages. | Warehouse precedent; caller's setting is ignored, AC31. |
   | `ThriftMaxBatchesInMemory` | Limits batches | Limits inline response chunks | APC limit counts chunks, which can each contain multiple Arrow batches. | Warehouse precedent; memory may rise at the same setting, AC109. |
   | Download modes and complex getters | Inline/linked; enabled complex support permits representable typed getters | Hybrid `0` requests external-only; download-off selects JSON inline or Arrow by bounded setting, and Arrow results permit enabled typed getters | APC hybrid `0` still requests hybrid because Reyder lacks external-only delivery; download-off uses inline `ARROW_BATCH`, with representable typed getters following Arrow parity. | Server-format transfer exception; no Arrow getter exception, AC13/112/145/156. |
@@ -61,7 +62,7 @@ precedence so customers can force either protocol.
   | `BatchInsertSize` | Limits eligible interpolated INSERT rows per chunk | Limits interpolated legacy chunks; native scalar chunks use the parameter limit | APC uses the same split: the setting has no effect on native-scalar legacy chunks, whose 256-parameter cap controls size. | Warehouse precedent; caller may need a different tuning path, AC108. |
   | Pools and API retries | Thrift HTTP settings | SDK API pool/retry and link HTTP controls | APC uses SEA split; link retry properties do not change SDK API retries. | Warehouse precedent; callers may see different attempts/waits, AC30/46/51/84. |
   | Idle cursor | Thrift heartbeat | SEA `/status` heartbeat | APC disables heartbeat because status RPC is unsupported. | Server exception; possible shorter idle lifetime requires AC136 approval. |
-  | Native metadata | Native RPC | SEA requests Arrow/JSON; HIVE `columnar_data` is not decoded | APC SHOW decodes Arrow IPC or HIVE; null-catalog table syntax and exported-key requests return typed empty where Thrift may have rows. | New APC HIVE decoding plus warehouse method precedent; caller may lose those rows, AC16/54/105. |
+  | Native metadata | Native RPC, including parent-only exported-key cross-reference | SEA requests Arrow/JSON; HIVE `columnar_data` is not decoded; exported keys return typed empty | APC SHOW decodes Arrow IPC or HIVE; null-catalog table syntax returns typed empty; exported keys can return empty only after the nonempty-parent parity gate. | New APC HIVE decoding and warehouse method precedent; any lost exported-key rows need measured impact and approval, AC16/54/105. |
   | Unset `EnableThriftNativeMetadata` | Thrift native RPC/SHOW selection | SEA request depends on the warehouse server flag | APC sends require-native on supported SHOW even when unset, to obtain Reyder's native shape. | APC contract exception; metadata response format may differ, AC65. |
   | Partial metadata fan-out | Compare live rows/errors | Failed schema/column catalog is omitted | APC omits the failed catalog; connection remains usable. | Warehouse precedent; caller loses those rows, AC83. |
   | Procedure/function metadata | Query errors; RPC/SHOW switch | Query errors; SHOW | APC propagates query errors and uses SHOW. | Warehouse precedent; AC75/82. |
@@ -192,9 +193,11 @@ permits eligible catalogs. `EnableMetricViewMetadata=1` adds
 `spark.sql.thriftserver.metadata.metricview.enabled=true` to session config
 and exposes `METRIC_VIEW` table types and eligible rows; `0` omits both.
 `getExportedKeys` is outside native SHOW: the SEA contract lacks parent-only
-lookup and documented APC Thrift returns no rows. APC SEA follows warehouse
-SEA's typed empty result without SHOW, subject to AC54 live parity. Catalog
-filtering at `enableMultipleCatalogSupport=0` may first run
+lookup. On `origin/main`, APC Thrift sends a parent-only `TGetCrossReferenceReq`
+and returns its rows, while warehouse SEA returns typed empty. APC SEA may use
+that warehouse behavior only if AC54 finds no lost rows for a known parent with
+exported keys, or the measured server-limit exception receives approval before
+release. Catalog filtering at `enableMultipleCatalogSupport=0` may first run
 `SELECT CURRENT_CATALOG()`; at `1` it needs no lookup. A null table fails before
 request with SQLState `42000` and `EXECUTE_STATEMENT_FAILED` (1003).
 Session-reachable async metadata has typed ResultSet handles for seven SHOW
@@ -216,7 +219,8 @@ Async null-catalog schema/column `42601` fans out without sync headers.
 Per-catalog `SQLException` warns and omits that catalog; timeout,
 interruption, or initial/enumeration error fails the call. Partial results
 leave the connection usable (AC83).
-Each fan-out future retains its independent 90-second wait. Positive
+Each fan-out future retains its independent 90-second collection wait, measured
+from the start of that future's wait rather than from task submission (AC161). Positive
 `MetadataOperationTimeout` bounds the whole call/await; the first deadline wins.
 `0` disables only the overall deadline (AC83/124).
 
@@ -480,14 +484,14 @@ sub-flag of `databricks.partnerplatform.clientConfigsFeatureFlags` with default 
 - AC36: GIVEN multi-batch Arrow chunks and inline continuation WHEN JDBC drains them THEN rows occur once, `row_offset` counts every batch row, and failed pages never succeed; if staging lacks multi-batch chunks, live proof stays pending.
 - AC39: GIVEN each exposed result mode WHEN bounded and streaming switches vary on paired callers THEN APC requests follow R17, rows match, and first-row latency, heap, link expiry, and sustained download rate pass AC31 or have an approved exception.
 - AC40: GIVEN any JDBC slice WHEN APC flag is OFF or scoped ON THEN OFF stays Thrift, completed ON calls pass their live gate, and incomplete calls fail without fallback or false success before production assignment.
-- AC45: GIVEN live linked or inline results WHEN `EnableSeaResponseCompression` varies THEN only `0` sends API `Accept-Encoding: identity`; links remain unchanged and paired bytes/rows/load pass.
+- AC45: GIVEN live linked or inline results on APC SEA and warehouse SEA WHEN `EnableSeaResponseCompression` is `0` or `1` THEN only `0` sends API `Accept-Encoding: identity`, presigned-link headers remain unchanged, rows match APC Thrift, and API wire bytes, decode CPU, and throughput are recorded against both paired routes under the shared load gate.
 - AC46: GIVEN linked results at one/32 callers WHEN worker, prefetch, and chunk-wait settings vary THEN workers/buffered chunks and fetched-ahead links respect R17 bounds; all callers finish or return bounded errors under the shared load gate.
 - AC49: GIVEN live SELECT pages WHEN `setMaxRows` is zero, one, or a page boundary THEN positive limits send `row_limit` and cap all pages; zero is unlimited.
 - AC50: GIVEN each typed native SHOW handle WHEN delayed live SHOW submits at `wait_timeout=0s` THEN it returns while RUNNING and passes shared metadata, await, timeout, cancel, cleanup, and header gates.
 - AC51: GIVEN AC144's SDK fault path or AC160's presigned-link path WHEN scoped 429/503 faults with/without `Retry-After` affect an exposed request class THEN attempts, delay, errors, and caller outcome follow R17 and paired routes. Writes also require AC154.
 - AC52: GIVEN AC113 WHEN direct/polled no-result and counted commands, including zero, run live THEN R4 JDBC shapes and paired rows/errors hold except the documented assignment boolean; missing terminal evidence fails.
 - AC53: GIVEN live scalar binding and older/versionless fixtures WHEN `supportManyParameters` varies THEN native/interpolated requests, `setBytes`, rows, and counts follow R6 without unresolved markers.
-- AC54: GIVEN live `getExportedKeys` at both catalog settings WHEN APC and Thrift run THEN APC issues no exported-key SHOW and returns paired typed empty columns, with current-catalog lookup only if needed; a nonempty Thrift result needs disposition and null table fails before request with SQLState `42000`/code 1003.
+- AC54: GIVEN a live parent table known to have exported keys, verified by a foreign-key fixture or independent catalog inspection, at both catalog settings WHEN APC SEA, APC Thrift, and warehouse SEA run `getExportedKeys` THEN capture the exact Thrift parent-only request and returned rows; APC SEA issues no unsupported SHOW and returns matching typed rows. If the SEA contract prevents that parity, release remains blocked until the measured row loss, server limit, warehouse precedent, caller impact, and PECO approval are recorded. Empty staging samples alone cannot pass. Current-catalog lookup occurs only if needed; a null table fails before request with SQLState `42000`/code 1003.
 - AC55: GIVEN live async SQL SELECT with primitive and linked results WHEN it completes or cancels THEN `wait_timeout=0s`, target, rows/errors, close, diagnostics, and AC31 load pass.
 - AC60: GIVEN a valid live query within its client wait WHEN it exceeds one SEA request timeout THEN polling completes without premature failure; only measured latency may receive an exception.
 - AC61: GIVEN each nonempty metadata method or typed handle WHEN paired callers run THEN the shared JDBC metadata and paired-load gates pass, null-catalog requests stay at most N+2, and decode CPU per 1,000 cells and peak RSS stay at most 1.20 times Thrift absent approved exception.
@@ -544,6 +548,7 @@ and reports a failed fetch before false ResultSet success.
 - AC158: GIVEN unknown numeric SEA format fixture WHEN deserialized and decoded THEN decoding raises a named driver error before ResultSet success and a later valid SELECT still works.
 - AC159: GIVEN first-slice single-chunk APC SELECT with no unread server page and heartbeat enabled WHEN a partly read ResultSet idles beyond two heartbeat intervals THEN no APC `/status` request is sent; cursor survival remains gated by AC136 once unread server data exists.
 - AC160: GIVEN T45's staging-only scoped link hook WHEN 429/503 responses with and without `Retry-After` fault a direct presigned-link fetch on APC and warehouse SEA THEN captures identify the external URL fetch, original target, fault point, mutation, and unrelated-caller isolation before linked JDBC AC51 exposure.
+- AC161: GIVEN T37's scoped staging delay on two ordered null-catalog schema/column fan-out futures, the first completing around 70 seconds and the second around 100 seconds from call start, WHEN `MetadataOperationTimeout=0` and SEA request timeout exceeds 180 seconds THEN APC SEA and warehouse SEA complete with both catalogs, proving the second future receives its own 90-second collection wait rather than a shared 90-second deadline. WHEN the second instead remains incomplete for more than 90 seconds after collection starts for it THEN each route fails with the fan-out timeout around that wait limit and leaves the connection usable; a positive overall timeout still wins if earlier.
 
 ## Constraints
 
@@ -577,13 +582,18 @@ propagate without fallback.
 
 ### Approach
 
-`plan.json` assigns each task once. The JDBC stack has seven packages: a live
-connection-only gate, then a live single-chunk SELECT gate, followed by result,
-bound SQL, synchronous metadata, async metadata, and batch/release gates. A
-package closes its own live paired workflows before exposing them, and its
-notes name deployed universe prerequisites. Bound SELECT precedes parameterized
-procedure metadata. The final package alone owns docs and `NEXT_CHANGELOG.md`
-and repeats the assembled release gate before production assignment.
+`plan.json` assigns each task once. The 26 JDBC packages exceed the initial
+four-to-seven target because the reviewed result, SQL, and metadata workflows
+need separate live gates to stay below the roughly 1,500-line PR cap. Result,
+metadata, and SQL branches can proceed independently after the first SELECT;
+saved close branches after connection open. Each slice is gated against paired
+routes before exposure. `parent` records the stacked PR branch;
+`prerequisites` records additional deployed cross-repository contract
+and validation gates that must close before the child can complete. Staging-only
+fault hooks are validation prerequisites, not shippable client workflows. Bound
+SELECT precedes parameterized procedure metadata. The final package alone owns
+docs and `NEXT_CHANGELOG.md` and repeats the assembled release gate before
+production assignment.
 
 ### Affected Components
 
@@ -611,8 +621,61 @@ boundaries.
 
 ## Tasks
 
-`plan.json` is the task and package inventory. T37 provides scoped session and
-read-API faults before the first JDBC gates; T45 provides scoped presigned-link
-faults before linked-result exposure; T46 provides scoped post-acceptance
-write/count faults before writes. AC144, AC160, and AC154 respectively close
-those server gates. T-val repeats the assembled live checks after all slices.
+Each task has one package in `plan.json`; a task closes its named live gate before
+the related JDBC behavior is exposed.
+
+### Server contracts and validation prerequisites
+
+- T1: Add the default-OFF APC client-config sub-flag with partner exclusion.
+- T2: Establish APC terminal command/count responses and UTF-8 SQL byte validation.
+- T3: Forward native SHOW headers and return GET_CATALOGS Arrow.
+- T4: Return GET_SCHEMAS Arrow/HIVE and GET_TABLES Arrow.
+- T5: Return GET_COLUMNS and GET_FUNCTIONS Arrow/HIVE.
+- T6: Return GET_PRIMARY_KEYS and GET_CROSS_REFERENCE Arrow/HIVE.
+- T7: Return GET_CATALOGS and GET_TABLES HIVE with repeatable null cells.
+- T8: Make CreateSession download-off override APC per-statement cloud capability.
+- T37: Provide scoped session/read API faults and delayed metadata fan-out in staging.
+- T45: Provide scoped presigned-link fetch faults in staging.
+- T46: Provide scoped post-acceptance write/count faults in staging.
+
+### JDBC connection and result workflows
+
+- T9: Open and close flag-selected APC SEA connections with a concrete cluster target.
+- T10: Run a single-chunk inline APC SELECT through polling, fetch, and close.
+- T11: Drain multi-batch inline chunks and server continuation without duplicate rows.
+- T12: Drain linked Arrow IPC chunks through final-link continuation.
+- T13: Preserve primitive, logical, complex, and geospatial getters across result modes.
+- T32: Apply direct, bounded, hybrid, and max-row settings to exposed SELECT modes.
+- T41: Honor result codec and SEA HTTP response-compression settings.
+- T42: Bound linked workers, prefetch, pools, retries, and waits under load.
+- T43: Keep download-off SELECT results inline across pages and bounded settings.
+- T44: Encode APC SEA saved session targets and close them through `Driver.closeConnection()`.
+
+### JDBC SQL, metadata, and release workflows
+
+- T14: Expose terminal no-result and counted command shapes without a false ResultSet.
+- T15: Execute legacy prepared INSERT batches with ordered chunks and counts.
+- T16: Decode and expose synchronous catalog SHOW, including HIVE null masks.
+- T17: Expose synchronous schema and table SHOW with catalog filtering.
+- T18: Expose synchronous column and function SHOW with paired errors.
+- T19: Run parameterized procedure metadata through a header-free bound SELECT.
+- T20: Expose a typed async catalog SHOW handle.
+- T21: Expose a typed async schema SHOW handle with fan-out and deadlines.
+- T22: Expose a typed async table SHOW handle.
+- T23: Expose a typed async column SHOW handle with fan-out and deadlines.
+- T24: Expose a typed async function SHOW handle.
+- T25: Expose a typed async primary-key SHOW handle.
+- T26: Expose typed async imported-key and cross-reference SHOW handles.
+- T27: Execute opt-in V10 native prepared INSERT batches with uncertain-count handling.
+- T28: Bind scalar SELECTs at negotiated and versionless capabilities.
+- T29: Expose public async SQL SELECT, await, and cancel.
+- T30: Preserve transaction and autocommit state and errors.
+- T31: Execute counted prepared DML with zero-count behavior.
+- T33: Execute supported CALL forms and reject unsupported forms before request.
+- T34: Execute sequential Statement batches with ordered failure counts.
+- T35: Expose synchronous primary/imported/cross-reference keys and exported-key parity gate.
+- T36: Publish delivered behavior and accepted-write guidance in docs and changelog.
+- T38: Return pre-execution prepared SELECT metadata without consuming bindings.
+- T39: Validate live `isValid(timeout)` through APC-targeted SQL.
+- T40: Preserve command error identity and telemetry across direct and polled completion.
+- T-val: Repeat the assembled flag, parity, resource, fault, and post-merge smoke gates.
