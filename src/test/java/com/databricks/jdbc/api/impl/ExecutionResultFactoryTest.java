@@ -13,6 +13,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ArrowBatch;
@@ -87,7 +88,7 @@ public class ExecutionResultFactoryTest {
     ResultManifest manifest =
         new ResultManifest()
             .setFormat(Format.COLUMN_BASED_SET)
-            .setSchema(new ResultSchema().setColumnCount(1L));
+            .setSchema(new ResultSchema().setColumnCount(2L));
     ResultData data =
         new ResultData()
             .setColumnarData(
@@ -95,7 +96,11 @@ public class ExecutionResultFactoryTest {
                     .setColumns(
                         List.of(
                             new ColumnVector()
-                                .setStringValues(new ColumnVector.Values<>(List.of("catalog"))))));
+                                .setNullMask(new byte[] {2})
+                                .setStringValues(
+                                    new ColumnVector.Values<>(List.of("catalog", "ignored"))),
+                            new ColumnVector()
+                                .setByteValues(new ColumnVector.Values<>(List.of(130, 2))))));
 
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
@@ -103,6 +108,10 @@ public class ExecutionResultFactoryTest {
     assertInstanceOf(ColumnarDataResult.class, result);
     assertTrue(result.next());
     assertEquals("catalog", result.getObject(0));
+    assertEquals(Byte.valueOf((byte) 130), result.getObject(1));
+    assertTrue(result.next());
+    assertNull(result.getObject(0));
+    assertEquals(Byte.valueOf((byte) 2), result.getObject(1));
   }
 
   @Test
@@ -113,10 +122,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_columnBasedSetArrowPayload() throws SQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
-    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
+  public void testGetResultSet_columnBasedSetRequiresColumnarData() {
     ResultManifest manifest =
         new ResultManifest()
             .setFormat(Format.COLUMN_BASED_SET)
@@ -125,19 +131,20 @@ public class ExecutionResultFactoryTest {
 
     ResultData inlineData = new ResultData();
     inlineData.setAttachment(new byte[0]);
-    IExecutionResult inline =
-        ExecutionResultFactory.getResultSet(
-            inlineData, manifest, STATEMENT_ID, session, parentStatement);
-    IExecutionResult cloud =
-        ExecutionResultFactory.getResultSet(
-            new ResultData().setExternalLinks(Collections.emptyList()),
-            manifest,
-            STATEMENT_ID,
-            session,
-            parentStatement);
-
-    assertInstanceOf(ArrowStreamResult.class, inline);
-    assertInstanceOf(ArrowStreamResult.class, cloud);
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            ExecutionResultFactory.getResultSet(
+                inlineData, manifest, STATEMENT_ID, session, parentStatement));
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            ExecutionResultFactory.getResultSet(
+                new ResultData().setExternalLinks(Collections.emptyList()),
+                manifest,
+                STATEMENT_ID,
+                session,
+                parentStatement));
   }
 
   @Test

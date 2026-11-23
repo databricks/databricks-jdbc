@@ -74,12 +74,12 @@ class ExecutionResultFactory {
             || manifest.getFormat() == Format.COLUMN_BASED_SET)) {
       return new ColumnarDataResult(manifest, data);
     }
-    // COLUMN_BASED_SET may carry Arrow inline or cloud data when columnar_data is absent.
     switch (manifest.getFormat()) {
       case ARROW_BATCH:
       case ARROW_STREAM:
-      case COLUMN_BASED_SET:
         return new ArrowResult(manifest, data, statementId, session);
+      case COLUMN_BASED_SET:
+        return new ColumnarDataResult(manifest, data);
       case JSON_ARRAY:
         // This is used for metadata and update commands
         return new InlineJsonResult(manifest, data, statementId, session);

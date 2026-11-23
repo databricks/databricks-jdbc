@@ -180,13 +180,6 @@ public class ColumnVector {
     return null;
   }
 
-  public Object getValue(int row) {
-    if (byteValues != null) {
-      return byteValues.getValues().get(row).byteValue();
-    }
-    return getValues().get(row);
-  }
-
   @Override
   public boolean equals(Object other) {
     if (!(other instanceof ColumnVector)) {

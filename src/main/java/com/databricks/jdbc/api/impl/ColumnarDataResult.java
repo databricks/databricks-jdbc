@@ -1,17 +1,14 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.model.core.ColumnVector;
 import com.databricks.jdbc.model.core.ColumnarData;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.util.Collections;
-import java.util.List;
 
-/** Reads one inline SEA columnar result without copying its values into rows. */
+/** Reads one inline SEA columnar result through the shared columnar view. */
 public class ColumnarDataResult implements IExecutionResult {
-  private List<ColumnVector> columns;
+  private ColumnarRowView rowView;
   private final int rowCount;
   private long currentRow = -1;
   private boolean closed;
@@ -22,27 +19,14 @@ public class ColumnarDataResult implements IExecutionResult {
     if (columnarData == null) {
       throw invalid("Missing columnar_data in SEA result");
     }
-    columns =
-        columnarData.getColumns() == null ? Collections.emptyList() : columnarData.getColumns();
+    rowView = new ColumnarRowView(columnarData);
     if (manifest != null
         && manifest.getSchema() != null
         && manifest.getSchema().getColumnCount() != null
-        && manifest.getSchema().getColumnCount() != columns.size()) {
+        && manifest.getSchema().getColumnCount() != rowView.getColumnCount()) {
       throw invalid("Columnar result does not match manifest schema");
     }
-    rowCount = columns.isEmpty() ? 0 : sizeOf(columns.get(0));
-    for (ColumnVector column : columns) {
-      if (sizeOf(column) != rowCount) {
-        throw invalid("Columnar result has inconsistent vector lengths");
-      }
-    }
-  }
-
-  private static int sizeOf(ColumnVector column) throws DatabricksSQLException {
-    if (column == null || column.getValues() == null) {
-      throw invalid("Unsupported columnar values arm");
-    }
-    return column.getValues().size();
+    rowCount = rowView.getRowCount();
   }
 
   private static DatabricksSQLException invalid(String message) {
@@ -61,18 +45,7 @@ public class ColumnarDataResult implements IExecutionResult {
     if (currentRow < 0 || currentRow >= rowCount) {
       throw invalid("Cursor is outside the columnar result");
     }
-    if (columnIndex < 0 || columnIndex >= columns.size()) {
-      throw invalid("Column index out of bounds " + columnIndex);
-    }
-    ColumnVector column = columns.get(columnIndex);
-    byte[] mask = column.getNullMask();
-    int byteIndex = (int) currentRow / 8;
-    if (mask != null
-        && byteIndex < mask.length
-        && ((mask[byteIndex] & 0xff) & (1 << ((int) currentRow % 8))) != 0) {
-      return null;
-    }
-    return column.getValue((int) currentRow);
+    return rowView.getValue((int) currentRow, columnIndex);
   }
 
   @Override
@@ -100,7 +73,7 @@ public class ColumnarDataResult implements IExecutionResult {
   @Override
   public void close() {
     closed = true;
-    columns = Collections.emptyList();
+    rowView = null;
   }
 
   @Override
