@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.DATA_EXCEPTION_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
@@ -31,7 +30,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
 
@@ -287,6 +285,11 @@ public class DatabricksThriftUtil {
 
     String typeText = getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
 
+    if (isTimeType(arrowMetadata)) {
+      columnInfoTypeName = ColumnInfoTypeName.TIME;
+      typeText = arrowMetadata;
+    }
+
     if (arrowMetadata != null
         && (isComplexType(arrowMetadata) || isGeospatialType(arrowMetadata))) {
       typeText = arrowMetadata;
@@ -478,8 +481,7 @@ public class DatabricksThriftUtil {
     try {
       Schema arrowSchema = SchemaUtility.deserialize(arrowSchemaBytes, null);
       return arrowSchema.getFields().stream()
-          .map(Field::getMetadata)
-          .map(e -> e.get(ARROW_METADATA_KEY))
+          .map(DatabricksTypeUtil::getArrowTypeText)
           .collect(Collectors.toList());
     } catch (IOException e) {
       String errorMessage = "Failed to deserialize Arrow schema: " + e.getMessage();

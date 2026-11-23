@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -21,7 +22,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.DateTimeException;
@@ -45,6 +45,8 @@ public class ComplexDataTypeParser {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ComplexDataTypeParser.class);
   private static final TimestampConverter TIMESTAMP_CONVERTER = new TimestampConverter();
+  private static final java.util.regex.Pattern TIME_LEAF =
+      java.util.regex.Pattern.compile("(?i)\\bTIME(?:\\(\\d+\\))?(?=\\s*(?:NOT NULL)?\\s*[,>]|$)");
   private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
   private final boolean geoSpatialSupportEnabled;
   private final ZoneId timestampZone;
@@ -236,6 +238,9 @@ public class ComplexDataTypeParser {
       return null;
     }
     String baseType = expectedType.trim().toUpperCase(Locale.ROOT);
+    if (DatabricksTypeUtil.isTimeType(baseType)) {
+      return TimeConverter.toLocalTime(node.asText());
+    }
     boolean isTimestampNtz = baseType.equals(DatabricksTypeUtil.TIMESTAMP_NTZ);
     try {
       if (node.isArray()) {
@@ -414,6 +419,9 @@ public class ComplexDataTypeParser {
     if (text == null) {
       return null;
     }
+    if (DatabricksTypeUtil.isTimeType(type)) {
+      return TimeConverter.toLocalTime(text);
+    }
     switch (type.toUpperCase()) {
       case DatabricksTypeUtil.INT:
         return Integer.parseInt(text);
@@ -462,8 +470,6 @@ public class ComplexDataTypeParser {
             throw e;
           }
         }
-      case DatabricksTypeUtil.TIME:
-        return Time.valueOf(text);
       case DatabricksTypeUtil.BINARY:
         // Arrow serializes BINARY inside nested types as base64-encoded strings.
         // e.g., {"bin_data":"QUJD"} for CAST('ABC' AS BINARY)
@@ -523,6 +529,9 @@ public class ComplexDataTypeParser {
     }
 
     try {
+      if (typeMetadata != null && TIME_LEAF.matcher(typeMetadata).find()) {
+        jsonString = timeLeavesAsText(readComplexJson(jsonString), typeMetadata).toString();
+      }
       if (typeMetadata != null && typeMetadata.contains(DatabricksTypeUtil.STRUCT + "<")) {
         // Arrow StructVector.getObject omits null children. Restore their field
         // presence from the schema without coercing any non-null scalar values.
@@ -531,13 +540,55 @@ public class ComplexDataTypeParser {
         jsonString = node.toString();
       }
       if (complexType.equals(DatabricksTypeUtil.MAP)) {
-        return formatMapString(jsonString, typeMetadata);
+        return formatMapString(
+            jsonString,
+            typeMetadata == null
+                ? null
+                : TIME_LEAF.matcher(typeMetadata).replaceAll(DatabricksTypeUtil.STRING));
       }
     } catch (Exception e) {
       LOGGER.warn("Failed to format complex type representation: {}", e.getMessage());
     }
 
     return jsonString;
+  }
+
+  private static JsonNode timeLeavesAsText(JsonNode node, String metadata) {
+    if (node == null || node.isNull()) {
+      return node;
+    }
+    if (DatabricksTypeUtil.isTimeType(metadata)) {
+      return JsonUtil.getMapper().valueToTree(TimeConverter.format(node.asText()));
+    }
+    if (metadata.startsWith(DatabricksTypeUtil.ARRAY) && node.isArray()) {
+      String elementType = MetadataParser.parseArrayMetadata(metadata);
+      for (int index = 0; index < node.size(); index++) {
+        ((ArrayNode) node).set(index, timeLeavesAsText(node.get(index), elementType));
+      }
+    } else if (metadata.startsWith(DatabricksTypeUtil.STRUCT) && node.isObject()) {
+      for (Map.Entry<String, String> field :
+          MetadataParser.parseStructMetadata(metadata).entrySet()) {
+        if (node.has(field.getKey())) {
+          ((ObjectNode) node)
+              .set(field.getKey(), timeLeavesAsText(node.get(field.getKey()), field.getValue()));
+        }
+      }
+    } else if (metadata.startsWith(DatabricksTypeUtil.MAP)) {
+      String[] types = MetadataParser.parseMapMetadataParts(metadata);
+      if (node.isArray()) {
+        for (JsonNode entry : node) {
+          ((ObjectNode) entry).set("key", timeLeavesAsText(entry.get("key"), types[0]));
+          ((ObjectNode) entry).set("value", timeLeavesAsText(entry.get("value"), types[1]));
+        }
+      } else if (node.isObject()) {
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+          Map.Entry<String, JsonNode> field = fields.next();
+          field.setValue(timeLeavesAsText(field.getValue(), types[1]));
+        }
+      }
+    }
+    return node;
   }
 
   private static JsonNode readComplexJson(String json) throws IOException {

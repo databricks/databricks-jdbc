@@ -92,6 +92,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
+          if (isTimeType(columnInfo.getTypeText())) {
+            columnTypeName = ColumnInfoTypeName.TIME;
+          }
           // For TIMESTAMP_NTZ columns, getTypeName() returns null because the SDK
           // ColumnInfoTypeName enum has no TIMESTAMP_NTZ value. Use typeText to
           // identify the type and map it to the TIMESTAMP enum so the java.sql type
@@ -242,6 +245,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           // (see GitHub issue #1495).
           boolean isTimestampNtz =
               columnTypeText != null && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ);
+          if (isTimeType(columnTypeText)) {
+            columnTypeText = TIME;
+          }
           if (isTimestampNtz && !ctx.isTimestampNtzTypeNameEnabled()) {
             columnTypeText = TIMESTAMP;
           }
@@ -739,6 +745,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
+    if (columnType == Types.TIME) {
+      String typeText = columnInfo.getTypeText();
+      int open = typeText == null ? -1 : typeText.indexOf('(');
+      int scale =
+          open < 0
+              ? 6
+              : Integer.parseInt(typeText.substring(open + 1, typeText.indexOf(')', open)).trim());
+      return new int[] {8 + (scale > 0 ? scale + 1 : 0), scale};
+    }
     int[] result = getBasePrecisionAndScale(columnType, ctx);
     if (columnInfo.getTypePrecision() != null) {
       result[0] = Math.toIntExact(columnInfo.getTypePrecision()); // precision

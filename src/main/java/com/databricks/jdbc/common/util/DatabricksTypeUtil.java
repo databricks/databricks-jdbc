@@ -1,5 +1,8 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
+
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -21,6 +24,7 @@ import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 /**
  * Utility class for handling various type conversions and mappings between <a
@@ -114,6 +118,9 @@ public class DatabricksTypeUtil {
    * ColumnInfoTypeName#USER_DEFINED_TYPE} for unrecognized types.
    */
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
+    if (isTimeType(typeName)) {
+      return ColumnInfoTypeName.TIME;
+    }
     switch (typeName) {
       case DatabricksTypeUtil.CHAR:
       case DatabricksTypeUtil.NCHAR:
@@ -214,6 +221,8 @@ public class DatabricksTypeUtil {
         return Types.VARCHAR;
       case TIMESTAMP:
         return Types.TIMESTAMP;
+      case TIME:
+        return Types.TIME;
       case DATE:
         return Types.DATE;
       case STRUCT:
@@ -266,6 +275,8 @@ public class DatabricksTypeUtil {
         return "java.lang.String";
       case TIMESTAMP:
         return "java.sql.Timestamp";
+      case TIME:
+        return TimeConverter.DEFAULT_OBJECT_CLASS.getName();
       case DATE:
         return "java.sql.Date";
       case STRUCT:
@@ -335,6 +346,8 @@ public class DatabricksTypeUtil {
         // https://docs.oracle.com/en/java/javase/21/docs/api/java.sql/java/sql/Timestamp.html#toString()
       case DATE:
         return 10;
+      case TIME:
+        return 8 + (scale > 0 ? scale + 1 : 0);
       case NULL:
         return 4; // Length of `NULL`
       case ARRAY:
@@ -547,6 +560,27 @@ public class DatabricksTypeUtil {
 
   public static boolean isTemporalType(Object obj) {
     return isTimestamp(obj) || isDate(obj);
+  }
+
+  public static boolean isTimeType(String typeName) {
+    if (typeName == null) {
+      return false;
+    }
+    String normalized = typeName.trim();
+    return normalized.equalsIgnoreCase(TIME) || normalized.regionMatches(true, 0, "TIME(", 0, 5);
+  }
+
+  public static String getArrowTypeText(Field field) {
+    String typeText = field.getMetadata().get(ARROW_METADATA_KEY);
+    String precision = field.getMetadata().get("SPARK::time::precision");
+    if ((typeText == null || TIME.equalsIgnoreCase(typeText)) && precision != null) {
+      return "TIME(" + precision + ")";
+    }
+    if (typeText == null && field.getType() instanceof ArrowType.Time) {
+      int scale = ((ArrowType.Time) field.getType()).getUnit().ordinal() * 3;
+      return "TIME(" + scale + ")";
+    }
+    return typeText;
   }
 
   public static TPrimitiveTypeEntry getTPrimitiveTypeOrDefault(TTypeDesc typeDesc) {

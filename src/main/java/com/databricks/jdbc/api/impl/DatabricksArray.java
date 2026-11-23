@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -18,7 +19,6 @@ import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.ZoneId;
@@ -188,7 +188,7 @@ public class DatabricksArray implements Array {
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
         case DatabricksTypeUtil.TIME:
-          return Time.valueOf(value.toString());
+          return TimeConverter.toSqlTime(value);
         case DatabricksTypeUtil.BINARY:
           return value instanceof byte[] ? value : value.toString().getBytes();
         case DatabricksTypeUtil.STRING:
@@ -438,7 +438,15 @@ public class DatabricksArray implements Array {
         sb.append(",");
       }
 
-      sb.append(JsonUtil.formatComplexValue(elements[i]));
+      Object value = elements[i];
+      if (value != null && DatabricksTypeUtil.isTimeType(elementType)) {
+        Object exact =
+            temporalElements == null
+                ? value
+                : ComplexDataTypeParser.toExactTemporal(temporalElements[i], elementType);
+        value = TimeConverter.format(exact == null ? value : exact);
+      }
+      sb.append(JsonUtil.formatComplexValue(value));
     }
     sb.append("]");
     return sb.toString();

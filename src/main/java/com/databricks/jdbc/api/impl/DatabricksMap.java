@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -8,7 +9,6 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +20,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private final Map<K, V> map;
   private final String keyType;
   private final String valueType;
+  private final Map<K, java.time.LocalTime> timeValues = new LinkedHashMap<>();
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMap.class);
 
   /**
@@ -57,6 +58,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       K key = convertSimpleValue(entry.getKey(), keyType);
       V value = convertValue(entry.getValue(), valueType);
       convertedMap.put(key, value);
+      if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
+        timeValues.put(key, TimeConverter.toLocalTime(entry.getValue()));
+      }
       LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
     }
     return convertedMap;
@@ -157,7 +161,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         case DatabricksTypeUtil.TIMESTAMP:
           return (T) Timestamp.valueOf(value.toString());
         case DatabricksTypeUtil.TIME:
-          return (T) Time.valueOf(value.toString());
+          return (T) TimeConverter.toSqlTime(value);
         case DatabricksTypeUtil.BINARY:
           return (T) (value instanceof byte[] ? value : value.toString().getBytes());
         case DatabricksTypeUtil.STRING:
@@ -244,9 +248,16 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       } else {
         first = false;
       }
+      Object value = entry.getValue();
+      if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
+        java.time.LocalTime exact = timeValues.get(entry.getKey());
+        value =
+            TimeConverter.format(
+                exact != null && TimeConverter.toSqlTime(exact).equals(value) ? exact : value);
+      }
       sb.append(JsonUtil.formatComplexValue(entry.getKey()))
           .append(":")
-          .append(JsonUtil.formatComplexValue(entry.getValue()));
+          .append(JsonUtil.formatComplexValue(value));
     }
     sb.append("}");
     return sb.toString();

@@ -111,7 +111,8 @@ public final class JavaTimeConverter {
    *     OffsetDateTime}
    */
   public static boolean isJavaTimeType(Class<?> type) {
-    return type == LocalDate.class
+    return type == java.time.LocalTime.class
+        || type == LocalDate.class
         || type == LocalDateTime.class
         || type == Instant.class
         || type == OffsetDateTime.class;
@@ -138,6 +139,13 @@ public final class JavaTimeConverter {
       throws DatabricksSQLException {
     if (value == null) {
       return null;
+    }
+    if (columnSqlType == Types.TIME && type == java.time.LocalTime.class) {
+      try {
+        return TimeConverter.toLocalTime(value);
+      } catch (java.time.DateTimeException | IllegalArgumentException exception) {
+        throw unsupported("Cannot parse the TIME value as java.time.LocalTime");
+      }
     }
     boolean isText = isCharacterType(columnSqlType);
     if (!isSupportedColumnType(columnSqlType)) {
@@ -186,6 +194,7 @@ public final class JavaTimeConverter {
    */
   public static boolean isSupportedColumnType(int columnSqlType) {
     return columnSqlType == Types.DATE
+        || columnSqlType == Types.TIME
         || columnSqlType == Types.TIMESTAMP
         || isCharacterType(columnSqlType);
   }
@@ -266,6 +275,9 @@ public final class JavaTimeConverter {
 
   private static int temporalSqlType(String typeName) {
     String baseType = typeName.trim().toUpperCase(Locale.ROOT);
+    if (com.databricks.jdbc.common.util.DatabricksTypeUtil.isTimeType(baseType)) {
+      return Types.TIME;
+    }
     if (baseType.equals(DATE)) {
       return Types.DATE;
     }

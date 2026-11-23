@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -181,7 +182,7 @@ public class DatabricksStruct implements Struct {
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
         case DatabricksTypeUtil.TIME:
-          return Time.valueOf(value.toString());
+          return TimeConverter.toSqlTime(value);
         case DatabricksTypeUtil.BINARY:
           return value instanceof byte[] ? value : value.toString().getBytes();
         case DatabricksTypeUtil.STRING:
@@ -286,7 +287,16 @@ public class DatabricksStruct implements Struct {
         sb.append(",");
       }
       sb.append(JsonUtil.formatComplexValue(fieldNames.get(i))).append(":");
-      sb.append(JsonUtil.formatComplexValue(attributes[i]));
+      Object value = attributes[i];
+      String fieldType = fieldTypes.get(i);
+      if (value != null && DatabricksTypeUtil.isTimeType(fieldType)) {
+        Object exact =
+            temporalAttributes == null
+                ? value
+                : ComplexDataTypeParser.toExactTemporal(temporalAttributes[i], fieldType);
+        value = TimeConverter.format(exact == null ? value : exact);
+      }
+      sb.append(JsonUtil.formatComplexValue(value));
     }
     sb.append("}");
     return sb.toString();

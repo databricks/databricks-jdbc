@@ -255,6 +255,9 @@ public class MetadataParser {
    * @return the cleaned type name without "NOT NULL" constraints
    */
   private static String cleanTypeName(String typeName) {
-    return typeName.replaceAll(" NOT NULL", "").trim();
+    String cleaned = typeName.replaceAll(" NOT NULL", "").trim();
+    return com.databricks.jdbc.common.util.DatabricksTypeUtil.isTimeType(cleaned)
+        ? "TIME"
+        : cleaned;
   }
 }

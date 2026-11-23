@@ -406,7 +406,7 @@ public class ConverterHelper {
     CONVERTER_CACHE.put(Types.DECIMAL, new BigDecimalConverter());
     CONVERTER_CACHE.put(Types.BOOLEAN, new BooleanConverter());
     CONVERTER_CACHE.put(Types.DATE, new DateConverter());
-    CONVERTER_CACHE.put(Types.TIME, new TimestampConverter());
+    CONVERTER_CACHE.put(Types.TIME, new TimeConverter());
     CONVERTER_CACHE.put(Types.TIMESTAMP, new TimestampConverter());
     CONVERTER_CACHE.put(Types.BINARY, new ByteArrayConverter());
     CONVERTER_CACHE.put(Types.BIT, new BitConverter());
@@ -445,7 +445,8 @@ public class ConverterHelper {
       case Types.DATE:
         return convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, object);
       case Types.TIME:
-        return convertSqlTypeToSpecificJavaType(Time.class, Types.TIME, object);
+        return convertSqlTypeToSpecificJavaType(
+            TimeConverter.DEFAULT_OBJECT_CLASS, Types.TIME, object);
       case Types.TIMESTAMP:
         return convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, object);
       case Types.BINARY:
