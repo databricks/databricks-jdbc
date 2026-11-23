@@ -628,6 +628,40 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcMetadataUsesArrowStreamForInlineOrCloudResults() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.LZ4_FRAME);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+
+    databricksSdkClient.executeStatement(
+        "SHOW TABLES",
+        allPurposeCluster,
+        Collections.emptyMap(),
+        StatementType.METADATA,
+        session,
+        null,
+        MetadataOperationType.GET_TABLES);
+
+    ArgumentCaptor<Request> transportCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(transportCaptor.capture(), eq(ExecuteStatementResponse.class));
+    JsonNode body = new ObjectMapper().readTree(transportCaptor.getValue().getBodyString());
+    assertEquals("ARROW_STREAM", body.path("format").asText());
+    assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
+    assertEquals("LZ4_FRAME", body.path("result_compression").asText());
+  }
+
+  @Test
   public void testApcExecuteStatementFetchesMissingInitialResult() throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
