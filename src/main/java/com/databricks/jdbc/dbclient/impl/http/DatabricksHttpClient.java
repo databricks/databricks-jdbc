@@ -40,6 +40,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.IdleConnectionEvictor;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.protocol.HttpContext;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
@@ -77,6 +78,18 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
       throws DatabricksHttpException {
+    return execute(request, supportGzipEncoding, null);
+  }
+
+  @Override
+  public CloseableHttpResponse execute(HttpUriRequest request, HttpContext context)
+      throws DatabricksHttpException {
+    return execute(request, false, context);
+  }
+
+  private CloseableHttpResponse execute(
+      HttpUriRequest request, boolean supportGzipEncoding, HttpContext context)
+      throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request {}", RequestSanitizer.sanitizeRequest(request));
     if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
       // TODO : allow gzip in wiremock
@@ -87,7 +100,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {
         request.setHeader("User-Agent", userAgentString);
       }
-      return httpClient.execute(request);
+      return context == null ? httpClient.execute(request) : httpClient.execute(request, context);
     } catch (IOException e) {
       throwHttpException(e, request);
     }

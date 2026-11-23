@@ -26,6 +26,7 @@ public class DatabricksHttpRetryHandler
       JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
 
   static final String RETRY_INTERVAL_KEY = "retryInterval";
+  public static final String OPEN_SESSION_REQUEST_KEY = "databricks.thrift.openSession";
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
@@ -62,14 +63,14 @@ public class DatabricksHttpRetryHandler
    *     </ul>
    *     <p>This method adheres to the contract specified by its parent interface or class. It's
    *     designed to be called as part of the HTTP response handling pipeline.
-   * @see #isStatusCodeRetryable(int)
+   * @see #isStatusCodeRetryable(int, HttpContext)
    * @see #initializeRetryAccumulatedTimeIfNotExist(HttpContext)
    * @see DatabricksRetryHandlerException
    */
   @Override
   public void process(HttpResponse httpResponse, HttpContext httpContext) throws IOException {
     int statusCode = httpResponse.getStatusLine().getStatusCode();
-    if (!isStatusCodeRetryable(statusCode)) {
+    if (!isStatusCodeRetryable(statusCode, httpContext)) {
       // If the status code is not retryable, then no processing is needed for retry
       return;
     }
@@ -121,7 +122,7 @@ public class DatabricksHttpRetryHandler
    *     </ul>
    *     If all checks pass, the method updates retry counters, calculates a delay, and sleeps for
    *     the calculated duration before allowing a retry.
-   * @see #isStatusCodeRetryable(int)
+   * @see #isStatusCodeRetryable(int, HttpContext)
    * @see #isRequestMethodRetryable(String)
    * @see #calculateDelayInMillis(int, int, int)
    * @see #doSleepForDelay(long)
@@ -130,7 +131,7 @@ public class DatabricksHttpRetryHandler
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
     // check if retrying this status code is supported
     int statusCode = getErrorCodeFromException(exception);
-    if (!isStatusCodeRetryable(statusCode)) {
+    if (!isStatusCodeRetryable(statusCode, context)) {
       return false;
     }
 
@@ -139,7 +140,7 @@ public class DatabricksHttpRetryHandler
 
     Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableHttpCodes();
     boolean isInCustomRetriableCodes = apiRetriableCodes.contains(statusCode);
-    if (retryInterval == -1 && !isInCustomRetriableCodes) {
+    if (retryInterval == -1 && !isInCustomRetriableCodes && !isOpenSessionRequest(context)) {
       // This case arises when the server does not send the retryAfter header
       // and the status code is not in the custom retriable codes list
       LOGGER.warn(
@@ -171,9 +172,9 @@ public class DatabricksHttpRetryHandler
       return false;
     }
 
-    // check if retry timeout has been hit for error code 503
+    // Check the shared temporary-unavailability retry budget.
     if (!isInCustomRetriableCodes
-        && statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
+        && statusCode != HttpStatus.SC_TOO_MANY_REQUESTS
         && tempUnavailableAccumulatedTime + retryInterval
             > connectionContext.getTemporarilyUnavailableRetryTimeout()) {
       LOGGER.warn(
@@ -209,7 +210,7 @@ public class DatabricksHttpRetryHandler
     // update the accumulated time in context
     if (isInCustomRetriableCodes) {
       context.setAttribute(API_CODES_ACCUMULATED_TIME_KEY, apiCodesAccumulatedTime + retryInterval);
-    } else if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
+    } else if (statusCode != HttpStatus.SC_TOO_MANY_REQUESTS) {
       context.setAttribute(
           TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY, tempUnavailableAccumulatedTime + retryInterval);
     } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
@@ -283,13 +284,18 @@ public class DatabricksHttpRetryHandler
   }
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
-  private boolean isStatusCodeRetryable(int statusCode) {
+  private boolean isStatusCodeRetryable(int statusCode, HttpContext context) {
     Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableHttpCodes();
     if (apiRetriableCodes.contains(statusCode)) {
       return true;
     }
 
     switch (statusCode) {
+      case HttpStatus.SC_BAD_GATEWAY:
+      case HttpStatus.SC_GATEWAY_TIMEOUT:
+      case HttpStatus.SC_REQUEST_TIMEOUT:
+        return isOpenSessionRequest(context)
+            && connectionContext.shouldRetryTemporarilyUnavailableError();
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         return connectionContext.shouldRetryTemporarilyUnavailableError();
       case HttpStatus.SC_TOO_MANY_REQUESTS:
@@ -297,5 +303,9 @@ public class DatabricksHttpRetryHandler
       default:
         return false;
     }
+  }
+
+  private static boolean isOpenSessionRequest(HttpContext context) {
+    return Boolean.TRUE.equals(context.getAttribute(OPEN_SESSION_REQUEST_KEY));
   }
 }

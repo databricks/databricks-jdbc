@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpRetryHandler;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -18,6 +19,7 @@ import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.util.EntityUtils;
 import org.apache.thrift.TConfiguration;
@@ -38,6 +40,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
   private final IDatabricksConnectionContext connectionContext;
+  private boolean openSessionRequest;
   DatabricksConfig databricksConfig;
 
   public DatabricksHttpTTransport(
@@ -57,6 +60,10 @@ public class DatabricksHttpTTransport extends TTransport {
   public boolean isOpen() {
     // HTTP Client doesn't maintain an open connection.
     return true;
+  }
+
+  void setOpenSessionRequest(boolean openSessionRequest) {
+    this.openSessionRequest = openSessionRequest;
   }
 
   @Override
@@ -125,7 +132,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
     // Execute the request and handle the response
     long httpRequestStartTime = System.currentTimeMillis();
-    try (CloseableHttpResponse response = httpClient.execute(request)) {
+    try (CloseableHttpResponse response = executeRequest(request)) {
 
       ValidationUtil.checkHTTPError(response);
 
@@ -149,6 +156,15 @@ public class DatabricksHttpTTransport extends TTransport {
       LOGGER.error(e, errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage, e);
     }
+  }
+
+  private CloseableHttpResponse executeRequest(HttpPost request) throws DatabricksHttpException {
+    if (!openSessionRequest) {
+      return httpClient.execute(request);
+    }
+    HttpClientContext context = HttpClientContext.create();
+    context.setAttribute(DatabricksHttpRetryHandler.OPEN_SESSION_REQUEST_KEY, true);
+    return httpClient.execute(request, context);
   }
 
   @Override

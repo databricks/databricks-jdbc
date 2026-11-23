@@ -1,7 +1,9 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
+import static com.databricks.jdbc.dbclient.impl.http.DatabricksHttpRetryHandler.OPEN_SESSION_REQUEST_KEY;
 import static com.databricks.jdbc.dbclient.impl.http.DatabricksHttpRetryHandler.isRequestMethodRetryable;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -22,6 +24,8 @@ import org.apache.http.protocol.HttpCoreContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -288,6 +292,134 @@ public class DatabricksHttpRetryHandlerTest {
     long expectedDelay = DatabricksHttpRetryHandler.calculateExponentialBackoff(1);
     assertEquals(1, sleepDurations.size());
     assertEquals(expectedDelay, sleepDurations.get(0));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void openSessionRetriesWithoutRetryAfter(int statusCode) throws IOException {
+    configureOpenSession();
+    DatabricksRetryHandlerException exception =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () -> retryHandler.process(createResponse(statusCode), httpContext));
+
+    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+    assertEquals(List.of(2000L), sleepDurations);
+    retryHandler.process(createResponse(200), httpContext);
+    assertEquals(List.of(2000L), sleepDurations);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void unmarkedPostDoesNotGainHeaderlessRetries(int statusCode) throws IOException {
+    configureOpenSession();
+    httpContext.removeAttribute(OPEN_SESSION_REQUEST_KEY);
+    if (statusCode == 503 || statusCode == 429) {
+      DatabricksRetryHandlerException exception =
+          assertThrows(
+              DatabricksRetryHandlerException.class,
+              () -> retryHandler.process(createResponse(statusCode), httpContext));
+      assertFalse(retryHandler.retryRequest(exception, 1, httpContext));
+    } else {
+      retryHandler.process(createResponse(statusCode), httpContext);
+      assertFalse(
+          retryHandler.retryRequest(
+              new DatabricksRetryHandlerException("Test", statusCode), 1, httpContext));
+    }
+    assertTrue(sleepDurations.isEmpty());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void openSessionRetriesStayWithinExistingBudget(int statusCode) {
+    configureOpenSession();
+    lenient().when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(6);
+    lenient().when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(6);
+    DatabricksRetryHandlerException exception =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () -> retryHandler.process(createResponse(statusCode), httpContext));
+
+    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+    assertTrue(retryHandler.retryRequest(exception, 2, httpContext));
+    assertFalse(retryHandler.retryRequest(exception, 3, httpContext));
+    assertEquals(List.of(2000L, 4000L), sleepDurations);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void openSessionRespectsDisabledRetry(int statusCode) throws IOException {
+    configureOpenSession();
+    lenient()
+        .when(mockConnectionContext.shouldRetryTemporarilyUnavailableError())
+        .thenReturn(false);
+    lenient().when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(false);
+
+    retryHandler.process(createResponse(statusCode), httpContext);
+    assertFalse(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", statusCode), 1, httpContext));
+    assertTrue(sleepDurations.isEmpty());
+  }
+
+  @Test
+  void openSessionSharesTemporaryUnavailableBudgetAcrossGatewayCodes() {
+    configureOpenSession();
+    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(6);
+    int executionCount = 1;
+    for (int statusCode : new int[] {503, 502, 504}) {
+      DatabricksRetryHandlerException exception =
+          assertThrows(
+              DatabricksRetryHandlerException.class,
+              () -> retryHandler.process(createResponse(statusCode), httpContext));
+      assertEquals(
+          executionCount < 3, retryHandler.retryRequest(exception, executionCount++, httpContext));
+    }
+    assertEquals(List.of(2000L, 4000L), sleepDurations);
+  }
+
+  private void configureOpenSession() {
+    httpContext.setAttribute(OPEN_SESSION_REQUEST_KEY, true);
+    httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, createRequest("POST", "/sql/thrift"));
+    lenient().when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
+    lenient().when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
+    lenient().when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(900);
+    lenient().when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(120);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void openSessionHonorsRetryAfterAndZeroBudgets(int statusCode) {
+    configureOpenSession();
+    HttpResponse response = createResponse(statusCode);
+    response.setHeader("retry-after", "3");
+    DatabricksRetryHandlerException exception =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () -> retryHandler.process(response, httpContext));
+    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+    assertEquals(List.of(3000L), sleepDurations);
+    lenient().when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(0);
+    lenient().when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(0);
+    assertFalse(retryHandler.retryRequest(exception, 2, httpContext));
+    assertEquals(List.of(3000L), sleepDurations);
+  }
+
+  @Test
+  void openSessionRetainsCustomCodePrecedence() {
+    configureOpenSession();
+    when(mockConnectionContext.getApiRetriableHttpCodes()).thenReturn(java.util.Set.of(502));
+    when(mockConnectionContext.getApiRetryTimeout()).thenReturn(2);
+    lenient()
+        .when(mockConnectionContext.shouldRetryTemporarilyUnavailableError())
+        .thenReturn(false);
+    DatabricksRetryHandlerException exception =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () -> retryHandler.process(createResponse(502), httpContext));
+    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+    assertFalse(retryHandler.retryRequest(exception, 2, httpContext));
+    assertEquals(List.of(2000L), sleepDurations);
   }
 
   private HttpResponse createResponse(int statusCode) {

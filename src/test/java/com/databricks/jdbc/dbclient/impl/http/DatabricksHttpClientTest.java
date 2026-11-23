@@ -10,6 +10,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
@@ -20,6 +21,7 @@ import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -29,6 +31,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -213,6 +217,27 @@ public class DatabricksHttpClientTest {
     when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
     assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void retryExhaustionWithRequestContextRetainsErrorIdentity(int statusCode) throws IOException {
+    HttpClientContext context = HttpClientContext.create();
+    context.setAttribute(DatabricksHttpRetryHandler.OPEN_SESSION_REQUEST_KEY, true);
+    when(mockRequest.getURI()).thenReturn(URI.create("https://example.com/thrift"));
+    DatabricksRetryHandlerException cause =
+        new DatabricksRetryHandlerException("Retry failure", statusCode);
+    when(mockHttpClient.execute(mockRequest, context)).thenThrow(cause);
+
+    DatabricksHttpException exception =
+        assertThrows(
+            DatabricksHttpException.class,
+            () -> databricksHttpClient.execute(mockRequest, context));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
+    assertEquals(1019, DatabricksDriverErrorCode.INVALID_STATE.getCode());
+    assertEquals(0, exception.getErrorCode());
+    assertSame(cause, exception.getCause());
+    assertEquals("Retry failure", exception.getMessage());
   }
 
   @Test
