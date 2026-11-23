@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.ApcSeaPrototype;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
@@ -23,8 +22,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -235,85 +232,19 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testApcSeaPrototypeDoesNotFallbackAfterRateLimit() throws SQLException {
-    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
-    try {
-      connectionContext =
-          DatabricksConnectionContext.parse(
-              VALID_CLUSTER_URL + ";UseThriftClient=0", new Properties());
-      when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
-          .thenThrow(new DatabricksRateLimitException("rate limited", 429));
+  public void testApcSeaDoesNotFallbackAfterRateLimit() throws SQLException {
+    connectionContext =
+        DatabricksConnectionContext.parse(
+            VALID_CLUSTER_URL + ";UseThriftClient=0", new Properties());
+    when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
+        .thenThrow(new DatabricksRateLimitException("rate limited", 429));
 
-      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
 
-      assertThrows(DatabricksRateLimitException.class, session::open);
-      assertFalse(session.isOpen());
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      verifyNoInteractions(thriftClient);
-    } finally {
-      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
-    }
-  }
-
-  @Test
-  public void testApcSeaPrototypeMarkerEmittedAfterSuccessfulSession() throws SQLException {
-    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
-    PrintStream originalOut = System.out;
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    try {
-      System.setOut(new PrintStream(output));
-      connectionContext =
-          DatabricksConnectionContext.parse(
-              VALID_CLUSTER_URL + ";UseThriftClient=0", new Properties());
-      ImmutableSessionInfo sessionInfo =
-          ImmutableSessionInfo.builder()
-              .sessionId(SESSION_ID)
-              .computeResource(CLUSTER_COMPUTE)
-              .build();
-      when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
-          .thenReturn(sessionInfo);
-
-      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-      assertEquals("", output.toString());
-      session.open();
-
-      assertEquals(
-          "JDBC_APC_ROUTE route=SEA compute=APC no_fallback=true" + System.lineSeparator(),
-          output.toString());
-    } finally {
-      System.setOut(originalOut);
-      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
-    }
-  }
-
-  @Test
-  public void testApcThriftPrototypeMarkerIdentifiesBaseline() throws SQLException {
-    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
-    PrintStream originalOut = System.out;
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    try {
-      System.setOut(new PrintStream(output));
-      connectionContext =
-          DatabricksConnectionContext.parse(
-              VALID_CLUSTER_URL + ";UseThriftClient=1", new Properties());
-      ImmutableSessionInfo sessionInfo =
-          ImmutableSessionInfo.builder()
-              .sessionId(SESSION_ID)
-              .computeResource(CLUSTER_COMPUTE)
-              .build();
-      when(thriftClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
-          .thenReturn(sessionInfo);
-
-      DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-      session.open();
-
-      assertEquals(
-          "JDBC_APC_ROUTE route=THRIFT compute=APC no_fallback=false" + System.lineSeparator(),
-          output.toString());
-    } finally {
-      System.setOut(originalOut);
-      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
-    }
+    assertThrows(DatabricksRateLimitException.class, session::open);
+    assertFalse(session.isOpen());
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    verifyNoInteractions(thriftClient);
   }
 
   @Test

@@ -43,6 +43,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
+  private static final String APC_SQL_EXEC_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc";
 
   private final String host;
   @VisibleForTesting final int port;
@@ -508,10 +510,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
-      if (isApcSeaPrototype()) {
-        return DatabricksClientType.SEA;
-      }
-      return DatabricksClientType.THRIFT;
+      return getAllPurposeClusterClientType();
     }
     // First we will check if user as explicitly provided a client type, and we will honour that
     String useThriftClient = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
@@ -561,6 +560,40 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return DatabricksClientType.THRIFT;
   }
 
+  private DatabricksClientType getAllPurposeClusterClientType() {
+    if (!shouldEnableArrow()) {
+      return DatabricksClientType.THRIFT;
+    }
+
+    String useThriftClient = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
+    if ("1".equals(useThriftClient)) {
+      return DatabricksClientType.THRIFT;
+    }
+    if ("0".equals(useThriftClient)) {
+      String explicitCatalogAsPattern =
+          getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
+      if ("1".equals(explicitCatalogAsPattern)) {
+        LOGGER.warn(
+            "UseThriftClient=0 (SEA) is set alongside the Thrift-only metadata param "
+                + "TreatMetadataCatalogNameAsPattern={}. Honouring SEA — this metadata param "
+                + "will have no effect.",
+            explicitCatalogAsPattern);
+      }
+      return DatabricksClientType.SEA;
+    }
+
+    String explicitCatalogAsPattern =
+        getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
+    if ("1".equals(explicitCatalogAsPattern)) {
+      return DatabricksClientType.THRIFT;
+    }
+
+    return DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+            .getBoolean(APC_SQL_EXEC_FLAG_NAME)
+        ? DatabricksClientType.SEA
+        : DatabricksClientType.THRIFT;
+  }
+
   @Override
   public DatabricksClientType getClientType() {
     return clientTypeSupplier.get();
@@ -568,17 +601,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public void setClientType(DatabricksClientType clientType) {
     this.clientTypeSupplier = () -> clientType;
-  }
-
-  @Override
-  public boolean isApcPrototypeEnabled() {
-    return computeResource instanceof AllPurposeCluster && ApcSeaPrototype.isEnabled();
-  }
-
-  @Override
-  public boolean isApcSeaPrototype() {
-    return isApcPrototypeEnabled()
-        && "0".equals(getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT));
   }
 
   @Override

@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
-import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -22,10 +21,8 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
-import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -33,14 +30,8 @@ import java.util.Collection;
 import java.util.List;
 
 /** Result container for Arrow-based query results. */
-public class ArrowStreamResult implements IExecutionResult {
+public class ArrowStreamResult extends AbstractArrowResult {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowStreamResult.class);
-  private final ChunkProvider chunkProvider;
-  private long currentRowIndex = -1;
-  private boolean isClosed;
-  private ArrowResultChunkIterator chunkIterator;
-  private List<ColumnInfo> columnInfos;
-  private final IDatabricksSession session;
 
   public ArrowStreamResult(
       ResultManifest resultManifest,
@@ -64,50 +55,55 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
-    this.session = session;
+    this(
+        createSqlExecChunkProvider(resultManifest, resultData, statementId, session, httpClient),
+        resultManifest,
+        session);
+  }
 
+  private ArrowStreamResult(
+      ChunkProvider chunkProvider, ResultManifest resultManifest, IDatabricksSession session) {
+    super(
+        chunkProvider,
+        resultManifest.getSchema().getColumnCount() == 0
+            ? new ArrayList<>()
+            : new ArrayList<>(resultManifest.getSchema().getColumns()),
+        session);
+  }
+
+  private static ChunkProvider createSqlExecChunkProvider(
+      ResultManifest resultManifest,
+      ResultData resultData,
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
+      throws DatabricksSQLException {
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    boolean hasExternalLinks =
-        resultData != null
-            && resultData.getExternalLinks() != null
-            && !resultData.getExternalLinks().isEmpty();
-    if (resultManifest.getFormat() == Format.ARROW_BATCH && !hasExternalLinks) {
-      LOGGER.debug(
-          "Creating ArrowStreamResult with native Arrow batches for statementId: {}",
-          statementId.toSQLExecStatementId());
-      this.chunkProvider =
-          ArrowBatchChunkProviderFactory.create(resultData, resultManifest, statementId, session);
-    } else if (totalChunkCount != null && totalChunkCount == 0) {
+    if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
-      this.chunkProvider = new EmptyChunkProvider();
-    } else {
-      boolean isInlineArrow = resultData.getAttachment() != null;
-      IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-      if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
-        LOGGER.debug(
-            "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
-            statementId.toSQLExecStatementId());
-        this.chunkProvider =
-            new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
-      } else if (isInlineArrow) {
-        LOGGER.debug(
-            "Creating ArrowStreamResult with inline attachment for statementId: {}",
-            statementId.toSQLExecStatementId());
-        this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
-      } else {
-        LOGGER.debug(
-            "Creating ArrowStreamResult with remote links for statementId: {}",
-            statementId.toSQLExecStatementId());
-        this.chunkProvider =
-            createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
-      }
+      return new EmptyChunkProvider();
     }
-    this.columnInfos =
-        resultManifest.getSchema().getColumnCount() == 0
-            ? new ArrayList<>()
-            : new ArrayList<>(resultManifest.getSchema().getColumns());
+
+    boolean isInlineArrow = resultData.getAttachment() != null;
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
+      LOGGER.debug(
+          "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
+          statementId.toSQLExecStatementId());
+      return new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
+    }
+    if (isInlineArrow) {
+      LOGGER.debug(
+          "Creating ArrowStreamResult with inline attachment for statementId: {}",
+          statementId.toSQLExecStatementId());
+      return new InlineChunkProvider(resultData, resultManifest);
+    }
+    LOGGER.debug(
+        "Creating ArrowStreamResult with remote links for statementId: {}",
+        statementId.toSQLExecStatementId());
+    return createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
   }
 
   /**
@@ -193,10 +189,10 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws SQLException {
-    this.session = session;
-    this.columnInfos = getColumnInfoList(resultsResp.getResultSetMetadata());
-    this.chunkProvider =
-        createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
+    super(
+        createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient),
+        getColumnInfoList(resultsResp.getResultSetMetadata()),
+        session);
   }
 
   /**
@@ -257,49 +253,6 @@ public class ArrowStreamResult implements IExecutionResult {
     }
   }
 
-  public List<String> getArrowMetadata() throws DatabricksSQLException {
-    if (chunkProvider == null || chunkProvider.getChunk() == null) {
-      return null;
-    }
-    return chunkProvider.getChunk().getArrowMetadata();
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public Object getObject(int columnIndex) throws DatabricksSQLException {
-    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
-      throw new DatabricksSQLException(
-          "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
-    }
-    ColumnInfo columnInfo = columnInfos.get(columnIndex);
-    ColumnInfoTypeName requiredType = columnInfo.getTypeName();
-    String arrowMetadata = chunkIterator.getType(columnIndex);
-    if (arrowMetadata == null) {
-      arrowMetadata = columnInfo.getTypeText();
-    }
-
-    return getObjectWithComplexTypeHandling(
-        session, chunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
-    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
-      return getObject(columnIndex); // reports the invalid index
-    }
-    if (chunkIterator == null) {
-      throw new DatabricksSQLException(
-          "Cursor is before first row",
-          DatabricksDriverErrorCode.INVALID_STATE.name(),
-          DatabricksDriverErrorCode.INVALID_STATE);
-    }
-    if (chunkIterator.hasJavaTimeVector(columnIndex)) {
-      return chunkIterator.getJavaTimeObjectAtCurrentRow(columnIndex);
-    }
-    return getObject(columnIndex);
-  }
-
   /**
    * Checks if the given type is a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY).
    *
@@ -322,78 +275,6 @@ public class ArrowStreamResult implements IExecutionResult {
   @VisibleForTesting
   public static boolean isGeospatialType(ColumnInfoTypeName type) {
     return type == ColumnInfoTypeName.GEOMETRY || type == ColumnInfoTypeName.GEOGRAPHY;
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public long getCurrentRow() {
-    return currentRowIndex;
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public boolean next() throws DatabricksSQLException {
-    if (isClosed) {
-      return false;
-    }
-
-    if (chunkIterator != null && chunkIterator.nextRow()) {
-      currentRowIndex++;
-      return true;
-    }
-
-    // The current chunk is exhausted (or none is open yet): move to the next one.
-    if (!chunkProvider.hasNextChunk() || !chunkProvider.next()) {
-      return false;
-    }
-    chunkIterator = chunkProvider.getChunk().getChunkIterator();
-
-    currentRowIndex++;
-    return chunkIterator.nextRow();
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public boolean hasNext() {
-    if (isClosed) {
-      return false;
-    }
-
-    // Check if there are any more rows available in the current chunk
-    if (chunkIterator != null && chunkIterator.hasNextRow()) {
-      return true;
-    }
-
-    // For inline arrow, check if the chunk extractor has more chunks
-    // Otherwise, check the chunk downloader
-    return chunkProvider.hasNextChunk();
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public void close() {
-    isClosed = true;
-    chunkProvider.close();
-  }
-
-  @Override
-  public long getRowCount() {
-    return chunkProvider.getRowCount();
-  }
-
-  @Override
-  public long getChunkCount() {
-    return chunkProvider.getChunkCount();
-  }
-
-  /**
-   * Returns the chunk provider for testing purposes.
-   *
-   * @return the chunk provider
-   */
-  @VisibleForTesting
-  public ChunkProvider getChunkProvider() {
-    return chunkProvider;
   }
 
   /**

@@ -43,43 +43,21 @@ final class ArrowBatchChunkProviderFactory {
       throw parsingError("ARROW_BATCH response is missing its manifest");
     }
     validatePageShape(resultData);
-
-    if (hasMorePages(resultData)
-        || (resultManifest.getTotalChunkCount() != null
-            && resultManifest.getTotalChunkCount() > 1)) {
-      if (statementId == null || session == null) {
-        throw parsingError("Paginated ARROW_BATCH responses require a session to fetch pages");
-      }
-      return new PagedArrowBatchChunkProvider(resultData, resultManifest, statementId, session);
+    if (hasMorePages(resultData) && (statementId == null || session == null)) {
+      throw parsingError("Paginated ARROW_BATCH responses require a session to fetch pages");
     }
 
-    List<ArrowBatch> arrowBatches = normalizeArrowBatches(resultData, resultManifest, true);
-    long totalRows = validateAndCountRows(arrowBatches, resultData);
-    if (resultManifest.getTotalRowCount() != null
-        && resultManifest.getTotalRowCount() != totalRows) {
-      throw parsingError(
-          String.format(
-              "Arrow batch row_count total %d does not match manifest total_row_count %d",
-              totalRows, resultManifest.getTotalRowCount()));
-    }
-    ByteArrayInputStream stream = toArrowStream(arrowBatches, resultManifest);
-    try {
-      InlineChunkProvider provider = new InlineChunkProvider(stream, totalRows);
-      if (totalRows > 0) {
-        return provider;
-      }
-      provider.close();
-      return new EmptyChunkProvider();
-    } catch (RuntimeException e) {
-      throw nativeArrowParsingError(e);
-    }
+    return new ArrowBatchChunkProvider(resultData, resultManifest, statementId, session);
   }
 
   /** Decodes one inline page into a chunk holding exactly that page's rows. */
   static ArrowResultChunk decodePage(ResultData page, ResultManifest resultManifest)
       throws DatabricksSQLException {
     validatePageShape(page);
-    List<ArrowBatch> arrowBatches = normalizeArrowBatches(page, resultManifest, false);
+    boolean isEmptySinglePage =
+        page.getNextChunkIndex() == null
+            && Long.valueOf(0L).equals(resultManifest.getTotalRowCount());
+    List<ArrowBatch> arrowBatches = normalizeArrowBatches(page, resultManifest, isEmptySinglePage);
     long pageRows = validateAndCountRows(arrowBatches, page);
     ByteArrayInputStream stream = toArrowStream(arrowBatches, resultManifest);
     try {

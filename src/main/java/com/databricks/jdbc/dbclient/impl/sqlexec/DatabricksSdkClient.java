@@ -352,13 +352,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         suppliedRequest != null
             ? suppliedRequest
             : getRequest(
-                statementType,
-                sql,
-                computeResource,
-                session,
-                parameters,
-                parentStatement,
-                false);
+                statementType, sql, computeResource, session, parameters, parentStatement, false);
     ExecuteStatementResponse response;
     try {
       String executePath =
@@ -553,12 +547,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         computeResource);
     ExecuteStatementRequest request =
         getBatchRequest(
-            statementType,
-            sql,
-            computeResource,
-            session,
-            parameterSets,
-            parentStatement);
+            statementType, sql, computeResource, session, parameterSets, parentStatement);
     return executeStatement(
         sql,
         computeResource,

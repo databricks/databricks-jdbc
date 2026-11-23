@@ -950,11 +950,8 @@ public class ArrowStreamResultTest {
   }
 
   /**
-   * Verifies the bounded-SEA contract: with UseBoundedSeaApi=1 and an ARROW_BATCH response carrying
-   * external links, ArrowStreamResult routes to StreamingChunkProvider and passes null for
-   * totalChunkCount (must not rely on manifest.total_chunk_count). A regression that treats the
-   * response as inline native batches or reverts to getTotalChunkCount() would break against real
-   * bounded servers.
+   * Verifies the bounded-SEA contract: an ARROW_STREAM response with external links does not rely
+   * on manifest.total_chunk_count.
    */
   @Test
   public void testBoundedSeaApiUsesStreamingChunkProviderWithNullTotalChunkCount()
@@ -972,7 +969,7 @@ public class ArrowStreamResultTest {
     // Intentionally omit total_chunk_count (null) — bounded servers don't populate it.
     ResultManifest resultManifest =
         new ResultManifest()
-            .setFormat(Format.ARROW_BATCH)
+            .setFormat(Format.ARROW_STREAM)
             .setTotalRowCount(110L)
             .setTotalByteCount(1000L)
             .setResultCompression(CompressionCodec.NONE)
@@ -1192,7 +1189,7 @@ public class ArrowStreamResultTest {
             .setSchema(new ResultSchema().setColumns(columns).setColumnCount(1L));
     ArrowStreamResult result =
         new ArrowStreamResult(manifest, new ResultData(), STATEMENT_ID, session, mockHttpClient);
-    java.lang.reflect.Field provider = ArrowStreamResult.class.getDeclaredField("chunkProvider");
+    java.lang.reflect.Field provider = AbstractArrowResult.class.getDeclaredField("chunkProvider");
     provider.setAccessible(true);
     provider.set(result, new ListChunkProvider(chunks));
     return result;

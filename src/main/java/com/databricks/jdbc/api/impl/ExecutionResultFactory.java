@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.arrow.ArrowBatchResult;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
@@ -75,6 +76,7 @@ class ExecutionResultFactory {
     // JSON_ARRAY serves metadata and updates; Arrow formats serve query results.
     switch (manifest.getFormat()) {
       case ARROW_BATCH:
+        return new ArrowBatchResult(manifest, data, statementId, session);
       case ARROW_STREAM:
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:

@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,6 +57,7 @@ class ArrowBatchChunkProviderFactoryTest {
         ArrowBatchChunkProviderFactory.create(
             resultData(Collections.singletonList(arrowBatch(1, 2)), 2), manifest(2));
 
+    assertInstanceOf(ArrowBatchChunkProvider.class, provider);
     assertEquals(Arrays.asList(1, 2), readValues(provider));
   }
 
@@ -183,6 +185,7 @@ class ArrowBatchChunkProviderFactoryTest {
         ArrowBatchChunkProviderFactory.create(
             firstPage.setNextChunkIndex(1L), pagedManifest(), STATEMENT_ID, session(client));
 
+    assertInstanceOf(ArrowBatchChunkProvider.class, provider);
     assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6), readAllValues(provider));
     verify(client).getResultChunksData(STATEMENT_ID, 1L, 2L);
     verify(client).getResultChunksData(STATEMENT_ID, 2L, 3L);
