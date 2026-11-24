@@ -23,24 +23,28 @@ public class TimeoutHandler {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TimeoutHandler.class);
   private static final long STATUS_GRACE_MILLIS = TimeUnit.SECONDS.toMillis(5);
-  private static final ThreadPoolExecutor CANCELLATIONS =
-      new ThreadPoolExecutor(
-          0,
-          Integer.MAX_VALUE,
-          30,
-          TimeUnit.SECONDS,
-          new SynchronousQueue<>(),
-          task -> {
-            Thread thread = new Thread(task, "databricks-jdbc-timeout-cancel");
-            thread.setDaemon(true);
-            thread.setContextClassLoader(null);
-            return thread;
-          });
+  private static final ThreadPoolExecutor CANCELLATIONS = createCancellationExecutor(30);
+
+  static ThreadPoolExecutor createCancellationExecutor(long keepAliveSeconds) {
+    return new ThreadPoolExecutor(
+        0,
+        Integer.MAX_VALUE,
+        keepAliveSeconds,
+        TimeUnit.SECONDS,
+        new SynchronousQueue<>(),
+        task -> {
+          Thread thread = new Thread(task, "databricks-jdbc-timeout-cancel");
+          thread.setDaemon(true);
+          thread.setContextClassLoader(null);
+          return thread;
+        });
+  }
 
   private final long startTimeMillis;
   private final int timeoutSeconds;
   private final String operationDescription;
   private final IDatabricksConnectionContext connectionContext;
+  private final Executor cancellationExecutor;
   private final AtomicBoolean cancellationDispatched = new AtomicBoolean();
   private DatabricksTimeoutException timeoutFailure;
   private final Runnable onTimeoutAction; // do something on timeout
@@ -74,12 +78,29 @@ public class TimeoutHandler {
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode,
       IDatabricksConnectionContext connectionContext) {
+    this(
+        timeoutSeconds,
+        operationDescription,
+        onTimeoutAction,
+        internalErrorCode,
+        connectionContext,
+        CANCELLATIONS);
+  }
+
+  TimeoutHandler(
+      int timeoutSeconds,
+      String operationDescription,
+      Runnable onTimeoutAction,
+      DatabricksDriverErrorCode internalErrorCode,
+      IDatabricksConnectionContext connectionContext,
+      Executor cancellationExecutor) {
     this.startTimeMillis = System.currentTimeMillis();
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
     this.internalErrorCode = internalErrorCode;
     this.connectionContext = connectionContext;
+    this.cancellationExecutor = cancellationExecutor;
   }
 
   /**
@@ -215,7 +236,7 @@ public class TimeoutHandler {
       if (DriverUtil.isRunningAgainstFake()) {
         cancel.run();
       } else {
-        awaitCancellation(cancel, CANCELLATIONS);
+        awaitCancellation(cancel, cancellationExecutor);
       }
     } finally {
       if (interrupted) {

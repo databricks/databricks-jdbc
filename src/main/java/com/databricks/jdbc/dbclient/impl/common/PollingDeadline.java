@@ -16,6 +16,7 @@ public final class PollingDeadline implements AutoCloseable {
   private final CountDownLatch interruptSent = new CountDownLatch(1);
   private final ScheduledFuture<?> timer;
   private AbortRegistration abortRequest;
+  private boolean externallyInterrupted;
   private boolean expired;
   private boolean closed;
 
@@ -84,6 +85,7 @@ public final class PollingDeadline implements AutoCloseable {
       }
       expired = true;
       registration = abortRequest;
+      externallyInterrupted = owner.isInterrupted();
     }
     try {
       owner.interrupt();
@@ -129,7 +131,7 @@ public final class PollingDeadline implements AutoCloseable {
       }
       Thread.interrupted();
     }
-    if (previouslyInterrupted) {
+    if (previouslyInterrupted || externallyInterrupted) {
       owner.interrupt();
     }
   }

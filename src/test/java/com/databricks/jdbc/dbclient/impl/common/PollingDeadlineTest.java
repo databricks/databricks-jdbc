@@ -13,14 +13,20 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.http.HttpClientConnection;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -32,6 +38,56 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class PollingDeadlineTest {
+  @Test
+  void externalInterruptDuringHeldPollSurvivesDeadline() throws Exception {
+    CountDownLatch polling = new CountDownLatch(1);
+    AtomicBoolean interrupted = new AtomicBoolean();
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    try (ServerSocket listener = new ServerSocket(0);
+        Socket client = new Socket("127.0.0.1", listener.getLocalPort());
+        Socket server = listener.accept()) {
+      Thread caller =
+          new Thread(
+              () -> {
+                try {
+                  assertThrows(
+                      DatabricksTimeoutException.class,
+                      () ->
+                          handler(1, null)
+                              .executeWithTimeout(
+                                  () -> {
+                                    PollingDeadline.registerAbort(
+                                        client,
+                                        () -> {
+                                          try {
+                                            client.close();
+                                          } catch (IOException problem) {
+                                            throw new UncheckedIOException(problem);
+                                          }
+                                        });
+                                    polling.countDown();
+                                    return client.getInputStream().read();
+                                  }));
+                  interrupted.set(Thread.currentThread().isInterrupted());
+                } catch (Throwable problem) {
+                  failure.set(problem);
+                }
+              });
+      caller.start();
+      try {
+        assertTrue(polling.await(5, TimeUnit.SECONDS));
+        caller.interrupt();
+        caller.join(10000);
+        assertFalse(caller.isAlive(), "Held poll was not aborted at its deadline");
+        assertNull(failure.get());
+        assertTrue(interrupted.get(), "Application interrupt was cleared by deadline cleanup");
+      } finally {
+        client.close();
+        caller.join(5000);
+      }
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void blockedSocketIsReleasedAndPoolCanBeReused(boolean sdk) throws Exception {
