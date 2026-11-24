@@ -659,7 +659,7 @@ public class DatabricksTypeUtil {
         throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
       }
       int targetScale = (int) Math.max(0, Math.min(value.scale(), 38 - Math.max(integerDigits, 0)));
-      if (value.signum() != 0 && (long) value.scale() - targetScale >= value.precision()) {
+      if ((long) value.scale() - targetScale >= value.precision()) {
         throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
       }
       value = value.setScale(targetScale, RoundingMode.UNNECESSARY).stripTrailingZeros();
