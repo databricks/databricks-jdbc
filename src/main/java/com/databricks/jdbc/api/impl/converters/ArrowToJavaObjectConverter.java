@@ -229,14 +229,14 @@ public class ArrowToJavaObjectConverter {
           }
           if (columnVector instanceof TimeMilliVector) {
             return LocalTime.ofNanoOfDay(
-                ((TimeMilliVector) columnVector).get(vectorIndex) * 1_000_000L);
+                Math.multiplyExact(((TimeMilliVector) columnVector).get(vectorIndex), 1_000_000L));
           }
           if (columnVector instanceof TimeMicroVector) {
             return LocalTime.ofNanoOfDay(
-                ((TimeMicroVector) columnVector).get(vectorIndex) * 1_000L);
+                Math.multiplyExact(((TimeMicroVector) columnVector).get(vectorIndex), 1_000L));
           }
           return TimeConverter.toLocalTime(object);
-        } catch (DateTimeException | IllegalArgumentException exception) {
+        } catch (DateTimeException | IllegalArgumentException | ArithmeticException exception) {
           throw TimeConverter.invalidValue(exception);
         }
       case INTERVAL:

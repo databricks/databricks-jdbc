@@ -42,6 +42,14 @@ public class TimeConverter implements ObjectConverter {
     return CLOCK.format(toLocalTime(value));
   }
 
+  public static String formatOrString(Object value) {
+    try {
+      return format(value);
+    } catch (RuntimeException exception) {
+      return String.valueOf(value);
+    }
+  }
+
   public static Time toSqlTime(Object value) {
     LocalTime time = toLocalTime(value);
     return new Time(Time.valueOf(time).getTime() + time.getNano() / 1_000_000);
@@ -49,9 +57,9 @@ public class TimeConverter implements ObjectConverter {
 
   public static DatabricksSQLException invalidValue(Throwable cause) {
     return new DatabricksSQLException(
-        "Invalid conversion to Time",
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(),
+        "Invalid TIME value",
+        DatabricksDriverErrorCode.RESULT_SET_ERROR.name(),
+        DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode(),
         cause);
   }
 

@@ -171,9 +171,8 @@ class TimeDecodingTest {
   void invalidTimeUsesExistingErrorCode() {
     DatabricksSQLException exception =
         assertThrows(DatabricksSQLException.class, () -> new TimeConverter().toTime("not a time"));
-    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
-    assertEquals(
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
+    assertEquals(DatabricksDriverErrorCode.RESULT_SET_ERROR.name(), exception.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode(), exception.getErrorCode());
     assertFalse(exception.getMessage().contains("not a time"));
   }
 

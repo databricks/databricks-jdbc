@@ -686,7 +686,27 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public String getString(int columnIndex) throws SQLException {
+    if (resultSetType == ResultSetType.SEA_INLINE) {
+      return getStringForSeaInline(columnIndex);
+    }
     return getConvertedObject(columnIndex, ObjectConverter::toString, () -> null);
+  }
+
+  private String getStringForSeaInline(int columnIndex) throws SQLException {
+    checkIfClosed();
+    Object object = getObjectInternal(columnIndex);
+    if (object == null) {
+      return null;
+    }
+    String metadata = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (isComplexType(metadata) && MetadataParser.mayContainTime(metadata)) {
+      ComplexDataTypeParser parser = new ComplexDataTypeParser();
+      if (parser.hasTime(metadata)) {
+        return parser.formatComplexTypeString(
+            object.toString(), metadata.substring(0, metadata.indexOf('<')).trim(), metadata);
+      }
+    }
+    return resultSetMetaData.getColumnConverter(columnIndex).toString(object);
   }
 
   @Override
@@ -1879,7 +1899,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       useCal.set(Calendar.HOUR_OF_DAY, lt.getHour());
       useCal.set(Calendar.MINUTE, lt.getMinute());
       useCal.set(Calendar.SECOND, lt.getSecond());
-      useCal.set(Calendar.MILLISECOND, (int) time.getTime() % 1_000);
+      useCal.set(Calendar.MILLISECOND, (int) Math.floorMod(time.getTime(), 1_000L));
 
       return new Time(useCal.getTimeInMillis());
     }
@@ -2358,6 +2378,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private <T> T getObjectWithoutTypeCheck(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
+    if (type == LocalTime.class) {
+      checkColumnIndex(columnIndex);
+      if (columnIndex > resultSetMetaData.getColumnCount()) {
+        throw new DatabricksSQLException(
+            "Column index out of bounds: " + (columnIndex - 1),
+            DatabricksDriverErrorCode.INVALID_STATE,
+            silenceNonTerminalExceptions);
+      }
+    }
     if (JavaTimeConverter.isJavaTimeType(type)
         || (type == LocalTime.class
             && resultSetMetaData.getColumnType(columnIndex) == Types.TIME)) {

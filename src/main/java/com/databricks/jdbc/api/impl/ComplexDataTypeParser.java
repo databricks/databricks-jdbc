@@ -50,7 +50,17 @@ public class ComplexDataTypeParser {
   private final boolean geoSpatialSupportEnabled;
   private final ZoneId timestampZone;
   private final Field arrowField;
-  private MetadataParser.TimeType timeType;
+  private volatile TimePlan timePlan;
+
+  private static final class TimePlan {
+    final String metadata;
+    final MetadataParser.TimeType type;
+
+    TimePlan(String metadata, MetadataParser.TimeType type) {
+      this.metadata = metadata;
+      this.type = type;
+    }
+  }
 
   public ComplexDataTypeParser() {
     this(true);
@@ -80,16 +90,29 @@ public class ComplexDataTypeParser {
   }
 
   private MetadataParser.TimeType timeType(String metadata) {
-    if (timeType == null || !java.util.Objects.equals(timeType.metadata, metadata)) {
-      timeType = new MetadataParser.TimeType(metadata, arrowField);
+    TimePlan memo = timePlan;
+    if (memo == null || !java.util.Objects.equals(memo.metadata, metadata)) {
+      MetadataParser.TimeType type =
+          MetadataParser.mayContainTime(metadata)
+              ? new MetadataParser.TimeType(metadata, arrowField)
+              : MetadataParser.TimeType.NO_TIME;
+      memo = new TimePlan(metadata, type);
+      timePlan = memo;
     }
-    return timeType;
+    return memo.type;
+  }
+
+  boolean hasTime(String metadata) {
+    return timeType(metadata).containsTime;
   }
 
   private JsonNode readTimeLeaves(String json, String metadata)
       throws IOException, DatabricksParsingException {
     JsonNode node = JsonUtil.getMapper().readTree(json);
-    MetadataParser.TimeType type = timeType(metadata);
+    MetadataParser.TimeType type =
+        arrowField == null && !MetadataParser.mayContainTime(metadata)
+            ? MetadataParser.TimeType.NO_TIME
+            : timeType(metadata);
     return type.containsTime ? timeLeavesAsText(node, type) : node;
   }
 
@@ -100,11 +123,7 @@ public class ComplexDataTypeParser {
       return parseToArray(node, arrayMetadata);
     } catch (IOException e) {
       if (timeType(arrayMetadata).containsTime) {
-        throw new DatabricksParsingException(
-            "Failed to parse TIME array",
-            e,
-            DatabricksDriverErrorCode.JSON_PARSING_ERROR.name(),
-            DatabricksDriverErrorCode.JSON_PARSING_ERROR.getCode());
+        throw invalidTime(e);
       }
       throw new DatabricksParsingException(
           "Failed to parse JSON array from: " + json, DatabricksDriverErrorCode.JSON_PARSING_ERROR);
@@ -118,11 +137,7 @@ public class ComplexDataTypeParser {
       return parseToMap(node, mapMetadata);
     } catch (IOException e) {
       if (timeType(mapMetadata).containsTime) {
-        throw new DatabricksParsingException(
-            "Failed to parse TIME map",
-            e,
-            DatabricksDriverErrorCode.JSON_PARSING_ERROR.name(),
-            DatabricksDriverErrorCode.JSON_PARSING_ERROR.getCode());
+        throw invalidTime(e);
       }
       throw new DatabricksParsingException(
           "Failed to parse JSON map from: " + json, DatabricksDriverErrorCode.JSON_PARSING_ERROR);
@@ -136,11 +151,7 @@ public class ComplexDataTypeParser {
       return parseToStruct(node, structMetadata);
     } catch (IOException e) {
       if (timeType(structMetadata).containsTime) {
-        throw new DatabricksParsingException(
-            "Failed to parse TIME struct",
-            e,
-            DatabricksDriverErrorCode.JSON_PARSING_ERROR.name(),
-            DatabricksDriverErrorCode.JSON_PARSING_ERROR.getCode());
+        throw invalidTime(e);
       }
       throw new DatabricksParsingException(
           "Failed to parse JSON struct from: " + json,
@@ -568,14 +579,14 @@ public class ComplexDataTypeParser {
    * @param typeMetadata The metadata for the type (e.g., {@code MAP<INT,INT>})
    * @return A consistently formatted string representation
    */
-  public String formatComplexTypeString(
-      String jsonString, String complexType, String typeMetadata) {
+  public String formatComplexTypeString(String jsonString, String complexType, String typeMetadata)
+      throws DatabricksParsingException {
     if (jsonString == null || complexType == null) {
       return jsonString;
     }
 
+    MetadataParser.TimeType type = timeType(typeMetadata);
     try {
-      MetadataParser.TimeType type = timeType(typeMetadata);
       if (type.containsTime) {
         jsonString = timeLeavesAsText(readComplexJson(jsonString), type).toString();
       }
@@ -587,9 +598,16 @@ public class ComplexDataTypeParser {
         jsonString = node.toString();
       }
       if (complexType.equals(DatabricksTypeUtil.MAP)) {
-        return formatMapString(jsonString, type.formattedMetadata);
+        return formatMapString(
+            jsonString, type.containsTime ? type.formattedMetadata : typeMetadata);
       }
     } catch (Exception e) {
+      if (type.containsTime) {
+        if (e instanceof DatabricksParsingException) {
+          throw (DatabricksParsingException) e;
+        }
+        throw invalidTime(e);
+      }
       LOGGER.warn("Failed to format complex type representation for {}", complexType);
     }
 
@@ -615,13 +633,13 @@ public class ComplexDataTypeParser {
           long count = Long.parseLong(node.asText());
           switch (type.unit) {
             case SECOND:
-              count *= 1_000_000_000L;
+              count = Math.multiplyExact(count, 1_000_000_000L);
               break;
             case MILLISECOND:
-              count *= 1_000_000L;
+              count = Math.multiplyExact(count, 1_000_000L);
               break;
             case MICROSECOND:
-              count *= 1_000L;
+              count = Math.multiplyExact(count, 1_000L);
               break;
             default:
               break;
@@ -629,7 +647,7 @@ public class ComplexDataTypeParser {
           value = java.time.LocalTime.ofNanoOfDay(count);
         }
         return JsonUtil.getMapper().valueToTree(TimeConverter.format(value));
-      } catch (DateTimeException | IllegalArgumentException exception) {
+      } catch (DateTimeException | IllegalArgumentException | ArithmeticException exception) {
         throw invalidTime(exception);
       }
     }
@@ -675,10 +693,10 @@ public class ComplexDataTypeParser {
 
   private static DatabricksParsingException invalidTime(Throwable cause) {
     return new DatabricksParsingException(
-        "Failed to parse nested TIME value",
+        "Invalid TIME value",
         cause,
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode());
+        DatabricksDriverErrorCode.RESULT_SET_ERROR.name(),
+        DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode());
   }
 
   private static JsonNode readComplexJson(String json) throws IOException {

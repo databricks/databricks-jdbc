@@ -11,7 +11,7 @@ import org.apache.arrow.vector.ValueVector;
 
 public class ArrowResultChunkIterator {
   private final AbstractArrowResultChunk resultChunk;
-  private final Map<Integer, ComplexDataTypeParser> complexParsers = new HashMap<>();
+  private final Map<Integer, ComplexDataTypeParser[]> complexParsers = new HashMap<>();
 
   // total number of record batches in the chunk
   private final int recordBatchesInChunk;
@@ -121,7 +121,13 @@ public class ArrowResultChunkIterator {
   }
 
   ComplexDataTypeParser getComplexParser(int columnIndex, boolean geoSpatialSupportEnabled) {
-    ComplexDataTypeParser parser = complexParsers.get(columnIndex);
+    ComplexDataTypeParser[] columnParsers = complexParsers.get(columnIndex);
+    if (columnParsers == null) {
+      columnParsers = new ComplexDataTypeParser[2];
+      complexParsers.put(columnIndex, columnParsers);
+    }
+    int flagIndex = geoSpatialSupportEnabled ? 1 : 0;
+    ComplexDataTypeParser parser = columnParsers[flagIndex];
     if (parser == null) {
       ValueVector vector = resultChunk.getColumnVector(recordBatchCursorInChunk, columnIndex);
       parser =
@@ -129,7 +135,7 @@ public class ArrowResultChunkIterator {
               geoSpatialSupportEnabled,
               ArrowToJavaObjectConverter.nestedTimestampZone(vector, getType(columnIndex)),
               vector.getField());
-      complexParsers.put(columnIndex, parser);
+      columnParsers[flagIndex] = parser;
     }
     return parser;
   }

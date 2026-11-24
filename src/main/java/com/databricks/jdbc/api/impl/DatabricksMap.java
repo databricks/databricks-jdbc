@@ -256,12 +256,12 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
         java.time.LocalTime exact = timeValues.get(entry.getKey());
         value =
-            TimeConverter.format(
+            TimeConverter.formatOrString(
                 exact != null && TimeConverter.toSqlTime(exact).equals(value) ? exact : value);
       }
       Object key =
           DatabricksTypeUtil.isTimeType(keyType)
-              ? TimeConverter.format(entry.getKey())
+              ? TimeConverter.formatOrString(entry.getKey())
               : entry.getKey();
       sb.append(JsonUtil.formatComplexValue(key))
           .append(":")

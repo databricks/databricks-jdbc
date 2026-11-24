@@ -297,7 +297,7 @@ public class DatabricksStruct implements Struct {
       String fieldType = fieldTypes.get(i);
       if (value != null && DatabricksTypeUtil.isTimeType(fieldType)) {
         Object exact = exactAttribute(i, fieldType);
-        value = TimeConverter.format(exact == null ? value : exact);
+        value = TimeConverter.formatOrString(exact == null ? value : exact);
       }
       sb.append(JsonUtil.formatComplexValue(value));
     }

@@ -272,7 +272,7 @@ class TimeReviewRegressionTest {
                       vector, 0, ColumnInfoTypeName.TIME, "TIME(6)", new ColumnInfo()));
       assertNotNull(exception.getCause());
       assertFalse(exception.getMessage().contains("86400000000000"));
-      assertEquals(1005, exception.getErrorCode());
+      assertEquals(1004, exception.getErrorCode());
     }
     DatabricksParsingException exception =
         assertThrows(
@@ -290,12 +290,12 @@ class TimeReviewRegressionTest {
                     .parseJsonStringToDbStruct(
                         "{\"clock\":\"09:15:xx\"}", "STRUCT<clock:TIME(6)>"));
     assertNotNull(structError.getCause());
-    assertEquals(1005, structError.getErrorCode());
+    assertEquals(1004, structError.getErrorCode());
     assertFalse(structError.getMessage().contains("09:15:xx"));
   }
 
   @Test
-  void quotedFieldNamesAreNotTimeLeaves() {
+  void quotedFieldNamesAreNotTimeLeaves() throws Exception {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     assertEquals(
         "{\"a time, b\":1}",

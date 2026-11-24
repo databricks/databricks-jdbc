@@ -10,7 +10,9 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.ListVector;
@@ -58,21 +60,37 @@ class TimeColumnPlanTest {
               .build();
       chunk.recordBatchList = Collections.singletonList(Collections.singletonList(vector));
       chunk.arrowMetadata = Collections.singletonList("ARRAY<TIME(6)>");
-      ArrowResultChunkIterator iterator = chunk.getChunkIterator();
+      ArrowResultChunkIterator iterator = spy(chunk.getChunkIterator());
+      List<ComplexDataTypeParser> observed = new ArrayList<>();
+      doAnswer(
+              invocation -> {
+                ComplexDataTypeParser parser = (ComplexDataTypeParser) invocation.callRealMethod();
+                observed.add(parser);
+                return parser;
+              })
+          .when(iterator)
+          .getComplexParser(anyInt(), anyBoolean());
       IDatabricksSession session = mock(IDatabricksSession.class);
       IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
       when(session.getConnectionContext()).thenReturn(context);
       when(context.isComplexDatatypeSupportEnabled()).thenReturn(complex);
-      ComplexDataTypeParser first = null;
       for (int row = 0; row < 2; row++) {
         assertTrue(iterator.nextRow());
         Object value =
             ArrowStreamResult.getObjectWithComplexTypeHandling(
                 session, iterator, 0, ColumnInfoTypeName.ARRAY, "ARRAY<TIME(6)>", new ColumnInfo());
         assertEquals("[\"" + clock + "\"]", value.toString());
-        ComplexDataTypeParser parser = iterator.getComplexParser(0, true);
-        if (first == null) first = parser;
-        else assertSame(first, parser);
+      }
+      assertEquals(2, observed.size());
+      assertSame(observed.get(0), observed.get(1));
+      if (complex) {
+        when(context.isGeoSpatialSupportEnabled()).thenReturn(true);
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, iterator, 0, ColumnInfoTypeName.ARRAY, "ARRAY<TIME(6)>", new ColumnInfo());
+        assertNotSame(observed.get(0), observed.get(2));
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, iterator, 0, ColumnInfoTypeName.ARRAY, "ARRAY<TIME(6)>", new ColumnInfo());
+        assertSame(observed.get(2), observed.get(3));
       }
     }
   }

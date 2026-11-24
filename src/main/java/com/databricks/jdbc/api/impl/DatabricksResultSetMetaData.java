@@ -316,8 +316,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
     for (int i = 0; i < columnMetadataList.size(); i++) {
       ColumnMetadata metadata = columnMetadataList.get(i);
-      String databricksType =
-          DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt());
+      String databricksType = metadataTypeFromSQLType(metadata.getTypeInt());
       // ColumnInfoTypeName has no TIMESTAMP_NTZ constant.
       ColumnInfoTypeName columnTypeName =
           DatabricksTypeUtil.TIMESTAMP_NTZ.equals(databricksType)
@@ -385,8 +384,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     for (int i = 0; i < columnNames.size(); i++) {
       ColumnInfoTypeName columnTypeName =
-          ColumnInfoTypeName.valueOf(
-              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
+          ColumnInfoTypeName.valueOf(metadataTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(columnNames.get(i))
@@ -448,8 +446,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     for (int i = 0; i < columnNames.size(); i++) {
       ColumnInfoTypeName columnTypeName =
-          ColumnInfoTypeName.valueOf(
-              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes[i]));
+          ColumnInfoTypeName.valueOf(metadataTypeFromSQLType(columnTypes[i]));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(columnNames.get(i))
@@ -750,6 +747,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public Long getChunkCount() {
     return chunkCount;
+  }
+
+  private static String metadataTypeFromSQLType(int sqlType) {
+    return sqlType == Types.TIME ? TIME : DatabricksTypeUtil.getDatabricksTypeFromSQLType(sqlType);
   }
 
   public int[] getPrecisionAndScale(String columnTypeText, int columnType) {

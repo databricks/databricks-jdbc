@@ -12,13 +12,38 @@ import org.apache.arrow.vector.types.pojo.Field;
 /** Utility class for parsing metadata descriptions into structured type mappings. */
 public class MetadataParser {
 
+  static boolean mayContainTime(String metadata) {
+    if (metadata == null) {
+      return false;
+    }
+    for (int index = 0; index <= metadata.length() - 4; index++) {
+      char first = metadata.charAt(index);
+      if ((first == 'T' || first == 't') && metadata.regionMatches(true, index, "TIME", 0, 4)) {
+        if (!metadata.regionMatches(true, index, "TIMESTAMP", 0, 9)) {
+          return true;
+        }
+        index += 8;
+      }
+    }
+    return false;
+  }
+
   static final class TimeType {
+    static final TimeType NO_TIME = new TimeType();
     final String metadata;
     final boolean time;
     final boolean containsTime;
     final TimeUnit unit;
     final Map<String, TimeType> children = new LinkedHashMap<>();
     final String formattedMetadata;
+
+    private TimeType() {
+      metadata = null;
+      time = false;
+      containsTime = false;
+      unit = TimeUnit.NANOSECOND;
+      formattedMetadata = null;
+    }
 
     TimeType(String metadata, Field field) {
       this.metadata = metadata;
@@ -27,26 +52,30 @@ public class MetadataParser {
           field != null && field.getType() instanceof ArrowType.Time
               ? ((ArrowType.Time) field.getType()).getUnit()
               : TimeUnit.NANOSECOND;
-      if (metadata != null && metadata.startsWith("ARRAY<")) {
-        children.put("element", new TimeType(parseArrayMetadata(metadata), child(field, 0)));
-      } else if (metadata != null && metadata.startsWith("MAP<")) {
-        String[] types = parseMapMetadataParts(metadata);
-        Field entries = child(field, 0);
-        children.put("key", new TimeType(types[0], child(entries, 0)));
-        children.put("value", new TimeType(types[1], child(entries, 1)));
-      } else if (metadata != null && metadata.startsWith("STRUCT<")) {
-        for (Map.Entry<String, String> entry : parseStructMetadata(metadata).entrySet()) {
-          Field childField = null;
-          if (field != null) {
-            for (Field candidate : field.getChildren()) {
-              if (candidate.getName().equals(entry.getKey())) {
-                childField = candidate;
-                break;
+      try {
+        if (metadata != null && metadata.startsWith("ARRAY<")) {
+          children.put("element", new TimeType(parseArrayMetadata(metadata), child(field, 0)));
+        } else if (metadata != null && metadata.startsWith("MAP<")) {
+          String[] types = parseMapMetadataParts(metadata);
+          Field entries = child(field, 0);
+          children.put("key", new TimeType(types[0], child(entries, 0)));
+          children.put("value", new TimeType(types[1], child(entries, 1)));
+        } else if (metadata != null && metadata.startsWith("STRUCT<")) {
+          for (Map.Entry<String, String> entry : parseStructMetadata(metadata).entrySet()) {
+            Field childField = null;
+            if (field != null) {
+              for (Field candidate : field.getChildren()) {
+                if (candidate.getName().equals(entry.getKey())) {
+                  childField = candidate;
+                  break;
+                }
               }
             }
+            children.put(entry.getKey(), new TimeType(entry.getValue(), childField));
           }
-          children.put(entry.getKey(), new TimeType(entry.getValue(), childField));
         }
+      } catch (RuntimeException exception) {
+        children.clear();
       }
       this.containsTime = time || children.values().stream().anyMatch(child -> child.containsTime);
       if (!containsTime) {

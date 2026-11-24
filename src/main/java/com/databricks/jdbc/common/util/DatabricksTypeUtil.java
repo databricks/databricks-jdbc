@@ -481,8 +481,6 @@ public class DatabricksTypeUtil {
         return BINARY;
       case Types.DATE:
         return DATE;
-      case Types.TIME:
-        return TIME;
       case Types.DECIMAL:
       case Types.NUMERIC:
         return DECIMAL; // Databricks treats NUMERIC as DECIMAL

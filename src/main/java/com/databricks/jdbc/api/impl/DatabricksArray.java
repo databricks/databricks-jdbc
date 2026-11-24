@@ -452,7 +452,7 @@ public class DatabricksArray implements Array {
       Object value = elements[i];
       if (value != null && DatabricksTypeUtil.isTimeType(elementType)) {
         Object exact = exactElement(i);
-        value = TimeConverter.format(exact == null ? value : exact);
+        value = TimeConverter.formatOrString(exact == null ? value : exact);
       }
       sb.append(JsonUtil.formatComplexValue(value));
     }
