@@ -2,6 +2,7 @@ package com.databricks.jdbc.model.client.sqlexec;
 
 import com.databricks.sdk.support.QueryParam;
 import com.databricks.sdk.support.ToStringer;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
@@ -11,8 +12,22 @@ public class DeleteSessionRequest {
   private String sessionId;
 
   @JsonProperty("warehouse_id")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   @QueryParam("warehouse_id")
   private String warehouseId;
+
+  @JsonProperty("backend_compute")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private BackendCompute backendCompute;
+
+  public BackendCompute getBackendCompute() {
+    return backendCompute;
+  }
+
+  public DeleteSessionRequest setBackendCompute(BackendCompute backendCompute) {
+    this.backendCompute = backendCompute;
+    return this;
+  }
 
   public DeleteSessionRequest() {}
 
@@ -40,14 +55,15 @@ public class DeleteSessionRequest {
     } else if (o != null && this.getClass() == o.getClass()) {
       DeleteSessionRequest that = (DeleteSessionRequest) o;
       return Objects.equals(this.sessionId, that.sessionId)
-          && Objects.equals(this.warehouseId, that.warehouseId);
+          && Objects.equals(this.warehouseId, that.warehouseId)
+          && Objects.equals(this.backendCompute, that.backendCompute);
     } else {
       return false;
     }
   }
 
   public int hashCode() {
-    return Objects.hash(this.sessionId, this.warehouseId);
+    return Objects.hash(this.sessionId, this.warehouseId, this.backendCompute);
   }
 
   public String toString() {

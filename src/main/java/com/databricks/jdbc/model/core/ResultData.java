@@ -1,9 +1,11 @@
 package com.databricks.jdbc.model.core;
 
 import com.databricks.sdk.support.ToStringer;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -39,6 +41,32 @@ public class ResultData {
 
   @JsonProperty("attachment")
   private byte[] attachment;
+
+  @JsonProperty("columnar_data")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private ColumnarData columnarData;
+
+  @JsonProperty("arrow_batches")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private List<ArrowBatch> arrowBatches;
+
+  public ColumnarData getColumnarData() {
+    return columnarData;
+  }
+
+  public ResultData setColumnarData(ColumnarData columnarData) {
+    this.columnarData = columnarData;
+    return this;
+  }
+
+  public List<ArrowBatch> getArrowBatches() {
+    return arrowBatches;
+  }
+
+  public ResultData setArrowBatches(List<ArrowBatch> arrowBatches) {
+    this.arrowBatches = arrowBatches;
+    return this;
+  }
 
   public ResultData setByteCount(Long byteCount) {
     this.byteCount = byteCount;
@@ -133,6 +161,8 @@ public class ResultData {
         && Objects.equals(nextChunkInternalLink, that.nextChunkInternalLink)
         && Objects.equals(rowCount, that.rowCount)
         && Objects.equals(rowOffset, that.rowOffset)
+        && Objects.equals(columnarData, that.columnarData)
+        && Objects.equals(arrowBatches, that.arrowBatches)
         && Arrays.equals(attachment, that.attachment);
   }
 
@@ -147,6 +177,8 @@ public class ResultData {
         nextChunkInternalLink,
         rowCount,
         rowOffset,
+        columnarData,
+        arrowBatches,
         Arrays.hashCode(attachment));
   }
 
@@ -161,6 +193,8 @@ public class ResultData {
         .add("nextChunkInternalLink", nextChunkInternalLink)
         .add("rowCount", rowCount)
         .add("rowOffset", rowOffset)
+        .add("columnarData", columnarData)
+        .add("arrowBatches", arrowBatches)
         .toString();
   }
 }
