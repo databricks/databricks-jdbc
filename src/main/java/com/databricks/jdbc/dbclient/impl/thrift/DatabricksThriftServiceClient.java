@@ -237,7 +237,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         .setType(typeString)
         .setValue(
             value != null
-                ? TSparkParameterValue.stringValue(getParameterValueString(value))
+                ? TSparkParameterValue.stringValue(getParameterValueString(parameter.type(), value))
                 : null);
   }
 

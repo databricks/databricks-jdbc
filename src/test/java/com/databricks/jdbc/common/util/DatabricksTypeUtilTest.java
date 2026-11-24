@@ -74,10 +74,11 @@ class DatabricksTypeUtilTest {
         Timestamp timestamp = new Timestamp(calendar.getTimeInMillis());
         assertEquals(
             expectedYear + "-01-02 00:00:00.0",
-            DatabricksTypeUtil.getParameterValueString(timestamp));
+            DatabricksTypeUtil.getParameterValueString(ColumnInfoTypeName.TIMESTAMP, timestamp));
         assertEquals(
             expectedYear + "-01-02",
-            DatabricksTypeUtil.getParameterValueString(new Date(timestamp.getTime())));
+            DatabricksTypeUtil.getParameterValueString(
+                ColumnInfoTypeName.DATE, new Date(timestamp.getTime())));
       }
     } finally {
       TimeZone.setDefault(original);

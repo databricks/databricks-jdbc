@@ -1012,7 +1012,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)
         .setType(typeString)
-        .setValue(getParameterValueString(value));
+        .setValue(getParameterValueString(parameter.type(), value));
   }
 
   /** Handles a failed execution and throws appropriate exception */

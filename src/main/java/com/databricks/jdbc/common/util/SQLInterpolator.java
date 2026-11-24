@@ -66,7 +66,8 @@ public class SQLInterpolator {
     } else if (object.type() == ColumnInfoTypeName.TIMESTAMP
         || object.type() == ColumnInfoTypeName.DATE) {
       // Timestamp and Date types need to be quoted as strings
-      return escapeInputs(DatabricksTypeUtil.getParameterValueString(object.value()));
+      return escapeInputs(
+          DatabricksTypeUtil.getParameterValueString(object.type(), object.value()));
     } else {
       return object.value().toString();
     }

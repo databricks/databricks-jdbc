@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.Year;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -559,7 +560,7 @@ public class DatabricksTypeUtil {
         || obj instanceof java.time.ZonedDateTime;
   }
 
-  public static String getParameterValueString(Object value) {
+  public static String getParameterValueString(ColumnInfoTypeName type, Object value) {
     if (value == null) {
       return null;
     }
@@ -579,8 +580,16 @@ public class DatabricksTypeUtil {
           ? text
           : ISO_YEAR.format(Year.of(year)) + text.substring(text.indexOf('-'));
     }
-    if (value instanceof ZonedDateTime) {
-      return ((ZonedDateTime) value).toOffsetDateTime().toString();
+    if (type == ColumnInfoTypeName.TIMESTAMP) {
+      OffsetDateTime timestamp =
+          value instanceof ZonedDateTime
+              ? ((ZonedDateTime) value).toOffsetDateTime()
+              : value instanceof OffsetDateTime ? (OffsetDateTime) value : null;
+      if (timestamp != null) {
+        return timestamp.getSecond() == 0 && timestamp.getNano() == 0
+            ? timestamp.toLocalDateTime() + ":00" + timestamp.getOffset()
+            : timestamp.toString();
+      }
     }
     return value.toString();
   }

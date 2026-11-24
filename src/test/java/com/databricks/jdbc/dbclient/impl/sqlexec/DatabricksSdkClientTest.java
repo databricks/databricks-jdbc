@@ -76,7 +76,7 @@ public class DatabricksSdkClientTest {
   @ParameterizedTest
   @MethodSource({
     "com.databricks.jdbc.common.util.TemporalParameterTestData#values",
-    "com.databricks.jdbc.common.util.TemporalParameterTestData#explicitOffsetValues"
+    "com.databricks.jdbc.common.util.TemporalParameterTestData#targetValues"
   })
   void testTemporalParameterWireValue(
       Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)

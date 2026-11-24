@@ -32,7 +32,6 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
-import java.time.OffsetDateTime;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -82,26 +81,27 @@ public class DatabricksPreparedStatementTest {
     assertSame(value, metadata.getParameterBindings().get(1).value());
     assertEquals(
         expected,
-        DatabricksTypeUtil.getParameterValueString(metadata.getParameterBindings().get(1).value()));
+        DatabricksTypeUtil.getParameterValueString(
+            metadata.getParameterBindings().get(1).type(),
+            metadata.getParameterBindings().get(1).value()));
   }
 
   @ParameterizedTest
-  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#explicitOffsetValues")
-  void testExplicitOffsetDateTimeTargets(
-      OffsetDateTime value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#bindingMatrix")
+  void testTemporalBindingMatrix(
+      Object value,
+      Integer sqlType,
+      com.databricks.jdbc.model.core.ColumnInfoTypeName type,
+      String expected)
       throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(new DatabricksConnection(context, client), "SELECT ?");
-    int[] sqlTypes =
-        type == com.databricks.jdbc.model.core.ColumnInfoTypeName.DATE
-            ? new int[] {Types.DATE}
-            : type == com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING
-                ? new int[] {Types.VARCHAR}
-                : new int[] {Types.TIMESTAMP, Types.TIMESTAMP_WITH_TIMEZONE};
-    for (int sqlType : sqlTypes) {
-      for (int overload = 0; overload < 4; overload++) {
+    for (int overload = 0; overload < (sqlType == null ? 1 : 4); overload++) {
+      if (sqlType == null) {
+        statement.setObject(1, value);
+      } else {
         switch (overload) {
           case 0:
             statement.setObject(1, value, sqlType);
@@ -115,19 +115,19 @@ public class DatabricksPreparedStatementTest {
           default:
             statement.setObject(1, value, JDBCType.valueOf(sqlType), 6);
         }
-        DatabricksParameterMetaData metadata =
-            (DatabricksParameterMetaData) statement.getParameterMetaData();
-        assertEquals(type, metadata.getParameterBindings().get(1).type());
-        assertSame(value, metadata.getParameterBindings().get(1).value());
+      }
+      DatabricksParameterMetaData metadata =
+          (DatabricksParameterMetaData) statement.getParameterMetaData();
+      assertEquals(type, metadata.getParameterBindings().get(1).type());
+      assertSame(value, metadata.getParameterBindings().get(1).value());
+      assertEquals(
+          expected,
+          DatabricksTypeUtil.getParameterValueString(
+              metadata.getParameterBindings().get(1).type(),
+              metadata.getParameterBindings().get(1).value()));
+      if (type != com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING) {
         assertEquals(
-            expected,
-            DatabricksTypeUtil.getParameterValueString(
-                metadata.getParameterBindings().get(1).value()));
-        assertEquals(
-            "SELECT "
-                + (type == com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING
-                    ? expected
-                    : "'" + expected + "'"),
+            "SELECT '" + expected + "'",
             SQLInterpolator.interpolateSQL("SELECT ?", metadata.getParameterBindings()));
       }
     }

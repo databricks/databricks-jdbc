@@ -12,8 +12,9 @@
 
 ### Fixed
 
-- Preserve signed years when binding BC, year-zero, and extended-year `java.sql.Date` and `Timestamp` values with native parameters or SQL interpolation, excluding Calendar overloads.
-- Bind region-based `ZonedDateTime` values using their offset without the unsupported region suffix.
+- Preserve signed years in `java.sql.Date` and `Timestamp` parameter text for every native target type and DATE/TIMESTAMP interpolation, excluding `setTimestamp(int, Timestamp, Calendar)`.
+- Bind region-based `ZonedDateTime` values as TIMESTAMP using their offset without the unsupported region suffix; other target types retain their original text.
+- Include zero seconds in whole-minute `OffsetDateTime` and `ZonedDateTime` TIMESTAMP binds so midnight and truncated values round-trip.
 - Escape quotes in non-String values interpolated as DATE or TIMESTAMP parameters.
 
 ---

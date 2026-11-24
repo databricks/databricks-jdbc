@@ -3,6 +3,7 @@ package com.databricks.jdbc.common.util;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.stream.Stream;
@@ -19,30 +21,46 @@ public final class TemporalParameterTestData {
   private TemporalParameterTestData() {}
 
   public static Stream<Arguments> values() {
-    return Stream.concat(
-        signedValues(),
-        legacyValues()
-            .map(
-                value ->
-                    Arguments.of(
-                        value,
-                        DatabricksTypeUtil.getColumnInfoType(
-                            DatabricksTypeUtil.inferDatabricksType(value)),
-                        value instanceof ZonedDateTime
-                            ? ((ZonedDateTime) value).toOffsetDateTime().toString()
-                            : value.toString())));
+    return Stream.concat(signedValues(), legacyValues());
   }
 
-  public static Stream<Arguments> explicitOffsetValues() {
-    return Stream.of("2024-01-01T01:00:00+05:00", "2024-06-30T23:59:59.999999-03:00")
-        .map(OffsetDateTime::parse)
+  public static Stream<Arguments> bindingMatrix() {
+    return matrixValues()
         .flatMap(
-            value ->
-                Stream.of(
-                        ColumnInfoTypeName.DATE,
-                        ColumnInfoTypeName.STRING,
-                        ColumnInfoTypeName.TIMESTAMP)
-                    .map(type -> Arguments.of(value, type, value.toString())));
+            row ->
+                Stream.<Integer>of(
+                        null,
+                        Types.DATE,
+                        Types.VARCHAR,
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP_WITH_TIMEZONE)
+                    .map(
+                        target -> {
+                          ColumnInfoTypeName type =
+                              target == null
+                                  ? row.inferredType
+                                  : target == Types.DATE
+                                      ? ColumnInfoTypeName.DATE
+                                      : target == Types.VARCHAR
+                                          ? ColumnInfoTypeName.STRING
+                                          : ColumnInfoTypeName.TIMESTAMP;
+                          String text =
+                              type == ColumnInfoTypeName.TIMESTAMP ? row.timestampText : row.text;
+                          return Arguments.of(row.value, target, type, text);
+                        }));
+  }
+
+  public static Stream<Arguments> targetValues() {
+    return bindingMatrix()
+        .map(
+            arguments -> {
+              Object[] row = arguments.get();
+              return Arguments.of(row[0], row[2], row[3]);
+            });
+  }
+
+  public static Stream<Arguments> interpolatedTargetValues() {
+    return targetValues().filter(arguments -> arguments.get()[1] != ColumnInfoTypeName.STRING);
   }
 
   private static Stream<Arguments> signedValues() {
@@ -78,7 +96,7 @@ public final class TemporalParameterTestData {
         timestamp(LocalDateTime.parse("0000-01-02T03:04"), "0000-01-02T03:04"),
         timestamp(
             ZonedDateTime.parse("+10000-01-02T03:04+01:00[Europe/Paris]"),
-            "+10000-01-02T03:04+01:00"),
+            "+10000-01-02T03:04:00+01:00"),
         timestamp(
             ZonedDateTime.parse("2026-01-02T03:04:05.123456-05:00[America/New_York]"),
             "2026-01-02T03:04:05.123456-05:00"),
@@ -86,22 +104,158 @@ public final class TemporalParameterTestData {
         timestamp(null, null));
   }
 
-  public static Stream<Object> legacyValues() {
-    return Stream.of(1, 1000, 1582, 2026, 9999)
-        .flatMap(
-            year -> {
-              Timestamp timestamp = legacyTimestamp(year);
-              LocalDateTime local = LocalDateTime.of(year, 1, 2, 3, 4, 5, 123456789);
-              return Stream.of(
-                  timestamp,
-                  new Date(timestamp.getTime()),
-                  local,
-                  local.toLocalDate(),
-                  local.withSecond(0).withNano(0),
-                  local.withNano(0),
-                  local.toInstant(ZoneOffset.UTC),
-                  local.atZone(ZoneId.of("America/New_York")));
-            });
+  private static Stream<Arguments> legacyValues() {
+    return Stream.of(
+            legacyYear(
+                1,
+                "0001-01-02",
+                "0001-01-02 03:04:05.123456789",
+                "0001-01-02T03:04:05.123456789",
+                "0001-01-02T03:04:05.123456789Z",
+                "0001-01-02T03:04:05.123456789-04:56:02"),
+            legacyYear(
+                1000,
+                "1000-01-02",
+                "1000-01-02 03:04:05.123456789",
+                "1000-01-02T03:04:05.123456789",
+                "1000-01-02T03:04:05.123456789Z",
+                "1000-01-02T03:04:05.123456789-04:56:02"),
+            legacyYear(
+                1582,
+                "1582-01-02",
+                "1582-01-02 03:04:05.123456789",
+                "1582-01-02T03:04:05.123456789",
+                "1582-01-02T03:04:05.123456789Z",
+                "1582-01-02T03:04:05.123456789-04:56:02"),
+            legacyYear(
+                2026,
+                "2026-01-02",
+                "2026-01-02 03:04:05.123456789",
+                "2026-01-02T03:04:05.123456789",
+                "2026-01-02T03:04:05.123456789Z",
+                "2026-01-02T03:04:05.123456789-05:00"),
+            legacyYear(
+                9999,
+                "9999-01-02",
+                "9999-01-02 03:04:05.123456789",
+                "9999-01-02T03:04:05.123456789",
+                "9999-01-02T03:04:05.123456789Z",
+                "9999-01-02T03:04:05.123456789-05:00"))
+        .flatMap(stream -> stream);
+  }
+
+  private static Stream<Arguments> legacyYear(
+      int year,
+      String dateText,
+      String timestampText,
+      String localText,
+      String instantText,
+      String zonedText) {
+    Timestamp timestamp = legacyTimestamp(year);
+    LocalDateTime local = LocalDateTime.of(year, 1, 2, 3, 4, 5, 123456789);
+    return Stream.of(
+        timestamp(timestamp, timestampText),
+        date(new Date(timestamp.getTime()), dateText),
+        date(local.toLocalDate(), dateText),
+        timestamp(local, localText),
+        timestamp(local.toInstant(ZoneOffset.UTC), instantText),
+        timestamp(local.atZone(ZoneId.of("America/New_York")), zonedText));
+  }
+
+  private static Stream<TemporalValue> matrixValues() {
+    return Stream.of(
+        new TemporalValue(
+            Timestamp.valueOf("2024-01-01 01:00:00"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01 01:00:00.0"),
+        new TemporalValue(Date.valueOf("2024-01-01"), ColumnInfoTypeName.DATE, "2024-01-01"),
+        new TemporalValue(LocalDate.of(2024, 1, 1), ColumnInfoTypeName.DATE, "2024-01-01"),
+        new TemporalValue(
+            LocalDateTime.of(2024, 1, 1, 1, 0), ColumnInfoTypeName.TIMESTAMP, "2024-01-01T01:00"),
+        new TemporalValue(
+            Instant.parse("2024-01-01T01:00:00Z"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T01:00:00Z"),
+        new TemporalValue(
+            OffsetDateTime.parse("2024-01-01T01:00:00+05:00"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T01:00+05:00",
+            "2024-01-01T01:00:00+05:00"),
+        new TemporalValue(
+            ZonedDateTime.parse("2024-01-01T01:00:00-05:00[America/New_York]"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T01:00-05:00[America/New_York]",
+            "2024-01-01T01:00:00-05:00"),
+        new TemporalValue(
+            OffsetDateTime.parse("2024-01-01T00:00:00Z"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T00:00Z",
+            "2024-01-01T00:00:00Z"),
+        new TemporalValue(
+            OffsetDateTime.parse("2024-01-01T05:45:37.123456-07:00").truncatedTo(ChronoUnit.HOURS),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T05:00-07:00",
+            "2024-01-01T05:00:00-07:00"),
+        new TemporalValue(
+            OffsetDateTime.parse("2024-01-01T05:45:37.123456+05:45")
+                .truncatedTo(ChronoUnit.MINUTES),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T05:45+05:45",
+            "2024-01-01T05:45:00+05:45"),
+        new TemporalValue(
+            OffsetDateTime.parse("0000-01-01T00:00:00+00:00:01"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "0000-01-01T00:00+00:00:01",
+            "0000-01-01T00:00:00+00:00:01"),
+        new TemporalValue(
+            OffsetDateTime.parse("-0100-01-01T00:00:00+18:00"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "-0100-01-01T00:00+18:00",
+            "-0100-01-01T00:00:00+18:00"),
+        new TemporalValue(
+            ZonedDateTime.parse("+10000-01-02T03:04+01:00[Europe/Paris]"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "+10000-01-02T03:04+01:00[Europe/Paris]",
+            "+10000-01-02T03:04:00+01:00"),
+        new TemporalValue(
+            ZonedDateTime.parse("2024-01-01T00:00:00Z[UTC]"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T00:00Z[UTC]",
+            "2024-01-01T00:00:00Z"),
+        new TemporalValue(
+            ZonedDateTime.parse("2024-01-01T05:45:37.123456-05:00[America/New_York]")
+                .truncatedTo(ChronoUnit.HOURS),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T05:00-05:00[America/New_York]",
+            "2024-01-01T05:00:00-05:00"),
+        new TemporalValue(
+            OffsetDateTime.parse("2024-01-01T01:00:00.500+05:00"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T01:00:00.500+05:00"),
+        new TemporalValue(
+            ZonedDateTime.parse("2024-01-01T01:00:00.500-05:00[America/New_York]"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-01-01T01:00:00.500-05:00[America/New_York]",
+            "2024-01-01T01:00:00.500-05:00"),
+        new TemporalValue(
+            ZonedDateTime.parse("2026-01-02T03:04:05.123456-05:00[America/New_York]"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2026-01-02T03:04:05.123456-05:00[America/New_York]",
+            "2026-01-02T03:04:05.123456-05:00"),
+        new TemporalValue(
+            OffsetDateTime.parse("2024-06-30T23:59:59.999999-03:00"),
+            ColumnInfoTypeName.TIMESTAMP,
+            "2024-06-30T23:59:59.999999-03:00"),
+        new TemporalValue(
+            legacyTimestamp(-100), ColumnInfoTypeName.TIMESTAMP, "-0100-01-02 03:04:05.123456789"),
+        new TemporalValue(
+            new Date(legacyTimestamp(0).getTime()), ColumnInfoTypeName.DATE, "0000-01-02"),
+        new TemporalValue(
+            legacyTimestamp(10000),
+            ColumnInfoTypeName.TIMESTAMP,
+            "+10000-01-02 03:04:05.123456789"),
+        new TemporalValue(
+            new Date(legacyTimestamp(10000).getTime()), ColumnInfoTypeName.DATE, "+10000-01-02"));
   }
 
   private static Arguments timestamp(Object value, String expected) {
@@ -125,5 +279,24 @@ public final class TemporalParameterTestData {
     Timestamp timestamp = new Timestamp(calendar.getTimeInMillis());
     timestamp.setNanos(123456789);
     return timestamp;
+  }
+
+  private static final class TemporalValue {
+    private final Object value;
+    private final ColumnInfoTypeName inferredType;
+    private final String text;
+    private final String timestampText;
+
+    private TemporalValue(Object value, ColumnInfoTypeName inferredType, String text) {
+      this(value, inferredType, text, text);
+    }
+
+    private TemporalValue(
+        Object value, ColumnInfoTypeName inferredType, String text, String timestampText) {
+      this.value = value;
+      this.inferredType = inferredType;
+      this.text = text;
+      this.timestampText = timestampText;
+    }
   }
 }

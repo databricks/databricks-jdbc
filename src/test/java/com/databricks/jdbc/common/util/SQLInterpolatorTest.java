@@ -23,17 +23,14 @@ public class SQLInterpolatorTest {
   @ParameterizedTest
   @MethodSource({
     "com.databricks.jdbc.common.util.TemporalParameterTestData#values",
-    "com.databricks.jdbc.common.util.TemporalParameterTestData#explicitOffsetValues"
+    "com.databricks.jdbc.common.util.TemporalParameterTestData#interpolatedTargetValues"
   })
   void testTemporalParameters(
       Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
       throws Exception {
     ImmutableSqlParameter parameter =
         ImmutableSqlParameter.builder().cardinal(1).type(type).value(value).build();
-    String literal =
-        expected == null
-            ? "NULL"
-            : type == ColumnInfoTypeName.STRING ? expected : "'" + expected + "'";
+    String literal = expected == null ? "NULL" : "'" + expected + "'";
     assertEquals(
         "SELECT " + literal, SQLInterpolator.interpolateSQL("SELECT ?", Map.of(1, parameter)));
   }
