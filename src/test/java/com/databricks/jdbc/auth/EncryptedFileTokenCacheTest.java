@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
 import java.io.DataInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -492,7 +493,24 @@ public class EncryptedFileTokenCacheTest {
   }
 
   @Test
+  void should_Save_WhileAReaderHasTheFileOpen() throws Exception {
+    EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    cache.save(new Token("old", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+
+    try (InputStream reader = Files.newInputStream(tokenCachePath)) {
+      cache.save(new Token("new", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+    }
+
+    assertEquals("new", cache.load().getAccessToken());
+    assertEquals(
+        Collections.singletonList(tokenCachePath), listDir(tempDir), "no temp file left behind");
+  }
+
+  @Test
   void should_ReplaceCacheFile_SoOpenReadersKeepACompleteOldVersion() throws Exception {
+    // Renaming over a file that is open is POSIX behavior; Windows rewrites it in place instead.
+    org.junit.jupiter.api.Assumptions.assumeTrue(
+        FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
     EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
     cache.save(new Token("old", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
     byte[] oldBytes = Files.readAllBytes(tokenCachePath);

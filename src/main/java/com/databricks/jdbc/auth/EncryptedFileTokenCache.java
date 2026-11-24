@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -155,7 +156,7 @@ public class EncryptedFileTokenCache implements TokenCache {
   /**
    * Writes an owner-only temp file in the same directory, then moves it over the cache file, so a
    * concurrent load() sees the old or the new file, never a partly written one (as the kernel
-   * does).
+   * does). On Windows, a cache file held open elsewhere is rewritten in place instead.
    */
   private void writeOwnerOnly(Path path, byte[] data) throws IOException {
     boolean posix = path.getFileSystem().supportedFileAttributeViews().contains("posix");
@@ -167,17 +168,20 @@ public class EncryptedFileTokenCache implements TokenCache {
             : Files.createTempFile(path.getParent(), prefix, ".tmp");
     try {
       if (!posix) {
-        File file = tmp.toFile();
-        file.setReadable(false, false);
-        file.setReadable(true, true);
-        file.setWritable(false, false);
-        file.setWritable(true, true);
+        restrictToOwner(tmp.toFile());
       }
       Files.write(tmp, data);
       try {
         Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
       } catch (AtomicMoveNotSupportedException e) {
         Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
+      } catch (AccessDeniedException e) {
+        if (posix) {
+          throw e;
+        }
+        // Windows can't replace a file another handle has open; write it in place as before.
+        Files.write(path, data);
+        restrictToOwner(path.toFile());
       }
     } finally {
       try {
@@ -186,6 +190,13 @@ public class EncryptedFileTokenCache implements TokenCache {
         LOGGER.debug("Could not delete temporary token cache file {}: {}", tmp, e.getMessage());
       }
     }
+  }
+
+  private static void restrictToOwner(File file) {
+    file.setReadable(false, false);
+    file.setReadable(true, true);
+    file.setWritable(false, false);
+    file.setWritable(true, true);
   }
 
   /** Derives the AES key from the passphrase and the given (per-file) salt. */
