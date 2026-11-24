@@ -1636,6 +1636,24 @@ class DatabricksConnectionContextTest {
     assertFalse(ctx.treatMetadataCatalogNameAsPattern());
   }
 
+  @ParameterizedTest(name = "cluster={0}, serverSea={1}")
+  @CsvSource({"false, true", "false, false", "false,", "true, true", "true, false", "true,"})
+  public void testBoundedSeaApiDefaultsEnabledRegardlessOfServerFlag(
+      boolean cluster, String serverFlag) throws DatabricksSQLException {
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                cluster ? TestConstants.VALID_CLUSTER_URL : TestConstants.VALID_URL_1, properties);
+    Map<String, String> flags = new HashMap<>();
+    if (serverFlag != null) {
+      flags.put(
+          "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", serverFlag);
+    }
+    setFeatureFlagsContext(ctx, flags);
+
+    assertTrue(ctx.isBoundedSeaApiEnabled());
+  }
+
   @Test
   public void testNativeMetadataViaSea_serverFlagEnabled_warehouseReturnsTrue()
       throws DatabricksSQLException {
@@ -1664,7 +1682,7 @@ class DatabricksConnectionContextTest {
     flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
     setFeatureFlagsContext(ctx, flags);
 
-    assertFalse(ctx.isBoundedSeaApiEnabled());
+    assertTrue(ctx.isBoundedSeaApiEnabled());
     assertFalse(ctx.isThriftNativeMetadataEnabled());
   }
 
@@ -1679,7 +1697,7 @@ class DatabricksConnectionContextTest {
     flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
     setFeatureFlagsContext(ctx, flags);
 
-    assertFalse(ctx.isBoundedSeaApiEnabled());
+    assertTrue(ctx.isBoundedSeaApiEnabled());
     assertFalse(ctx.isThriftNativeMetadataEnabled());
   }
 

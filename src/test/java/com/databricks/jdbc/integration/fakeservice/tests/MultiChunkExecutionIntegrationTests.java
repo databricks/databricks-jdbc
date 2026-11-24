@@ -2,6 +2,8 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.RESULT_CHUNK_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getValidJDBCConnection;
+import static com.github.tomakehurst.wiremock.client.WireMock.absent;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,6 +25,16 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
   @Test
   void testMultiChunkSelect() throws SQLException, InterruptedException {
+    verifyMultiChunkSelect(new Properties(), true);
+    if (isSqlExecSdkClient()) {
+      Properties properties = new Properties();
+      properties.setProperty("UseBoundedSeaApi", "0");
+      verifyMultiChunkSelect(properties, false);
+    }
+  }
+
+  private void verifyMultiChunkSelect(Properties properties, boolean boundedSea)
+      throws SQLException, InterruptedException {
     // Ensure fake service property is set to skip link expiry checks in tests
     System.setProperty(DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP, "true");
 
@@ -33,7 +45,6 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
     final int maxRows = isSqlExecSdkClient() ? 122900 : 147500;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
-    Properties properties = new Properties();
     properties.setProperty("RowsFetchedPerBlock", String.valueOf(maxRows));
     properties.setProperty("EnableSQLExecHybridResults", "0");
     Connection connection = getValidJDBCConnection(properties);
@@ -42,6 +53,10 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
     statement.setMaxRows(maxRows);
 
     final AtomicReference<Throwable> threadException = new AtomicReference<>();
+    final int initialCloudFetchCalls =
+        getCloudFetchApiExtension()
+            .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
+            .getCount();
 
     // Iterate through the result set in a different thread to surface any 1st-level thread-safety
     // issues
@@ -67,8 +82,9 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
                 // The number of cloud fetch calls should be equal to the number of chunks
                 final int cloudFetchCalls =
                     getCloudFetchApiExtension()
-                        .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
-                        .getCount();
+                            .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
+                            .getCount()
+                        - initialCloudFetchCalls;
                 // cloud fetch calls can be retried
                 assertTrue(cloudFetchCalls >= metaData.getChunkCount());
 
@@ -81,7 +97,9 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
                   getDatabricksApiExtension()
                       .verify(
                           (int) (metaData.getChunkCount() - 1),
-                          getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+                          getRequestedFor(urlPathMatching(resultChunkPathRegex))
+                              .withQueryParam(
+                                  "row_offset", boundedSea ? equalTo("122880") : absent()));
                 }
               } catch (Throwable e) {
                 threadException.set(e);
@@ -90,6 +108,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
     thread.start();
     thread.join(10_000);
+    assertFalse(thread.isAlive(), "Result iteration did not finish within 10 seconds");
 
     // Check if the thread had an exception
     if (threadException.get() != null) {
