@@ -38,6 +38,7 @@ import org.apache.thrift.transport.TMemoryBuffer;
 import org.apache.thrift.transport.TMemoryInputTransport;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
@@ -124,8 +125,57 @@ class ThriftOpenSessionRetryTest {
       assertHttpDiagnostics(exception, 504);
       assertEquals(2, endpoint.attempts.get());
       assertTrue(
-          elapsedMillis <= 6000,
-          "Four-second budget plus one two-second attempt: " + elapsedMillis);
+          elapsedMillis <= 10000,
+          "Four-second budget, one two-second attempt and four-second CI scheduling allowance: "
+              + elapsedMillis);
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"503,429", "429,503", "503,502", "502,503", "429,502", "502,429"})
+  void mixedCategoriesStartIndependentBudgetWindows(int firstStatus, int secondStatus)
+      throws Exception {
+    try (RetryEndpoint endpoint = new RetryEndpoint(firstStatus)) {
+      when(endpoint.connectionContext.getApiRetriableHttpCodes())
+          .thenReturn(Collections.singleton(502));
+      when(endpoint.connectionContext.getTemporarilyUnavailableRetryTimeout())
+          .thenReturn(firstStatus == 503 ? 900 : 120);
+      when(endpoint.connectionContext.getRateLimitRetryTimeout())
+          .thenReturn(firstStatus == 429 ? 900 : 120);
+      when(endpoint.connectionContext.getApiRetryTimeout())
+          .thenReturn(firstStatus == 502 ? 900 : 120);
+      endpoint.responseStatuses =
+          Arrays.asList(
+              firstStatus, firstStatus, firstStatus, firstStatus, firstStatus, secondStatus, 200);
+      endpoint.retryAfterHeaders = Arrays.asList("30", "30", "30", "30", "30", "5", null);
+      assertNotNull(endpoint.openSession());
+      assertEquals(7, endpoint.attempts.get());
+      assertEquals(155_000, endpoint.clockMillis.get());
+      assertEquals(
+          Arrays.asList(30_000L, 30_000L, 30_000L, 30_000L, 30_000L, 5000L), endpoint.sleeps);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429, 502, 504, 408})
+  void interruptedOpenSessionSleepEndsWithCheckedFailure(int statusCode) throws Exception {
+    try (RetryEndpoint endpoint = new RetryEndpoint(statusCode)) {
+      endpoint.interruptSleep = true;
+      try {
+        SQLException failure = assertThrows(SQLException.class, endpoint::openSession);
+        assertTrue(Thread.currentThread().isInterrupted());
+        assertEquals(1, endpoint.attempts.get());
+        assertEquals(1, endpoint.sleeps.size());
+        Throwable cause = failure;
+        while (cause != null && !(cause instanceof DatabricksHttpException)) {
+          cause = cause.getCause();
+        }
+        assertInstanceOf(DatabricksHttpException.class, cause);
+        assertEquals(0, ((DatabricksHttpException) cause).getErrorCode());
+        assertTrue(cause.getMessage().contains("HTTP response code: " + statusCode));
+      } finally {
+        Thread.interrupted();
+      }
     }
   }
 
@@ -198,6 +248,9 @@ class ThriftOpenSessionRetryTest {
     private long responseDelayMillis;
     private String retryAfter;
     private boolean realTime;
+    private boolean interruptSleep;
+    private List<Integer> responseStatuses = Collections.emptyList();
+    private List<String> retryAfterHeaders = Collections.emptyList();
 
     private RetryEndpoint(int statusCode) throws Exception {
       when(connectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
@@ -212,7 +265,10 @@ class ThriftOpenSessionRetryTest {
             protected void doSleepForDelay(long delayMillis) {
               assertTrue(delayMillis > 0);
               sleeps.add(delayMillis);
-              if (realTime) {
+              if (interruptSleep) {
+                Thread.currentThread().interrupt();
+              }
+              if (realTime || interruptSleep) {
                 super.doSleepForDelay(delayMillis);
               } else {
                 clockMillis.addAndGet(delayMillis);
@@ -234,8 +290,11 @@ class ThriftOpenSessionRetryTest {
               TMessage message =
                   new TBinaryProtocol(new TMemoryInputTransport(request)).readMessageBegin();
               methods.add(message.name);
+              int attempt = attempts.incrementAndGet();
               int responseStatus =
-                  attempts.incrementAndGet() <= failuresBeforeSuccess ? statusCode : 200;
+                  responseStatuses.isEmpty()
+                      ? attempt <= failuresBeforeSuccess ? statusCode : 200
+                      : responseStatuses.get(Math.min(attempt - 1, responseStatuses.size() - 1));
               if (responseDelayMillis > 0) {
                 try {
                   Thread.sleep(responseDelayMillis);
@@ -265,8 +324,12 @@ class ThriftOpenSessionRetryTest {
                 response = Arrays.copyOf(buffer.getArray(), buffer.length());
               }
               exchange.getResponseHeaders().set("x-request-id", "req-abc-123");
-              if (retryAfter != null) {
-                exchange.getResponseHeaders().set("Retry-After", retryAfter);
+              String retryAfterHeader =
+                  retryAfterHeaders.isEmpty()
+                      ? retryAfter
+                      : retryAfterHeaders.get(Math.min(attempt - 1, retryAfterHeaders.size() - 1));
+              if (retryAfterHeader != null) {
+                exchange.getResponseHeaders().set("Retry-After", retryAfterHeader);
               }
               exchange.sendResponseHeaders(responseStatus, response.length);
               exchange.getResponseBody().write(response);

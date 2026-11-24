@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.log.LogCapture;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -456,6 +457,31 @@ public class DatabricksHttpRetryHandlerTest {
     currentTimeMillis += 4000;
     assertDoesNotThrow(() -> retryHandler.process(createResponse(504, "1"), httpContext));
     assertEquals(List.of(3000L), sleepDurations);
+  }
+
+  @Test
+  void openSessionExhaustionLogsOneSanitizedWarning() throws IOException {
+    configureOpenSession();
+    httpContext.setAttribute(
+        HttpCoreContext.HTTP_REQUEST,
+        createRequest("POST", "https://private.invalid/?token=sentinel"));
+    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(2);
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksRetryHandlerException exception =
+          assertThrows(
+              DatabricksRetryHandlerException.class,
+              () -> retryHandler.process(createResponse(503, "1"), httpContext));
+      assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+      currentTimeMillis += 2000;
+      retryHandler.process(createResponse(503, "1"), httpContext);
+      String output = logs.getOutput();
+      String expected =
+          "OpenSession retry budget exhausted: attempts=2, elapsedMs=3000, budgetMs=2000, lastStatus=503";
+      assertTrue(output.contains(expected));
+      assertEquals(1, java.util.Arrays.stream(output.split("\n")).filter(expected::equals).count());
+      assertFalse(output.contains("private.invalid"));
+      assertFalse(output.contains("sentinel"));
+    }
   }
 
   @ParameterizedTest

@@ -28,7 +28,9 @@ public class DatabricksHttpRetryHandler
 
   static final String RETRY_INTERVAL_KEY = "retryInterval";
   public static final String OPEN_SESSION_REQUEST_KEY = "databricks.thrift.openSession";
-  private static final String OPEN_SESSION_RETRY_START_KEY = "openSessionRetryStart";
+  private static final String OPEN_SESSION_TEMP_RETRY_START_KEY = "openSessionTempRetryStart";
+  private static final String OPEN_SESSION_RATE_RETRY_START_KEY = "openSessionRateRetryStart";
+  private static final String OPEN_SESSION_API_RETRY_START_KEY = "openSessionApiRetryStart";
   private static final String OPEN_SESSION_RETRY_COUNT_KEY = "openSessionRetryCount";
   private static final String OPEN_SESSION_RETRY_DELAY_KEY = "openSessionRetryDelay";
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
@@ -149,7 +151,15 @@ public class DatabricksHttpRetryHandler
       if (delayMillis == null || delayMillis <= 0) {
         return false;
       }
-      doSleepForDelay(delayMillis);
+      try {
+        doSleepForDelay(delayMillis);
+      } catch (RuntimeException sleepFailure) {
+        if (!(sleepFailure.getCause() instanceof InterruptedException)) {
+          throw sleepFailure;
+        }
+        Thread.currentThread().interrupt();
+        return false;
+      }
       return true;
     }
 
@@ -284,14 +294,20 @@ public class DatabricksHttpRetryHandler
         HttpClientContext.adapt(context).getRequest().getRequestLine().getMethod())) {
       return false;
     }
-    Long started = (Long) context.getAttribute(OPEN_SESSION_RETRY_START_KEY);
+    boolean customCode = connectionContext.getApiRetriableHttpCodes().contains(statusCode);
+    String retryStartKey =
+        customCode
+            ? OPEN_SESSION_API_RETRY_START_KEY
+            : statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
+                ? OPEN_SESSION_RATE_RETRY_START_KEY
+                : OPEN_SESSION_TEMP_RETRY_START_KEY;
+    Long started = (Long) context.getAttribute(retryStartKey);
     if (started == null) {
       started = currentTimeMillis();
-      context.setAttribute(OPEN_SESSION_RETRY_START_KEY, started);
+      context.setAttribute(retryStartKey, started);
     }
-    Integer retryCount = (Integer) context.getAttribute(OPEN_SESSION_RETRY_COUNT_KEY);
-    int nextRetryCount = retryCount == null ? 1 : Math.min(retryCount + 1, 6);
-    boolean customCode = connectionContext.getApiRetriableHttpCodes().contains(statusCode);
+    long nextRetryCount = getAccumulatedTime(context, OPEN_SESSION_RETRY_COUNT_KEY) + 1;
+    int executionCount = (int) Math.min(nextRetryCount, Integer.MAX_VALUE);
     int retryAfter = -1;
     if (response.containsHeader(RETRY_AFTER_HEADER)) {
       try {
@@ -304,8 +320,8 @@ public class DatabricksHttpRetryHandler
         retryAfter > 0
             ? retryAfter * 1000L
             : customCode
-                ? calculateExponentialBackoff(nextRetryCount)
-                : calculateOpenSessionBackoff(nextRetryCount);
+                ? calculateExponentialBackoff(executionCount)
+                : calculateOpenSessionBackoff(executionCount);
     int timeoutSeconds =
         customCode
             ? connectionContext.getApiRetryTimeout()
@@ -313,7 +329,16 @@ public class DatabricksHttpRetryHandler
                 ? connectionContext.getRateLimitRetryTimeout()
                 : connectionContext.getTemporarilyUnavailableRetryTimeout();
     long elapsedMillis = currentTimeMillis() - started;
-    if (delayMillis <= 0 || delayMillis > timeoutSeconds * 1000L - elapsedMillis) {
+    if (delayMillis <= 0) {
+      return false;
+    }
+    if (delayMillis > timeoutSeconds * 1000L - elapsedMillis) {
+      LOGGER.warn(
+          "OpenSession retry budget exhausted: attempts={}, elapsedMs={}, budgetMs={}, lastStatus={}",
+          nextRetryCount,
+          elapsedMillis,
+          timeoutSeconds * 1000L,
+          statusCode);
       return false;
     }
     context.setAttribute(OPEN_SESSION_RETRY_COUNT_KEY, nextRetryCount);
