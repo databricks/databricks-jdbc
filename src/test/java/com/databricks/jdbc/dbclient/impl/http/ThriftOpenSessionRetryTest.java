@@ -136,23 +136,47 @@ class ThriftOpenSessionRetryTest {
   void mixedCategoriesStartIndependentBudgetWindows(int firstStatus, int secondStatus)
       throws Exception {
     try (RetryEndpoint endpoint = new RetryEndpoint(firstStatus)) {
-      when(endpoint.connectionContext.getApiRetriableHttpCodes())
-          .thenReturn(Collections.singleton(502));
-      when(endpoint.connectionContext.getTemporarilyUnavailableRetryTimeout())
-          .thenReturn(firstStatus == 503 ? 900 : 120);
-      when(endpoint.connectionContext.getRateLimitRetryTimeout())
-          .thenReturn(firstStatus == 429 ? 900 : 120);
-      when(endpoint.connectionContext.getApiRetryTimeout())
-          .thenReturn(firstStatus == 502 ? 900 : 120);
-      endpoint.responseStatuses =
-          Arrays.asList(
-              firstStatus, firstStatus, firstStatus, firstStatus, firstStatus, secondStatus, 200);
-      endpoint.retryAfterHeaders = Arrays.asList("30", "30", "30", "30", "30", "5", null);
+      endpoint.mixCategories(firstStatus, secondStatus, "5");
       assertNotNull(endpoint.openSession());
       assertEquals(7, endpoint.attempts.get());
       assertEquals(155_000, endpoint.clockMillis.get());
       assertEquals(
           Arrays.asList(30_000L, 30_000L, 30_000L, 30_000L, 30_000L, 5000L), endpoint.sleeps);
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"503,429", "429,503", "503,502", "502,503", "429,502", "502,429"})
+  void fallbackBackoffStartsFreshForEachCategory(int firstStatus, int secondStatus)
+      throws Exception {
+    try (RetryEndpoint endpoint = new RetryEndpoint(firstStatus)) {
+      endpoint.mixCategories(firstStatus, secondStatus, null);
+      assertNotNull(endpoint.openSession());
+      assertEquals(7, endpoint.attempts.get());
+      long delay = endpoint.sleeps.get(5);
+      if (secondStatus == 502) {
+        assertEquals(2000L, delay);
+      } else {
+        assertTrue(delay >= 800 && delay < 1200, "First category-local backoff: " + delay);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"503,500", "500,503"})
+  void customCodesShareOneOpenSessionBudget(int firstStatus, int secondStatus) throws Exception {
+    try (RetryEndpoint endpoint = new RetryEndpoint(firstStatus)) {
+      when(endpoint.connectionContext.getApiRetriableHttpCodes())
+          .thenReturn(new java.util.HashSet<>(Arrays.asList(500, 503)));
+      when(endpoint.connectionContext.getApiRetryTimeout()).thenReturn(160);
+      endpoint.responseStatuses =
+          Arrays.asList(
+              firstStatus, firstStatus, firstStatus, firstStatus, firstStatus, secondStatus, 200);
+      endpoint.retryAfterHeaders = Arrays.asList("30", "30", "30", "30", "30", "20", null);
+      assertHttpDiagnostics(assertThrows(SQLException.class, endpoint::openSession), secondStatus);
+      assertEquals(6, endpoint.attempts.get());
+      assertEquals(150_000, endpoint.clockMillis.get());
+      assertEquals(5, endpoint.sleeps.size());
     }
   }
 
@@ -364,6 +388,18 @@ class ThriftOpenSessionRetryTest {
       when(configuratorManager.getConfigurator(connectionContext)).thenReturn(configurator);
       when(configurator.getDatabricksConfig()).thenReturn(config);
       service = new DatabricksThriftServiceClient(connectionContext);
+    }
+
+    private void mixCategories(int firstStatus, int secondStatus, String secondRetryAfter) {
+      when(connectionContext.getApiRetriableHttpCodes()).thenReturn(Collections.singleton(502));
+      when(connectionContext.getTemporarilyUnavailableRetryTimeout())
+          .thenReturn(firstStatus == 503 ? 900 : 120);
+      when(connectionContext.getRateLimitRetryTimeout()).thenReturn(firstStatus == 429 ? 900 : 120);
+      when(connectionContext.getApiRetryTimeout()).thenReturn(firstStatus == 502 ? 900 : 120);
+      responseStatuses =
+          Arrays.asList(
+              firstStatus, firstStatus, firstStatus, firstStatus, firstStatus, secondStatus, 200);
+      retryAfterHeaders = Arrays.asList("30", "30", "30", "30", "30", secondRetryAfter, null);
     }
 
     private ImmutableSessionInfo openSession() throws SQLException {

@@ -82,7 +82,7 @@ public class DatabricksHttpRetryHandler
       return;
     }
 
-    if (isOpenSessionRequest(httpContext) && isOpenSessionRetryStatus(statusCode)) {
+    if (isOpenSessionRequest(httpContext)) {
       if (!prepareOpenSessionRetry(httpResponse, httpContext, statusCode)) {
         return;
       }
@@ -146,7 +146,7 @@ public class DatabricksHttpRetryHandler
       return false;
     }
 
-    if (isOpenSessionRequest(context) && isOpenSessionRetryStatus(statusCode)) {
+    if (isOpenSessionRequest(context)) {
       Long delayMillis = (Long) context.getAttribute(OPEN_SESSION_RETRY_DELAY_KEY);
       if (delayMillis == null || delayMillis <= 0) {
         return false;
@@ -307,7 +307,9 @@ public class DatabricksHttpRetryHandler
       context.setAttribute(retryStartKey, started);
     }
     long nextRetryCount = getAccumulatedTime(context, OPEN_SESSION_RETRY_COUNT_KEY) + 1;
-    int executionCount = (int) Math.min(nextRetryCount, Integer.MAX_VALUE);
+    String retryCountKey = retryStartKey + ".count";
+    long nextCategoryRetryCount = getAccumulatedTime(context, retryCountKey) + 1;
+    int executionCount = (int) Math.min(nextCategoryRetryCount, Integer.MAX_VALUE);
     int retryAfter = -1;
     if (response.containsHeader(RETRY_AFTER_HEADER)) {
       try {
@@ -342,6 +344,7 @@ public class DatabricksHttpRetryHandler
       return false;
     }
     context.setAttribute(OPEN_SESSION_RETRY_COUNT_KEY, nextRetryCount);
+    context.setAttribute(retryCountKey, nextCategoryRetryCount);
     context.setAttribute(OPEN_SESSION_RETRY_DELAY_KEY, delayMillis);
     return true;
   }
@@ -349,14 +352,6 @@ public class DatabricksHttpRetryHandler
   @VisibleForTesting
   protected long currentTimeMillis() {
     return System.nanoTime() / 1_000_000;
-  }
-
-  private static boolean isOpenSessionRetryStatus(int statusCode) {
-    return statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
-        || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
-        || statusCode == HttpStatus.SC_BAD_GATEWAY
-        || statusCode == HttpStatus.SC_GATEWAY_TIMEOUT
-        || statusCode == HttpStatus.SC_REQUEST_TIMEOUT;
   }
 
   static int getErrorCodeFromException(IOException exception) {
