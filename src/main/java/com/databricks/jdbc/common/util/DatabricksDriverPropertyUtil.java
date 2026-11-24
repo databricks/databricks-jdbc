@@ -58,13 +58,17 @@ public class DatabricksDriverPropertyUtil {
           "JDBC URL must be in the form: <protocol>://<host or domain>:<port>/<path>";
       return Collections.singletonList(hostProperty);
     }
+    List<DriverPropertyInfo> missingProperties = new ArrayList<>();
     // check if url contains HTTP_PATH
     if (!connectionContext.isPropertyPresent(HTTP_PATH)) {
-      return Collections.singletonList(getUrlParamInfo(HTTP_PATH, true));
+      missingProperties.add(getUrlParamInfo(HTTP_PATH, true));
     }
     // check if url contains AUTH_MECH
     if (!connectionContext.isPropertyPresent(AUTH_MECH)) {
-      return Collections.singletonList(getUrlParamInfo(AUTH_MECH, true));
+      missingProperties.add(getUrlParamInfo(AUTH_MECH, true));
+    }
+    if (!missingProperties.isEmpty()) {
+      return missingProperties;
     }
 
     return buildMissingPropertiesList(connectionContext);
