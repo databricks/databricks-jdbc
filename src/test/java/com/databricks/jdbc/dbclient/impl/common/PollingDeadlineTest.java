@@ -15,6 +15,7 @@ import com.databricks.sdk.core.http.Request;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -23,6 +24,7 @@ import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,6 +40,29 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class PollingDeadlineTest {
+  @Test
+  void failedTimerSchedulingPreservesCurrentScope() throws Exception {
+    ScheduledThreadPoolExecutor executor = mock(ScheduledThreadPoolExecutor.class);
+    OutOfMemoryError unavailable = new OutOfMemoryError("simulated timer thread exhaustion");
+    when(executor.schedule(any(Runnable.class), anyLong(), eq(TimeUnit.MILLISECONDS)))
+        .thenThrow(unavailable);
+    Field current = PollingDeadline.class.getDeclaredField("CURRENT");
+    current.setAccessible(true);
+    ThreadLocal<?> scope = (ThreadLocal<?>) current.get(null);
+    assertNull(scope.get());
+    assertSame(
+        unavailable,
+        assertThrows(OutOfMemoryError.class, () -> new PollingDeadline(1000, executor)));
+    assertNull(scope.get(), "Failed construction must not install a deadline");
+    try (PollingDeadline outer = new PollingDeadline(10000)) {
+      assertSame(
+          unavailable,
+          assertThrows(OutOfMemoryError.class, () -> new PollingDeadline(1000, executor)));
+      assertSame(outer, scope.get(), "Failed construction must retain the outer scope");
+    }
+    assertNull(scope.get());
+  }
+
   @Test
   void externalInterruptDuringHeldPollSurvivesDeadline() throws Exception {
     CountDownLatch polling = new CountDownLatch(1);

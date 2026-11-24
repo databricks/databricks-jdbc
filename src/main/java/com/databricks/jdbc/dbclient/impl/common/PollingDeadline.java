@@ -37,8 +37,12 @@ public final class PollingDeadline implements AutoCloseable {
   }
 
   PollingDeadline(long remainingMillis) {
+    this(remainingMillis, TIMER);
+  }
+
+  PollingDeadline(long remainingMillis, ScheduledThreadPoolExecutor executor) {
+    timer = executor.schedule(this::expire, remainingMillis, TimeUnit.MILLISECONDS);
     CURRENT.set(this);
-    timer = TIMER.schedule(this::expire, remainingMillis, TimeUnit.MILLISECONDS);
   }
 
   public static boolean isCurrentExpired() {
