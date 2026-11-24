@@ -26,7 +26,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | AC2 | **PASS** | Explicit SEA opened an APC session and `SELECT 1` passed; Thrift control passed. |
 | AC3 | **FAIL** | SEA execute/fetch, timeout, and heartbeat probes passed, but `Connection.getConnectionId()` threw `NullPointerException`; this prevents the required compound-ID close lifecycle. Thrift returned a valid connection ID. |
 | AC4 | **PASS** | Ten JDBC values and classes matched Thrift exactly. |
-| AC5 | **BLOCKED** | `getCatalogs`/metadata probe reached both SEA and Thrift but both returned SQLSTATE `42501` (insufficient privilege) before result-format validation. |
+| AC5 | **PASS** | SEA and Thrift independently returned matching `getCatalogs/getSchemas/getTables/getColumns` row counts (51/1/1/8). Every SEA request used `ARROW_STREAM` and the matching metadata-operation header; the fully-sync header was present only with `EnableSeaSyncMetadata=1`, and the require-native header was present with explicit `EnableThriftNativeMetadata=1`. All live responses used native Arrow attachments and produced the expected JDBC column counts. |
 | AC6 | **PASS** | Prepared scalar BIGINT and STRING binds returned expected values on SEA and Thrift. |
 | AC7 | **BLOCKED** | Arrow-unavailable routing requires an AIX/PowerPC host and cannot be injected from this client. |
 | AC8 | **PARTIAL** | With cloud download disabled, `UseBoundedSeaApi=0/1` selected SEA with `cloud_fetch=false` and bounded mode false/true respectively; `SELECT 1` passed. Inline-only multi-page validation remains gated by SC-258787. |
@@ -37,7 +37,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | AC13 | **PASS** | SEA and Thrift returned identical type codes and classes for BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, DECIMAL, DATE, and TIMESTAMP. |
 | AC14 | **PASS** | SEA and Thrift each returned 100,000 ordered rows with identical checksum, with direct results both enabled and disabled. |
 | AC15 | **PASS** | One-row and empty-result schema passed; `SET spark.sql.ansi.enabled` returned a two-column row on both SEA and Thrift. |
-| AC16 | **BLOCKED** | Both routes returned the same SQLSTATE `42501`; this principal cannot validate metadata result-format parity. |
+| AC16 | **PARTIAL** | The live scoped metadata sequence decoded native Arrow attachments for all four operations on one SEA connection, but the server emitted no `columnar_data`, so the live columnar-to-Arrow transition could not be exercised. The deterministic columnar/null-mask and per-response decoder-switch tests remain the evidence for that half. |
 | AC17 | **PASS** | `EnableNativeBatching=1` inserted three parameter sets, returned three count entries, and persisted three rows. Scratch schema cleanup passed. |
 | AC18 | **PASS** | `setQueryTimeout(1)` raised `DatabricksTimeoutException` on both routes. SEA reported `STATEMENT_EXECUTION_TIMEOUT`; Thrift reported `OPERATION_TIMEOUT_ERROR`. |
 | AC19 | **PASS** | On staging and flag-ON dogfood, `UseThriftClient=0` selected `DatabricksSdkClient` and `UseThriftClient=1` selected `DatabricksThriftServiceClient`; all probes passed `SELECT 1`. |
@@ -56,7 +56,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 
 | AC | Ticket | Summary | Status |
 | --- | --- | --- | --- |
-| AC5, AC16 | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | Reyder ARROW_STREAM metadata | Verify live |
+| AC5, AC16 | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | Reyder metadata formats | Arrow attachment verified live; `columnar_data` was not emitted |
 | AC8 inline-only paging | [SC-258787](https://databricks.atlassian.net/browse/SC-258787) | Honor APC cloud-download setting | Verify live |
 | AC22 DDL vehicle | [SC-258842](https://databricks.atlassian.net/browse/SC-258842) | APC DDL result manifest has no schema | Verify live |
 
@@ -94,11 +94,11 @@ The rejection is local and prevents execution, but it does not meet the APC-spec
 
 | Outcome | Count |
 | --- | ---: |
-| PASS | 19 |
-| PARTIAL | 1 |
+| PASS | 20 |
+| PARTIAL | 2 |
 | FAIL | 4 |
 | SKIP | 0 |
-| BLOCKED | 5 |
+| BLOCKED | 3 |
 | NOT RUN | 0 |
 
 ## Dogfood flag-ON run
@@ -118,5 +118,5 @@ The rejection is local and prevents execution, but it does not meet the APC-spec
 | Query execution and paging | 100k rows pass, direct results on/off | 100k rows pass, direct results on/off | Ordered row count and checksum match |
 | Types and values | Pass | Pass | Full parity for the ten-type live probe |
 | Parameters and batches | Scalar pass | Scalar and native batch pass | Complex rejection occurs locally but returns the wrong error contract |
-| Metadata | SQLSTATE `42501` | SQLSTATE `42501` | Same failure; insufficient privilege prevents format validation |
+| Metadata | 51/1/1/8 rows for catalogs/schemas/tables/columns | Same row counts; `ARROW_STREAM`, sync/native headers, and Arrow attachments observed | JDBC-visible parity passed; live server did not emit `columnar_data` |
 | Timeout and lifecycle | Timeout exception pass (`OPERATION_TIMEOUT_ERROR`) | Timeout exception pass (`STATEMENT_EXECUTION_TIMEOUT`) | Exception class parity; SQL state differs |

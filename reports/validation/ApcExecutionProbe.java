@@ -13,6 +13,11 @@ import java.util.Properties;
 
 /** Sanitized execution probes shared by APC SEA and Thrift controls. */
 public final class ApcExecutionProbe {
+  @FunctionalInterface
+  private interface MetadataCall {
+    ResultSet execute() throws SQLException;
+  }
+
   private static Connection connect(String mode, String extraOptions) throws Exception {
     String host = System.getenv("DATABRICKS_HOST").replaceFirst("^https?://", "");
     String path = System.getenv("DATABRICKS_HTTP_PATH");
@@ -133,23 +138,37 @@ public final class ApcExecutionProbe {
   }
 
   private static void metadata(String mode) throws Exception {
-    try (Connection connection = connect(mode, "")) {
+    try (Connection connection = connect(mode, ";EnableSeaSyncMetadata=1")) {
       DatabaseMetaData metadata = connection.getMetaData();
-      int catalogs = count(metadata.getCatalogs(), 1000);
-      int schemas = count(metadata.getSchemas(), 1000);
-      int tables = count(metadata.getTables(null, "default", "__apc_validation_missing_%", null), 10);
-      int columns =
-          count(
-              metadata.getColumns(
-                  null, "default", "__apc_validation_missing_%", "__missing_column_%"),
-              10);
+      metadataOperation(mode, "catalogs", metadata::getCatalogs);
+      metadataOperation(
+          mode, "schemas", () -> metadata.getSchemas("system", "information_schema"));
+      metadataOperation(
+          mode,
+          "tables",
+          () -> metadata.getTables("system", "information_schema", "schemata", null));
+      metadataOperation(
+          mode,
+          "columns",
+          () -> metadata.getColumns("system", "information_schema", "schemata", "%"));
+    }
+  }
+
+  private static void metadataOperation(String mode, String operation, MetadataCall call) {
+    try (ResultSet result = call.execute()) {
+      int resultColumns = result.getMetaData().getColumnCount();
+      int rows = count(result, 1000);
       System.out.printf(
-          "mode=%s metadata=pass catalogs=%d schemas=%d tables=%d columns=%d%n",
-          mode, catalogs, schemas, tables, columns);
+          "mode=%s metadata_operation=%s outcome=pass rows=%d result_columns=%d%n",
+          mode, operation, rows, resultColumns);
     } catch (SQLException error) {
       System.out.printf(
-          "mode=%s metadata=exception class=%s sqlstate=%s vendor=%d%n",
-          mode, error.getClass().getSimpleName(), error.getSQLState(), error.getErrorCode());
+          "mode=%s metadata_operation=%s outcome=exception class=%s sqlstate=%s vendor=%d%n",
+          mode,
+          operation,
+          error.getClass().getSimpleName(),
+          error.getSQLState(),
+          error.getErrorCode());
     }
   }
 

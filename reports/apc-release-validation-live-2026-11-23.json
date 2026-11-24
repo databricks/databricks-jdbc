@@ -95,16 +95,32 @@
       "outcome": "PASS"
     },
     "metadata_sea": {
-      "exception": "DatabricksSQLException",
-      "sql_state": "42501",
-      "vendor_code": 1003,
-      "outcome": "BLOCKED_INSUFFICIENT_PRIVILEGE"
+      "catalog_rows": 51,
+      "schema_rows": 1,
+      "table_rows": 1,
+      "column_rows": 8,
+      "request_format": "ARROW_STREAM",
+      "manifest_format": "ARROW_STREAM",
+      "metadata_operation_headers": "PASS",
+      "sync_header_enabled": "PRESENT",
+      "sync_header_disabled": "ABSENT",
+      "require_native_header_explicit": "PRESENT",
+      "attachment": true,
+      "columnar_data": false,
+      "native_metadata_result": true,
+      "outcome": "PASS_ARROW_VARIANT"
     },
     "metadata_thrift": {
-      "exception": "DatabricksSQLException",
-      "sql_state": "42501",
-      "vendor_code": 1003,
-      "outcome": "BLOCKED_INSUFFICIENT_PRIVILEGE"
+      "catalog_rows": 51,
+      "schema_rows": 1,
+      "table_rows": 1,
+      "column_rows": 8,
+      "outcome": "PASS"
+    },
+    "metadata_columnar_live": {
+      "columnar_data_observed": false,
+      "arrow_attachment_observed": true,
+      "outcome": "PARTIAL_SERVER_VARIANT_NOT_EMITTED"
     },
     "bounded_sea_disabled": {
       "client": "DatabricksSdkClient",
