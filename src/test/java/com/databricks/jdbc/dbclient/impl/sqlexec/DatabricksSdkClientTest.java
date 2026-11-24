@@ -500,6 +500,27 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcDeleteSessionCarriesBackendCompute()
+      throws DatabricksSQLException, IOException {
+    useRealJsonSerialization();
+    setupSessionMocks();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSessionInfo sessionInfo =
+        databricksSdkClient.createSession(allPurposeCluster, null, null, null);
+    clearInvocations(apiClient);
+
+    databricksSdkClient.deleteSession(sessionInfo);
+
+    ArgumentCaptor<Request> deleteCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(deleteCaptor.capture(), eq(Void.class));
+    assertEquals(Request.DELETE, deleteCaptor.getValue().getMethod());
+    assertApcComputeBody(deleteCaptor.getValue());
+  }
+
+  @Test
   public void testApcCreateSessionPreservesResultDownloadOptOut() throws Exception {
     useRealJsonSerialization();
     setupSessionMocks();
@@ -665,7 +686,8 @@ public class DatabricksSdkClientTest {
     when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
         .thenReturn(statementResponse);
 
-    databricksSdkClient.createSession(allPurposeCluster, null, null, null);
+    ImmutableSessionInfo sessionInfo =
+        databricksSdkClient.createSession(allPurposeCluster, null, null, null);
     databricksSdkClient.executeStatement(
         "SELECT 1",
         allPurposeCluster,
@@ -675,9 +697,11 @@ public class DatabricksSdkClientTest {
         null,
         null);
     databricksSdkClient.getStatementResult(STATEMENT_ID, session, null);
+    databricksSdkClient.closeStatement(STATEMENT_ID);
+    databricksSdkClient.deleteSession(sessionInfo);
 
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient, times(3)).execute(requestCaptor.capture(), any());
+    verify(apiClient, times(5)).execute(requestCaptor.capture(), any());
     List<Request> requests = requestCaptor.getAllValues();
     assertEquals(Request.POST, requests.get(0).getMethod());
     assertEquals(SESSION_PATH, requests.get(0).getUrl());
@@ -690,6 +714,14 @@ public class DatabricksSdkClientTest {
         String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
         requests.get(2).getUrl());
     assertBackendComputeQuery(requests.get(2));
+    assertEquals(Request.DELETE, requests.get(3).getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
+        requests.get(3).getUrl());
+    assertBackendComputeQuery(requests.get(3));
+    assertEquals(Request.DELETE, requests.get(4).getMethod());
+    assertEquals(String.format(SESSION_PATH_WITH_ID, SESSION_ID), requests.get(4).getUrl());
+    assertApcComputeBody(requests.get(4));
     assertTrue(requests.stream().noneMatch(request -> request.getUrl().contains("/status")));
   }
 

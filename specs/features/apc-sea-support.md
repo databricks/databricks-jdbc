@@ -21,9 +21,11 @@ request to Reyden when it carries `backend_compute.all_purpose_cluster_compute.c
 route is guarded by `databricks.sqlexecapi.enable_apc_reyder_routing`. APC does not support
 `GetStatementStatus` — clients must poll with `GetStatementResult`. In this document, Reyder is
 the SEA service and Reyden is the runtime backend.
-- Known metadata server gaps are tracked outside this client plan under SC-256188 and SC-256186.
-  Driver behavior and fake-service tests assume those fixes. Dogfood validation of the affected
-  metadata and inline-only behavior waits for the fixes to be deployed.
+- Known server gaps are tracked outside this client plan (SC-256188 under SC-256186 and
+  SC-254478). Driver behavior and fake-service tests assume those fixes. Dogfood validation of the
+  affected metadata, inline-only, and session-termination behavior waits for the fixes to be
+  deployed. The TerminateSession REST binding declares `body: "*"`; the driver tests its DELETE
+  body against the assumed server contract with a fake service.
 - Client-config flags come from connector-service
 (`/api/2.0/connector-service/feature-flags/OSS_JDBC/{version}`), which returns every sub-flag of
 the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
@@ -33,8 +35,8 @@ the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
 - Design contract: ["All-Purpose Clusters in SEA"](https://docs.google.com/document/d/1usi5sa3AgX6p6XpXhNsOiY-ZE9xG7Nykawddal_6P0s/edit?tab=t.h8jgor38k2bp)
 (API contract, Phase II, and metadata design tabs). Driver-relevant points:
   - Requests: `warehouse_id` null; `backend_compute.all_purpose_cluster_compute.cluster_id` on
-  CreateSession(V2), ExecuteStatement, GetStatementResult, GetResultData, and CancelStatement;
-  `session_id` required on ExecuteStatement;
+  CreateSession(V2), TerminateSession, ExecuteStatement, GetStatementResult, GetResultData,
+  CancelStatement, and CloseStatement; `session_id` required on ExecuteStatement;
   `disposition=INLINE_OR_EXTERNAL_LINKS`; `wait_timeout` unset (direct results) or the SEA duration
   string `0s` (parsed by the service as zero for async execution), any nonzero value rejected;
   `on_wait_timeout` ignored; `statements` (batch commands) unsupported; SQL text ≤ 16 MB.
@@ -182,11 +184,12 @@ alongside `TreatMetadataCatalogNameAsPattern=1`, the Thrift-only property is ign
 normal SEA SHOW-command semantics. This applies to HTTP paths with a concrete
 `/o/<org>/<cluster>` target; the legacy `cliservice` path has only placeholder `default` ids and
 continues on Thrift rather than sending an invalid APC SEA target.
-- R2: For APC over SEA, CreateSession, ExecuteStatement, GetStatementResult, GetResultData, and
-CancelStatement carry
-`backend_compute.all_purpose_cluster_compute.cluster_id` and omit `warehouse_id`.
+- R2: For APC over SEA, every SEA call (CreateSession, ExecuteStatement, GetStatementResult,
+GetResultData, CancelStatement, CloseStatement, and TerminateSession) carries
+`backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
+`deleteSession` method and `DeleteSessionRequest` model implement the TerminateSession server RPC.
 CreateSession, ExecuteStatement, and CancelStatement encode `backend_compute` in the JSON body.
-GetStatementResult and GetResultData encode the cluster id as the
+GetStatementResult, GetResultData, and CloseStatement encode the cluster id as the
 URL-encoded dotted query field
 `backend_compute.all_purpose_cluster_compute.cluster_id`. Query fields are merged with existing
 parameters such as `row_offset` through a query builder; they are not appended as a second `?`
@@ -194,15 +197,19 @@ fragment. The `row_offset` field is added only to the SEA
 `GET /statements/{id}/result/chunks/{n}` GetResultData request. Presigned external-link URLs and
 their required headers are used byte-for-byte as
 returned, without adding the compute field or otherwise modifying them. The driver-owned body
-models are `CreateSessionRequest`, `ExecuteStatementRequest`, and `CancelStatementRequest`.
-`GetStatementRequest` and `GetStatementResultChunkNRequest` come from
+models are `CreateSessionRequest`, `ExecuteStatementRequest`, `CancelStatementRequest`, and
+`DeleteSessionRequest`. `GetStatementRequest` and `GetStatementResultChunkNRequest` come from
 the SDK, so APC GET targeting is built on the request URL rather than by changing the SDK classes.
-For APC, GetStatementResult GET (both execution polling and explicit result fetch) and
-GetResultData GET (both chunk-fetch paths) have a null request body: do not serialize the SDK
-request object or send `{}` or an empty
+CloseStatement DELETE is also targeted in the URL. For APC, GetStatementResult GET (both execution
+polling and explicit result fetch), GetResultData GET (both chunk-fetch paths), and CloseStatement
+DELETE have a null request body: do not serialize the SDK request object or send `{}` or an empty
 JSON body. This overrides the current `DatabricksSdkClient.serializeStatementRequest` behavior on
 standard statement URLs only for these APC bindings. Preserve warehouse request bodies, including
 the standard and Real-time URL variants.
+TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding, which
+declares `body: "*"`: send `backend_compute` in the `DeleteSessionRequest` JSON body. Preserve
+the existing warehouse DELETE serialization and verify the outgoing APC DELETE body with a
+fake-service request test; dogfood verifies server target extraction after the external fix.
 - R3: For APC over SEA, execution polling uses `GetStatementResult`. Result heartbeats are
 disabled for APC even when `EnableHeartbeat=1`, because `GetStatementStatus` is unsupported and
 using full `GetStatementResult` after completion can re-download result payloads. The driver logs
@@ -465,13 +472,20 @@ HTTP path THEN the driver continues to use Thrift and never sends placeholder `d
 - AC2: GIVEN a cluster HTTP path with APC-SEA enabled (R1) WHEN a connection is opened THEN the
 CreateSession request body contains `backend_compute.all_purpose_cluster_compute.cluster_id`
 equal to the URL's cluster id and contains no `warehouse_id`.
-- AC3: GIVEN an open APC-SEA session WHEN a statement is executed, polled, fetched, and cancelled,
-THEN every corresponding SEA request includes the APC
+- AC3: GIVEN an open APC-SEA session WHEN a statement is executed, polled, fetched, cancelled, and
+closed, and separately when the session is terminated, THEN every corresponding SEA request
+includes the APC
 `backend_compute` using the body/query encoding in R2 and the driver issues no
 `GetStatementStatus` or `/status` call. Captured fake-service requests assert a null body for
 every APC GetStatementResult GET (execution poll and explicit result fetch), GetResultData GET
-(external-link and inline chunk fetch), while the cluster query field is present exactly once.
-Warehouse fixtures retain their existing bodies for the same bindings.
+(external-link and inline chunk fetch), and CloseStatement DELETE, while the cluster query field
+is present exactly once. Warehouse fixtures retain their existing bodies for the same bindings.
+A fake-service fixture asserts the TerminateSession DELETE body contains `backend_compute`;
+dogfood verifies server target extraction after the external binding fix is deployed. GIVEN
+`getConnectionId()` from that open session and an APC flag change from ON to OFF, WHEN public
+`Driver.closeConnection(url, info, connectionId)` is called THEN it selects SEA from the serialized
+session type and sends the targeted TerminateSession request. A saved APC Thrift id still selects
+Thrift if the flag later turns ON.
 - AC4: GIVEN an APC-SEA query whose LZ4-compressed Arrow result is returned inline or through
 multi-chunk external links WHEN the ResultSet is iterated THEN all rows and types match the same
 query executed over Thrift, with each payload decompressed before the generated Arrow schema
@@ -790,20 +804,23 @@ propagate without fallback.
    ramp, and the Q9 connector-service partner override are external to this plan.
 2. Add wire models `BackendCompute { AllPurposeClusterCompute all_purpose_cluster_compute }` and
    `AllPurposeClusterCompute { cluster_id }`. Add optional `backend_compute` to the driver-owned
-   CreateSession, ExecuteStatement, and CancelStatement JSON body models; encode APC targeting for
-   SDK-owned GET models in the URL.
+   CreateSession, ExecuteStatement, CancelStatement, and DeleteSession JSON body models; encode APC
+   targeting for SDK-owned GET models and CloseStatement DELETE in the URL.
 3. Add a small `SeaComputeTarget` helper in `dbclient/impl/sqlexec` that, given an
    `IDatabricksComputeResource`, produces both the request target (`warehouse_id` or
    `backend_compute`) and the URL family. Warehouses keep today's behavior
    (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC uses
    the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
-   JSON body for CreateSession, ExecuteStatement, and CancelStatement. For GetStatementResult and
-   GetResultData, append the URL-encoded dotted query field
-   `backend_compute.all_purpose_cluster_compute.cluster_id` and pass a null body at every APC GET,
-   bypassing standard-URL request serialization for those bindings. Use a query builder to merge the
-   compute field with `row_offset` and any other existing parameters rather than concatenating
-   query strings. APC never sets `realtimeSession`. Route warehouse assumptions in the create,
-   execute, poll, fetch, and cancel paths through the helper. Do not pass
+   JSON body for CreateSession, ExecuteStatement, and CancelStatement. For GetStatementResult,
+   GetResultData, and CloseStatement, append the URL-encoded dotted query field
+   `backend_compute.all_purpose_cluster_compute.cluster_id` and pass a null body at every APC GET
+   and CloseStatement call site, bypassing standard-URL request serialization for those bindings.
+   Use a JSON body for the TerminateSession DELETE binding's declared `body: "*"`. Assert the
+   outgoing DELETE body in a fake-service request test; verify server target extraction in dogfood
+   after the external binding fix is deployed. Use a query builder to merge the compute field with
+   `row_offset` and any other existing parameters rather than concatenating query strings. APC never
+   sets `realtimeSession`. Route warehouse assumptions in the create, execute, poll, fetch, cancel,
+   close, and terminate paths through the helper. Do not pass
    `SeaComputeTarget` through to CloudFetch: use presigned external-link URLs and headers exactly
    as returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
    dispatch on it. Preserve legacy warehouse identifier parsing, and add APC SEA session and
@@ -931,7 +948,8 @@ propagate without fallback.
 - SAFE APC sub-flag creation (T17); no connector-service files in this plan.
 - `src/main/java/com/databricks/jdbc/api/impl/DatabricksSession.java` — verify APC SEA errors propagate without
 fallback; keep warehouse KP001 Thrift→SEA recovery off APC.
-- `src/main/java/com/databricks/jdbc/api/impl/SessionInfo.java` — negotiated protocol version.
+- `src/main/java/com/databricks/jdbc/api/impl/SessionInfo.java` — client type and negotiated
+  protocol version.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksSdkClient.java` — compute targeting, APC URL
 family, disposition/format selection.
 - `src/main/java/com/databricks/jdbc/dbclient/IDatabricksClient.java` and
@@ -943,11 +961,20 @@ family, disposition/format selection.
   metadata submit/completion contract and an explicit unsupported empty-client behavior.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/PathConstants.java` — reuse standard session/statement
 paths for APC (no new constants expected).
+- `src/main/java/com/databricks/jdbc/dbclient/impl/common/SessionId.java` and
+  `src/main/java/com/databricks/jdbc/dbclient/impl/common/StatementId.java` — dispatch by client
+  type; add backward-compatible APC compute serialization and remove warehouse-only assumptions.
+- `src/main/java/com/databricks/jdbc/api/impl/DatabricksConnection.java` — attach the current APC
+  SEA target when reconstructing a statement from a public raw id; expose the APC connection id.
+- `src/main/java/com/databricks/client/jdbc/Driver.java` — choose the close client from the
+  deserialized public connection id, including after a flag change.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/` — new `SeaComputeTarget` helper.
 - `src/main/java/com/databricks/jdbc/model/client/sqlexec/` — `BackendCompute`,
   `AllPurposeClusterCompute`; `backend_compute` on the driver-owned
-  CreateSession/ExecuteStatement/Cancel request bodies. SDK-owned GetStatement and
-  GetStatementResultChunkN requests use URL targeting.
+  CreateSession/ExecuteStatement/Cancel/TerminateSession request bodies. `DeleteSessionRequest`
+  implements TerminateSession for both compute types; preserve warehouse query serialization and
+  add an APC JSON body. SDK-owned GetStatement and GetStatementResultChunkN requests use URL
+  targeting; CloseStatement uses URL targeting because the DELETE binding has no body.
 - `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataQueryClient.java` — APC metadata
 format/header, callable async metadata path, native-result decoder selection.
 - `src/main/java/com/databricks/jdbc/api/impl/arrow/` — `ArrowBatchSchemaBuilder`; schema prepend for bare
@@ -983,8 +1010,11 @@ response values to `UNKNOWN`.
 ### API Changes
 
 - `UseThriftClient` becomes meaningful on cluster URLs; previously it was ignored there.
-Public statement ids remain raw server ids. The internal `IDatabricksClient` interface gains the
-native-batch method.
+Public statement ids remain raw server ids. The existing public `getConnectionId()` returns the
+compound APC session id needed by the existing public `Driver.closeConnection` API; this changes
+the returned identifier format for APC SEA without adding a Java method. Compound statement
+serialization remains internal. The internal `IDatabricksClient` interface gains the native-batch
+method.
 
 ### Risks
 
@@ -1027,12 +1057,15 @@ decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_met
    Reuse a matching driver-owned error code or add a unique one, test its emitted name and number,
    and record its driver/server/user classification in the telemetry dashboard and automation
    taxonomy with a PR link or an explicit maintainer follow-up.
+- Closing an APC SEA connection after the flag turns off can select Thrift from a fresh URL and
+  fail to terminate the SEA session; AC3 covers saved-session client selection through the public
+  close API.
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
 mitigated by centralizing in `SeaComputeTarget`, explicit per-binding body/query encoding in R2,
 and AC3 serialized-request coverage of every call.
-- Standard statement URLs currently trigger request-body serialization for GET despite their
-  bodiless REST bindings. APC must pass a null body at every such call site; AC3 asserts the
-  captured body and AC11 guards warehouse serialization.
+- Standard statement URLs currently trigger request-body serialization for GET and CloseStatement,
+  despite their bodiless REST bindings. APC must pass a null body at every such call site; AC3
+  asserts the captured body and AC11 guards warehouse serialization.
 - Applying APC query parameters to a presigned external-link URL breaks its signature and can leak
   the cluster id to storage. Keep compute targeting confined to SEA requests and assert unchanged
   CloudFetch URLs and headers in AC14.
@@ -1078,9 +1111,10 @@ implementation review; its completion includes external dogfood gates.
   assert their pre-change `InlineJsonResult` and `ArrowStreamResult` decoders and rows still work;
   T10 adds the APC result decoder (R16; AC26).
 - [ ] T2: Add optional `backend_compute` to driver-owned CreateSession, ExecuteStatement, and
-  CancelStatement JSON body models. Preserve warehouse serialization. T3 owns APC query targeting.
-  Do not edit SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to APC GET
-  bindings (R2).
+  CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession's declared
+  DELETE body. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
+  SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to APC GET and
+  CloseStatement DELETE bindings (R2).
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in the create, execute, poll, fetch, and cancel paths through it; keep warehouse and
   Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
@@ -1089,6 +1123,15 @@ implementation review; its completion includes external dogfood gates.
   chunk-fetch paths even though the current serializer supplies bodies on standard URLs; assert
   null captured bodies and unchanged warehouse bodies for those call sites. Assert that
   external-link URLs and headers remain unchanged.
+- [ ] T3b: Add backward-compatible APC SEA `SessionId`/`StatementId` serialization and round-trip
+  tests, including malformed APC session segments and redacted structural-only diagnostics.
+  Dispatch `SessionId.create` by client type while keeping public statement ids raw. Make
+  `DatabricksConnection.getStatement(rawId)` attach the current APC SEA target and test fetch,
+  cancel, and close on the recovered statement. Verify public `getConnectionId()` returns the
+  compound APC session id. Target CloseStatement through the dotted compute query and
+  TerminateSession through its JSON body while preserving warehouse payloads. Change public
+  `Driver.closeConnection` to deserialize the id before choosing SEA or Thrift; test both
+  flag-change directions (R2, R9; AC3, AC25).
 
 ### Phase 2 — Routing and session lifecycle
 
@@ -1098,10 +1141,10 @@ implementation review; its completion includes external dogfood gates.
   protocol selection. When explicit `UseThriftClient=0` selects SEA, ignore the Thrift-only property
   and log that it has no effect. Preserve Thrift for the legacy `cliservice` placeholder path (R1, R7,
   R8; AC1, AC7, AC8, AC19, AC20, AC21).
-- [ ] T5: Persist `negotiated_protocol_version` from CreateSession into `SessionInfo`; use the live
-  CreateSession response for native capability decisions. Update both
+- [ ] T5: Persist client type and `negotiated_protocol_version` from CreateSession into
+  `SessionInfo`; use the live CreateSession response for native capability decisions. Update both
   `DatabricksSdkClient.createSession` and `DatabricksThriftServiceClient.createSession` producers;
-  preserve existing Thrift behavior (R6; AC23).
+  Thrift sessions, including warehouse Thrift, must retain `THRIFT` (R6, R9; AC23, AC25).
 - [ ] T6: Add tests that APC CreateSession failures propagate and never construct or switch to a
   Thrift client; scope the existing warehouse KP001 Thrift→SEA recovery so an APC Thrift choice
   does not switch protocol on KP001 (R7; AC9).
@@ -1225,8 +1268,8 @@ implementation review; its completion includes external dogfood gates.
   debug logs. Capture one routing event for each successful APC/warehouse route and each failed
   APC SEA, APC Thrift, warehouse SEA, and warehouse Thrift open attempt. Audit existing
   synchronous/asynchronous `DatabricksSdkClient` execute logs, `DatabricksSession.toString()`, and
-  failure diagnostics for raw APC org/cluster ids; replace them with redacted compute labels and
-  add captured-log and telemetry assertions (R8; AC10).
+  failure diagnostics for raw APC org/cluster ids and compound identifiers; replace them with
+  redacted compute labels and add captured-log and telemetry assertions (R8; AC10, AC25).
 - [ ] T16: In the final APC-enabling JDBC PR, document APC routing (APC flag,
   `UseThriftClient` override) in `docs/` and add the user-visible `NEXT_CHANGELOG.md` entry.
 - [ ] T17: (universe, SAFE flag creation only) Create the APC sub-flag under
@@ -1245,8 +1288,9 @@ implementation review; its completion includes external dogfood gates.
   a parent in the same repository; this cross-repository validation gate is checked at T18.
   Record cluster runtime, region, protocol observed, and
   result for each configuration without credentials. Run dogfood AC5 after its metadata fix is
-  deployed and dogfood AC8 after its inline-only fix is deployed. Run unaffected portions of AC3
-  and AC8 with the other dogfood checks. Unit and fake-service checks for these ACs run before deployment.
+  deployed, dogfood AC8 after its inline-only fix is deployed, and the TerminateSession portion of
+  dogfood AC3 after its binding fix is deployed. Run unaffected portions of AC3 and AC8 with the
+  other dogfood checks. Unit and fake-service checks for these ACs run before deployment.
   Include the AC27 bounded
   polling run in the pre-release dogfood gate. Implementation package approval does not wait for
   deployment; validation package completion and release readiness do (R1–R16; AC1–AC29).
