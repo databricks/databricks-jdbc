@@ -37,7 +37,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | AC13 | **PASS** | SEA and Thrift returned identical type codes and classes for BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, DECIMAL, DATE, and TIMESTAMP. |
 | AC14 | **PASS** | SEA and Thrift each returned 100,000 ordered rows with identical checksum, with direct results both enabled and disabled. |
 | AC15 | **PASS** | One-row and empty-result schema passed; `SET spark.sql.ansi.enabled` returned a two-column row on both SEA and Thrift. |
-| AC16 | **PARTIAL** | The live scoped metadata sequence decoded native Arrow attachments for all four operations on one SEA connection, but the server emitted no `columnar_data`, so the live columnar-to-Arrow transition could not be exercised. The deterministic columnar/null-mask and per-response decoder-switch tests remain the evidence for that half. |
+| AC16 | **PASS** | On DBR 18, all four scoped metadata operations returned `COLUMN_BASED_SET` with inline `columnar_data` and the expected 51/1/1/8 rows; on DBR 19, the same operations returned `ARROW_STREAM` attachments with identical JDBC results. The deterministic same-connection response-switch test verifies that decoding is selected per response rather than cached from the prior operation. |
 | AC17 | **PASS** | `EnableNativeBatching=1` inserted three parameter sets, returned three count entries, and persisted three rows. Scratch schema cleanup passed. |
 | AC18 | **PASS** | `setQueryTimeout(1)` raised `DatabricksTimeoutException` on both routes. SEA reported `STATEMENT_EXECUTION_TIMEOUT`; Thrift reported `OPERATION_TIMEOUT_ERROR`. |
 | AC19 | **PASS** | On staging and flag-ON dogfood, `UseThriftClient=0` selected `DatabricksSdkClient` and `UseThriftClient=1` selected `DatabricksThriftServiceClient`; all probes passed `SELECT 1`. |
@@ -56,7 +56,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 
 | AC | Ticket | Summary | Status |
 | --- | --- | --- | --- |
-| AC5, AC16 | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | Reyder metadata formats | Arrow attachment verified live; `columnar_data` was not emitted |
+| AC5, AC16 | [SC-256188](https://databricks.atlassian.net/browse/SC-256188) | Reyder metadata formats | Arrow attachments verified on DBR 19; `columnar_data` verified on DBR 18 |
 | AC8 inline-only paging | [SC-258787](https://databricks.atlassian.net/browse/SC-258787) | Honor APC cloud-download setting | Verify live |
 | AC22 DDL vehicle | [SC-258842](https://databricks.atlassian.net/browse/SC-258842) | APC DDL result manifest has no schema | Verify live |
 
@@ -94,8 +94,8 @@ The rejection is local and prevents execution, but it does not meet the APC-spec
 
 | Outcome | Count |
 | --- | ---: |
-| PASS | 20 |
-| PARTIAL | 2 |
+| PASS | 21 |
+| PARTIAL | 1 |
 | FAIL | 4 |
 | SKIP | 0 |
 | BLOCKED | 3 |
@@ -118,5 +118,5 @@ The rejection is local and prevents execution, but it does not meet the APC-spec
 | Query execution and paging | 100k rows pass, direct results on/off | 100k rows pass, direct results on/off | Ordered row count and checksum match |
 | Types and values | Pass | Pass | Full parity for the ten-type live probe |
 | Parameters and batches | Scalar pass | Scalar and native batch pass | Complex rejection occurs locally but returns the wrong error contract |
-| Metadata | 51/1/1/8 rows for catalogs/schemas/tables/columns | Same row counts; `ARROW_STREAM`, sync/native headers, and Arrow attachments observed | JDBC-visible parity passed; live server did not emit `columnar_data` |
+| Metadata | 51/1/1/8 rows for catalogs/schemas/tables/columns | Same row counts; DBR 19 returned Arrow attachments and DBR 18 returned `columnar_data` | JDBC-visible parity and both live response layouts passed |
 | Timeout and lifecycle | Timeout exception pass (`OPERATION_TIMEOUT_ERROR`) | Timeout exception pass (`STATEMENT_EXECUTION_TIMEOUT`) | Exception class parity; SQL state differs |

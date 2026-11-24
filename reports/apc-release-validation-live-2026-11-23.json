@@ -95,6 +95,7 @@
       "outcome": "PASS"
     },
     "metadata_sea": {
+      "runtime": "19.x-photon-scala2.13",
       "catalog_rows": 51,
       "schema_rows": 1,
       "table_rows": 1,
@@ -118,9 +119,18 @@
       "outcome": "PASS"
     },
     "metadata_columnar_live": {
-      "columnar_data_observed": false,
-      "arrow_attachment_observed": true,
-      "outcome": "PARTIAL_SERVER_VARIANT_NOT_EMITTED"
+      "runtime": "18.x-photon-scala2.13",
+      "catalog_rows": 51,
+      "schema_rows": 1,
+      "table_rows": 1,
+      "column_rows": 8,
+      "request_format": "ARROW_STREAM",
+      "manifest_format": "COLUMN_BASED_SET",
+      "attachment": false,
+      "columnar_data": true,
+      "native_metadata_result": true,
+      "temporary_cluster_cleanup": "INACTIVE_CONFIRMED",
+      "outcome": "PASS"
     },
     "bounded_sea_disabled": {
       "client": "DatabricksSdkClient",
