@@ -440,7 +440,8 @@ public class ArrowStreamResult implements IExecutionResult {
         return parser.formatGeospatialComplexTypeString(
             result.toString(), requiredType.name(), arrowMetadata);
       }
-      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+      return parser.formatComplexTypeStringForResult(
+          result.toString(), requiredType.name(), arrowMetadata);
     }
 
     if (isComplexType(requiredType)) {

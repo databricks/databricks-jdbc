@@ -702,7 +702,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (isComplexType(metadata) && MetadataParser.mayContainTime(metadata)) {
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
       if (parser.hasTime(metadata)) {
-        return parser.formatComplexTypeString(
+        return parser.formatComplexTypeStringForResult(
             object.toString(), metadata.substring(0, metadata.indexOf('<')).trim(), metadata);
       }
     }

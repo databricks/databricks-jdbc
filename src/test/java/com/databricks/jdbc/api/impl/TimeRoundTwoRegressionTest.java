@@ -191,7 +191,9 @@ class TimeRoundTwoRegressionTest {
             DatabricksParsingException.class,
             () -> {
               if (complex) parser.parseJsonStringToDbArray("[86400000000000]", "ARRAY<TIME(6)>");
-              else parser.formatComplexTypeString("[86400000000000]", "ARRAY", "ARRAY<TIME(6)>");
+              else
+                parser.formatComplexTypeStringForResult(
+                    "[86400000000000]", "ARRAY", "ARRAY<TIME(6)>");
             });
     assertEquals("Invalid TIME value", exception.getMessage());
     assertEquals(DatabricksDriverErrorCode.RESULT_SET_ERROR.name(), exception.getSQLState());

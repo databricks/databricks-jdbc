@@ -2,12 +2,39 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class TimeRoundThreeRegressionTest {
   private static final String MAP =
       "{\"a\":\"01:02:03.000001\",\"b\":\"01:02:03.0001\",\"c\":\"01:02:03.0002\"}";
+
+  @Test
+  void emptyStructAlongsideTimeKeepsFormatterFallback() throws Exception {
+    String json = "{\"a\":{},\"t\":\"01:02:03\"}";
+    String metadata = "STRUCT<a:STRUCT<>,t:TIME(0)>";
+    assertEquals(
+        json, new ComplexDataTypeParser().formatComplexTypeString(json, "STRUCT", metadata));
+    try (DatabricksResultSet result =
+        TimeRoundTwoRegressionTest.inlineResult(metadata, json, false, false)) {
+      assertTrue(result.next());
+      assertEquals(json, result.getString(1));
+    }
+  }
+
+  @Test
+  void malformedTimeJsonKeepsJsonParsingError() {
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () ->
+                new ComplexDataTypeParser().parseJsonStringToDbArray("[broken", "ARRAY<TIME(6)>"));
+    assertEquals(DatabricksDriverErrorCode.JSON_PARSING_ERROR.name(), exception.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.JSON_PARSING_ERROR.getCode(), exception.getErrorCode());
+  }
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})

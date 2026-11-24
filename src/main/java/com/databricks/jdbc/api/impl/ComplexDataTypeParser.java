@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -122,8 +123,8 @@ public class ComplexDataTypeParser {
       JsonNode node = readTimeLeaves(json, arrayMetadata);
       return parseToArray(node, arrayMetadata);
     } catch (IOException e) {
-      if (timeType(arrayMetadata).containsTime) {
-        throw invalidTime(e);
+      if (hasTime(arrayMetadata)) {
+        throw invalidJson("array", e);
       }
       throw new DatabricksParsingException(
           "Failed to parse JSON array from: " + json, DatabricksDriverErrorCode.JSON_PARSING_ERROR);
@@ -136,8 +137,8 @@ public class ComplexDataTypeParser {
       JsonNode node = readTimeLeaves(json, mapMetadata);
       return parseToMap(node, mapMetadata);
     } catch (IOException e) {
-      if (timeType(mapMetadata).containsTime) {
-        throw invalidTime(e);
+      if (hasTime(mapMetadata)) {
+        throw invalidJson("map", e);
       }
       throw new DatabricksParsingException(
           "Failed to parse JSON map from: " + json, DatabricksDriverErrorCode.JSON_PARSING_ERROR);
@@ -150,8 +151,8 @@ public class ComplexDataTypeParser {
       JsonNode node = readTimeLeaves(json, structMetadata);
       return parseToStruct(node, structMetadata);
     } catch (IOException e) {
-      if (timeType(structMetadata).containsTime) {
-        throw invalidTime(e);
+      if (hasTime(structMetadata)) {
+        throw invalidJson("struct", e);
       }
       throw new DatabricksParsingException(
           "Failed to parse JSON struct from: " + json,
@@ -579,7 +580,18 @@ public class ComplexDataTypeParser {
    * @param typeMetadata The metadata for the type (e.g., {@code MAP<INT,INT>})
    * @return A consistently formatted string representation
    */
-  public String formatComplexTypeString(String jsonString, String complexType, String typeMetadata)
+  public String formatComplexTypeString(
+      String jsonString, String complexType, String typeMetadata) {
+    try {
+      return formatComplexTypeStringForResult(jsonString, complexType, typeMetadata);
+    } catch (DatabricksParsingException exception) {
+      throw new DatabricksDriverException(
+          "Invalid TIME value", exception, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
+  }
+
+  public String formatComplexTypeStringForResult(
+      String jsonString, String complexType, String typeMetadata)
       throws DatabricksParsingException {
     if (jsonString == null || complexType == null) {
       return jsonString;
@@ -601,13 +613,9 @@ public class ComplexDataTypeParser {
         return formatMapString(
             jsonString, type.containsTime ? type.formattedMetadata : typeMetadata);
       }
+    } catch (DatabricksParsingException e) {
+      throw e;
     } catch (Exception e) {
-      if (type.containsTime) {
-        if (e instanceof DatabricksParsingException) {
-          throw (DatabricksParsingException) e;
-        }
-        throw invalidTime(e);
-      }
       LOGGER.warn("Failed to format complex type representation for {}", complexType);
     }
 
@@ -624,7 +632,7 @@ public class ComplexDataTypeParser {
         Object value;
         if (node.isArray()) {
           if (node.size() < 5) {
-            throw new IllegalArgumentException("Invalid TIME components");
+            throw new DateTimeException("Invalid TIME components");
           }
           value = timestampNtzFromComponents(node).toLocalTime();
         } else if (node.asText().indexOf(':') >= 0) {
@@ -647,7 +655,7 @@ public class ComplexDataTypeParser {
           value = java.time.LocalTime.ofNanoOfDay(count);
         }
         return JsonUtil.getMapper().valueToTree(TimeConverter.format(value));
-      } catch (DateTimeException | IllegalArgumentException | ArithmeticException exception) {
+      } catch (DateTimeException | NumberFormatException | ArithmeticException exception) {
         throw invalidTime(exception);
       }
     }
@@ -699,6 +707,14 @@ public class ComplexDataTypeParser {
         DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode());
   }
 
+  private static DatabricksParsingException invalidJson(String type, IOException cause) {
+    return new DatabricksParsingException(
+        "Failed to parse JSON " + type,
+        cause,
+        DatabricksDriverErrorCode.JSON_PARSING_ERROR.name(),
+        DatabricksDriverErrorCode.JSON_PARSING_ERROR.getCode());
+  }
+
   private static JsonNode readComplexJson(String json) throws IOException {
     return JsonUtil.getMapper()
         .reader()
@@ -748,7 +764,7 @@ public class ComplexDataTypeParser {
       // must keep their wire representation and decimals must retain precision.
       JsonNode node = readComplexJson(json);
       JsonNode formatted = new ComplexDataTypeParser(false).geospatialLeavesAsText(node, metadata);
-      return formatComplexTypeString(formatted.toString(), complexType, metadata);
+      return formatComplexTypeStringForResult(formatted.toString(), complexType, metadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
           "Failed to format nested geospatial values",
