@@ -59,16 +59,23 @@ public class SessionId {
         false);
   }
 
-  /** Creates a SessionId identifier for a given Thrift Server session-Id */
+  /** Creates a SessionId identifier for a given session. */
   public static SessionId create(ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.computeResource() instanceof Warehouse) {
-      return new SessionId(
-          sessionInfo.sessionId(), sessionInfo.computeResource(), sessionInfo.realtimeSession());
-    } else {
-      assert sessionInfo.sessionHandle() != null;
-      return new SessionId(
-          sessionInfo.sessionHandle().getSessionId(), sessionInfo.computeResource());
+    switch (sessionInfo.clientType()) {
+      case SEA:
+        return new SessionId(
+            DatabricksClientType.SEA,
+            sessionInfo.sessionId(),
+            null,
+            sessionInfo.computeResource(),
+            sessionInfo.realtimeSession());
+      case THRIFT:
+        TSessionHandle sessionHandle =
+            Objects.requireNonNull(
+                sessionInfo.sessionHandle(), "Thrift session handle must not be null");
+        return new SessionId(sessionHandle.getSessionId(), sessionInfo.computeResource());
     }
+    throw new IllegalStateException("Unsupported client type " + sessionInfo.clientType());
   }
 
   /** Deserializes a SessionId from a serialized string */
@@ -76,7 +83,22 @@ public class SessionId {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
     // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
-    String[] parts = serializedSessionId.split("\\|");
+    // For SQL Execution API on APC: s|orgId|clusterId|sessionId|a
+    String[] parts = serializedSessionId.split("\\|", -1);
+    if (parts.length >= 4
+        && "s".equals(parts[0])
+        && ("a".equals(parts[parts.length - 1]) || (parts.length >= 5 && "a".equals(parts[4])))) {
+      return deserializeApcSeaSession(parts);
+    }
+    for (String part : parts) {
+      if (part.isEmpty()) {
+        String errorMessage =
+            String.format("Session ID has invalid number of parts %s", serializedSessionId);
+        LOGGER.error(errorMessage);
+        throw new DatabricksParsingException(
+            errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
+      }
+    }
     boolean realtimeSession = parts.length == 4 && "s".equals(parts[0]) && "r".equals(parts[3]);
     if (parts.length != 3 && !realtimeSession) {
       String errorMessage =
@@ -99,13 +121,41 @@ public class SessionId {
         errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
   }
 
+  private static SessionId deserializeApcSeaSession(String[] parts) throws SQLException {
+    if (parts.length != 5) {
+      throw invalidApcSessionId("invalid number of parts");
+    }
+    for (String part : parts) {
+      if (part.isEmpty()) {
+        throw invalidApcSessionId("empty part");
+      }
+    }
+
+    return new SessionId(
+        DatabricksClientType.SEA, parts[3], null, new AllPurposeCluster(parts[1], parts[2]), false);
+  }
+
+  private static DatabricksParsingException invalidApcSessionId(String reason) {
+    String errorMessage = "APC session ID has " + reason;
+    LOGGER.error(errorMessage);
+    return new DatabricksParsingException(
+        errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
+  }
+
   @Override
   public String toString() {
     switch (clientType) {
       case SEA:
-        String serialized =
-            String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
-        return realtimeSession ? serialized + "|r" : serialized;
+        if (clusterResource instanceof Warehouse) {
+          String serialized =
+              String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
+          return realtimeSession ? serialized + "|r" : serialized;
+        }
+        if (clusterResource instanceof AllPurposeCluster) {
+          AllPurposeCluster cluster = (AllPurposeCluster) clusterResource;
+          return String.format("s|%s|%s|%s|a", cluster.getOrgId(), cluster.getClusterId(), guid);
+        }
+        throw new IllegalStateException("Unsupported SQL Execution API compute resource");
       case THRIFT:
         return String.format("t|%s|%s", guid, secret);
     }

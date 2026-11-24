@@ -299,8 +299,8 @@ empty map. Setting the interpolation flag alone does not affect
 below V8 downgrades to client-side parameter interpolation, the driver records that downgrade
 in logs and telemetry. A missing protocol version is treated conservatively as below V8:
 native parameters and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
-present but old version. Only the live CreateSession response on the current connection grants
-capabilities.
+present but old version. The connection ID does not serialize the protocol version. Only the live
+CreateSession response on the current connection grants capabilities.
 For APC `PreparedStatement.getMetaData()` before execution, build `DESCRIBE QUERY` from the
 original SQL with real placeholders quoted as literal `'?'`, then execute that metadata query
 with no original parameter bindings at any protocol version. Do not run ordinary interpolation
@@ -325,8 +325,30 @@ each connection attempt, including its routing reason and success or failure out
 routing event even when APC SEA CreateSession, APC Thrift OpenSession, warehouse SEA CreateSession,
 or warehouse Thrift OpenSession fails. When explicit `UseThriftClient=0` selects SEA alongside
 `TreatMetadataCatalogNameAsPattern=1`, the driver logs that the Thrift-only metadata property has no
-effect under SEA. APC SEA diagnostics, including existing execute logs and session stringification,
-must not print org/cluster ids; use a redacted compute-type label instead.
+effect under SEA. APC SEA diagnostics,
+including existing execute logs and session stringification, must not print org/cluster ids or
+compound session/statement ids; use a redacted compute-type label instead.
+- R9: `IDatabricksComputeResource` handling in `DatabricksSdkClient`, `SessionId`, and
+`StatementId` is type-safe — no unchecked cast to `Warehouse`. `ImmutableSessionInfo` records the
+client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
+SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
+id: sessions use `s|orgId|clusterId|sessionId|a`, and statements use
+`s|a|orgId|clusterId|statementId`. APC session ids have exactly five non-empty segments and the
+trailing `a` compute discriminator; malformed APC session ids raise
+`SESSION_ID_PARSING_EXCEPTION`. Parsing remains backward-compatible with existing warehouse
+`s|warehouseId|sessionId[|r]` identifiers, including a raw warehouse session id equal to `a`, and
+raw SEA statement ids. The compound session form is also returned by the public
+`IDatabricksConnection.getConnectionId()` API so callers can later close that session; the
+compound statement form is internal routing serialization only: use a separate
+internal statement-id serializer. `StatementId.toString()`, `toSQLExecStatementId()`, and public
+`IDatabricksResultSet.getStatementId()` continue to expose only the raw server statement id;
+statement-id-bearing logs and telemetry use that raw id, not the compound form.
+`DatabricksConnection.getStatement(rawId)` attaches the current connection's
+APC SEA session and compute target to its reconstructed internal `StatementId`; fetch, cancel,
+and close use that target. It does not change the public raw id or infer a target from id text.
+`Driver.closeConnection(url, info, connectionId)` deserializes the public connection id before
+client construction and selects SEA or Thrift from that saved session type, not a fresh APC flag
+decision. It terminates the saved APC target even if the flag changed after the session opened.
 - R10: APC ExecuteStatement preserves the existing SEA timeout behavior: `wait_timeout` is unset
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
 results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
@@ -671,6 +693,25 @@ missing-version session through the binding-free `DESCRIBE QUERY` path in AC6.
 open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
 `GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
 logs that heartbeat is unsupported for APC.
+- AC25: GIVEN an APC-SEA session with org id, cluster id, and session id WHEN its `SessionId` and a
+derived `StatementId` are round-tripped through their internal serializers THEN client type, APC
+compute target, and raw ids round-trip unchanged; existing warehouse and Thrift serialized
+identifiers still parse identically. Creating
+an APC SEA `SessionId` never dereferences a Thrift session handle. The serialized APC forms match
+the R9 formats exactly. Public
+`IDatabricksConnection.getConnectionId()` returns the compound APC session form so a caller can
+pass it to `Driver.closeConnection`; it is not written to logs or telemetry. Public
+`IDatabricksResultSet.getStatementId()` and `StatementId.toString()` return the raw server
+statement id. Statement-id-bearing logs and telemetry use the raw id and never expose the
+internal compound form, org id, or cluster id.
+GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments THEN parsing
+raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
+describe only the structural defect and never include the serialized input, org id, or cluster
+id. The serialized connection ID cannot affect native `parameters` or `parameter_sets`; those
+capabilities come only from the current connection's live CreateSession response.
+GIVEN `connection.getStatement(resultSet.getStatementId())` on that APC SEA connection, WHEN the
+recovered statement fetches, cancels, and closes THEN all three SEA requests carry the current
+connection's `backend_compute`, while `getStatementId()` remains the raw server id.
 - AC26: GIVEN an ExecuteStatement request with `SqlExecResultFormat.ARROW_BATCH` WHEN serialized
 THEN its JSON contains `"format":"ARROW_BATCH"`; GIVEN a manifest with `ARROW_BATCH` WHEN
 deserialized THEN APC decoding is selected; GIVEN an unknown future format THEN deserialization
@@ -763,7 +804,21 @@ propagate without fallback.
    query strings. APC never sets `realtimeSession`. Route warehouse assumptions in the create,
    execute, poll, fetch, and cancel paths through the helper. Do not pass
    `SeaComputeTarget` through to CloudFetch: use presigned external-link URLs and headers exactly
-   as returned.
+   as returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
+   dispatch on it. Preserve legacy warehouse identifier parsing, and add APC SEA session and
+   statement forms carrying the compute discriminator, org/cluster ids, and raw id so
+   reconstruction cannot turn APC into warehouse compute. Do not serialize the negotiated protocol
+   version; only the live CreateSession response on this connection enables native parameter
+   capabilities. Reject malformed APC segments with
+   `SESSION_ID_PARSING_EXCEPTION` and structural-only errors, logs, and telemetry. The compound
+   APC session form is public through `DatabricksConnection.getConnectionId()`; the compound
+   statement form stays internal. Public statement-id APIs and `StatementId.toString()` return
+   the raw server statement id, while logs and telemetry never expose either compound form. On
+   `DatabricksConnection.getStatement(rawId)`, attach the current APC SEA connection's session
+   and compute target to the reconstructed internal id before any fetch, cancel, or close.
+   In `Driver.closeConnection`, deserialize `connectionId` first and choose the client using the
+   saved session type; use that session's APC compute target even if fresh flag lookup selects
+   Thrift. Test both flag-change directions and preserve warehouse close behavior.
 4. APC execute request: `format=ARROW_BATCH`, `disposition=INLINE_OR_EXTERNAL_LINKS`, `session_id`,
    no `statements`; preserve existing timeout behavior (`wait_timeout` unset for synchronous
    direct results and `0s` for async or direct results disabled). Execution polling uses
