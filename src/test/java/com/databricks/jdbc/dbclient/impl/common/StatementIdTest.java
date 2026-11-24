@@ -79,7 +79,7 @@ public class StatementIdTest {
         StatementId.forAllPurposeCluster(
             "test-statement-id", new AllPurposeCluster("org", "cluster"));
 
-    assertEquals("s|org|cluster|test-statement-id|a", statementId.toString());
+    assertEquals("a|org|cluster|test-statement-id", statementId.toString());
     assertEquals("test-statement-id", statementId.toSQLExecStatementId());
     assertEquals("test-statement-id", statementId.toPublicString());
     assertEquals(statementId, StatementId.deserialize(statementId.toString()));
@@ -120,8 +120,7 @@ public class StatementIdTest {
     assertThrows(
         DatabricksDriverException.class,
         () -> StatementId.deserialize(invalidSerializedStatementId));
-    assertThrows(
-        DatabricksDriverException.class, () -> StatementId.deserialize("s|org|cluster||a"));
+    assertThrows(DatabricksDriverException.class, () -> StatementId.deserialize("a|org|cluster|"));
   }
 
   /** Test the toString method for SQL Exec client type. */

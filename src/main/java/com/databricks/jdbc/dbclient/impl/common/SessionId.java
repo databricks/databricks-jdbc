@@ -85,11 +85,9 @@ public class SessionId {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
     // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
-    // For SQL Execution API on APC: s|orgId|clusterId|sessionId|a
+    // For SQL Execution API on APC: a|orgId|clusterId|sessionId
     String[] parts = serializedSessionId.split("\\|", -1);
-    if (parts.length >= 4
-        && "s".equals(parts[0])
-        && ("a".equals(parts[parts.length - 1]) || (parts.length >= 5 && "a".equals(parts[4])))) {
+    if ("a".equals(parts[0])) {
       return deserializeApcSeaSession(parts);
     }
     for (String part : parts) {
@@ -124,7 +122,7 @@ public class SessionId {
   }
 
   private static SessionId deserializeApcSeaSession(String[] parts) throws SQLException {
-    if (parts.length != 5) {
+    if (parts.length != 4) {
       throw invalidApcSessionId("invalid number of parts");
     }
     for (String part : parts) {

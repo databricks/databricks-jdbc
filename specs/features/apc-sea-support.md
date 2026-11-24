@@ -344,9 +344,9 @@ compound session/statement ids; use a redacted compute-type label instead.
 `StatementId` is type-safe — no unchecked cast to `Warehouse`. `ImmutableSessionInfo` records the
 client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
 SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
-id: sessions use `s|orgId|clusterId|sessionId|a`, and statements use
-`s|orgId|clusterId|statementId|a`. APC session and statement ids have exactly five non-empty
-segments and the trailing `a` compute discriminator; malformed APC session ids raise
+id: sessions use `a|orgId|clusterId|sessionId`, and statements use
+`a|orgId|clusterId|statementId`. APC session and statement ids have exactly four non-empty
+segments and the leading `a` compute discriminator; malformed APC session ids raise
 `SESSION_ID_PARSING_EXCEPTION`. Parsing remains backward-compatible with existing warehouse
 `s|warehouseId|sessionId[|r]` identifiers, including a raw warehouse session id equal to `a`, and
 raw SEA statement ids. The compound session form is also returned by the public

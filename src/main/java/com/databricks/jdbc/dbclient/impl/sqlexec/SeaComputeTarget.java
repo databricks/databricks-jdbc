@@ -129,7 +129,7 @@ public final class SeaComputeTarget {
 
   public String serializeSessionId(String sessionId) {
     if (isAllPurposeCluster()) {
-      return String.format("s|%s|%s|%s|a", orgId, clusterId, sessionId);
+      return String.format("a|%s|%s|%s", orgId, clusterId, sessionId);
     }
     String serialized = String.format("s|%s|%s", warehouseId, sessionId);
     return realtimeSession ? serialized + "|r" : serialized;

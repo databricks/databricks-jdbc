@@ -24,7 +24,7 @@ class SeaComputeTargetTest {
     assertEquals(PathConstants.STATEMENT_PATH, target.statementCollectionPath("session"));
     assertEquals(
         PathConstants.STATEMENT_PATH + "statement", target.statementPath(null, "statement"));
-    assertEquals("s|org|cluster|session|a", target.serializeSessionId("session"));
+    assertEquals("a|org|cluster|session", target.serializeSessionId("session"));
     assertNotNull(target.backendCompute());
     assertEquals("cluster", target.backendCompute().getAllPurposeClusterCompute().getClusterId());
   }

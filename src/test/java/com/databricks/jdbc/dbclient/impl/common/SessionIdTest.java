@@ -58,7 +58,7 @@ public class SessionIdTest {
 
     SessionId sessionId = SessionId.create(sessionInfo);
 
-    assertEquals("s|org|cluster|test-session-id|a", sessionId.toString());
+    assertEquals("a|org|cluster|test-session-id", sessionId.toString());
     assertEquals(DatabricksClientType.SEA, sessionId.getClientType());
 
     SessionId deserializedSessionId = SessionId.deserialize(sessionId.toString());
@@ -134,9 +134,9 @@ public class SessionIdTest {
     final String sessionId3 = "t|test-session-id|invalid|part3";
     assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId3));
 
-    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize("s|org|cluster||a"));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize("a|org|cluster|"));
     assertThrows(
         DatabricksParsingException.class,
-        () -> SessionId.deserialize("s|org|cluster|test-session-id|extra|a"));
+        () -> SessionId.deserialize("a|org|cluster|test-session-id|extra"));
   }
 }
