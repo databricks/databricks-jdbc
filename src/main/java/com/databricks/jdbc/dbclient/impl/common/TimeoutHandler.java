@@ -9,6 +9,11 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,6 +23,19 @@ public class TimeoutHandler {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TimeoutHandler.class);
   private static final long STATUS_GRACE_MILLIS = TimeUnit.SECONDS.toMillis(5);
+  private static final ThreadPoolExecutor CANCELLATIONS =
+      new ThreadPoolExecutor(
+          0,
+          Integer.MAX_VALUE,
+          30,
+          TimeUnit.SECONDS,
+          new SynchronousQueue<>(),
+          task -> {
+            Thread thread = new Thread(task, "databricks-jdbc-timeout-cancel");
+            thread.setDaemon(true);
+            thread.setContextClassLoader(null);
+            return thread;
+          });
 
   private final long startTimeMillis;
   private final int timeoutSeconds;
@@ -96,24 +114,30 @@ public class TimeoutHandler {
     if (timeoutSeconds <= 0) {
       return poll.execute();
     }
+    T result = null;
+    Throwable timeoutCause = null;
+    boolean expired;
     try (PollingDeadline deadline =
         new PollingDeadline(Math.max(0, remainingMillis() + graceMillis))) {
-      T result;
       try {
         result = poll.execute();
       } catch (Exception failure) {
-        if (deadline.isExpired() || remainingMillis() <= 0) {
-          throw timeoutException(failure);
+        if (!deadline.isExpired()) {
+          @SuppressWarnings("unchecked")
+          E originalFailure = (E) failure;
+          throw originalFailure;
         }
-        @SuppressWarnings("unchecked")
-        E originalFailure = (E) failure;
-        throw originalFailure;
+        timeoutCause = failure;
       }
-      if (deadline.isExpired() || remainingMillis() + graceMillis <= 0) {
-        throw timeoutException(new TimeoutException("Status poll exceeded its deadline"));
-      }
-      return result;
+      expired = deadline.isExpired() || remainingMillis() + graceMillis <= 0;
     }
+    if (expired) {
+      throw timeoutException(
+          timeoutCause != null
+              ? timeoutCause
+              : new TimeoutException("Status poll exceeded its deadline"));
+    }
+    return result;
   }
 
   public void sleep(long millis) throws InterruptedException, DatabricksTimeoutException {
@@ -186,10 +210,54 @@ public class TimeoutHandler {
             DatabricksThreadContextHolder.setRetryCount(previousRetry);
           }
         };
-    if (DriverUtil.isRunningAgainstFake()) {
-      cancel.run();
-    } else {
-      TimeoutCleanupManager.forConnection(connectionContext).dispatch(cancel);
+    boolean interrupted = Thread.interrupted();
+    try {
+      if (DriverUtil.isRunningAgainstFake()) {
+        cancel.run();
+      } else {
+        awaitCancellation(cancel, CANCELLATIONS);
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  void awaitCancellation(Runnable cancel, Executor executor) {
+    boolean interrupted = Thread.interrupted();
+    FutureTask<Void> task = new FutureTask<>(cancel, null);
+    try {
+      try {
+        executor.execute(task);
+      } catch (Throwable unavailable) {
+        LOGGER.warn(
+            "Running timeout action inline for {}: {}",
+            operationDescription,
+            unavailable.toString());
+        task.run();
+      }
+      long waitUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+      while (true) {
+        try {
+          task.get(Math.max(0, waitUntil - System.nanoTime()), TimeUnit.NANOSECONDS);
+          return;
+        } catch (InterruptedException externalInterrupt) {
+          interrupted = true;
+        } catch (TimeoutException stillRunning) {
+          return;
+        } catch (ExecutionException failure) {
+          LOGGER.warn(
+              "Failed to execute timeout action for {}: {}",
+              operationDescription,
+              failure.getCause().toString());
+          return;
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 

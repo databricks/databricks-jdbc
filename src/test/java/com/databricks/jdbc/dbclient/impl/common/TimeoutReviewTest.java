@@ -3,7 +3,6 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -13,8 +12,6 @@ import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,11 +24,9 @@ class TimeoutReviewTest {
   @Test
   void moreThan64SimultaneousTimeoutsAllAttemptCancellation() throws Exception {
     IDatabricksConnectionContext context = context();
-    CountDownLatch started = new CountDownLatch(64);
+    CountDownLatch started = new CountDownLatch(100);
     CountDownLatch release = new CountDownLatch(1);
     CountDownLatch completed = new CountDownLatch(100);
-    AtomicInteger active = new AtomicInteger();
-    AtomicInteger maximum = new AtomicInteger();
     ExecutorService callers = Executors.newFixedThreadPool(100);
     CyclicBarrier barrier = new CyclicBarrier(100);
     List<Future<?>> results = new ArrayList<>();
@@ -41,15 +36,12 @@ class TimeoutReviewTest {
             expired(
                 context,
                 () -> {
-                  int concurrent = active.incrementAndGet();
-                  maximum.accumulateAndGet(concurrent, Math::max);
                   started.countDown();
                   try {
                     release.await(10, TimeUnit.SECONDS);
                   } catch (InterruptedException failure) {
                     Thread.currentThread().interrupt();
                   } finally {
-                    active.decrementAndGet();
                     completed.countDown();
                   }
                 });
@@ -62,82 +54,55 @@ class TimeoutReviewTest {
                 }));
       }
       assertTrue(started.await(10, TimeUnit.SECONDS));
+      release.countDown();
       for (Future<?> result : results) {
         result.get(10, TimeUnit.SECONDS);
       }
-      CountDownLatch otherConnection = new CountDownLatch(1);
-      TimeoutHandler independent = expired(context(), otherConnection::countDown);
-      assertThrows(DatabricksTimeoutException.class, independent::checkTimeout);
-      assertTrue(otherConnection.await(5, TimeUnit.SECONDS));
-      assertEquals(64, maximum.get());
+      assertEquals(0, completed.getCount(), "Every timeout must attempt its cancel");
     } finally {
       release.countDown();
       callers.shutdownNow();
     }
-    assertTrue(completed.await(10, TimeUnit.SECONDS), "Every timeout must attempt its cancel");
   }
 
-  @Test
-  void saturatedQueueRunsCancellationInlineAndRestoresContext() throws Exception {
-    IDatabricksConnectionContext context = context();
-    TimeoutCleanupManager manager = new TimeoutCleanupManager(1, 1);
-    Field managers = TimeoutCleanupManager.class.getDeclaredField("MANAGERS");
-    managers.setAccessible(true);
-    synchronized (TimeoutCleanupManager.class) {
-      ((java.util.Map<String, TimeoutCleanupManager>) managers.get(null))
-          .put(context.getConnectionUuid(), manager);
-    }
-    CountDownLatch started = new CountDownLatch(1);
-    CountDownLatch release = new CountDownLatch(1);
-    manager.dispatch(
-        () -> {
-          started.countDown();
-          try {
-            release.await(10, TimeUnit.SECONDS);
-          } catch (InterruptedException failure) {
-            Thread.currentThread().interrupt();
-          }
-        });
-    assertTrue(started.await(5, TimeUnit.SECONDS));
-    manager.dispatch(() -> {});
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void executorFailureRunsCancellationInlineAfterExpiredScope(boolean outOfMemory)
+      throws Exception {
     Thread caller = Thread.currentThread();
-    AtomicReference<Thread> cancellationThread = new AtomicReference<>();
-    DatabricksThreadContextHolder.setConnectionContext(context);
-    DatabricksThreadContextHolder.setStatementId("statement-inline");
-    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
-      TimeoutHandler handler =
-          expired(
-              context,
-              () -> {
-                assertSame(context, DatabricksThreadContextHolder.getConnectionContext());
-                assertEquals("statement-inline", DatabricksThreadContextHolder.getStatementId());
-                cancellationThread.set(Thread.currentThread());
-                DatabricksThreadContextHolder.setStatementId("changed-by-cancel");
-              });
-      assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
-      assertSame(caller, cancellationThread.get());
-      assertSame(context, DatabricksThreadContextHolder.getConnectionContext());
-      assertEquals("statement-inline", DatabricksThreadContextHolder.getStatementId());
-      assertFalse(Thread.currentThread().isInterrupted());
-    } finally {
-      release.countDown();
-      DatabricksThreadContextHolder.clearAllContext();
+    AtomicInteger completed = new AtomicInteger();
+    try (PollingDeadline deadline = new PollingDeadline(50)) {
+      assertThrows(InterruptedException.class, () -> Thread.sleep(10000));
     }
+    assertFalse(Thread.currentThread().isInterrupted());
+    TimeoutHandler handler = expired(null, null);
+    handler.awaitCancellation(
+        () -> {
+          assertSame(caller, Thread.currentThread());
+          assertFalse(Thread.currentThread().isInterrupted());
+          try (PollingDeadline deadline = new PollingDeadline(TimeUnit.SECONDS.toMillis(30))) {
+            try {
+              Thread.sleep(100);
+              completed.incrementAndGet();
+            } catch (InterruptedException failure) {
+              throw new AssertionError("Cancel backoff was interrupted", failure);
+            }
+          }
+        },
+        task -> {
+          if (outOfMemory) {
+            throw new OutOfMemoryError("simulated native thread exhaustion");
+          }
+          throw new RejectedExecutionException("simulated executor rejection");
+        });
+    assertEquals(1, completed.get());
+    assertFalse(Thread.currentThread().isInterrupted());
   }
 
   @Test
   void cancellationCarriesAndClearsCallerContext() throws Exception {
     IDatabricksConnectionContext context = context();
-    CountDownLatch cancelled = new CountDownLatch(1);
-    CountDownLatch checked = new CountDownLatch(1);
-    AtomicReference<Throwable> failure = new AtomicReference<>();
-    TimeoutCleanupManager manager = new TimeoutCleanupManager(1, 2);
-    Field managers = TimeoutCleanupManager.class.getDeclaredField("MANAGERS");
-    managers.setAccessible(true);
-    synchronized (TimeoutCleanupManager.class) {
-      ((java.util.Map<String, TimeoutCleanupManager>) managers.get(null))
-          .put(context.getConnectionUuid(), manager);
-    }
+    AtomicInteger cancelled = new AtomicInteger();
     DatabricksThreadContextHolder.setConnectionContext(context);
     DatabricksThreadContextHolder.setStatementId("statement-async");
     try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
@@ -145,34 +110,61 @@ class TimeoutReviewTest {
           expired(
               context,
               () -> {
-                try {
-                  assertSame(context, DatabricksThreadContextHolder.getConnectionContext());
-                  assertEquals("statement-async", DatabricksThreadContextHolder.getStatementId());
-                  DatabricksThreadContextHolder.setStatementId("stale-worker-value");
-                } catch (Throwable problem) {
-                  failure.set(problem);
-                } finally {
-                  cancelled.countDown();
-                }
+                assertSame(context, DatabricksThreadContextHolder.getConnectionContext());
+                assertEquals("statement-async", DatabricksThreadContextHolder.getStatementId());
+                DatabricksThreadContextHolder.setStatementId("stale-worker-value");
+                cancelled.incrementAndGet();
               });
       assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
-      assertTrue(cancelled.await(5, TimeUnit.SECONDS));
-      manager.dispatch(
+      assertEquals(1, cancelled.get());
+      assertSame(context, DatabricksThreadContextHolder.getConnectionContext());
+      assertEquals("statement-async", DatabricksThreadContextHolder.getStatementId());
+      Field executor = TimeoutHandler.class.getDeclaredField("CANCELLATIONS");
+      executor.setAccessible(true);
+      AtomicInteger cleared = new AtomicInteger();
+      handler.awaitCancellation(
           () -> {
-            try {
-              assertNull(DatabricksThreadContextHolder.getConnectionContext());
-              assertNull(DatabricksThreadContextHolder.getStatementId());
-              assertNull(Thread.currentThread().getContextClassLoader());
-            } catch (Throwable problem) {
-              failure.set(problem);
-            } finally {
-              checked.countDown();
-            }
-          });
-      assertTrue(checked.await(5, TimeUnit.SECONDS));
-      assertNull(failure.get());
+            assertNull(DatabricksThreadContextHolder.getConnectionContext());
+            assertNull(DatabricksThreadContextHolder.getStatementId());
+            assertNull(Thread.currentThread().getContextClassLoader());
+            cleared.incrementAndGet();
+          },
+          (Executor) executor.get(null));
+      assertEquals(1, cleared.get());
     } finally {
       DatabricksThreadContextHolder.clearAllContext();
+    }
+  }
+
+  @Test
+  void timeoutIsBuiltAfterPollScopeClosesAndInterruptIsCleared() {
+    AtomicInteger cancelled = new AtomicInteger();
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      telemetry
+          .when(() -> TelemetryHelper.exportFailureLog(any(), anyString(), anyString(), any()))
+          .thenAnswer(
+              call -> {
+                assertFalse(PollingDeadline.isCurrentExpired());
+                assertFalse(Thread.currentThread().isInterrupted());
+                return null;
+              });
+      TimeoutHandler handler =
+          new TimeoutHandler(
+              1,
+              "scope close",
+              () -> {
+                assertFalse(Thread.currentThread().isInterrupted());
+                try {
+                  Thread.sleep(100);
+                  cancelled.incrementAndGet();
+                } catch (InterruptedException failure) {
+                  throw new AssertionError("Cancel backoff was interrupted", failure);
+                }
+              },
+              DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+      assertThrows(DatabricksTimeoutException.class, () -> handler.sleep(10000));
+      assertEquals(1, cancelled.get());
+      assertFalse(Thread.currentThread().isInterrupted());
     }
   }
 
@@ -237,6 +229,33 @@ class TimeoutReviewTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
+  void pollFailureWithinGraceKeepsOriginalFailure(boolean runtime) throws Exception {
+    Exception original =
+        runtime
+            ? new com.databricks.sdk.core.DatabricksError(
+                "UNAUTHENTICATED", "SEA authorization failed", 401)
+            : new org.apache.thrift.transport.TTransportException("Thrift poll failed");
+    Runnable cancel = mock(Runnable.class);
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            1, "grace failure", cancel, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+    setStart(handler, System.currentTimeMillis() - 800);
+    Exception observed =
+        assertThrows(
+            Exception.class,
+            () ->
+                handler.executeWithTimeout(
+                    () -> {
+                      Thread.sleep(400);
+                      throw original;
+                    }));
+    assertSame(original, observed);
+    verifyNoInteractions(cancel);
+    assertFalse(Thread.currentThread().isInterrupted());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   void normalPollPreservesCallerInterrupt(boolean interrupted) throws Exception {
     if (interrupted) {
       Thread.currentThread().interrupt();
@@ -255,13 +274,20 @@ class TimeoutReviewTest {
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void timedOutPollPreservesCallerInterrupt(boolean interrupted) {
+    AtomicInteger cancelled = new AtomicInteger();
     if (interrupted) {
       Thread.currentThread().interrupt();
     }
     try {
       TimeoutHandler handler =
           new TimeoutHandler(
-              1, "interrupt", null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+              1,
+              "interrupt",
+              () -> {
+                assertFalse(Thread.currentThread().isInterrupted());
+                cancelled.incrementAndGet();
+              },
+              DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
       assertThrows(
           DatabricksTimeoutException.class,
           () ->
@@ -275,6 +301,7 @@ class TimeoutReviewTest {
                     }
                     return null;
                   }));
+      assertEquals(1, cancelled.get());
       assertEquals(interrupted, Thread.currentThread().isInterrupted());
     } finally {
       Thread.interrupted();
@@ -330,23 +357,8 @@ class TimeoutReviewTest {
     assertTrue(executor.getKeepAliveTime(TimeUnit.SECONDS) <= 1);
   }
 
-  @Test
-  void identicalConnectionSettingsDoNotShareCleanupCapacity() throws Exception {
-    String url =
-        "jdbc:databricks://localhost:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/test";
-    IDatabricksConnectionContext first = DatabricksConnectionContext.parse(url, new Properties());
-    IDatabricksConnectionContext second = DatabricksConnectionContext.parse(url, new Properties());
-    assertEquals(first, second);
-    assertNotEquals(first.getConnectionUuid(), second.getConnectionUuid());
-    assertSame(
-        TimeoutCleanupManager.forConnection(first), TimeoutCleanupManager.forConnection(first));
-    assertNotSame(
-        TimeoutCleanupManager.forConnection(first), TimeoutCleanupManager.forConnection(second));
-  }
-
   private IDatabricksConnectionContext context() {
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
-    when(context.getConnectionUuid()).thenReturn(UUID.randomUUID().toString());
     return context;
   }
 

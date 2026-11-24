@@ -140,23 +140,29 @@ class PollingDeadlineTest {
   }
 
   @Test
-  void slowCancellationDoesNotDelayTimeout() {
+  void slowCancellationWaitIsBoundedAndCleanupContinues() throws Exception {
     CountDownLatch release = new CountDownLatch(1);
+    CountDownLatch completed = new CountDownLatch(1);
     Runnable cancel =
         () -> {
           try {
             release.await(12, TimeUnit.SECONDS);
           } catch (InterruptedException failure) {
             Thread.currentThread().interrupt();
+          } finally {
+            completed.countDown();
           }
         };
     long started = System.nanoTime();
     try {
       assertThrows(DatabricksTimeoutException.class, () -> handler(1, cancel).sleep(12000));
-      assertTrue((System.nanoTime() - started) / 1e9 < 2.5);
+      double elapsed = (System.nanoTime() - started) / 1e9;
+      assertTrue(elapsed >= 2.9 && elapsed < 4.5);
+      assertEquals(1, completed.getCount());
     } finally {
       release.countDown();
     }
+    assertTrue(completed.await(2, TimeUnit.SECONDS));
   }
 
   @Test
