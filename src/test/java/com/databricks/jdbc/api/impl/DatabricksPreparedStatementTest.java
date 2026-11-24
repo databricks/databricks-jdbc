@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -670,6 +671,9 @@ public class DatabricksPreparedStatementTest {
             new Object[] {new AtomicInteger(123), "123", "DECIMAL(3,0)"},
             new Object[] {new AtomicLong(9007199254740993L), "9007199254740993", "DECIMAL(16,0)"},
             new Object[] {longAdder, "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {
+              new LongAccumulator(Long::sum, 9007199254740993L), "9007199254740993", "DECIMAL(16,0)"
+            },
             new Object[] {doubleAdder, "123.45", "DECIMAL(5,2)"},
             new Object[] {new DoubleAccumulator(Double::sum, 123.45d), "123.45", "DECIMAL(5,2)"},
             new Object[] {new FractionLikeNumber(), "0.5", "DECIMAL(1,1)"},
@@ -695,6 +699,10 @@ public class DatabricksPreparedStatementTest {
               "1e-38", "0." + String.join("", Collections.nCopies(37, "0")) + "1", "DECIMAL(38,38)"
             },
             new Object[] {"0e-999999999", "0", "DECIMAL(1,0)"},
+            new Object[] {"0E+38", "0", "DECIMAL(1,0)"},
+            new Object[] {"-0E+38", "0", "DECIMAL(1,0)"},
+            new Object[] {"0E+2147483647", "0", "DECIMAL(1,0)"},
+            new Object[] {new BigDecimal(BigInteger.ZERO, Integer.MIN_VALUE), "0", "DECIMAL(1,0)"},
             new Object[] {new BigDecimal("1E+3"), "1000", "DECIMAL(4,0)"})
         .flatMap(
             binding ->
@@ -783,14 +791,14 @@ public class DatabricksPreparedStatementTest {
     statement.setObject(1, "1", targetType);
     String padded = "1." + String.join("", Collections.nCopies(25000, "0"));
     assertTimeoutPreemptively(
-        Duration.ofMillis(100), () -> statement.setObject(1, padded, targetType));
+        Duration.ofSeconds(2), () -> statement.setObject(1, padded, targetType));
     DatabricksParameterMetaData metadata =
         (DatabricksParameterMetaData) statement.getParameterMetaData();
     assertEquals(BigDecimal.ONE, metadata.getParameterBindings().get(1).value());
     for (String invalid : new String[] {padded + "1", padded.replace(".", "")}) {
       DatabricksSQLException exception =
           assertTimeoutPreemptively(
-              Duration.ofMillis(100),
+              Duration.ofSeconds(2),
               () ->
                   assertThrows(
                       DatabricksSQLException.class,

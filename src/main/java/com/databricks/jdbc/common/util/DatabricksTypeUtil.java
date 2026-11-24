@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -620,6 +621,7 @@ public class DatabricksTypeUtil {
         || value instanceof Long
         || value instanceof AtomicInteger
         || value instanceof AtomicLong
+        || value instanceof LongAccumulator
         || value instanceof LongAdder) {
       return BigDecimal.valueOf(((Number) value).longValue());
     }
@@ -648,6 +650,9 @@ public class DatabricksTypeUtil {
     if (!isDecimalWithinBounds(value)) {
       if (!validatePrecision) {
         return value;
+      }
+      if (value.signum() == 0) {
+        return BigDecimal.ZERO;
       }
       long integerDigits = (long) value.precision() - value.scale();
       if (integerDigits > 38) {

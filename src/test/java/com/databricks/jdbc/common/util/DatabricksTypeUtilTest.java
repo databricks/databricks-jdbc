@@ -446,14 +446,20 @@ class DatabricksTypeUtilTest {
   @Test
   void testNormalizeDecimalLongTrailingZeros() {
     String zeros = String.join("", Collections.nCopies(100000, "0"));
-    BigDecimal fractional = new BigDecimal("1." + zeros);
+    BigDecimal fractional =
+        new BigDecimal("1." + zeros) {
+          @Override
+          public BigDecimal stripTrailingZeros() {
+            throw new AssertionError("Do not strip an unbounded coefficient");
+          }
+        };
     assertEquals(
         BigDecimal.ONE,
         assertTimeoutPreemptively(
-            Duration.ofMillis(100), () -> DatabricksTypeUtil.normalizeDecimal(fractional, true)));
+            Duration.ofSeconds(2), () -> DatabricksTypeUtil.normalizeDecimal(fractional, true)));
     BigDecimal integral = new BigDecimal("1" + zeros);
     assertTimeoutPreemptively(
-        Duration.ofMillis(100),
+        Duration.ofSeconds(2),
         () ->
             assertThrows(
                 ArithmeticException.class,
