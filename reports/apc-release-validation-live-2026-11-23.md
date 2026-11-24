@@ -15,7 +15,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | Region | AWS us-west-2 staging |
 | Runtime | `19.x-photon-scala2.13` |
 | APC cluster | `RUNNING` |
-| Warehouse | Temporary standard and Real-Time warehouses; deleted after validation |
+| Warehouse | Temporary standard and Real-Time warehouses deleted; dogfood AC20 warehouse retained |
 | Driver under test | `854809f5caee6ff05d20213016dcc2fb6c3f4b8e` |
 
 ## AC1–AC29 matrix
@@ -41,13 +41,13 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | AC17 | **PASS** | `EnableNativeBatching=1` inserted three parameter sets, returned three count entries, and persisted three rows. Scratch schema cleanup passed. |
 | AC18 | **PASS** | `setQueryTimeout(1)` raised `DatabricksTimeoutException` on both routes. SEA reported `STATEMENT_EXECUTION_TIMEOUT`; Thrift reported `OPERATION_TIMEOUT_ERROR`. |
 | AC19 | **PASS** | On staging and flag-ON dogfood, `UseThriftClient=0` selected `DatabricksSdkClient` and `UseThriftClient=1` selected `DatabricksThriftServiceClient`; all probes passed `SELECT 1`. |
-| AC20 | **PARTIAL** | Flag-OFF staging warehouse remained SEA and passed `SELECT 1`; the dogfood validation target was an APC cluster, so a flag-ON warehouse comparison was not run. |
+| AC20 | **PASS** | Warehouse routing followed only `enableSqlExecForJdbc`: staging evaluated APC=false/warehouse=true and selected `SEA_WAREHOUSE`; dogfood evaluated APC=true/warehouse=false and selected Thrift. Both passed `SELECT 1`. The dogfood connection required the warehouse-advertised host and a token minted for that host; the shared SPOG token had the wrong audience. |
 | AC21 | **PASS** | On flag-ON dogfood, `TreatMetadataCatalogNameAsPattern=1` selected Thrift while default selected SEA. On staging, explicit `UseThriftClient=0` plus pattern selected SEA. All probes passed `SELECT 1`. |
 | AC22 | **PASS** (statement batch) | The first statement committed, the intentionally invalid second statement failed, and the third did not execute. The SC-258842 DDL vehicle remains separately gated. |
 | AC23 | **BLOCKED** | A CreateSession response without `negotiated_protocol_version` cannot be injected from this client. |
 | AC24 | **PASS** | With heartbeat enabled at a 10-second interval, a completed APC result remained open for 35 seconds and emitted zero statement GET/status requests. |
 | AC25 | **FAIL** | APC SEA `getConnectionId()` fails before producing the required round-trippable compound session ID, so `Driver.closeConnection` cannot exercise the required APC compute target. |
-| AC26 | **PARTIAL** | Warehouse SEA open and `SELECT 1` passed; format serialization/deserialization remains covered outside this live probe. |
+| AC26 | **PASS** | An ordinary non-metadata `SELECT 1` sent `format=ARROW_BATCH`; the returned manifest was also `ARROW_BATCH`, and the row passed. Nineteen focused wire-model and result-factory format cases passed. JDBC metadata operations remain intentionally `ARROW_STREAM`. |
 | AC27 | **PASS** | Sustained live query produced seven RUNNING polls and one terminal poll; every RUNNING response carried zero result-payload bytes. All 100,000 rows were ordered with checksum `4,999,950,000`. |
 | AC28 | **PASS** | Live SAFE config is default OFF with a dogfood override ON. Driver evaluation selected Thrift by default on staging and SEA APC by default on dogfood. |
 | AC29 | **FAIL** | Scalar binds passed, but an ARRAY supplied through `setObject` produced generic `DatabricksSQLFeatureNotSupportedException` / `UNSUPPORTED_OPERATION` / vendor code 0 instead of `UNSUPPORTED_APC_PARAMETER` / code 1045. No query executed. |
@@ -94,8 +94,8 @@ The rejection is local and prevents execution, but it does not meet the APC-spec
 
 | Outcome | Count |
 | --- | ---: |
-| PASS | 17 |
-| PARTIAL | 3 |
+| PASS | 19 |
+| PARTIAL | 1 |
 | FAIL | 4 |
 | SKIP | 0 |
 | BLOCKED | 5 |

@@ -148,6 +148,34 @@
       "temporary_warehouse_cleanup": "PASS",
       "outcome": "PASS"
     },
+    "warehouse_flag_on_dogfood": {
+      "warehouse_state": "RUNNING",
+      "temporary_warehouse_cleanup": "RETAINED_BY_REQUEST",
+      "shared_profile_route": "HTTP_404",
+      "advertised_host_with_shared_token": "INVALID_TOKEN_AUDIENCE",
+      "apc_flag": true,
+      "warehouse_flag": false,
+      "client": "DatabricksThriftServiceClient",
+      "select_one": "PASS",
+      "outcome": "PASS"
+    },
+    "warehouse_flag_control_staging": {
+      "apc_flag": false,
+      "warehouse_flag": true,
+      "client": "DatabricksSdkClient",
+      "protocol": "SEA_WAREHOUSE",
+      "select_one": "PASS",
+      "outcome": "PASS"
+    },
+    "non_metadata_result_format": {
+      "query": "SELECT_1",
+      "request_format": "ARROW_BATCH",
+      "manifest_format": "ARROW_BATCH",
+      "rows": 1,
+      "focused_test_cases": 19,
+      "focused_test_failures": 0,
+      "outcome": "PASS"
+    },
     "dogfood_compute": {
       "cluster_state": "RUNNING",
       "jdbc_readiness": "READY"
