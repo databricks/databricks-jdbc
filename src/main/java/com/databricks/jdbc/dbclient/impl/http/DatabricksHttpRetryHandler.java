@@ -168,7 +168,7 @@ public class DatabricksHttpRetryHandler
 
     Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableHttpCodes();
     boolean isInCustomRetriableCodes = apiRetriableCodes.contains(statusCode);
-    if (retryInterval == -1 && !isInCustomRetriableCodes && !isOpenSessionRequest(context)) {
+    if (retryInterval == -1 && !isInCustomRetriableCodes) {
       // This case arises when the server does not send the retryAfter header
       // and the status code is not in the custom retriable codes list
       LOGGER.warn(
@@ -182,9 +182,6 @@ public class DatabricksHttpRetryHandler
     // If no retry-after header (retryInterval == -1), calculate delay using exponential backoff
     if (retryInterval == -1) {
       retryInterval = (int) (calculateExponentialBackoff(executionCount) / 1000);
-      if (retryInterval <= 0) {
-        return false;
-      }
     }
 
     long tempUnavailableAccumulatedTime =
@@ -349,6 +346,7 @@ public class DatabricksHttpRetryHandler
     return true;
   }
 
+  /** Returns monotonic elapsed-time milliseconds, not an epoch timestamp. */
   @VisibleForTesting
   protected long currentTimeMillis() {
     return System.nanoTime() / 1_000_000;
