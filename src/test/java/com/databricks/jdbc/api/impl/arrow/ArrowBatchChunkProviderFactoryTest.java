@@ -5,10 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -194,7 +192,7 @@ class ArrowBatchChunkProviderFactoryTest {
   }
 
   @Test
-  void fetchesPagesLazily() throws Exception {
+  void prefetchesPagesBeforeCurrentChunkIsConsumed() throws Exception {
     IDatabricksClient client = mock(IDatabricksClient.class);
     when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
         .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 1));
@@ -206,11 +204,10 @@ class ArrowBatchChunkProviderFactoryTest {
             STATEMENT_ID,
             session(client));
     try {
+      verify(client, timeout(1000)).getResultChunksData(STATEMENT_ID, 1L, 1L);
       assertTrue(provider.next());
-      verify(client, never()).getResultChunksData(any(), anyLong(), anyLong());
       assertTrue(provider.hasNextChunk());
       assertTrue(provider.next());
-      verify(client).getResultChunksData(STATEMENT_ID, 1L, 1L);
       assertFalse(provider.hasNextChunk());
     } finally {
       provider.close();
@@ -265,14 +262,16 @@ class ArrowBatchChunkProviderFactoryTest {
             session(client));
     try {
       assertTrue(provider.next());
-      assertThrows(DatabricksParsingException.class, provider::next);
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
+      assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.toString(), error.getSQLState());
+      assertInstanceOf(DatabricksParsingException.class, error.getCause());
     } finally {
       provider.close();
     }
   }
 
   @Test
-  void preservesBackgroundPageParsingFailure() throws Exception {
+  void wrapsBackgroundPageParsingFailure() throws Exception {
     IDatabricksClient client = mock(IDatabricksClient.class);
     when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
         .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 0));
@@ -286,10 +285,10 @@ class ArrowBatchChunkProviderFactoryTest {
             1);
     try {
       assertTrue(provider.next());
-      DatabricksParsingException error =
-          assertThrows(DatabricksParsingException.class, provider::next);
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
       assertEquals(
-          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+          DatabricksDriverErrorCode.CHUNK_READY_ERROR.toString(), error.getSQLState());
+      assertInstanceOf(DatabricksParsingException.class, error.getCause());
     } finally {
       provider.close();
     }

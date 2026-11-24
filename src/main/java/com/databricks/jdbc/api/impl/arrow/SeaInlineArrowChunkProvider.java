@@ -26,12 +26,6 @@ class SeaInlineArrowChunkProvider extends PagedArrowChunkProvider {
         statementId,
         session,
         page -> decodePage(page, resultManifest.getResultCompression()),
-        Math.max(2, session.getConnectionContext().getThriftMaxBatchesInMemory()),
-        session.getConnectionContext().getChunkReadyTimeoutSeconds(),
-        null,
-        false,
-        false,
-        true,
         WORKER_NAME);
   }
 

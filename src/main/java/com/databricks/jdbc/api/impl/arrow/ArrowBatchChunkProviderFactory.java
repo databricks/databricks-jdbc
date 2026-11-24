@@ -43,6 +43,12 @@ final class ArrowBatchChunkProviderFactory {
       throw parsingError("ARROW_BATCH response is missing its manifest");
     }
     validatePageShape(resultData);
+    if (!hasMorePages(resultData)
+        && Long.valueOf(0L).equals(resultManifest.getTotalRowCount())
+        && (resultData.getRowCount() == null || Long.valueOf(0L).equals(resultData.getRowCount()))
+        && (resultData.getArrowBatches() == null || resultData.getArrowBatches().isEmpty())) {
+      return new EmptyChunkProvider();
+    }
     if (hasMorePages(resultData) && (statementId == null || session == null)) {
       throw parsingError("Paginated ARROW_BATCH responses require a session to fetch pages");
     }

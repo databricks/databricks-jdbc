@@ -24,10 +24,6 @@ class PagedArrowChunkProvider implements ChunkProvider {
   private final PageDecoder decoder;
   private final int maxChunksInMemory;
   private final int chunkReadyTimeoutSeconds;
-  private final Long expectedTotalRows;
-  private final boolean countLoadedChunks;
-  private final boolean skipEmptyPages;
-  private final boolean wrapWorkerFailure;
   private final ReentrantLock lock = new ReentrantLock();
   private final Condition chunkAvailable = lock.newCondition();
   private final Condition consumerAdvanced = lock.newCondition();
@@ -39,7 +35,6 @@ class PagedArrowChunkProvider implements ChunkProvider {
   private Long nextChunkIndex;
   private long nextRowOffset;
   private long rowsLoaded;
-  private long chunksLoaded;
   private long chunksConsumed;
   private int chunksInMemory;
   private boolean endOfStream;
@@ -50,12 +45,25 @@ class PagedArrowChunkProvider implements ChunkProvider {
       StatementId statementId,
       IDatabricksSession session,
       PageDecoder decoder,
+      String workerName)
+      throws DatabricksSQLException {
+    this(
+        firstPage,
+        statementId,
+        session,
+        decoder,
+        maxChunksInMemory(session),
+        chunkReadyTimeoutSeconds(session),
+        workerName);
+  }
+
+  PagedArrowChunkProvider(
+      ResultData firstPage,
+      StatementId statementId,
+      IDatabricksSession session,
+      PageDecoder decoder,
       int maxChunksInMemory,
       int chunkReadyTimeoutSeconds,
-      Long expectedTotalRows,
-      boolean countLoadedChunks,
-      boolean skipEmptyPages,
-      boolean wrapWorkerFailure,
       String workerName)
       throws DatabricksSQLException {
     this.statementId = statementId;
@@ -63,10 +71,6 @@ class PagedArrowChunkProvider implements ChunkProvider {
     this.decoder = decoder;
     this.maxChunksInMemory = Math.max(1, maxChunksInMemory);
     this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
-    this.expectedTotalRows = expectedTotalRows;
-    this.countLoadedChunks = countLoadedChunks;
-    this.skipEmptyPages = skipEmptyPages;
-    this.wrapWorkerFailure = wrapWorkerFailure;
     loadPage(firstPage, 0L, 0L);
     if (!endOfStream && (statementId == null || session == null)) {
       worker = null;
@@ -142,9 +146,6 @@ class PagedArrowChunkProvider implements ChunkProvider {
         return true;
       }
       if (workerFailure != null) {
-        if (!wrapWorkerFailure) {
-          throw workerFailure;
-        }
         throw new DatabricksSQLException(
             "Arrow page fetch failed: " + workerFailure.getMessage(),
             workerFailure,
@@ -213,7 +214,7 @@ class PagedArrowChunkProvider implements ChunkProvider {
   public long getChunkCount() {
     lock.lock();
     try {
-      return countLoadedChunks ? chunksLoaded : chunksConsumed;
+      return chunksConsumed;
     } finally {
       lock.unlock();
     }
@@ -278,15 +279,6 @@ class PagedArrowChunkProvider implements ChunkProvider {
       throw parsingError("Arrow page row count overflowed");
     }
     Long continuation = page.getNextChunkIndex();
-    if (continuation == null
-        && expectedTotalRows != null
-        && expectedTotalRows.longValue() != updatedRows) {
-      chunk.releaseChunk();
-      throw parsingError(
-          String.format(
-              "Arrow page row_count total %d does not match manifest total_row_count %d",
-              updatedRows, expectedTotalRows));
-    }
 
     lock.lock();
     try {
@@ -297,14 +289,9 @@ class PagedArrowChunkProvider implements ChunkProvider {
       nextChunkIndex = continuation;
       nextRowOffset = updatedOffset;
       rowsLoaded = updatedRows;
-      chunksLoaded++;
       endOfStream = continuation == null;
-      if (skipEmptyPages && pageRows == 0) {
-        chunk.releaseChunk();
-      } else {
-        pendingChunks.addLast(chunk);
-        chunksInMemory++;
-      }
+      pendingChunks.addLast(chunk);
+      chunksInMemory++;
       chunkAvailable.signalAll();
     } finally {
       lock.unlock();
@@ -372,5 +359,17 @@ class PagedArrowChunkProvider implements ChunkProvider {
     } catch (RuntimeException e) {
       LOGGER.warn("Failed to release Arrow result page", e);
     }
+  }
+
+  private static int maxChunksInMemory(IDatabricksSession session) {
+    return session == null || session.getConnectionContext() == null
+        ? 2
+        : Math.max(2, session.getConnectionContext().getThriftMaxBatchesInMemory());
+  }
+
+  private static int chunkReadyTimeoutSeconds(IDatabricksSession session) {
+    return session == null || session.getConnectionContext() == null
+        ? 0
+        : session.getConnectionContext().getChunkReadyTimeoutSeconds();
   }
 }
