@@ -1604,7 +1604,7 @@ public class DatabricksConnectionTest {
       IDatabricksStatementInternal failingStatement = mock(IDatabricksStatementInternal.class);
       doThrow(new DatabricksSQLException("statement close failed", "08000"))
           .when(failingStatement)
-          .close(false);
+          .close(false, true);
       getStatementSet(localConnection).add(failingStatement);
 
       assertThrows(DatabricksSQLException.class, localConnection::close);

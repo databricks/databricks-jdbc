@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal.ServerCloseOutcome;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
@@ -447,8 +448,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         }
       } finally {
         try {
+          boolean closeOnServer = true;
           for (IDatabricksStatementInternal statement : statementSet) {
-            statement.close(false);
+            if (statement.close(false, closeOnServer) == ServerCloseOutcome.FAILED) {
+              closeOnServer = false;
+            }
             statementSet.remove(statement);
           }
         } finally {

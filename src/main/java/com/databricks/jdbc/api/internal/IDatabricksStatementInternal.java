@@ -9,7 +9,19 @@ import org.apache.http.entity.InputStreamEntity;
 /** Extended callback handle for java.sql.Statement interface */
 public interface IDatabricksStatementInternal {
 
+  enum ServerCloseOutcome {
+    CLOSED,
+    NOT_FOUND,
+    FAILED
+  }
+
   void close(boolean removeFromSession) throws DatabricksSQLException;
+
+  default ServerCloseOutcome close(boolean removeFromSession, boolean closeOnServer)
+      throws DatabricksSQLException {
+    close(removeFromSession);
+    return ServerCloseOutcome.CLOSED;
+  }
 
   void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;
 
