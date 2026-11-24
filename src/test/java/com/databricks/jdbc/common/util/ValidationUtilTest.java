@@ -96,9 +96,20 @@ class ValidationUtilTest {
         assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
     assertEquals(
         "HTTP request failed by code: 400, status line: mockStatusLine.", exception.getMessage());
+    assertEquals(400, ValidationUtil.getHTTPStatusCode((DatabricksHttpException) exception));
 
     when(statusLine.getStatusCode()).thenReturn(102);
-    assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+    DatabricksHttpException informationalError =
+        assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+    assertEquals(102, ValidationUtil.getHTTPStatusCode(informationalError));
+  }
+
+  @Test
+  void testHTTPStatusCodeIgnoresUnstructuredMessages() {
+    assertNull(ValidationUtil.getHTTPStatusCode(new DatabricksHttpException(null, "HY000")));
+    assertNull(
+        ValidationUtil.getHTTPStatusCode(
+            new DatabricksHttpException("A server message mentioning 404", "HY000")));
   }
 
   @ParameterizedTest

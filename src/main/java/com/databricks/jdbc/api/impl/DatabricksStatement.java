@@ -21,6 +21,7 @@ import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +38,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       Pattern.compile("\\)\\s*(\\w+)", Pattern.UNICODE_CHARACTER_CLASS);
   private static final Pattern DML_PATTERN =
       Pattern.compile("INSERT|UPDATE|DELETE|MERGE", Pattern.CASE_INSENSITIVE);
+  private static final int MAX_CLOSE_ERROR_CAUSES = 10;
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -66,9 +68,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   // closed the operation — no further RPCs for this statement ID are possible. The JDBC Statement
   // itself remains open for re-execution. Reset on each new execution. Volatile because cancel()
   // can be called from a different thread (JDBC spec requirement).
-  private volatile boolean serverOperationClosed = false; // Client proactively closed the server
-  // operation after all results were consumed or ResultSet was closed. Prevents duplicate
-  // closeStatement RPC when Statement.close() is called later. Reset on each new execution.
+  private volatile boolean serverOperationClosed = false; // Server operation closed or not found.
+  // Prevents duplicate closeStatement RPCs. Reset on each new execution.
   protected Boolean shouldReturnResultSet =
       null; // Cached result of shouldReturnResultSetWithConfig()
 
@@ -159,16 +160,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         LOGGER.warn(warningMsg);
         warnings = WarningUtil.addWarning(warnings, warningMsg);
       } else {
-        // Close ResultSet first — this triggers proactive server close via
-        // closeServerOperation() and sets serverOperationClosed=true, preventing
-        // a duplicate closeStatement RPC below.
+        // Close ResultSet first; successful or not-found server cleanup prevents a duplicate RPC.
         if (resultSet != null) {
           this.resultSet.close();
           this.resultSet = null;
         }
         // Skip server-side close if operation was already closed:
         // - directResultsReceived: server closed it (inline results)
-        // - serverOperationClosed: client proactively closed it (results consumed or RS closed)
+        // - serverOperationClosed: client closed it or confirmed it was already gone
         if (!directResultsReceived && !serverOperationClosed) {
           closeServerOperation();
         } else {
@@ -1114,12 +1113,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   /**
-   * Proactively closes the server-side operation to release server resources while keeping the
-   * client-side Statement open for reuse. Called when all results have been consumed (next()
-   * returns false) or when ResultSet.close() is called.
+   * Best-effort server cleanup after result consumption, ResultSet.close(), or Statement.close().
    *
-   * <p>After this call, {@link #close(boolean)} will skip the closeStatement RPC since the server
-   * operation is already closed. The Statement can still be re-executed.
+   * <p>Success or not-found prevents duplicate RPCs. Other failures remain retryable until the
+   * Statement is closed. This method alone does not close the local Statement.
    */
   @Override
   public void closeServerOperation() {
@@ -1128,41 +1125,51 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     }
     try {
       this.connection.getSession().getDatabricksClient().closeStatement(statementId);
-      // Only mark closed on success — if the RPC fails (transient network error),
-      // Statement.close() should retry the closeStatement RPC rather than skip it,
-      // to avoid leaving the server operation alive until session timeout.
       this.serverOperationClosed = true;
       LOGGER.debug(
-          "Proactively closed server operation for statement {} (results consumed)",
-          StatementId.loggableStatementId(statementId));
+          "Closed server operation for statement {}", StatementId.loggableStatementId(statementId));
     } catch (SQLException | RuntimeException e) {
-      if (isOperationNotFound(e)) {
+      Throwable cause = getServerCloseCause(e);
+      Integer statusCode = null;
+      if (cause instanceof DatabricksError) {
+        statusCode = ((DatabricksError) cause).getStatusCode();
+      } else if (cause instanceof DatabricksHttpException) {
+        statusCode = ValidationUtil.getHTTPStatusCode((DatabricksHttpException) cause);
+      }
+      if (Integer.valueOf(404).equals(statusCode)) {
         this.serverOperationClosed = true;
         LOGGER.debug(
             "Server operation for statement {} is already closed",
             StatementId.loggableStatementId(statementId));
       } else {
         LOGGER.warn(
-            "Failed to close server operation for statement {} ({})",
+            "Failed to close server operation for statement {} ({}, HTTP status={}, error code={})",
             StatementId.loggableStatementId(statementId),
-            e.getClass().getSimpleName());
+            e.getClass().getSimpleName(),
+            statusCode == null ? "unknown" : statusCode,
+            cause instanceof DatabricksError
+                ? ((DatabricksError) cause).getErrorCode()
+                : "unknown");
+        LOGGER.debug(
+            "Server close failure for statement {}: {} stack trace: {}",
+            StatementId.loggableStatementId(statementId),
+            cause.getClass().getName(),
+            Arrays.toString(cause.getStackTrace()));
       }
     }
   }
 
-  private static boolean isOperationNotFound(Throwable error) {
-    while (error != null) {
-      if (error instanceof DatabricksError && ((DatabricksError) error).getStatusCode() == 404) {
-        return true;
+  private static Throwable getServerCloseCause(Throwable error) {
+    Throwable cause = error;
+    for (int depth = 0; cause != null && depth < MAX_CLOSE_ERROR_CAUSES; depth++) {
+      if (cause instanceof DatabricksError
+          || (cause instanceof DatabricksHttpException
+              && ValidationUtil.getHTTPStatusCode((DatabricksHttpException) cause) != null)) {
+        return cause;
       }
-      if (error instanceof DatabricksHttpException
-          && error.getMessage() != null
-          && error.getMessage().startsWith("HTTP request failed by code: 404,")) {
-        return true;
-      }
-      error = error.getCause();
+      cause = cause.getCause();
     }
-    return false;
+    return error;
   }
 
   /**

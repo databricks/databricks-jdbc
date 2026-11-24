@@ -11,8 +11,10 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksHttpTTransport;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -20,6 +22,8 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.error.platform.NotFound;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
@@ -32,15 +36,21 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Handler;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.logging.LogRecord;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.message.BasicStatusLine;
 import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -2135,25 +2145,42 @@ public class DatabricksStatementTest {
     verify(client, times(1)).closeStatement(STATEMENT_ID);
   }
 
-  private static Stream<Exception> serverCloseFailures() {
+  private static Stream<Arguments> serverCloseFailures() throws Exception {
     return Stream.of(
-        thriftCloseFailure(404),
-        new NotFound("Operation is already closed", null),
-        thriftCloseFailure(500),
-        new IllegalStateException("Server close failed"));
+        Arguments.of(thriftCloseFailure(404), 1, Level.FINE),
+        Arguments.of(new NotFound("Operation is already closed", null), 1, Level.FINE),
+        Arguments.of(thriftCloseFailure(500), 2, Level.WARNING),
+        Arguments.of(
+            new DatabricksError("TEMPORARILY_UNAVAILABLE", "Server close failed", 503),
+            2,
+            Level.WARNING),
+        Arguments.of(new IllegalStateException("Server close failed"), 2, Level.WARNING));
   }
 
-  private static DatabricksHttpException thriftCloseFailure(int statusCode) {
+  private static Stream<Exception> serverCloseExceptions() throws Exception {
+    return serverCloseFailures().map(arguments -> (Exception) arguments.get()[0]);
+  }
+
+  private static DatabricksHttpException thriftCloseFailure(int statusCode) throws Exception {
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, statusCode, "error"));
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(response);
+    DatabricksHttpTTransport transport =
+        new DatabricksHttpTTransport(
+            httpClient,
+            "https://sample-host/sql/1.0/warehouses/99999999",
+            mock(DatabricksConfig.class),
+            DatabricksConnectionContext.parse(JDBC_URL, new Properties()));
     return new DatabricksHttpException(
         "Error while closing operation from Thrift server",
-        new TTransportException(
-            new DatabricksHttpException(
-                "HTTP request failed by code: " + statusCode + ", status line: error.", "HY000")),
+        assertThrows(TTransportException.class, transport::flush),
         DatabricksDriverErrorCode.INVALID_STATE);
   }
 
   @ParameterizedTest
-  @MethodSource("serverCloseFailures")
+  @MethodSource("serverCloseExceptions")
   public void testCloseServerFailureIsBestEffort(Exception failure) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -2186,48 +2213,108 @@ public class DatabricksStatementTest {
 
   @ParameterizedTest
   @MethodSource("serverCloseFailures")
-  public void testProactiveCloseFailureThenStatementCloseIsBestEffort(Exception failure)
-      throws Exception {
+  public void testProactiveCloseFailureThenStatementCloseIsBestEffort(
+      Exception failure, int expectedCloseRpcs, Level expectedLogLevel) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksStatement statement =
         new DatabricksStatement(new DatabricksConnection(context, client), STATEMENT_ID);
     doThrow(failure).when(client).closeStatement(STATEMENT_ID);
 
-    assertDoesNotThrow(statement::closeServerOperation);
-    assertDoesNotThrow(() -> statement.close());
-    assertTrue(statement.isClosed());
-    boolean notFound =
-        failure instanceof NotFound
-            || (failure instanceof DatabricksHttpException
-                && failure.getCause().getCause().getMessage().contains("404"));
-    verify(client, times(notFound ? 1 : 2)).closeStatement(STATEMENT_ID);
+    try (LogCapture capture = new LogCapture()) {
+      assertDoesNotThrow(statement::closeServerOperation);
+      assertDoesNotThrow(() -> statement.close());
+      assertTrue(statement.isClosed());
+      verify(client, times(expectedCloseRpcs)).closeStatement(STATEMENT_ID);
+      assertServerCloseLogs(capture, expectedCloseRpcs, expectedLogLevel);
+    }
   }
 
-  @Test
-  public void testServerCloseWarningDoesNotExposeFailureDetails() throws Exception {
+  private static void assertServerCloseLogs(
+      LogCapture capture, int expectedCount, Level expectedLevel) {
+    List<LogRecord> closeLogs =
+        capture.getRecords().stream()
+            .filter(
+                record ->
+                    record.getMessage().startsWith("Failed to close server operation")
+                        || record.getMessage().endsWith("is already closed"))
+            .collect(Collectors.toList());
+    assertEquals(expectedCount, closeLogs.size());
+    assertTrue(closeLogs.stream().allMatch(record -> record.getLevel().equals(expectedLevel)));
+    if (expectedLevel.equals(Level.FINE)) {
+      assertTrue(
+          capture.getRecords().stream()
+              .noneMatch(record -> record.getLevel().intValue() >= Level.WARNING.intValue()));
+    }
+  }
+
+  private static Stream<Arguments> sensitiveServerCloseFailures() throws Exception {
+    String message = "https://sample-host/close?token=close-token&sig=secret-signature";
+    return Stream.of(
+        Arguments.of(
+            new DatabricksHttpException(message, thriftCloseFailure(500), "HY000"), 500, "unknown"),
+        Arguments.of(
+            new DatabricksError("TEMPORARILY_UNAVAILABLE", message, 503),
+            503,
+            "TEMPORARILY_UNAVAILABLE"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("sensitiveServerCloseFailures")
+  public void testServerCloseWarningDoesNotExposeFailureDetails(
+      Exception failure, int expectedStatus, String expectedErrorCode) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksStatement statement =
         new DatabricksStatement(new DatabricksConnection(context, client), STATEMENT_ID);
-    doThrow(new DatabricksHttpException("secret=close-token", thriftCloseFailure(500), "HY000"))
-        .when(client)
-        .closeStatement(STATEMENT_ID);
-    Logger logger = Logger.getLogger("com.databricks.jdbc");
-    Handler handler = mock(Handler.class);
-    logger.addHandler(handler);
+    doThrow(failure).when(client).closeStatement(STATEMENT_ID);
     try (LogCapture capture = new LogCapture()) {
       assertDoesNotThrow(() -> statement.close());
       assertFalse(capture.getOutput().contains("close-token"));
+      assertFalse(capture.getOutput().contains("secret-signature"));
+      assertFalse(capture.getOutput().contains("https://"));
       assertTrue(capture.getOutput().contains("statement_id"));
-      verify(handler).publish(argThat(record -> record.getLevel() == Level.WARNING));
-    } finally {
-      logger.removeHandler(handler);
+      LogRecord warning =
+          capture.getRecords().stream()
+              .filter(record -> record.getLevel().equals(Level.WARNING))
+              .findFirst()
+              .orElseThrow(() -> new AssertionError("No server-close warning"));
+      assertTrue(warning.getMessage().contains(failure.getClass().getSimpleName()));
+      assertTrue(warning.getMessage().contains("HTTP status=" + expectedStatus));
+      assertTrue(warning.getMessage().contains("error code=" + expectedErrorCode));
+      assertTrue(
+          capture.getRecords().stream()
+              .anyMatch(
+                  record ->
+                      record.getLevel().equals(Level.FINE)
+                          && record.getMessage().contains("stack trace:")
+                          && record.getMessage().contains("DatabricksStatementTest")));
     }
   }
 
+  @Test
+  public void testServerCloseCauseWalkIsBounded() throws Exception {
+    RuntimeException failure = mock(RuntimeException.class);
+    AtomicInteger visited = new AtomicInteger();
+    when(failure.getCause())
+        .thenAnswer(
+            invocation -> {
+              assertTrue(visited.incrementAndGet() <= 10, "Unbounded cause traversal");
+              return failure;
+            });
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksStatement statement =
+        new DatabricksStatement(new DatabricksConnection(context, client), STATEMENT_ID);
+    doThrow(failure).when(client).closeStatement(STATEMENT_ID);
+
+    assertDoesNotThrow(() -> statement.close());
+    assertTrue(statement.isClosed());
+    assertEquals(10, visited.get());
+  }
+
   @ParameterizedTest
-  @MethodSource("serverCloseFailures")
+  @MethodSource("serverCloseExceptions")
   public void testCancelFailureStillPropagates(Exception failure) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -2241,8 +2328,8 @@ public class DatabricksStatementTest {
 
   @ParameterizedTest
   @MethodSource("serverCloseFailures")
-  public void testRealResultSetCleanupContinuesAfterServerCloseFailure(Exception failure)
-      throws Exception {
+  public void testRealResultSetCleanupContinuesAfterServerCloseFailure(
+      Exception failure, int expectedCloseRpcs, Level expectedLogLevel) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksStatement statement =
@@ -2260,10 +2347,14 @@ public class DatabricksStatementTest {
     statement.resultSet = results;
     doThrow(failure).when(client).closeStatement(STATEMENT_ID);
 
-    assertDoesNotThrow(() -> statement.close());
-    assertTrue(statement.isClosed());
-    assertTrue(results.isClosed());
-    verify(executionResult).close();
+    try (LogCapture capture = new LogCapture()) {
+      assertDoesNotThrow(() -> statement.close());
+      assertTrue(statement.isClosed());
+      assertTrue(results.isClosed());
+      verify(executionResult).close();
+      verify(client, times(expectedCloseRpcs)).closeStatement(STATEMENT_ID);
+      assertServerCloseLogs(capture, expectedCloseRpcs, expectedLogLevel);
+    }
   }
 
   @Test
