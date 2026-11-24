@@ -660,11 +660,12 @@ public class ComplexDataTypeParser {
 
         String keyType = kv[0].trim();
         String valueType = kv[1].trim();
+        // recoverStringType also accepts collated strings such as "STRING COLLATE UTF8_LCASE".
         boolean isStringKey =
-            keyType.equalsIgnoreCase(DatabricksTypeUtil.STRING)
+            DatabricksTypeUtil.recoverStringType(keyType) != null
                 || DatabricksTypeUtil.isGeospatialType(keyType.toUpperCase(Locale.ROOT));
         boolean isStringValue =
-            valueType.equalsIgnoreCase(DatabricksTypeUtil.STRING)
+            DatabricksTypeUtil.recoverStringType(valueType) != null
                 || DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT));
 
         StringBuilder result = new StringBuilder("{");

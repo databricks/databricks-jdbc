@@ -2,9 +2,12 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +24,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -692,6 +699,54 @@ public class ComplexDataTypeParserTest {
     // single-quoted strings that could hold an unescaped '"'.
     assertEquals(
         jsonString, parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "MAP<STRING COLLATE UTF8_LCASE,STRING COLLATE UTF8_LCASE>",
+        "MAP<string collate utf8_lcase, string collate unicode_ci>",
+        "MAP<STRING, STRING COLLATE UTF8_LCASE>"
+      })
+  void testFormatMapString_quotesAndEscapesCollatedStrings(String metadata) {
+    String escaped = "[{\"key\":\"k\\\"1\",\"value\":\"v\\\\1\"}]";
+    String plain = "[{\"key\":\"a\",\"value\":\"b\"}]";
+
+    assertEquals(
+        "{\"k\\\"1\":\"v\\\\1\"}", parser.formatComplexTypeString(escaped, "MAP", metadata));
+    assertEquals("{\"a\":\"b\"}", parser.formatComplexTypeString(plain, "MAP", metadata));
+  }
+
+  @Test
+  void testFormatMapString_escapesArrowMapVectorCell() throws Exception {
+    // Builds the input the default path really receives: an Arrow MAP cell read as STRING.
+    String[][] entries = {{"k\"1", "v\\1"}, {"a\tb", "c\nd"}, {"plain", "text"}};
+    try (BufferAllocator allocator = new RootAllocator();
+        MapVector vector = MapVector.empty("m", allocator, false)) {
+      UnionMapWriter writer = vector.getWriter();
+      writer.setPosition(0);
+      writer.startMap();
+      for (String[] entry : entries) {
+        writer.startEntry();
+        writer.key().varChar().writeVarChar(entry[0]);
+        writer.value().varChar().writeVarChar(entry[1]);
+        writer.endEntry();
+      }
+      writer.endMap();
+      vector.setValueCount(1);
+
+      String cell =
+          (String)
+              ArrowToJavaObjectConverter.convert(
+                  vector, 0, ColumnInfoTypeName.STRING, "STRING", new ColumnInfo());
+      String result = parser.formatComplexTypeString(cell, "MAP", "MAP<STRING,STRING>");
+
+      JsonNode parsed = new ObjectMapper().readTree(result);
+      assertEquals(entries.length, parsed.size());
+      for (String[] entry : entries) {
+        assertEquals(entry[1], parsed.get(entry[0]).asText());
+      }
+    }
   }
 
   @Test
