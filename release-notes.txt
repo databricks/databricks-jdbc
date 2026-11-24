@@ -6,6 +6,51 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
+3.4.6 ========================================================================
+Released 2026-11-23
+
+Added
+
+ * ResultSet.getObject(column, Class) now supports java.time types
+   (LocalDate, LocalDateTime, Instant, OffsetDateTime) for DATE and TIMESTAMP
+   columns, including values nested in ARRAY and STRUCT, and returns pre-1582
+   dates exactly. Conversions with no sensible result now throw an
+   SQLException.
+ * New connection property EnableStrictGetObjectConversion. Set it to 1 to
+   make getObject(column, Class) throw when a value can't be returned as the
+   requested type, as the JDBC specification requires.
+
+Updated
+
+ * Behavior change: WITH ... INSERT/UPDATE/DELETE/MERGE statements are now
+   treated as updates, so executeUpdate() returns the affected-row count and
+   executeQuery() throws. Set NonRowcountQueryPrefixes=WITH to keep the old
+   behavior.
+ * Changed default: UseBoundedSeaApi now defaults to 1. Set
+   UseBoundedSeaApi=0 to turn it off.
+ * Lower CPU when reading Arrow results, for ResultSet.next() and the typed
+   getters.
+ * Faster getConnection(): new connections to the same host reuse recently
+   fetched server settings and OAuth discovery responses.
+ * Better detection of statement types and ? placeholders in SQL that uses
+   backslash-escaped quotes, raw string literals, or backslash-continued
+   comments.
+ * Updated JSON-java to 20260814 to address CVE-2026-59171.
+
+Fixed
+
+ * Fixed numeric getters on DATE and TIMESTAMP columns returning shifted
+   values for pre-1582 dates.
+ * Fixed reading ARRAY, STRUCT, and MAP values that contain a TIMESTAMP_NTZ
+   with zero seconds.
+ * Fixed CloudFetch results skipping rows after a chunk download was retried.
+ * Fixed connections stalling under concurrency, or while another connection
+   to the same host was closing. TelemetrySocketTimeout now also limits the
+   final telemetry flush on close.
+ * Reduced heap usage when reading large CloudFetch results.
+ * Reduced lock contention when many threads read compressed inline results.
+ * Error messages and logs no longer include Thrift handle secrets.
+
 3.4.5 ========================================================================
 Released 2026-11-03
 

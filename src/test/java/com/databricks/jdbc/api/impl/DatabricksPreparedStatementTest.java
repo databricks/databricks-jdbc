@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -293,6 +296,19 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testGetMetaData_NoResultSet_CteDml_ReturnsNull() throws Exception {
+    String cteInsert = "WITH source AS (SELECT 1 AS id) INSERT INTO target SELECT id FROM source";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, cteInsert);
+
+    assertNull(statement.getMetaData());
+    verify(client, never())
+        .executeStatement(startsWith("DESCRIBE QUERY"), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
   public void testGetMetaData_NoResultSet_CteQuery_UsesDescribeQuery() throws Exception {
     // Regression test for issue #1562: getMetaData() must return metadata for CTE (WITH ...)
     // queries before execution, matching the behavior of plain SELECT queries. Previously this
@@ -473,6 +489,84 @@ public class DatabricksPreparedStatementTest {
     Object snapshottedValue = parametersCaptor.getValue().get(1).value();
     assertEquals(expectedTimestamp, snapshottedValue);
     assertNotSame(timestamp, snapshottedValue);
+  }
+
+  @Test
+  public void testExecuteBatchUsesSupportedNativeClient() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "EnableNativeBatching=1;", new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, thriftClient);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, "INSERT INTO target (id, name) VALUES (?, ?)");
+    statement.setInt(1, 1);
+    statement.setString(2, "first");
+    statement.addBatch();
+    statement.setInt(1, 2);
+    statement.setString(2, "second");
+    statement.addBatch();
+    when(thriftClient.supportsNativeParameterBatching(any())).thenReturn(true);
+    when(thriftClient.executeStatementBatch(
+            anyString(),
+            any(),
+            any(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.getBatchUpdateCounts(2)).thenReturn(new long[] {1, 1});
+
+    assertArrayEquals(new int[] {1, 1}, statement.executeBatch());
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<BatchParameterSet>> parameterSetsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(thriftClient)
+        .executeStatementBatch(
+            eq("INSERT INTO target (id, name) VALUES (?, ?)"),
+            any(),
+            parameterSetsCaptor.capture(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement));
+    assertEquals(2, parameterSetsCaptor.getValue().size());
+  }
+
+  @Test
+  public void testExecuteBatchThrowsResultErrorWhenNativeCountsCannotBeRead() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "EnableNativeBatching=1;", new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, thriftClient);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, "INSERT INTO target (id) VALUES (?)");
+    statement.setInt(1, 1);
+    statement.addBatch();
+    when(thriftClient.supportsNativeParameterBatching(any())).thenReturn(true);
+    when(thriftClient.executeStatementBatch(
+            anyString(),
+            any(),
+            any(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    SQLException countError = new SQLException("Missing update-count column", "RESULT_SET_ERROR");
+    when(resultSet.getBatchUpdateCounts(1)).thenThrow(countError);
+
+    NativeBatchResultException exception =
+        assertThrows(NativeBatchResultException.class, statement::executeBatch);
+
+    assertEquals("RESULT_SET_ERROR", exception.getSQLState());
+    assertSame(countError, exception.getCause());
+    assertTrue(exception.getMessage().contains("Inserted rows may already be committed"));
+    assertArrayEquals(new int[0], statement.executeBatch());
+    verify(thriftClient, times(1))
+        .executeStatementBatch(
+            anyString(),
+            any(),
+            any(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement));
   }
 
   public static ImmutableSqlParameter getSqlParam(

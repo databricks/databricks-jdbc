@@ -141,6 +141,7 @@ public class TelemetryHelperTest {
         // Basic operations
         Arguments.of("createSession", OperationType.CREATE_SESSION),
         Arguments.of("executeStatement", OperationType.EXECUTE_STATEMENT),
+        Arguments.of("executeStatementBatch", OperationType.EXECUTE_STATEMENT),
         Arguments.of("executeStatementAsync", OperationType.EXECUTE_STATEMENT_ASYNC),
         Arguments.of("closeStatement", OperationType.CLOSE_STATEMENT),
         Arguments.of("cancelStatement", OperationType.CANCEL_STATEMENT),

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -15,6 +16,7 @@ import com.databricks.jdbc.api.ExecutionState;
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
@@ -33,6 +35,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
@@ -48,6 +51,7 @@ import java.time.*;
 import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
@@ -73,6 +77,19 @@ public class DatabricksResultSetTest {
 
   @Mock DatabricksConnectionContext databricksConnectionContext;
   @Mock Statement mockedStatement;
+
+  @BeforeEach
+  void setUpColumnConverters() {
+    lenient()
+        .when(mockedResultSetMetadata.getColumnConverter(anyInt()))
+        .thenAnswer(
+            invocation -> {
+              int column = invocation.getArgument(0);
+              return ConverterHelper.getConverterForColumnType(
+                  mockedResultSetMetadata.getColumnType(column),
+                  mockedResultSetMetadata.getColumnTypeName(column));
+            });
+  }
 
   @AfterEach
   void tearDown() {
@@ -731,11 +748,18 @@ public class DatabricksResultSetTest {
             new DatabricksGeometry("POINT Z EMPTY", 3857),
             new DatabricksGeography("POINT(1 2)", 4326))) {
       for (String qualifier : List.of("(" + geo.getSRID() + ")", "(ANY)")) {
-        when(mockedExecutionResult.getObject(0)).thenReturn(geo);
-        when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.OTHER);
-        when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn(geo.getType() + qualifier);
-        when(mockedResultSetMetadata.getColumnNameIndex("geo")).thenReturn(1);
-        DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+        DatabricksResultSet resultSet =
+            new DatabricksResultSet(
+                new StatementStatus().setState(StatementState.SUCCEEDED),
+                STATEMENT_ID,
+                List.of("geo"),
+                List.of(geo.getType() + qualifier),
+                new int[] {Types.OTHER},
+                new int[] {0},
+                new int[] {ResultSetMetaData.columnNullable},
+                new Object[][] {{geo}},
+                StatementType.METADATA);
+        assertTrue(resultSet.next());
         assertArrayEquals(geo.getWKB(), resultSet.getBytes(1));
         assertArrayEquals(geo.getWKB(), resultSet.getBytes("geo"));
         assertArrayEquals(geo.getWKB(), resultSet.getObject(1, byte[].class));
@@ -1435,6 +1459,108 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetBatchUpdateCountsPreservesOrder() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(3L, 1L, 2L);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    assertArrayEquals(new long[] {3, 1, 2}, resultSet.getBatchUpdateCounts(3));
+  }
+
+  @Test
+  void testGetBatchUpdateCountsExpandsRepeatColumn() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedResultSetMetadata.getColumnNameIndex("repeat")).thenReturn(2);
+    when(mockedExecutionResult.next()).thenReturn(true, false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(1L);
+    when(mockedExecutionResult.getObject(1)).thenReturn(3L);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    assertArrayEquals(new long[] {1, 1, 1}, resultSet.getBatchUpdateCounts(3));
+  }
+
+  @Test
+  void testGetBatchUpdateCountsExpandsMixedRepeatRows() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedResultSetMetadata.getColumnNameIndex("repeat")).thenReturn(2);
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(1L, 0L, 1L);
+    when(mockedExecutionResult.getObject(1)).thenReturn(3L, 2L, 4L);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    assertArrayEquals(new long[] {1, 1, 1, 0, 0, 1, 1, 1, 1}, resultSet.getBatchUpdateCounts(9));
+  }
+
+  @Test
+  void testGetBatchUpdateCountsRejectsWrongCardinality() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedExecutionResult.next()).thenReturn(true, false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(1L);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getBatchUpdateCounts(2));
+    assertTrue(exception.getMessage().contains("1 update counts for 2 parameter sets"));
+  }
+
+  @Test
+  void testGetBatchUpdateCountsRejectsMissingAffectedRowsColumn() throws SQLException {
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(-1);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getBatchUpdateCounts(1));
+    assertTrue(exception.getMessage().contains(AFFECTED_ROWS_COUNT));
+  }
+
+  @Test
   void testGetUpdateCountForClosedResultSet() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     resultSet.close();
@@ -2006,6 +2132,35 @@ public class DatabricksResultSetTest {
     assertNotNull(collector);
   }
 
+  @Test
+  void testIterationTelemetryRecordedOnFirstRowAndEndOfStreamOnly() throws SQLException {
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    when(mockedResultSetMetadata.getChunkCount()).thenReturn(5L);
+    DatabricksResultSet resultSet = getResultSetWithTelemetry();
+    IDatabricksConnectionContext verifyContext = mock(IDatabricksConnectionContext.class);
+    when(verifyContext.getConnectionUuid()).thenReturn("test-connection-uuid");
+    StatementTelemetryDetails details =
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(verifyContext)
+            .getOrCreateTelemetryDetails(STATEMENT_ID.toSQLExecStatementId());
+
+    assertTrue(resultSet.next());
+    assertEquals(5L, details.getChunkDetails().getTotalChunksPresent());
+    assertNull(details.getResultLatency().getResultSetConsumptionLatencyMillis());
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+    assertNull(details.getResultLatency().getResultSetConsumptionLatencyMillis());
+    verify(mockedResultSetMetadata, times(1)).getChunkCount();
+
+    assertFalse(resultSet.next());
+    assertNotNull(details.getResultLatency().getResultSetConsumptionLatencyMillis());
+    verify(mockedResultSetMetadata, times(2)).getChunkCount();
+
+    // Calls after the end still refresh the consumption latency, as before.
+    assertFalse(resultSet.next());
+    verify(mockedResultSetMetadata, times(3)).getChunkCount();
+  }
+
   // --- maxRows truncation tests ---
 
   private DatabricksResultSet getResultSetWithMaxRows(int maxRows, IExecutionResult executionResult)
@@ -2163,6 +2318,8 @@ public class DatabricksResultSetTest {
 
     DatabricksResultSetMetaData mockMeta = mock(DatabricksResultSetMetaData.class);
     when(mockMeta.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnConverter(1))
+        .thenReturn(ConverterHelper.getConverterForSqlType(Types.BIGINT));
     when(mockMeta.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
 
     IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
@@ -2180,5 +2337,36 @@ public class DatabricksResultSetTest {
 
     // getUpdateCount() must iterate all 5 rows despite maxRows=2
     assertEquals(5L, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetBatchUpdateCountsBypassesMaxRows() throws Exception {
+    InlineJsonResult mockExec = mock(InlineJsonResult.class);
+    when(mockExec.next()).thenReturn(true, false);
+    when(mockExec.getObject(0)).thenReturn(1L);
+    when(mockExec.getObject(1)).thenReturn(5L);
+
+    DatabricksResultSetMetaData mockMeta = mock(DatabricksResultSetMetaData.class);
+    when(mockMeta.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnType(2)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnConverter(1))
+        .thenReturn(ConverterHelper.getConverterForSqlType(Types.BIGINT));
+    when(mockMeta.getColumnConverter(2))
+        .thenReturn(ConverterHelper.getConverterForSqlType(Types.BIGINT));
+    when(mockMeta.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockMeta.getColumnNameIndex("repeat")).thenReturn(2);
+    IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
+    when(stmt.getLargeMaxRows()).thenReturn(2L);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            stmt,
+            mockExec,
+            mockMeta,
+            false);
+
+    assertArrayEquals(new long[] {1, 1, 1, 1, 1}, resultSet.getBatchUpdateCounts(5));
   }
 }

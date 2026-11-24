@@ -174,6 +174,15 @@ public class SQLInterpolatorTest {
   }
 
   @Test
+  public void testInterpolateAfterBackslashEscapedQuote() throws DatabricksValidationException {
+    String sql = "SELECT 'it\\'s a path' AS label, ? AS value";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 7, DatabricksTypeUtil.INT));
+    assertEquals(
+        "SELECT 'it\\'s a path' AS label, 7 AS value", SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
   public void testQuestionMarkInQuotedIdentifierNotTreatedAsPlaceholder()
       throws DatabricksValidationException {
     String sql = "select `col?` from t where id = ? and name = \"who?\"";
