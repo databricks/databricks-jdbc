@@ -39,6 +39,7 @@ final class CreateSessionRetryHandler {
   private RetryBudget rateLimitBudget;
   private RetryBudget unavailableBudget;
   private long attempts;
+  private boolean exhaustionLogged;
 
   CreateSessionRetryHandler(IDatabricksConnectionContext context, String warehouseId) {
     this(context, TIMER, () -> ThreadLocalRandom.current().nextDouble(0.8, 1.2), warehouseId);
@@ -87,6 +88,7 @@ final class CreateSessionRetryHandler {
       long elapsed = timer.getCurrentTime() - budget.started;
       long remaining = budget.timeoutMillis - elapsed;
       if (delay > remaining) {
+        exhaustionLogged = true;
         LOGGER.warn(
             "CreateSession {}: attempts={}, elapsedMs={}, budgetMs={}, lastStatus={}, delayMs={}, remainingMs={}, warehouseId={}",
             retryAfter.isPresent()
@@ -129,6 +131,10 @@ final class CreateSessionRetryHandler {
       budget.retries = Math.min(budget.retries + 1, 5);
       request.withHeaders(config.authenticate());
     }
+  }
+
+  boolean hasLoggedExhaustion() {
+    return exhaustionLogged;
   }
 
   private static final class RetryBudget {

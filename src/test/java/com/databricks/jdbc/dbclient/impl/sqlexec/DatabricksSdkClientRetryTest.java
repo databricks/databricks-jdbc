@@ -176,29 +176,12 @@ class DatabricksSdkClientRetryTest {
     properties.setProperty("RateLimitRetryTimeout", "0");
     properties.setProperty("TemporarilyUnavailableRetryTimeout", "0");
     IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
-    AtomicInteger warnings = new AtomicInteger();
-    Logger logger = Logger.getLogger("com.databricks.jdbc.dbclient.impl.sqlexec");
-    Handler capture =
-        new Handler() {
-          @Override
-          public void publish(LogRecord record) {
-            if (record.getLevel() == Level.WARNING) {
-              warnings.incrementAndGet();
-            }
-          }
-
-          @Override
-          public void flush() {}
-
-          @Override
-          public void close() {}
-        };
-    logger.addHandler(capture);
-    try (MockedConstruction<ClientConfigurator> ignored =
-        mockConstruction(
-            ClientConfigurator.class,
-            (configurator, construction) ->
-                when(configurator.getDatabricksConfig()).thenReturn(config))) {
+    try (WarningCapture warnings = new WarningCapture();
+        MockedConstruction<ClientConfigurator> ignored =
+            mockConstruction(
+                ClientConfigurator.class,
+                (configurator, construction) ->
+                    when(configurator.getDatabricksConfig()).thenReturn(config))) {
       DatabricksSdkClient client = new DatabricksSdkClient(context);
       DatabricksSQLException error =
           assertThrows(
@@ -211,9 +194,8 @@ class DatabricksSdkClientRetryTest {
       assertEquals("TEMPORARILY_UNAVAILABLE", cause.getErrorCode());
       assertTrue(cause.getMessage().contains("test request_id=retry-request"));
       assertEquals(1, attempts.get());
-      assertEquals(1, warnings.get());
+      assertEquals(1, warnings.count());
     } finally {
-      logger.removeHandler(capture);
       DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
     }
   }
@@ -257,16 +239,18 @@ class DatabricksSdkClientRetryTest {
       properties.setProperty(option, "0");
     }
     IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
-    try (MockedConstruction<ClientConfigurator> ignored =
-        mockConstruction(
-            ClientConfigurator.class,
-            (configurator, construction) ->
-                when(configurator.getDatabricksConfig()).thenReturn(config))) {
+    try (WarningCapture warnings = new WarningCapture();
+        MockedConstruction<ClientConfigurator> ignored =
+            mockConstruction(
+                ClientConfigurator.class,
+                (configurator, construction) ->
+                    when(configurator.getDatabricksConfig()).thenReturn(config))) {
       DatabricksSdkClient client = new DatabricksSdkClient(context);
       assertThrows(
           DatabricksSQLException.class,
           () -> client.createSession(new Warehouse("warehouse"), null, null, null));
       assertEquals(1, attempts.get());
+      assertEquals(status == 429 ? 1 : 0, warnings.count());
     } finally {
       DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
     }
@@ -331,6 +315,34 @@ class DatabricksSdkClientRetryTest {
 
   private DatabricksConfig config(int status, AtomicInteger attempts, int failures) {
     return config(status, attempts, failures, "1");
+  }
+
+  private static final class WarningCapture extends Handler implements AutoCloseable {
+    private final Logger logger = Logger.getLogger("com.databricks.jdbc.dbclient.impl.sqlexec");
+    private final AtomicInteger warnings = new AtomicInteger();
+
+    WarningCapture() {
+      logger.addHandler(this);
+    }
+
+    int count() {
+      return warnings.get();
+    }
+
+    @Override
+    public void publish(LogRecord record) {
+      if (record.getLevel() == Level.WARNING) {
+        warnings.incrementAndGet();
+      }
+    }
+
+    @Override
+    public void flush() {}
+
+    @Override
+    public void close() {
+      logger.removeHandler(this);
+    }
   }
 
   private DatabricksConfig config(

@@ -220,8 +220,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String createPath =
         String.format(WAREHOUSE_SESSION_PATH, ((Warehouse) warehouse).getWarehouseId());
     boolean realtimeSession;
+    CreateSessionHttpRequest req = null;
     try {
-      CreateSessionHttpRequest req =
+      req =
           new CreateSessionHttpRequest(
               createPath,
               apiClient.serialize(request),
@@ -239,7 +240,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 HttpStatus.SC_TOO_MANY_REQUESTS,
                 ((Warehouse) warehouse).getWarehouseId(),
                 e.getMessage());
-        LOGGER.debug(errorMessage, e);
+        if (req != null && req.retryHandler.hasLoggedExhaustion()) {
+          LOGGER.debug(errorMessage, e);
+        } else {
+          LOGGER.warn(errorMessage, e);
+        }
         throw new DatabricksRateLimitException(errorMessage, e, HttpStatus.SC_TOO_MANY_REQUESTS);
       }
       String errorReason = buildErrorMessage(e);
