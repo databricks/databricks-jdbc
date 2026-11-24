@@ -369,6 +369,8 @@ public class DatabricksTypeUtil {
    */
   public static int getDisplaySize(int sqlType, int precision) {
     switch (sqlType) {
+      case Types.TIME:
+        return precision;
       case Types.SMALLINT:
       case Types.INTEGER:
         return precision + 1;
@@ -479,6 +481,8 @@ public class DatabricksTypeUtil {
         return BINARY;
       case Types.DATE:
         return DATE;
+      case Types.TIME:
+        return TIME;
       case Types.DECIMAL:
       case Types.NUMERIC:
         return DECIMAL; // Databricks treats NUMERIC as DECIMAL
@@ -568,6 +572,15 @@ public class DatabricksTypeUtil {
     }
     String normalized = typeName.trim();
     return normalized.equalsIgnoreCase(TIME) || normalized.regionMatches(true, 0, "TIME(", 0, 5);
+  }
+
+  public static int[] getTimePrecisionAndScale(String typeText) {
+    int open = typeText == null ? -1 : typeText.indexOf('(');
+    int scale =
+        open < 0
+            ? 6
+            : Integer.parseInt(typeText.substring(open + 1, typeText.indexOf(')', open)).trim());
+    return new int[] {8 + (scale > 0 ? scale + 1 : 0), scale};
   }
 
   public static String getArrowTypeText(Field field) {

@@ -2358,7 +2358,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private <T> T getObjectWithoutTypeCheck(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
-    if (JavaTimeConverter.isJavaTimeType(type)) {
+    if (JavaTimeConverter.isJavaTimeType(type)
+        || (type == LocalTime.class
+            && resultSetMetaData.getColumnType(columnIndex) == Types.TIME)) {
       return type.cast(getJavaTimeObject(columnIndex, type));
     }
     Object obj = getObjectInternal(columnIndex);

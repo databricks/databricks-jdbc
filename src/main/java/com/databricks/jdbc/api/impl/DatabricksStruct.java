@@ -160,6 +160,9 @@ public class DatabricksStruct implements Struct {
     }
 
     try {
+      if (DatabricksTypeUtil.isTimeType(type)) {
+        return TimeConverter.toSqlTime(value);
+      }
       switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
@@ -181,8 +184,6 @@ public class DatabricksStruct implements Struct {
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
-        case DatabricksTypeUtil.TIME:
-          return TimeConverter.toSqlTime(value);
         case DatabricksTypeUtil.BINARY:
           return value instanceof byte[] ? value : value.toString().getBytes();
         case DatabricksTypeUtil.STRING:

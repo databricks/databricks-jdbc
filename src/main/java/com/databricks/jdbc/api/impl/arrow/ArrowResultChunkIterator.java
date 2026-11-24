@@ -1,13 +1,17 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.arrow.vector.ValueVector;
 
 public class ArrowResultChunkIterator {
   private final AbstractArrowResultChunk resultChunk;
+  private final Map<Integer, ComplexDataTypeParser> complexParsers = new HashMap<>();
 
   // total number of record batches in the chunk
   private final int recordBatchesInChunk;
@@ -108,7 +112,26 @@ public class ArrowResultChunkIterator {
         requiredType,
         arrowMetadata,
         columnInfo,
-        geoSpatialSupportEnabled);
+        geoSpatialSupportEnabled,
+        requiredType == ColumnInfoTypeName.ARRAY
+                || requiredType == ColumnInfoTypeName.MAP
+                || requiredType == ColumnInfoTypeName.STRUCT
+            ? getComplexParser(columnIndex, geoSpatialSupportEnabled)
+            : null);
+  }
+
+  ComplexDataTypeParser getComplexParser(int columnIndex, boolean geoSpatialSupportEnabled) {
+    ComplexDataTypeParser parser = complexParsers.get(columnIndex);
+    if (parser == null) {
+      ValueVector vector = resultChunk.getColumnVector(recordBatchCursorInChunk, columnIndex);
+      parser =
+          new ComplexDataTypeParser(
+              geoSpatialSupportEnabled,
+              ArrowToJavaObjectConverter.nestedTimestampZone(vector, getType(columnIndex)),
+              vector.getField());
+      complexParsers.put(columnIndex, parser);
+    }
+    return parser;
   }
 
   /**

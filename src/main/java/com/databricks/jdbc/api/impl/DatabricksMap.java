@@ -55,7 +55,10 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     Map<K, V> convertedMap = new LinkedHashMap<>();
     LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
     for (Map.Entry<K, V> entry : originalMap.entrySet()) {
-      K key = convertSimpleValue(entry.getKey(), keyType);
+      K key =
+          DatabricksTypeUtil.isTimeType(keyType)
+              ? (K) TimeConverter.format(entry.getKey())
+              : convertSimpleValue(entry.getKey(), keyType);
       V value = convertValue(entry.getValue(), valueType);
       convertedMap.put(key, value);
       if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
@@ -141,6 +144,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     }
 
     try {
+      if (DatabricksTypeUtil.isTimeType(valueType)) {
+        return (T) TimeConverter.toSqlTime(value);
+      }
       switch (valueType.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return (T) Integer.valueOf(value.toString());
@@ -160,8 +166,6 @@ public class DatabricksMap<K, V> implements Map<K, V> {
           return (T) Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
           return (T) Timestamp.valueOf(value.toString());
-        case DatabricksTypeUtil.TIME:
-          return (T) TimeConverter.toSqlTime(value);
         case DatabricksTypeUtil.BINARY:
           return (T) (value instanceof byte[] ? value : value.toString().getBytes());
         case DatabricksTypeUtil.STRING:
@@ -255,7 +259,11 @@ public class DatabricksMap<K, V> implements Map<K, V> {
             TimeConverter.format(
                 exact != null && TimeConverter.toSqlTime(exact).equals(value) ? exact : value);
       }
-      sb.append(JsonUtil.formatComplexValue(entry.getKey()))
+      Object key =
+          DatabricksTypeUtil.isTimeType(keyType)
+              ? TimeConverter.format(entry.getKey())
+              : entry.getKey();
+      sb.append(JsonUtil.formatComplexValue(key))
           .append(":")
           .append(JsonUtil.formatComplexValue(value));
     }

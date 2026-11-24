@@ -323,19 +323,23 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           DatabricksTypeUtil.TIMESTAMP_NTZ.equals(databricksType)
               ? ColumnInfoTypeName.TIMESTAMP
               : ColumnInfoTypeName.valueOf(databricksType);
+      int[] timePrecision =
+          metadata.getTypeInt() == Types.TIME
+              ? DatabricksTypeUtil.getTimePrecisionAndScale(metadata.getTypeText())
+              : null;
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(metadata.getName())
           .columnType(metadata.getTypeInt())
-          .columnTypeText(metadata.getTypeText())
-          .typePrecision(metadata.getPrecision())
+          .columnTypeText(timePrecision == null ? metadata.getTypeText() : TIME)
+          .typePrecision(timePrecision == null ? metadata.getPrecision() : timePrecision[0])
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-          .typeScale(metadata.getScale())
+          .typeScale(timePrecision == null ? metadata.getScale() : timePrecision[1])
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
           .displaySize(
               DatabricksTypeUtil.getDisplaySize(
                   metadata.getTypeInt(),
-                  metadata.getPrecision())) // pass scale and precision from metadata result set
+                  timePrecision == null ? metadata.getPrecision() : timePrecision[0]))
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       if (isLargeColumn(
           metadata.getName())) { // special case: overriding default value of 128 for VARCHAR cols.
@@ -398,6 +402,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         columnBuilder.typePrecision(254);
         columnBuilder.displaySize(254);
       }
+      if (columnTypes.get(i) == Types.TIME) {
+        int[] timePrecision = DatabricksTypeUtil.getTimePrecisionAndScale(columnTypeText.get(i));
+        columnBuilder
+            .columnTypeText(TIME)
+            .typePrecision(timePrecision[0])
+            .typeScale(timePrecision[1])
+            .displaySize(timePrecision[0]);
+      }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
@@ -458,6 +470,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                   .getColumnName())) { // special case: overriding default value of 128 for VARCHAR
         // cols.
         columnBuilder.displaySize(254);
+      }
+      if (columnTypes[i] == Types.TIME) {
+        int[] timePrecision = DatabricksTypeUtil.getTimePrecisionAndScale(columnTypeText.get(i));
+        columnBuilder
+            .columnTypeText(TIME)
+            .typePrecision(timePrecision[0])
+            .typeScale(timePrecision[1])
+            .displaySize(timePrecision[0]);
       }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
@@ -733,6 +753,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public int[] getPrecisionAndScale(String columnTypeText, int columnType) {
+    if (columnType == Types.TIME) {
+      return DatabricksTypeUtil.getTimePrecisionAndScale(columnTypeText);
+    }
     int[] result = getBasePrecisionAndScale(columnType, ctx);
     Pattern pattern = Pattern.compile("decimal\\((\\d+),\\s*(\\d+)\\)", Pattern.CASE_INSENSITIVE);
     Matcher matcher = pattern.matcher(columnTypeText);
@@ -746,13 +769,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
     if (columnType == Types.TIME) {
-      String typeText = columnInfo.getTypeText();
-      int open = typeText == null ? -1 : typeText.indexOf('(');
-      int scale =
-          open < 0
-              ? 6
-              : Integer.parseInt(typeText.substring(open + 1, typeText.indexOf(')', open)).trim());
-      return new int[] {8 + (scale > 0 ? scale + 1 : 0), scale};
+      return DatabricksTypeUtil.getTimePrecisionAndScale(columnInfo.getTypeText());
     }
     int[] result = getBasePrecisionAndScale(columnType, ctx);
     if (columnInfo.getTypePrecision() != null) {

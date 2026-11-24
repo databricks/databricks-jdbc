@@ -166,6 +166,9 @@ public class DatabricksArray implements Array {
     }
 
     try {
+      if (DatabricksTypeUtil.isTimeType(type)) {
+        return TimeConverter.toSqlTime(value);
+      }
       switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
@@ -187,8 +190,6 @@ public class DatabricksArray implements Array {
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
-        case DatabricksTypeUtil.TIME:
-          return TimeConverter.toSqlTime(value);
         case DatabricksTypeUtil.BINARY:
           return value instanceof byte[] ? value : value.toString().getBytes();
         case DatabricksTypeUtil.STRING:
@@ -208,7 +209,7 @@ public class DatabricksArray implements Array {
   @Override
   public String getBaseTypeName() throws SQLException {
     LOGGER.debug("Getting base type name");
-    return this.elementType;
+    return DatabricksTypeUtil.isTimeType(elementType) ? DatabricksTypeUtil.TIME : this.elementType;
   }
 
   /**
@@ -357,6 +358,11 @@ public class DatabricksArray implements Array {
     int valueType = elementSqlType();
     int valuePrecision = DatabricksTypeUtil.getPrecision(valueType);
     int valueScale = DatabricksTypeUtil.getScale(valueType);
+    if (valueType == Types.TIME) {
+      int[] timePrecision = DatabricksTypeUtil.getTimePrecisionAndScale(this.elementType);
+      valuePrecision = timePrecision[0];
+      valueScale = timePrecision[1];
+    }
     // DECIMAL values are read at the column scale, so use the declared one.
     Matcher decimal = DECIMAL_TYPE.matcher(this.elementType.trim());
     if (decimal.matches()) {

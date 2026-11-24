@@ -496,7 +496,8 @@ public class ConverterHelper {
       return converter.toFloat(obj);
     } else if (javaType == Double.class || javaType == double.class) {
       return converter.toDouble(obj);
-    } else if (JavaTimeConverter.isJavaTimeType(javaType)) {
+    } else if (JavaTimeConverter.isJavaTimeType(javaType)
+        || (javaType == java.time.LocalTime.class && columnSqlType == Types.TIME)) {
       return JavaTimeConverter.convert(javaType, columnSqlType, columnTypeName, obj);
     } else if (javaType == BigInteger.class) {
       return converter.toBigInteger(obj);

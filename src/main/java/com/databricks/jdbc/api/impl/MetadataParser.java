@@ -1,12 +1,89 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 /** Utility class for parsing metadata descriptions into structured type mappings. */
 public class MetadataParser {
+
+  static final class TimeType {
+    final String metadata;
+    final boolean time;
+    final boolean containsTime;
+    final TimeUnit unit;
+    final Map<String, TimeType> children = new LinkedHashMap<>();
+    final String formattedMetadata;
+
+    TimeType(String metadata, Field field) {
+      this.metadata = metadata;
+      this.time = DatabricksTypeUtil.isTimeType(metadata);
+      this.unit =
+          field != null && field.getType() instanceof ArrowType.Time
+              ? ((ArrowType.Time) field.getType()).getUnit()
+              : TimeUnit.NANOSECOND;
+      if (metadata != null && metadata.startsWith("ARRAY<")) {
+        children.put("element", new TimeType(parseArrayMetadata(metadata), child(field, 0)));
+      } else if (metadata != null && metadata.startsWith("MAP<")) {
+        String[] types = parseMapMetadataParts(metadata);
+        Field entries = child(field, 0);
+        children.put("key", new TimeType(types[0], child(entries, 0)));
+        children.put("value", new TimeType(types[1], child(entries, 1)));
+      } else if (metadata != null && metadata.startsWith("STRUCT<")) {
+        for (Map.Entry<String, String> entry : parseStructMetadata(metadata).entrySet()) {
+          Field childField = null;
+          if (field != null) {
+            for (Field candidate : field.getChildren()) {
+              if (candidate.getName().equals(entry.getKey())) {
+                childField = candidate;
+                break;
+              }
+            }
+          }
+          children.put(entry.getKey(), new TimeType(entry.getValue(), childField));
+        }
+      }
+      this.containsTime = time || children.values().stream().anyMatch(child -> child.containsTime);
+      if (!containsTime) {
+        formattedMetadata = metadata;
+      } else if (time) {
+        formattedMetadata = "STRING";
+      } else if (metadata.startsWith("ARRAY<")) {
+        formattedMetadata = "ARRAY<" + children.get("element").formattedMetadata + ">";
+      } else if (metadata.startsWith("MAP<")) {
+        formattedMetadata =
+            "MAP<"
+                + children.get("key").formattedMetadata
+                + ","
+                + children.get("value").formattedMetadata
+                + ">";
+      } else {
+        StringBuilder rewritten = new StringBuilder("STRUCT<");
+        for (Map.Entry<String, TimeType> entry : children.entrySet()) {
+          if (rewritten.length() > "STRUCT<".length()) {
+            rewritten.append(',');
+          }
+          rewritten
+              .append('`')
+              .append(entry.getKey().replace("`", "``"))
+              .append("`:")
+              .append(entry.getValue().formattedMetadata);
+        }
+        formattedMetadata = rewritten.append('>').toString();
+      }
+    }
+
+    private static Field child(Field field, int index) {
+      return field != null && field.getChildren().size() > index
+          ? field.getChildren().get(index)
+          : null;
+    }
+  }
 
   /**
    * Parses STRUCT metadata to extract field types.
@@ -255,9 +332,6 @@ public class MetadataParser {
    * @return the cleaned type name without "NOT NULL" constraints
    */
   private static String cleanTypeName(String typeName) {
-    String cleaned = typeName.replaceAll(" NOT NULL", "").trim();
-    return com.databricks.jdbc.common.util.DatabricksTypeUtil.isTimeType(cleaned)
-        ? "TIME"
-        : cleaned;
+    return typeName.replaceAll(" NOT NULL", "").trim();
   }
 }

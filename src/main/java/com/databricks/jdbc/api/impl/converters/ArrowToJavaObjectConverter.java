@@ -83,11 +83,40 @@ public class ArrowToJavaObjectConverter {
       ColumnInfo columnInfo,
       boolean geoSpatialSupportEnabled)
       throws DatabricksSQLException {
+    return convert(
+        columnVector,
+        vectorIndex,
+        requiredType,
+        arrowMetadata,
+        columnInfo,
+        geoSpatialSupportEnabled,
+        null);
+  }
+
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled,
+      ComplexDataTypeParser complexParser)
+      throws DatabricksSQLException {
     // check isNull before getting the object from the vector
     if (columnVector.isNull(vectorIndex)) {
       return null;
     }
-    Object object = columnVector.getObject(vectorIndex);
+    Object object;
+    try {
+      object = columnVector.getObject(vectorIndex);
+    } catch (DateTimeException | IllegalArgumentException exception) {
+      if (requiredType == ColumnInfoTypeName.TIME
+          || columnVector.getField().getType() instanceof ArrowType.Time
+          || isTimeType(arrowMetadata)) {
+        throw TimeConverter.invalidValue(exception);
+      }
+      throw exception;
+    }
     if (arrowMetadata == null && requiredType == null) {
       arrowMetadata = getArrowTypeText(columnVector.getField());
     }
@@ -165,13 +194,19 @@ public class ArrowToJavaObjectConverter {
       case CHAR:
         return convertToChar(object);
       case STRUCT:
-        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+        return (complexParser != null
+                ? complexParser
+                : parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled))
             .parseJsonStringToDbStruct(object.toString(), arrowMetadata);
       case ARRAY:
-        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+        return (complexParser != null
+                ? complexParser
+                : parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled))
             .parseJsonStringToDbArray(object.toString(), arrowMetadata);
       case MAP:
-        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+        return (complexParser != null
+                ? complexParser
+                : parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled))
             .parseJsonStringToDbMap(object.toString(), arrowMetadata);
       case STRING:
         if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
@@ -188,17 +223,22 @@ public class ArrowToJavaObjectConverter {
         }
         return convertToTimestamp(object, timeZone);
       case TIME:
-        if (columnVector instanceof TimeSecVector) {
-          return LocalTime.ofSecondOfDay(((TimeSecVector) columnVector).get(vectorIndex));
+        try {
+          if (columnVector instanceof TimeSecVector) {
+            return LocalTime.ofSecondOfDay(((TimeSecVector) columnVector).get(vectorIndex));
+          }
+          if (columnVector instanceof TimeMilliVector) {
+            return LocalTime.ofNanoOfDay(
+                ((TimeMilliVector) columnVector).get(vectorIndex) * 1_000_000L);
+          }
+          if (columnVector instanceof TimeMicroVector) {
+            return LocalTime.ofNanoOfDay(
+                ((TimeMicroVector) columnVector).get(vectorIndex) * 1_000L);
+          }
+          return TimeConverter.toLocalTime(object);
+        } catch (DateTimeException | IllegalArgumentException exception) {
+          throw TimeConverter.invalidValue(exception);
         }
-        if (columnVector instanceof TimeMilliVector) {
-          return LocalTime.ofNanoOfDay(
-              ((TimeMilliVector) columnVector).get(vectorIndex) * 1_000_000L);
-        }
-        if (columnVector instanceof TimeMicroVector) {
-          return LocalTime.ofNanoOfDay(((TimeMicroVector) columnVector).get(vectorIndex) * 1_000L);
-        }
-        return TimeConverter.toLocalTime(object);
       case INTERVAL:
         if (arrowMetadata == null) {
           String errorMessage =
@@ -255,14 +295,16 @@ public class ArrowToJavaObjectConverter {
   private static ComplexDataTypeParser parserFor(
       ValueVector columnVector, String arrowMetadata, boolean geoSpatialSupportEnabled) {
     return new ComplexDataTypeParser(
-        geoSpatialSupportEnabled, nestedTimestampZone(columnVector, arrowMetadata));
+        geoSpatialSupportEnabled,
+        nestedTimestampZone(columnVector, arrowMetadata),
+        columnVector.getField());
   }
 
   /**
    * Returns the time zone of the first TIMESTAMP field nested in a complex column, which is the
    * session time zone, or null if it has none or the zone cannot be read.
    */
-  static ZoneId nestedTimestampZone(ValueVector columnVector, String arrowMetadata) {
+  public static ZoneId nestedTimestampZone(ValueVector columnVector, String arrowMetadata) {
     if (arrowMetadata != null && !arrowMetadata.toUpperCase(Locale.ROOT).contains(TIMESTAMP)) {
       return null; // no nested TIMESTAMP; skip walking the field tree
     }
