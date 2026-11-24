@@ -2,6 +2,9 @@ package com.databricks.jdbc.log;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -13,11 +16,13 @@ public final class LogCapture implements AutoCloseable {
   private final Logger logger = Logger.getLogger("com.databricks.jdbc");
   private final Level previousLevel = logger.getLevel();
   private final StringWriter output = new StringWriter();
+  private final List<LogRecord> records = new CopyOnWriteArrayList<>();
   private final SimpleFormatter formatter = new SimpleFormatter();
   private final Handler handler =
       new Handler() {
         @Override
         public void publish(LogRecord record) {
+          records.add(record);
           output.append(formatter.formatMessage(record)).append('\n');
           if (record.getThrown() != null) {
             record.getThrown().printStackTrace(new PrintWriter(output));
@@ -39,6 +44,10 @@ public final class LogCapture implements AutoCloseable {
 
   public String getOutput() {
     return output.toString();
+  }
+
+  public List<LogRecord> getRecords() {
+    return new ArrayList<>(records);
   }
 
   @Override

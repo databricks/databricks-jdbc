@@ -18,6 +18,9 @@ import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
+import com.databricks.jdbc.log.LogCapture;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -34,6 +37,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -44,6 +48,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 
 class DatabricksConnectionContextTest {
 
@@ -70,34 +75,39 @@ class DatabricksConnectionContextTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"not-a-number", "0", "-1", "", "2147483648"})
+  @ValueSource(strings = {"abc", "not-a-number", "0", "-1", "", "2147483648"})
   public void testInvalidCloudFetchThreadPoolSizeFallsBackAndWarnsOnce(String value)
       throws DatabricksSQLException {
     Properties connectionProperties = new Properties();
     connectionProperties.setProperty("cloudFetchThreadPoolSize", value);
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, connectionProperties);
-    Logger logger = Logger.getLogger(DatabricksConnectionContext.class.getName());
-    Handler handler = mock(Handler.class);
-    Level previousLevel = logger.getLevel();
-    logger.setLevel(Level.WARNING);
-    logger.addHandler(handler);
-    try {
+    try (LogCapture logs = new LogCapture();
+        MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
       for (int attempt = 0; attempt < 4; attempt++) {
         assertEquals(16, assertDoesNotThrow(context::getCloudFetchThreadPoolSize));
       }
-      verify(handler)
-          .publish(
-              argThat(
-                  record ->
-                      record.getLevel() == Level.WARNING
-                          && record.getMessage().contains("cloudFetchThreadPoolSize")
-                          && record.getMessage().contains("'" + value + "'")
-                          && record.getMessage().contains("16")));
-      verifyNoMoreInteractions(handler);
-    } finally {
-      logger.removeHandler(handler);
-      logger.setLevel(previousLevel);
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  nullable(IDatabricksConnectionContext.class),
+                  eq(DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name()),
+                  anyString(),
+                  eq(TelemetryLogLevel.ERROR)),
+          never());
+      assertTrue(
+          logs.getRecords().stream()
+              .noneMatch(record -> record.getLevel().intValue() >= Level.SEVERE.intValue()),
+          logs.getOutput());
+      List<LogRecord> warnings =
+          logs.getRecords().stream()
+              .filter(record -> record.getLevel() == Level.WARNING)
+              .collect(java.util.stream.Collectors.toList());
+      assertEquals(1, warnings.size(), logs.getOutput());
+      String warning = warnings.get(0).getMessage();
+      assertTrue(warning.contains("cloudFetchThreadPoolSize"));
+      assertTrue(warning.contains("'" + value + "'"));
+      assertTrue(warning.contains("16"));
     }
   }
 

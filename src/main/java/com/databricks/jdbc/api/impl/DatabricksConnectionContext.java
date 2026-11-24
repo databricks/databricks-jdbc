@@ -578,16 +578,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private int resolveCloudFetchThreadPoolSize() {
     DatabricksJdbcUrlParams parameter = DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE;
     String value = getParameter(parameter);
-    try {
-      return ValidationUtil.validateAndParsePositiveInteger(value, parameter.getParamName());
-    } catch (DatabricksValidationException exception) {
-      LOGGER.warn(
-          "Invalid value for {}: '{}'. Using the default {}.",
-          parameter.getParamName(),
-          value,
-          parameter.getDefaultValue());
-      return Integer.parseInt(parameter.getDefaultValue());
+    OptionalInt positiveInteger = ValidationUtil.parsePositiveInteger(value);
+    if (positiveInteger.isPresent()) {
+      return positiveInteger.getAsInt();
     }
+    LOGGER.warn(
+        "Invalid value for {}: '{}'. Using the default {}.",
+        parameter.getParamName(),
+        value,
+        parameter.getDefaultValue());
+    return Integer.parseInt(parameter.getDefaultValue());
   }
 
   @Override

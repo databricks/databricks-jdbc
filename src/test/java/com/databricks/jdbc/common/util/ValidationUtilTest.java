@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import java.util.OptionalInt;
 import java.util.stream.Stream;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -71,10 +74,41 @@ class ValidationUtilTest {
         Arguments.of("10", 10, false), // Valid positive integer
         Arguments.of("1", 1, false), // Valid minimum positive integer
         Arguments.of("100000", 100000, false), // Valid large positive integer
+        Arguments.of("+8", 8, false),
+        Arguments.of("2147483647", Integer.MAX_VALUE, false),
         Arguments.of("0", null, true), // Zero should fail
         Arguments.of("-10", null, true), // Negative should fail
         Arguments.of("invalid", null, true), // Non-numeric should fail
-        Arguments.of("", null, true)); // Empty string should fail
+        Arguments.of("", null, true), // Empty string should fail
+        Arguments.of((String) null, null, true),
+        Arguments.of(" 8", null, true),
+        Arguments.of("8 ", null, true),
+        Arguments.of("2147483648", null, true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("validateAndParsePositiveIntegerTestCases")
+  void testParsePositiveInteger(String value, Integer expectedResult, boolean shouldFail) {
+    OptionalInt expected = shouldFail ? OptionalInt.empty() : OptionalInt.of(expectedResult);
+    assertEquals(expected, ValidationUtil.parsePositiveInteger(value));
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      delimiter = '|',
+      value = {
+        "0|Invalid value for testField: 0. Value must be a positive integer (> 0).",
+        "-1|Invalid value for testField: -1. Value must be a positive integer (> 0).",
+        "abc|Invalid value for testField: 'abc'. Value must be a valid positive integer.",
+        "2147483648|Invalid value for testField: '2147483648'. Value must be a valid positive integer."
+      })
+  void testPositiveIntegerValidationPreservesErrors(String value, String expectedMessage) {
+    DatabricksValidationException exception =
+        assertThrows(
+            DatabricksValidationException.class,
+            () -> ValidationUtil.validateAndParsePositiveInteger(value, "testField"));
+    assertEquals(expectedMessage, exception.getMessage());
+    assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
   }
 
   @Test

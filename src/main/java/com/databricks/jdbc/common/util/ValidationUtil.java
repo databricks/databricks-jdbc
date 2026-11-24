@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
@@ -60,6 +61,10 @@ public class ValidationUtil {
    */
   public static int validateAndParsePositiveInteger(String value, String fieldName)
       throws DatabricksValidationException {
+    OptionalInt positiveInteger = parsePositiveInteger(value);
+    if (positiveInteger.isPresent()) {
+      return positiveInteger.getAsInt();
+    }
     try {
       int parsedValue = Integer.parseInt(value);
       checkIfPositive(parsedValue, fieldName);
@@ -71,6 +76,15 @@ public class ValidationUtil {
               fieldName, value);
       LOGGER.error(errorMessage);
       throw new DatabricksValidationException(errorMessage);
+    }
+  }
+
+  public static OptionalInt parsePositiveInteger(String value) {
+    try {
+      int parsedValue = Integer.parseInt(value);
+      return parsedValue > 0 ? OptionalInt.of(parsedValue) : OptionalInt.empty();
+    } catch (NumberFormatException exception) {
+      return OptionalInt.empty();
     }
   }
 
