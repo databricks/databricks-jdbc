@@ -6,8 +6,10 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
+import com.databricks.jdbc.dbclient.impl.sqlexec.SeaComputeTarget;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
@@ -146,16 +148,11 @@ public class SessionId {
   public String toString() {
     switch (clientType) {
       case SEA:
-        if (clusterResource instanceof Warehouse) {
-          String serialized =
-              String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
-          return realtimeSession ? serialized + "|r" : serialized;
+        try {
+          return SeaComputeTarget.from(clusterResource, realtimeSession).serializeSessionId(guid);
+        } catch (DatabricksValidationException e) {
+          throw new IllegalStateException("Unsupported SQL Execution API compute resource", e);
         }
-        if (clusterResource instanceof AllPurposeCluster) {
-          AllPurposeCluster cluster = (AllPurposeCluster) clusterResource;
-          return String.format("s|%s|%s|%s|a", cluster.getOrgId(), cluster.getClusterId(), guid);
-        }
-        throw new IllegalStateException("Unsupported SQL Execution API compute resource");
       case THRIFT:
         return String.format("t|%s|%s", guid, secret);
     }

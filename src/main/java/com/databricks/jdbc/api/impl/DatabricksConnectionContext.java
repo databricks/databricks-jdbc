@@ -512,34 +512,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (computeResource instanceof AllPurposeCluster) {
       return getAllPurposeClusterClientType();
     }
-    // First we will check if user as explicitly provided a client type, and we will honour that
-    String useThriftClient = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
-    if (useThriftClient != null) {
-      if (useThriftClient.equals("1")) {
-        return DatabricksClientType.THRIFT;
-      } else if (useThriftClient.equals("0")) {
-        String explicitCatalogAsPattern =
-            getParameterIgnoreDefault(
-                DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
-        if (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1")) {
-          LOGGER.warn(
-              "UseThriftClient=0 (SEA) is set alongside the Thrift-only metadata param "
-                  + "TreatMetadataCatalogNameAsPattern={}. Honouring SEA — this metadata param "
-                  + "will have no effect.",
-              explicitCatalogAsPattern);
-        }
-        return DatabricksClientType.SEA;
-      }
-    }
-    // Now, user has not provided a value for UseThriftClient, we will decide based on our checks.
-    // TreatMetadataCatalogNameAsPattern only works with native Thrift metadata RPCs.
-    String explicitTreatCatalogAsPattern =
-        getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
-    if (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1")) {
-      LOGGER.info(
-          "Forcing Thrift client: user requires TreatMetadataCatalogNameAsPattern={}",
-          explicitTreatCatalogAsPattern);
-      return DatabricksClientType.THRIFT;
+    DatabricksClientType explicitClientType = getExplicitClientType();
+    if (explicitClientType != null) {
+      return explicitClientType;
     }
 
     // Preserve legacy routing unless bounded SEA can return inline Arrow results.
@@ -565,6 +540,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
 
+    DatabricksClientType explicitClientType = getExplicitClientType();
+    if (explicitClientType != null) {
+      return explicitClientType;
+    }
+
+    return DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+            .getBoolean(APC_SQL_EXEC_FLAG_NAME)
+        ? DatabricksClientType.SEA
+        : DatabricksClientType.THRIFT;
+  }
+
+  private DatabricksClientType getExplicitClientType() {
     String useThriftClient = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
     if ("1".equals(useThriftClient)) {
       return DatabricksClientType.THRIFT;
@@ -585,13 +572,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     String explicitCatalogAsPattern =
         getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
     if ("1".equals(explicitCatalogAsPattern)) {
+      LOGGER.info(
+          "Forcing Thrift client: user requires TreatMetadataCatalogNameAsPattern={}",
+          explicitCatalogAsPattern);
       return DatabricksClientType.THRIFT;
     }
-
-    return DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
-            .getBoolean(APC_SQL_EXEC_FLAG_NAME)
-        ? DatabricksClientType.SEA
-        : DatabricksClientType.THRIFT;
+    return null;
   }
 
   @Override

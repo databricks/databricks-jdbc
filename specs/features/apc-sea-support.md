@@ -25,8 +25,8 @@ the SEA service and Reyden is the runtime backend.
   SC-254478). Driver behavior and fake-service tests assume those fixes. Only dogfood validation
   of the affected metadata, inline-only, and session-termination behavior waits for the fixes to
   be deployed.
-  The TerminateSession REST binding declares `body: "*"`; the driver tests its DELETE body
-  against the assumed server contract with a fake service.
+  The SDK transport drops DELETE bodies, so APC TerminateSession carries `backend_compute` in the
+  request query and is verified at the HTTP wire.
 - Client-config flags come from connector-service
 (`/api/2.0/connector-service/feature-flags/OSS_JDBC/{version}`), which returns every sub-flag of
 the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
@@ -194,7 +194,7 @@ GetResultData, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
 `deleteSession` method and `DeleteSessionRequest` model implement the TerminateSession server RPC.
 CreateSession, ExecuteStatement, and CancelStatement encode `backend_compute` in the JSON body.
-GetStatementResult, GetResultData, and CloseStatement encode the cluster id as the
+GetStatementResult, GetResultData, CloseStatement, and TerminateSession encode the cluster id as the
 URL-encoded dotted query field
 `backend_compute.all_purpose_cluster_compute.cluster_id`. Query fields are merged with existing
 parameters such as `row_offset` through a query builder; they are not appended as a second `?`
@@ -211,10 +211,10 @@ DELETE have a null request body: do not serialize the SDK request object or send
 JSON body. This overrides the current `DatabricksSdkClient.serializeStatementRequest` behavior on
 standard statement URLs only for these APC bindings. Preserve warehouse request bodies, including
 the standard and Real-time URL variants.
-TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding, which
-declares `body: "*"`: send `backend_compute` in the `DeleteSessionRequest` JSON body. Preserve
-the existing warehouse DELETE serialization and verify the outgoing APC DELETE body with a
-fake-service request test; dogfood verifies server target extraction after the external fix.
+TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding. The Java SDK
+maps DELETE to Apache `HttpDelete`, which silently drops request entities, so APC targeting is
+encoded in the same dotted query field as the other bodiless bindings. Preserve existing warehouse
+query serialization and verify the outgoing APC DELETE query with a fake-service request test.
 - R3: For APC over SEA, execution polling uses `GetStatementResult`. Result heartbeats are
 disabled for APC even when `EnableHeartbeat=1`, because `GetStatementStatus` is unsupported and
 using full `GetStatementResult` after completion can re-download result payloads. The driver logs
@@ -485,9 +485,8 @@ includes the APC
 every APC GetStatementResult GET (execution poll and explicit result fetch), GetResultData GET
 (external-link and inline chunk fetch), and CloseStatement DELETE, while the cluster query field
 is present exactly once. Warehouse fixtures retain their existing bodies for the same bindings.
-A fake-service fixture asserts the TerminateSession
-DELETE body contains `backend_compute`; dogfood verifies server target extraction after the
-external binding fix is deployed. GIVEN `getConnectionId()` from that open session and an APC
+A fake-service fixture asserts the TerminateSession DELETE query contains the dotted
+`backend_compute` field. GIVEN `getConnectionId()` from that open session and an APC
 flag change from ON to OFF, WHEN public `Driver.closeConnection(url, info, connectionId)` is
 called THEN it selects SEA from the serialized session type and sends the targeted
 TerminateSession request. A saved APC Thrift id still selects Thrift if the flag later turns ON.
@@ -810,7 +809,7 @@ propagate without fallback.
 2. Add wire models `BackendCompute { AllPurposeClusterCompute all_purpose_cluster_compute }` and
    `AllPurposeClusterCompute { cluster_id }`. Add optional `backend_compute` to the driver-owned
    JSON body models, including `DeleteSessionRequest`; encode APC targeting for SDK-owned GET
-   models and CloseStatement DELETE in the URL.
+   models and the bodiless CloseStatement and TerminateSession DELETE bindings in the URL.
 3. Add a small `SeaComputeTarget` helper in `dbclient/impl/sqlexec` that, given an
    `IDatabricksComputeResource`, produces both the request target (`warehouse_id` or
    `backend_compute`) and the URL family. Warehouses keep today's behavior
@@ -820,10 +819,8 @@ propagate without fallback.
    GetResultData and CloseStatement, append the URL-encoded dotted query field
    `backend_compute.all_purpose_cluster_compute.cluster_id` and pass a null body at every APC GET
    and CloseStatement call site, bypassing standard-URL request serialization for those bindings;
-   use a JSON body for the
-   TerminateSession DELETE binding's declared `body: "*"`. Assert the outgoing DELETE body in a
-   fake-service request test; verify server target extraction in dogfood
-   after the external binding fix is deployed. Use a query builder to merge the
+   use the same URL targeting for TerminateSession because the SDK transport drops DELETE bodies.
+   Assert the outgoing DELETE query in a fake-service request test. Use a query builder to merge the
    compute field with `row_offset` and any other existing parameters rather than concatenating
    query strings. APC never sets `realtimeSession`. Route every `(Warehouse)` cast in
    `DatabricksSdkClient`, `SessionId`, and `StatementId` through the helper. Do not pass
@@ -1119,14 +1116,14 @@ implementation review; its completion includes external dogfood gates.
   assert their pre-change `InlineJsonResult` and `ArrowStreamResult` decoders and rows still work;
   T10 adds the APC result decoder (R16; AC26).
 - [ ] T2: Add optional `backend_compute` to driver-owned CreateSession, ExecuteStatement, and
-  CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession's declared
-  DELETE body. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
+   CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession query
+   serialization. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
   SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to APC GET and
   CloseStatement DELETE bindings (R2).
 - [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
   cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
   Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
-  encodings in R2, including TerminateSession's JSON body and merging the compute field with
+   encodings in R2, including TerminateSession's dotted query and merging the compute field with
   `row_offset` (R2, R9; AC2, AC3, AC11, AC14). Pass a null body for APC execution polls, explicit
   result GETs, both GetResultData chunk-fetch paths, and CloseStatement DELETE even though the
   current serializer supplies bodies on standard URLs; assert null captured bodies and unchanged

@@ -6,8 +6,10 @@ import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.impl.sqlexec.SeaComputeTarget;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
@@ -54,20 +56,33 @@ public class StatementId {
 
   public static StatementId forCurrentSession(
       String statementId, ImmutableSessionInfo sessionInfo) {
-    if (sessionInfo.computeResource() instanceof AllPurposeCluster) {
-      return forAllPurposeCluster(statementId, (AllPurposeCluster) sessionInfo.computeResource());
+    try {
+      SeaComputeTarget target = SeaComputeTarget.from(sessionInfo);
+      if (target.isAllPurposeCluster()) {
+        return new StatementId(
+            DatabricksClientType.SEA,
+            statementId,
+            null,
+            null,
+            null,
+            target.orgId(),
+            target.clusterId());
+      }
+      if (!target.isRealtimeSession()) {
+        return new StatementId(statementId);
+      }
+      return new StatementId(
+          DatabricksClientType.SEA,
+          statementId,
+          null,
+          sessionInfo.sessionId(),
+          target.warehouseId(),
+          null,
+          null);
+    } catch (DatabricksValidationException e) {
+      throw new DatabricksDriverException(
+          "Unsupported SQL Execution API compute resource", e, INPUT_VALIDATION_ERROR);
     }
-    if (!sessionInfo.realtimeSession()) {
-      return new StatementId(statementId);
-    }
-    return new StatementId(
-        DatabricksClientType.SEA,
-        statementId,
-        null,
-        sessionInfo.sessionId(),
-        ((Warehouse) sessionInfo.computeResource()).getWarehouseId(),
-        null,
-        null);
   }
 
   public static StatementId forAllPurposeCluster(String statementId, AllPurposeCluster cluster) {
@@ -87,6 +102,17 @@ public class StatementId {
 
   public String warehouseId() {
     return warehouseId;
+  }
+
+  /** Returns the compute target embedded in a routed statement identifier, if present. */
+  public SeaComputeTarget computeTarget() throws DatabricksValidationException {
+    if (orgId != null && clusterId != null) {
+      return SeaComputeTarget.from(new AllPurposeCluster(orgId, clusterId));
+    }
+    if (warehouseId != null && sessionId != null) {
+      return SeaComputeTarget.from(new Warehouse(warehouseId), true);
+    }
+    return null;
   }
 
   /** Constructs a StatementId identifier for a given Thrift Server operation handle */

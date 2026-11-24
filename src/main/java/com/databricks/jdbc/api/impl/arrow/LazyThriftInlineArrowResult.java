@@ -100,7 +100,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
       arrowMetadata = columnInfo.getTypeText();
     }
 
-    return ArrowStreamResult.getObjectWithComplexTypeHandling(
+    return AbstractArrowResult.getObjectWithComplexTypeHandling(
         session, currentChunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 

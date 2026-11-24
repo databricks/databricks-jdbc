@@ -588,20 +588,21 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
   }
 
-  @Test
-  public void testAllPurposeClusterRequiresArrowBeforeExplicitSeaOrDedicatedFeatureFlag()
-      throws DatabricksSQLException {
+  @ParameterizedTest
+  @CsvSource({"';UseThriftClient=0', false", "'', true"})
+  public void testAllPurposeClusterRequiresArrowBeforeExplicitSeaOrDedicatedFeatureFlag(
+      String urlSuffix, boolean apcSeaEnabled) throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         spy(
             (DatabricksConnectionContext)
                 DatabricksConnectionContext.parse(
-                    TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=0", properties));
+                    TestConstants.VALID_CLUSTER_URL + urlSuffix, properties));
     doReturn(false).when(connectionContext).shouldEnableArrow();
     setFeatureFlagsContext(
         connectionContext,
         Collections.singletonMap(
             "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
-            "true"));
+            String.valueOf(apcSeaEnabled)));
 
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientTypeFromContext());
   }
@@ -1925,15 +1926,6 @@ class DatabricksConnectionContextTest {
             TestConstants.VALID_URL_2 + ";TreatMetadataCatalogNameAsPattern=true",
             properties_with_pwd);
     assertEquals(DatabricksClientType.SEA, ctx.getClientType());
-  }
-
-  @Test
-  public void testCluster_metadataParamsIgnored() throws DatabricksSQLException {
-    // All-Purpose Cluster always uses Thrift regardless of metadata params
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_CLUSTER_URL + ";TreatMetadataCatalogNameAsPattern=1", properties);
-    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
   }
 
   @Test

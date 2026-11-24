@@ -17,6 +17,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -25,6 +26,7 @@ import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
@@ -270,6 +272,30 @@ class ArrowBatchChunkProviderFactoryTest {
   }
 
   @Test
+  void preservesBackgroundPageParsingFailure() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 0));
+    ChunkProvider provider =
+        new ArrowBatchChunkProvider(
+            page(Collections.singletonList(arrowBatch(1)), 0, 0).setNextChunkIndex(1L),
+            pagedManifest(),
+            STATEMENT_ID,
+            session(client),
+            2,
+            1);
+    try {
+      assertTrue(provider.next());
+      DatabricksParsingException error =
+          assertThrows(DatabricksParsingException.class, provider::next);
+      assertEquals(
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
   void rejectsNonIncreasingNextChunkIndex() throws Exception {
     assertThrows(
         DatabricksParsingException.class,
@@ -286,9 +312,30 @@ class ArrowBatchChunkProviderFactoryTest {
     List<ArrowBatch> batches =
         Collections.singletonList(new ArrowBatch().setBatch(new byte[] {1, 2, 3}).setRowCount(1L));
 
-    assertThrows(
-        DatabricksParsingException.class,
-        () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 1), manifest(1)));
+    DatabricksParsingException error =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 1), manifest(1)));
+
+    assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+    assertInstanceOf(Exception.class, error.getCause());
+  }
+
+  @Test
+  void wrapsCheckedDecompressionFailure() {
+    List<ArrowBatch> batches =
+        Collections.singletonList(new ArrowBatch().setBatch(new byte[] {1, 2, 3}).setRowCount(1L));
+    ResultManifest compressedManifest =
+        manifest(1).setResultCompression(CompressionCodec.LZ4_FRAME);
+
+    DatabricksParsingException error =
+        assertThrows(
+            DatabricksParsingException.class,
+            () ->
+                ArrowBatchChunkProviderFactory.create(resultData(batches, 1), compressedManifest));
+
+    assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
+    assertInstanceOf(DatabricksSQLException.class, error.getCause());
   }
 
   private static List<Integer> readValues(ChunkProvider provider) throws Exception {

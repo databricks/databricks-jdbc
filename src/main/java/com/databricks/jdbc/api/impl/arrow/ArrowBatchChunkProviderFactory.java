@@ -59,10 +59,10 @@ final class ArrowBatchChunkProviderFactory {
             && Long.valueOf(0L).equals(resultManifest.getTotalRowCount());
     List<ArrowBatch> arrowBatches = normalizeArrowBatches(page, resultManifest, isEmptySinglePage);
     long pageRows = validateAndCountRows(arrowBatches, page);
-    ByteArrayInputStream stream = toArrowStream(arrowBatches, resultManifest);
     try {
+      ByteArrayInputStream stream = toArrowStream(arrowBatches, resultManifest);
       return ArrowResultChunk.builder().withInputStream(stream, pageRows).build();
-    } catch (RuntimeException e) {
+    } catch (DatabricksSQLException | RuntimeException e) {
       throw nativeArrowParsingError(e);
     }
   }
@@ -158,7 +158,7 @@ final class ArrowBatchChunkProviderFactory {
     throw parsingError("ARROW_BATCH response is missing arrow_batches");
   }
 
-  private static DatabricksParsingException nativeArrowParsingError(RuntimeException e) {
+  private static DatabricksParsingException nativeArrowParsingError(Exception e) {
     return new DatabricksParsingException(
         "Failed to parse native Arrow batches: " + e.getMessage(),
         e,

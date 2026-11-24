@@ -46,16 +46,21 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.service.sql.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
@@ -505,7 +510,54 @@ public class DatabricksSdkClientTest {
     ArgumentCaptor<Request> deleteCaptor = ArgumentCaptor.forClass(Request.class);
     verify(apiClient).execute(deleteCaptor.capture(), eq(Void.class));
     assertEquals(Request.DELETE, deleteCaptor.getValue().getMethod());
-    assertApcComputeBody(deleteCaptor.getValue());
+    assertBackendComputeQuery(deleteCaptor.getValue());
+  }
+
+  @Test
+  public void testApcDeleteSessionCarriesBackendComputeOnHttpWire() throws Exception {
+    AtomicReference<String> method = new AtomicReference<>();
+    AtomicReference<String> rawQuery = new AtomicReference<>();
+    AtomicReference<String> body = new AtomicReference<>();
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          method.set(exchange.getRequestMethod());
+          rawQuery.set(exchange.getRequestURI().getRawQuery());
+          body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+          exchange.sendResponseHeaders(200, -1);
+          exchange.close();
+        });
+    server.start();
+    try {
+      DatabricksConfig config =
+          new DatabricksConfig()
+              .setHost("http://127.0.0.1:" + server.getAddress().getPort())
+              .setAuthType("pat")
+              .setToken("test-token");
+      config.setHttpClient(new CommonsHttpClient.Builder().withDatabricksConfig(config).build());
+      ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true);
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+      DatabricksSdkClient client =
+          new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+      ImmutableSessionInfo sessionInfo =
+          ImmutableSessionInfo.builder()
+              .sessionId(SESSION_ID)
+              .computeResource(allPurposeCluster)
+              .build();
+
+      client.deleteSession(sessionInfo);
+
+      assertEquals(Request.DELETE, method.get());
+      assertEquals("", body.get());
+      assertTrue(
+          rawQuery
+              .get()
+              .contains("backend_compute.all_purpose_cluster_compute.cluster_id=" + CLUSTER_ID));
+    } finally {
+      server.stop(0);
+    }
   }
 
   @Test
@@ -709,7 +761,7 @@ public class DatabricksSdkClientTest {
     assertBackendComputeQuery(requests.get(3));
     assertEquals(Request.DELETE, requests.get(4).getMethod());
     assertEquals(String.format(SESSION_PATH_WITH_ID, SESSION_ID), requests.get(4).getUrl());
-    assertApcComputeBody(requests.get(4));
+    assertBackendComputeQuery(requests.get(4));
     assertTrue(requests.stream().noneMatch(request -> request.getUrl().contains("/status")));
   }
 
@@ -2633,6 +2685,7 @@ public class DatabricksSdkClientTest {
   }
 
   private static void assertBackendComputeQuery(Request request) {
+    assertNull(request.getBodyString(), "APC query-targeted request must not have a body");
     assertEquals(
         Collections.singletonList(CLUSTER_ID),
         request.getQuery().get("backend_compute.all_purpose_cluster_compute.cluster_id"),

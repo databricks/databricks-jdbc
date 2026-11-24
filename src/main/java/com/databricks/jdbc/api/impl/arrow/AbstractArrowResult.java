@@ -1,8 +1,12 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -11,6 +15,8 @@ import java.util.List;
 
 /** Shares cursor mechanics without coupling distinct Arrow wire formats. */
 public abstract class AbstractArrowResult implements IExecutionResult {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(AbstractArrowResult.class);
+
   private final ChunkProvider chunkProvider;
   private final List<ColumnInfo> columnInfos;
   private final IDatabricksSession session;
@@ -44,8 +50,69 @@ public abstract class AbstractArrowResult implements IExecutionResult {
     if (arrowMetadata == null) {
       arrowMetadata = columnInfo.getTypeText();
     }
-    return ArrowStreamResult.getObjectWithComplexTypeHandling(
+    return getObjectWithComplexTypeHandling(
         session, chunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
+  }
+
+  @VisibleForTesting
+  public static boolean isComplexType(ColumnInfoTypeName type) {
+    return type == ColumnInfoTypeName.ARRAY
+        || type == ColumnInfoTypeName.MAP
+        || type == ColumnInfoTypeName.STRUCT;
+  }
+
+  @VisibleForTesting
+  public static boolean isGeospatialType(ColumnInfoTypeName type) {
+    return type == ColumnInfoTypeName.GEOMETRY || type == ColumnInfoTypeName.GEOGRAPHY;
+  }
+
+  protected static Object getObjectWithComplexTypeHandling(
+      IDatabricksSession session,
+      ArrowResultChunkIterator chunkIterator,
+      int columnIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo)
+      throws DatabricksSQLException {
+    boolean isComplexDatatypeSupportEnabled =
+        session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    boolean isGeoSpatialSupportEnabled =
+        session.getConnectionContext().isGeoSpatialSupportEnabled();
+
+    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
+      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      return result;
+    }
+
+    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
+      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      ComplexDataTypeParser parser = new ComplexDataTypeParser();
+      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
+        return parser.formatGeospatialComplexTypeString(
+            result.toString(), requiredType.name(), arrowMetadata);
+      }
+      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+    }
+
+    if (isComplexType(requiredType)) {
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, requiredType, arrowMetadata, columnInfo, isGeoSpatialSupportEnabled);
+    }
+
+    return chunkIterator.getColumnObjectAtCurrentRow(
+        columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
   @Override
