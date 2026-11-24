@@ -41,6 +41,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.DoubleAccumulator;
+import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -648,6 +653,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   public static Stream<Arguments> decimalBindings() {
+    LongAdder longAdder = new LongAdder();
+    longAdder.add(9007199254740993L);
+    DoubleAdder doubleAdder = new DoubleAdder();
+    doubleAdder.add(123.45d);
     return Stream.of(
             new Object[] {"123.45", "123.45", "DECIMAL(5,2)"},
             new Object[] {123.45d, "123.45", "DECIMAL(5,2)"},
@@ -655,6 +664,15 @@ public class DatabricksPreparedStatementTest {
             new Object[] {0.1f, "0.1", "DECIMAL(1,1)"},
             new Object[] {123.45f, "123.45", "DECIMAL(5,2)"},
             new Object[] {123L, "123", "DECIMAL(3,0)"},
+            new Object[] {(byte) 123, "123", "DECIMAL(3,0)"},
+            new Object[] {(short) 123, "123", "DECIMAL(3,0)"},
+            new Object[] {123, "123", "DECIMAL(3,0)"},
+            new Object[] {new AtomicInteger(123), "123", "DECIMAL(3,0)"},
+            new Object[] {new AtomicLong(9007199254740993L), "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {longAdder, "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {doubleAdder, "123.45", "DECIMAL(5,2)"},
+            new Object[] {new DoubleAccumulator(Double::sum, 123.45d), "123.45", "DECIMAL(5,2)"},
+            new Object[] {new FractionLikeNumber(), "0.5", "DECIMAL(1,1)"},
             new Object[] {9007199254740993L, "9007199254740993", "DECIMAL(16,0)"},
             new Object[] {Long.MAX_VALUE, "9223372036854775807", "DECIMAL(19,0)"},
             new Object[] {
@@ -752,8 +770,62 @@ public class DatabricksPreparedStatementTest {
     return Stream.concat(
         decimalBindings().filter(binding -> binding.get()[0] instanceof Number),
         Stream.of(
+            Arguments.of(new FractionLikeNumber(), Types.DECIMAL, "0.50", "DECIMAL(2,2)"),
             Arguments.of(2.565d, Types.DECIMAL, "2.57", "DECIMAL(3,2)"),
             Arguments.of(-2.565d, Types.NUMERIC, "-2.57", "DECIMAL(3,2)")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {Types.DECIMAL, Types.NUMERIC})
+  void testLongZeroPaddedDecimalBindsQuickly(int targetType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, "1", targetType);
+    String padded = "1." + String.join("", Collections.nCopies(25000, "0"));
+    assertTimeoutPreemptively(
+        Duration.ofMillis(100), () -> statement.setObject(1, padded, targetType));
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(BigDecimal.ONE, metadata.getParameterBindings().get(1).value());
+    for (String invalid : new String[] {padded + "1", padded.replace(".", "")}) {
+      DatabricksSQLException exception =
+          assertTimeoutPreemptively(
+              Duration.ofMillis(100),
+              () ->
+                  assertThrows(
+                      DatabricksSQLException.class,
+                      () -> statement.setObject(1, invalid, targetType)));
+      assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+      assertEquals(1015, exception.getErrorCode());
+      assertEquals(BigDecimal.ONE, metadata.getParameterBindings().get(1).value());
+    }
+  }
+
+  private static final class FractionLikeNumber extends Number {
+    @Override
+    public int intValue() {
+      return 0;
+    }
+
+    @Override
+    public long longValue() {
+      return 0;
+    }
+
+    @Override
+    public float floatValue() {
+      return 0.5f;
+    }
+
+    @Override
+    public double doubleValue() {
+      return 0.5d;
+    }
+
+    @Override
+    public String toString() {
+      return "1/2";
+    }
   }
 
   @ParameterizedTest

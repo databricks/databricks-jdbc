@@ -11,12 +11,19 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.DoubleAccumulator;
+import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -601,9 +608,33 @@ public class DatabricksTypeUtil {
   }
 
   public static BigDecimal toBigDecimal(Object value) {
-    return value instanceof BigDecimal
-        ? (BigDecimal) value
-        : new BigDecimal(value.toString().trim());
+    if (value instanceof BigDecimal) {
+      return (BigDecimal) value;
+    }
+    if (value instanceof BigInteger) {
+      return new BigDecimal((BigInteger) value);
+    }
+    if (value instanceof Byte
+        || value instanceof Short
+        || value instanceof Integer
+        || value instanceof Long
+        || value instanceof AtomicInteger
+        || value instanceof AtomicLong
+        || value instanceof LongAdder) {
+      return BigDecimal.valueOf(((Number) value).longValue());
+    }
+    if (value instanceof Float) {
+      return new BigDecimal(Float.toString((Float) value));
+    }
+    if (value instanceof Double
+        || value instanceof DoubleAdder
+        || value instanceof DoubleAccumulator) {
+      return new BigDecimal(Double.toString(((Number) value).doubleValue()));
+    }
+    if (value instanceof Number) {
+      return BigDecimal.valueOf(((Number) value).doubleValue());
+    }
+    return new BigDecimal(value.toString().trim());
   }
 
   public static boolean isDecimalWithinBounds(BigDecimal value) {
@@ -618,10 +649,15 @@ public class DatabricksTypeUtil {
       if (!validatePrecision) {
         return value;
       }
-      value = value.stripTrailingZeros();
-      if (!isDecimalWithinBounds(value)) {
+      long integerDigits = (long) value.precision() - value.scale();
+      if (integerDigits > 38) {
         throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
       }
+      int targetScale = (int) Math.max(0, Math.min(value.scale(), 38 - Math.max(integerDigits, 0)));
+      if (value.signum() != 0 && (long) value.scale() - targetScale >= value.precision()) {
+        throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
+      }
+      value = value.setScale(targetScale, RoundingMode.UNNECESSARY).stripTrailingZeros();
     }
     return value.scale() < 0 ? value.setScale(0) : value;
   }
