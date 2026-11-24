@@ -122,10 +122,10 @@ public class DatabricksArray implements Array {
                 DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
         } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
-          if (element instanceof Map) {
-            convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
-          } else if (element instanceof DatabricksMap) {
+          if (element instanceof DatabricksMap) {
             convertedElements[i] = element;
+          } else if (element instanceof Map) {
+            convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
           } else if (element == null) {
             convertedElements[i] = null;
           } else {

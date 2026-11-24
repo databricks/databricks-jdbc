@@ -105,11 +105,11 @@ public class DatabricksMap<K, V> implements Map<K, V> {
               DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else if (valueType.startsWith(DatabricksTypeUtil.MAP)) {
-        if (value instanceof Map) {
+        if (value instanceof DatabricksMap) {
+          return (V) value;
+        } else if (value instanceof Map) {
           LOGGER.trace("Converting value as MAP");
           return (V) new DatabricksMap<>((Map<String, Object>) value, valueType);
-        } else if (value instanceof DatabricksMap) {
-          return (V) value;
         } else {
           throw new DatabricksDriverException(
               "Expected a Map for MAP but found: " + value.getClass().getSimpleName(),

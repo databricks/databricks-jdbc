@@ -266,7 +266,7 @@ class TimeRoundTwoRegressionTest {
     }
   }
 
-  private static DatabricksResultSet inlineResult(
+  static DatabricksResultSet inlineResult(
       String type, String value, boolean strict, boolean complex) throws Exception {
     IDatabricksSession session = mock(IDatabricksSession.class);
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);

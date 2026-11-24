@@ -125,10 +125,10 @@ public class DatabricksStruct implements Struct {
           throwConversionException("List for ARRAY", value);
         }
       } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
-        if (value instanceof Map) {
-          convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
-        } else if (value instanceof DatabricksMap) {
+        if (value instanceof DatabricksMap) {
           convertedAttributes[index] = value;
+        } else if (value instanceof Map) {
+          convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
         } else {
           throwConversionException("Map for MAP", value);
         }
