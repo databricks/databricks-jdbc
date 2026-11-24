@@ -60,6 +60,8 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -1040,10 +1042,11 @@ public class ArrowResultTest {
     assertDoesNotThrow(result::close);
   }
 
-  @Test
-  public void testBoundedSeaApiUsesSeaInlineProviderForHybridInlineResult() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "1"})
+  public void testInlineContinuationUsesSeaInlineProvider(String boundedSeaApi) throws Exception {
     Properties props = new Properties();
-    props.setProperty("UseBoundedSeaApi", "1");
+    props.setProperty("UseBoundedSeaApi", boundedSeaApi);
     props.setProperty("EnableQueryResultDownload", "1");
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, props);
