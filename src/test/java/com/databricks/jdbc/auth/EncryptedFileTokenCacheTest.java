@@ -404,9 +404,8 @@ public class EncryptedFileTokenCacheTest {
   }
 
   /**
-   * Payloads written by the SQL kernel's own cache_crypto.rs (encrypt(plaintext,
-   * derived_passphrase())) with the given user env var set and the others unset. Generator and
-   * provenance: kernel-fixture crate in the PR description.
+   * Payloads from the SQL kernel's src/auth/oauth/cache_crypto.rs (databricks-sql-kernel@375cdb6,
+   * compiled unmodified): encrypt(plaintext, derived_passphrase()) with only the given env var set.
    */
   @ParameterizedTest
   @CsvSource({
