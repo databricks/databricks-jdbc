@@ -121,13 +121,15 @@ public class DatabricksDriverPropertyUtil {
       missingPropertyInfos.add(getUrlParamInfo(AUTH_MECH, true));
     }
     if (authMech == PAT) {
-      addMissingProperty(missingPropertyInfos, connectionContext, PWD, true);
+      if (isNullOrBlank(connectionContext.getToken())) {
+        missingPropertyInfos.add(getUrlParamInfo(PWD, true));
+      }
     } else if (authMech == OAUTH) {
       addMissingProperty(
           missingPropertyInfos, connectionContext, IDENTITY_FEDERATION_CLIENT_ID, false);
 
-      if (connectionContext.hasNonBlankProperty(AUTH_FLOW)) {
-        AuthFlow authFlow = connectionContext.getAuthFlow();
+      AuthFlow authFlow = connectionContext.getAuthFlowIfValid();
+      if (authFlow != null) {
         switch (authFlow) {
           case TOKEN_PASSTHROUGH:
             if (!isNullOrBlank(connectionContext.getOAuthRefreshToken())) {

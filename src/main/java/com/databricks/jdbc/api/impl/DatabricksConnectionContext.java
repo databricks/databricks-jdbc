@@ -431,6 +431,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return AuthFlow.values()[Integer.parseInt(authFlow)];
   }
 
+  public AuthFlow getAuthFlowIfValid() {
+    try {
+      return AuthFlow.fromValue(Integer.parseInt(getParameter(DatabricksJdbcUrlParams.AUTH_FLOW)));
+    } catch (NumberFormatException invalidAuthFlow) {
+      return null;
+    }
+  }
+
   @Override
   public AuthMech getAuthMech() {
     String authMech = getParameter(DatabricksJdbcUrlParams.AUTH_MECH);

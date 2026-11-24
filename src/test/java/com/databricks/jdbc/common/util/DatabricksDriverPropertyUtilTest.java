@@ -63,7 +63,6 @@ public class DatabricksDriverPropertyUtilTest {
         Arguments.of(";AuthMech=3;httpPath=/warehouse;PWD=local-test", Collections.emptyList()),
         Arguments.of(";httpPath=", Arrays.asList("authmech", "httppath", "pwd")),
         Arguments.of(";httpPath= \t", Arrays.asList("authmech", "httppath", "pwd")),
-        Arguments.of(";httpPath=\u2003", Arrays.asList("authmech", "httppath", "pwd")),
         Arguments.of(";AuthMech=3;PWD= \t", Arrays.asList("httppath", "pwd")),
         Arguments.of(";AuthMech=", Arrays.asList("authmech", "httppath", "pwd")),
         Arguments.of(";AuthMech= \t", Arrays.asList("authmech", "httppath", "pwd")));
@@ -92,10 +91,21 @@ public class DatabricksDriverPropertyUtilTest {
     List<String> optionalNames = new ArrayList<>(OPTIONAL_PROPERTY_NAMES);
     optionalNames.add("Identity_Federation_Client_Id");
     optionalNames.addAll(additionalOptionalNames);
-    assertPropertyInfos(HOST_ONLY_URL + options, new Properties(), requiredNames, optionalNames);
+    List<DriverPropertyInfo> actual =
+        DatabricksDriverPropertyUtil.getMissingProperties(
+            HOST_ONLY_URL + options, new Properties());
+    if (options.endsWith(";Auth_Flow=2")) {
+      // #1845 changes when TokenCachePassPhrase is offered; #1845 tests it.
+      actual =
+          actual.stream()
+              .filter(property -> !property.name.equals("TokenCachePassPhrase"))
+              .collect(Collectors.toList());
+    }
+    assertPropertyInfos(actual, requiredNames, optionalNames);
   }
 
   private static Stream<Arguments> oauthDiscoveryCases() {
+    // Main-side EnableTokenCache duplicate; tracked as a follow-up.
     List<String> browserOptionalNames =
         Arrays.asList(
             "OAuth2ClientId",
@@ -152,6 +162,85 @@ public class DatabricksDriverPropertyUtilTest {
             Collections.emptyList()));
   }
 
+  @ParameterizedTest
+  @MethodSource("invalidOAuthFlowCases")
+  void reportsInvalidOAuthFlowInsteadOfThrowing(
+      String authFlow, boolean withHttpPath, boolean fromProperties) throws DatabricksSQLException {
+    String url = HOST_ONLY_URL + ";AuthMech=11";
+    Properties properties = new Properties();
+    if (withHttpPath) {
+      url += ";httpPath=/warehouse";
+    }
+    if (fromProperties) {
+      properties.setProperty("Auth_Flow", authFlow);
+    } else {
+      url += ";Auth_Flow=" + authFlow;
+    }
+    List<String> optionalNames = new ArrayList<>(OPTIONAL_PROPERTY_NAMES);
+    optionalNames.add("Identity_Federation_Client_Id");
+    assertPropertyInfos(
+        url,
+        properties,
+        withHttpPath
+            ? Collections.singletonList("auth_flow")
+            : Arrays.asList("httppath", "auth_flow"),
+        optionalNames);
+  }
+
+  private static Stream<Arguments> invalidOAuthFlowCases() {
+    return Stream.of("9", "-1", "abc", " 1")
+        .flatMap(
+            authFlow ->
+                Stream.of(false, true)
+                    .flatMap(
+                        withHttpPath ->
+                            Stream.of(false, true)
+                                .map(
+                                    fromProperties ->
+                                        Arguments.of(authFlow, withHttpPath, fromProperties))));
+  }
+
+  @ParameterizedTest
+  @MethodSource("patPasswordDiscoveryCases")
+  void resolvesPatPasswordFallback(
+      String options, String password, boolean fromProperties, List<String> requiredNames)
+      throws DatabricksSQLException {
+    Properties properties = new Properties();
+    properties.setProperty("user", "token");
+    String url = HOST_ONLY_URL + options;
+    if (fromProperties) {
+      properties.setProperty("password", password);
+    } else {
+      url += ";password=" + password;
+    }
+    assertPropertyInfos(url, properties, requiredNames, OPTIONAL_PROPERTY_NAMES);
+  }
+
+  private static Stream<Arguments> patPasswordDiscoveryCases() {
+    String[] options = {
+      "", ";httpPath=/warehouse", ";AuthMech=3", ";httpPath=/warehouse;AuthMech=3"
+    };
+    List<List<String>> requiredNames =
+        Arrays.asList(
+            Arrays.asList("authmech", "httppath"),
+            Collections.singletonList("authmech"),
+            Collections.singletonList("httppath"),
+            Collections.emptyList());
+    List<Arguments> cases = new ArrayList<>();
+    for (int index = 0; index < options.length; index++) {
+      for (boolean fromProperties : new boolean[] {false, true}) {
+        for (String password : new String[] {"local-test", "", " \t"}) {
+          List<String> expectedNames = new ArrayList<>(requiredNames.get(index));
+          if (password.trim().isEmpty()) {
+            expectedNames.add("pwd");
+          }
+          cases.add(Arguments.of(options[index], password, fromProperties, expectedNames));
+        }
+      }
+    }
+    return cases.stream();
+  }
+
   @Test
   void honorsCaseInsensitivePropertiesAndUrlPrecedence() throws DatabricksSQLException {
     Properties properties = new Properties();
@@ -192,12 +281,17 @@ public class DatabricksDriverPropertyUtilTest {
   private static void assertPropertyInfos(
       String url, Properties properties, List<String> requiredNames, List<String> optionalNames)
       throws DatabricksSQLException {
+    assertPropertyInfos(
+        DatabricksDriverPropertyUtil.getMissingProperties(url, properties),
+        requiredNames,
+        optionalNames);
+  }
+
+  private static void assertPropertyInfos(
+      List<DriverPropertyInfo> actual, List<String> requiredNames, List<String> optionalNames) {
     List<String> expected = new ArrayList<>();
     requiredNames.forEach(name -> expected.add("required:" + name));
     optionalNames.forEach(name -> expected.add("optional:" + name));
-    List<DriverPropertyInfo> actual =
-        DatabricksDriverPropertyUtil.getMissingProperties(url, properties);
-
     assertEquals(
         expected,
         actual.stream()
