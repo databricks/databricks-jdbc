@@ -12,6 +12,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.arrow.vector.types.DateUnit;
@@ -24,6 +25,14 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class DatabricksTypeUtilTest {
+  @Test
+  void testOffsetDateTimeTemporalRecognition() {
+    OffsetDateTime value = OffsetDateTime.parse("2026-01-02T03:04:05.123456+05:45");
+    assertTrue(DatabricksTypeUtil.isTimestamp(value));
+    assertTrue(DatabricksTypeUtil.isTemporalType(value));
+    assertEquals("\"" + value + "\"", JsonUtil.formatComplexValue(value));
+  }
+
   static Stream<Object[]> dataProvider() {
     return Stream.of(
         new Object[] {TTypeId.BOOLEAN_TYPE, ArrowType.Bool.INSTANCE},
