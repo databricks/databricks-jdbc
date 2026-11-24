@@ -87,10 +87,26 @@ class ValidationUtilTest {
   }
 
   @ParameterizedTest
-  @MethodSource("validateAndParsePositiveIntegerTestCases")
-  void testParsePositiveInteger(String value, Integer expectedResult, boolean shouldFail) {
-    OptionalInt expected = shouldFail ? OptionalInt.empty() : OptionalInt.of(expectedResult);
+  @MethodSource("parsePositiveIntegerTestCases")
+  void testParsePositiveInteger(String value, OptionalInt expected) {
     assertEquals(expected, ValidationUtil.parsePositiveInteger(value));
+  }
+
+  private static Stream<Arguments> parsePositiveIntegerTestCases() {
+    return Stream.of(
+        Arguments.of("10", OptionalInt.of(10)),
+        Arguments.of("1", OptionalInt.of(1)),
+        Arguments.of("100000", OptionalInt.of(100000)),
+        Arguments.of("+8", OptionalInt.of(8)),
+        Arguments.of("2147483647", OptionalInt.of(Integer.MAX_VALUE)),
+        Arguments.of("0", OptionalInt.empty()),
+        Arguments.of("-10", OptionalInt.empty()),
+        Arguments.of("invalid", OptionalInt.empty()),
+        Arguments.of("", OptionalInt.empty()),
+        Arguments.of((String) null, OptionalInt.empty()),
+        Arguments.of(" 8", OptionalInt.empty()),
+        Arguments.of("8 ", OptionalInt.empty()),
+        Arguments.of("2147483648", OptionalInt.empty()));
   }
 
   @ParameterizedTest

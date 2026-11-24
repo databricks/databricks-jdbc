@@ -61,10 +61,6 @@ public class ValidationUtil {
    */
   public static int validateAndParsePositiveInteger(String value, String fieldName)
       throws DatabricksValidationException {
-    OptionalInt positiveInteger = parsePositiveInteger(value);
-    if (positiveInteger.isPresent()) {
-      return positiveInteger.getAsInt();
-    }
     try {
       int parsedValue = Integer.parseInt(value);
       checkIfPositive(parsedValue, fieldName);
