@@ -102,6 +102,33 @@ public class ArrowToJavaObjectConverter {
       boolean geoSpatialSupportEnabled,
       ComplexDataTypeParser complexParser)
       throws DatabricksSQLException {
+    if (arrowMetadata == null && requiredType == null && !columnVector.isNull(vectorIndex)) {
+      arrowMetadata = getArrowTypeText(columnVector.getField());
+    }
+    if ((requiredType == null || requiredType == ColumnInfoTypeName.STRING)
+        && isTimeType(arrowMetadata)) {
+      requiredType = ColumnInfoTypeName.TIME;
+    }
+    return convertWithResolvedType(
+        columnVector,
+        vectorIndex,
+        requiredType,
+        arrowMetadata,
+        columnInfo,
+        geoSpatialSupportEnabled,
+        complexParser);
+  }
+
+  /** Converts a value after TIME has been identified from its column metadata. */
+  public static Object convertWithResolvedType(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled,
+      ComplexDataTypeParser complexParser)
+      throws DatabricksSQLException {
     // check isNull before getting the object from the vector
     if (columnVector.isNull(vectorIndex)) {
       return null;
@@ -144,10 +171,6 @@ public class ArrowToJavaObjectConverter {
       }
       if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
         requiredType = ColumnInfoTypeName.TIMESTAMP;
-      }
-      if ((requiredType == null || requiredType == ColumnInfoTypeName.STRING)
-          && isTimeType(arrowMetadata)) {
-        requiredType = ColumnInfoTypeName.TIME;
       }
       if (arrowMetadata.startsWith(GEOMETRY)) {
         requiredType = ColumnInfoTypeName.GEOMETRY;
@@ -292,19 +315,17 @@ public class ArrowToJavaObjectConverter {
    * to JSON as epoch microseconds, which drops the time zone of their field, so the zone is passed
    * to the parser for the {@code java.time} values.
    */
-  private static ComplexDataTypeParser parserFor(
+  public static ComplexDataTypeParser parserFor(
       ValueVector columnVector, String arrowMetadata, boolean geoSpatialSupportEnabled) {
-    return new ComplexDataTypeParser(
-        geoSpatialSupportEnabled,
-        nestedTimestampZone(columnVector, arrowMetadata),
-        columnVector.getField());
+    return ComplexDataTypeParser.forArrow(
+        geoSpatialSupportEnabled, nestedTimestampZone(columnVector, arrowMetadata), columnVector);
   }
 
   /**
    * Returns the time zone of the first TIMESTAMP field nested in a complex column, which is the
    * session time zone, or null if it has none or the zone cannot be read.
    */
-  public static ZoneId nestedTimestampZone(ValueVector columnVector, String arrowMetadata) {
+  static ZoneId nestedTimestampZone(ValueVector columnVector, String arrowMetadata) {
     if (arrowMetadata != null && !arrowMetadata.toUpperCase(Locale.ROOT).contains(TIMESTAMP)) {
       return null; // no nested TIMESTAMP; skip walking the field tree
     }

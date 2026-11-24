@@ -2,15 +2,18 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.arrow.vector.ValueVector;
 
 public class ArrowResultChunkIterator {
   private final AbstractArrowResultChunk resultChunk;
+  private final boolean[] timeColumns;
   private final Map<Integer, ComplexDataTypeParser[]> complexParsers = new HashMap<>();
 
   // total number of record batches in the chunk
@@ -34,6 +37,11 @@ public class ArrowResultChunkIterator {
 
   ArrowResultChunkIterator(AbstractArrowResultChunk resultChunk) {
     this.resultChunk = resultChunk;
+    List<String> metadata = resultChunk.getArrowMetadata();
+    this.timeColumns = new boolean[metadata == null ? 0 : metadata.size()];
+    for (int index = 0; index < timeColumns.length; index++) {
+      timeColumns[index] = DatabricksTypeUtil.isTimeType(metadata.get(index));
+    }
     this.recordBatchesInChunk = resultChunk.getRecordBatchCountInChunk();
     // start before first batch
     this.recordBatchCursorInChunk = -1;
@@ -106,7 +114,12 @@ public class ArrowResultChunkIterator {
       throws DatabricksSQLException {
     ValueVector columnVector =
         this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
-    return ArrowToJavaObjectConverter.convert(
+    if ((requiredType == null || requiredType == ColumnInfoTypeName.STRING)
+        && columnIndex < timeColumns.length
+        && timeColumns[columnIndex]) {
+      requiredType = ColumnInfoTypeName.TIME;
+    }
+    return ArrowToJavaObjectConverter.convertWithResolvedType(
         columnVector,
         this.rowCursorInRecordBatch,
         requiredType,
@@ -131,10 +144,8 @@ public class ArrowResultChunkIterator {
     if (parser == null) {
       ValueVector vector = resultChunk.getColumnVector(recordBatchCursorInChunk, columnIndex);
       parser =
-          new ComplexDataTypeParser(
-              geoSpatialSupportEnabled,
-              ArrowToJavaObjectConverter.nestedTimestampZone(vector, getType(columnIndex)),
-              vector.getField());
+          ArrowToJavaObjectConverter.parserFor(
+              vector, getType(columnIndex), geoSpatialSupportEnabled);
       columnParsers[flagIndex] = parser;
     }
     return parser;

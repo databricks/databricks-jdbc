@@ -1648,6 +1648,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeText = resultSetMetaData.getColumnTypeName(columnIndex);
     Class<?> returnObjectType = map.get(columnTypeText);
+    if (columnSqlType == Types.TIME) {
+      return null;
+    }
     if (returnObjectType != null) {
       try {
         if (isIntegralType(returnObjectType)) {

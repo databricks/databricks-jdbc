@@ -231,7 +231,7 @@ public class DatabricksArray implements Array {
    * Returns the elements. If {@code map} maps the element type (DATE, TIMESTAMP or TIMESTAMP_NTZ)
    * to a {@code java.time} class, for example {@code Map.of("DATE", LocalDate.class)}, the elements
    * are returned as that class, built from the exact values instead of the {@code java.sql} ones.
-   * Other mappings are ignored.
+   * Other mappings are ignored. TIME elements also support an exact {@code LocalTime} mapping.
    */
   @Override
   public Object getArray(Map<String, Class<?>> map) throws SQLException {

@@ -226,7 +226,7 @@ public class DatabricksStruct implements Struct {
    * <p>If {@code map} maps a field's type (DATE, TIMESTAMP or TIMESTAMP_NTZ) to a {@code java.time}
    * class, for example {@code Map.of("TIMESTAMP", Instant.class)}, that field is returned as the
    * class, built from the exact value instead of the {@code java.sql} one. Other mappings are
-   * ignored.
+   * ignored. TIME fields also support an exact {@code java.time.LocalTime} mapping.
    *
    * @param map a Map object that contains the mapping of SQL types to Java classes
    * @return an array containing the attributes of the Struct

@@ -99,7 +99,8 @@ class TimeReviewRegressionTest {
   @Test
   void timeMapKeysKeepDistinctFractionsAndQuotedText() throws Exception {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    String json = "[{\"key\":3723000100000,\"value\":1},{\"key\":3723000200000,\"value\":2}]";
+    String json =
+        "[{\"key\":\"01:02:03.0001\",\"value\":1},{\"key\":\"01:02:03.0002\",\"value\":2}]";
     String expected = "{\"01:02:03.0001\":1,\"01:02:03.0002\":2}";
     DatabricksMap<?, ?> map = parser.parseJsonStringToDbMap(json, "MAP<TIME(6),INT>");
     assertEquals(2, map.size());
@@ -217,7 +218,8 @@ class TimeReviewRegressionTest {
             mock(IDatabricksConnectionContext.class));
     assertTimeMetadata(describe, 1);
     DatabricksArray array =
-        new ComplexDataTypeParser().parseJsonStringToDbArray("[33300123456000]", "ARRAY<TIME(6)>");
+        new ComplexDataTypeParser()
+            .parseJsonStringToDbArray("[\"09:15:00.123456\"]", "ARRAY<TIME(6)>");
     try (ResultSet result = array.getResultSet()) {
       assertTimeMetadata(result.getMetaData(), 2);
     }
@@ -303,6 +305,6 @@ class TimeReviewRegressionTest {
     assertEquals(
         "{\"a\":\"09:15:00.123456\"}",
         parser.formatComplexTypeString(
-            "{\"a\":33300123456000}", "STRUCT", "STRUCT<a:TIME(6) COMMENT 'x'>"));
+            "{\"a\":\"09:15:00.123456\"}", "STRUCT", "STRUCT<a:TIME(6) COMMENT 'x'>"));
   }
 }

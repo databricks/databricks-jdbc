@@ -180,7 +180,8 @@ class TimeDecodingTest {
   void nestedTypedTimePreservesExactText() throws Exception {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     DatabricksArray array =
-        parser.parseJsonStringToDbArray("[33300123456000,null,0]", "ARRAY<TIME(6)>");
+        parser.parseJsonStringToDbArray(
+            "[\"09:15:00.123456\",null,\"00:00:00\"]", "ARRAY<TIME(6)>");
     assertEquals(Types.TIME, array.getBaseType());
     assertInstanceOf(Time.class, ((Object[]) array.getArray())[0]);
     assertEquals(
@@ -189,13 +190,13 @@ class TimeDecodingTest {
     assertEquals("[\"09:15:00.123456\",null,\"00:00:00\"]", array.toString());
     DatabricksMap<String, Object> map =
         parser.parseJsonStringToDbMap(
-            "[{\"key\":\"a\",\"value\":33300123456000},{\"key\":\"b\",\"value\":null}]",
+            "[{\"key\":\"a\",\"value\":\"09:15:00.123456\"},{\"key\":\"b\",\"value\":null}]",
             "MAP<STRING,TIME(6)>");
     assertInstanceOf(Time.class, map.get("a"));
     assertEquals("{\"a\":\"09:15:00.123456\",\"b\":null}", map.toString());
     DatabricksStruct struct =
         parser.parseJsonStringToDbStruct(
-            "{\"at\":33300123456000,\"inner\":{\"at\":86399999999000}}",
+            "{\"at\":\"09:15:00.123456\",\"inner\":{\"at\":\"23:59:59.999999\"}}",
             "STRUCT<at:TIME(6),inner:STRUCT<at:TIME(6)>>");
     assertInstanceOf(Time.class, struct.getAttributes()[0]);
     assertEquals(
@@ -208,21 +209,22 @@ class TimeDecodingTest {
   @Test
   void mutatedContainersDoNotReuseOriginalTime() throws Exception {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    DatabricksArray array = parser.parseJsonStringToDbArray("[33300123456000]", "ARRAY<TIME(6)>");
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray("[\"09:15:00.123456\"]", "ARRAY<TIME(6)>");
     ((Object[]) array.getArray())[0] = Time.valueOf("12:34:56");
     assertEquals("[\"12:34:56\"]", array.toString());
     assertEquals(
         LocalTime.parse("12:34:56"),
         ((Object[]) array.getArray(Collections.singletonMap("TIME", LocalTime.class)))[0]);
     DatabricksStruct struct =
-        parser.parseJsonStringToDbStruct("{\"at\":33300123456000}", "STRUCT<at:TIME(6)>");
+        parser.parseJsonStringToDbStruct("{\"at\":\"09:15:00.123456\"}", "STRUCT<at:TIME(6)>");
     ((Time) struct.getAttributes()[0]).setTime(Time.valueOf("12:34:56").getTime());
     assertEquals("{\"at\":\"12:34:56\"}", struct.toString());
     assertEquals(
         LocalTime.parse("12:34:56"),
         struct.getAttributes(Collections.singletonMap("TIME", LocalTime.class))[0]);
     DatabricksMap<String, Object> map =
-        parser.parseJsonStringToDbMap("{\"a\":33300123456000}", "MAP<STRING,TIME(6)>");
+        parser.parseJsonStringToDbMap("{\"a\":\"09:15:00.123456\"}", "MAP<STRING,TIME(6)>");
     map.put("a", Time.valueOf("12:34:56"));
     assertEquals("{\"a\":\"12:34:56\"}", map.toString());
   }
@@ -283,17 +285,17 @@ class TimeDecodingTest {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     assertEquals(
         "[\"09:15:30.5\",null]",
-        parser.formatComplexTypeString("[33330500000000,null]", "ARRAY", "ARRAY<TIME(6)>"));
+        parser.formatComplexTypeString("[\"09:15:30.5\",null]", "ARRAY", "ARRAY<TIME(6)>"));
     assertEquals(
         "{\"a\":\"09:15:30.5\",\"b\":null}",
         parser.formatComplexTypeString(
-            "[{\"key\":\"a\",\"value\":33330500000000},{\"key\":\"b\",\"value\":null}]",
+            "[{\"key\":\"a\",\"value\":\"09:15:30.5\"},{\"key\":\"b\",\"value\":null}]",
             "MAP",
             "MAP<STRING,TIME(6)>"));
     assertEquals(
         "{\"at\":\"09:15:30.5\",\"inner\":{\"at\":\"23:59:59.999999\"}}",
         parser.formatComplexTypeString(
-            "{\"at\":33330500000000,\"inner\":{\"at\":86399999999000}}",
+            "{\"at\":\"09:15:30.5\",\"inner\":{\"at\":\"23:59:59.999999\"}}",
             "STRUCT",
             "STRUCT<at:TIME(6),inner:STRUCT<at:TIME(6)>>"));
   }

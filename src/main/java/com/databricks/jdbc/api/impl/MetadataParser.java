@@ -16,13 +16,35 @@ public class MetadataParser {
     if (metadata == null) {
       return false;
     }
-    for (int index = 0; index <= metadata.length() - 4; index++) {
-      char first = metadata.charAt(index);
-      if ((first == 'T' || first == 't') && metadata.regionMatches(true, index, "TIME", 0, 4)) {
-        if (!metadata.regionMatches(true, index, "TIMESTAMP", 0, 9)) {
-          return true;
+    boolean quoted = false;
+    for (int index = 0; index < metadata.length(); ) {
+      char ch = metadata.charAt(index);
+      if (ch == '`') {
+        if (quoted && index + 1 < metadata.length() && metadata.charAt(index + 1) == '`') {
+          index += 2;
+          continue;
         }
-        index += 8;
+        quoted = !quoted;
+        index++;
+        continue;
+      }
+      if (quoted || !isIdentifierCharacter(ch)) {
+        index++;
+        continue;
+      }
+      int start = index;
+      while (index < metadata.length() && isIdentifierCharacter(metadata.charAt(index))) {
+        index++;
+      }
+      if (index - start != 4 || !metadata.regionMatches(true, start, "TIME", 0, 4)) {
+        continue;
+      }
+      int next = index;
+      while (next < metadata.length() && Character.isWhitespace(metadata.charAt(next))) {
+        next++;
+      }
+      if (next >= metadata.length() || metadata.charAt(next) != ':') {
+        return true;
       }
     }
     return false;
@@ -41,7 +63,7 @@ public class MetadataParser {
       metadata = null;
       time = false;
       containsTime = false;
-      unit = TimeUnit.NANOSECOND;
+      unit = null;
       formattedMetadata = null;
     }
 
@@ -51,7 +73,7 @@ public class MetadataParser {
       this.unit =
           field != null && field.getType() instanceof ArrowType.Time
               ? ((ArrowType.Time) field.getType()).getUnit()
-              : TimeUnit.NANOSECOND;
+              : null;
       try {
         if (metadata != null && metadata.startsWith("ARRAY<")) {
           children.put("element", new TimeType(parseArrayMetadata(metadata), child(field, 0)));

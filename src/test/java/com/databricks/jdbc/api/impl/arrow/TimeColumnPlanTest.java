@@ -19,10 +19,50 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class TimeColumnPlanTest {
+  @Test
+  void recoversTimeAndLeavesStringsAcrossBatches() throws Exception {
+    try (RootAllocator allocator = new RootAllocator();
+        TimeMicroVector times = new TimeMicroVector("clock", allocator);
+        VarCharVector strings = new VarCharVector("text", allocator)) {
+      times.allocateNew(2);
+      times.setSafe(0, 33300123456L);
+      times.setNull(1);
+      times.setValueCount(2);
+      strings.allocateNew();
+      strings.setSafe(0, "TIME(6)".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      strings.setSafe(1, "midnight".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      strings.setValueCount(2);
+      ArrowResultChunk chunk =
+          ArrowResultChunk.builder()
+              .withStatementId(new StatementId("time-scalar-plan"))
+              .withChunkInfo(new BaseChunkInfo().setChunkIndex(0L).setRowOffset(0L).setRowCount(4L))
+              .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+              .build();
+      chunk.recordBatchList =
+          java.util.Arrays.asList(
+              java.util.Arrays.asList(times, strings), java.util.Arrays.asList(times, strings));
+      chunk.arrowMetadata = java.util.Arrays.asList("TIME(6)", "STRING");
+      ArrowResultChunkIterator iterator = chunk.getChunkIterator();
+      for (int row = 0; row < 4; row++) {
+        assertTrue(iterator.nextRow());
+        assertEquals(
+            row % 2 == 0 ? java.time.LocalTime.parse("09:15:00.123456") : null,
+            iterator.getColumnObjectAtCurrentRow(
+                0, ColumnInfoTypeName.STRING, "TIME(6)", new ColumnInfo()));
+        assertEquals(
+            row % 2 == 0 ? "TIME(6)" : "midnight",
+            iterator.getColumnObjectAtCurrentRow(
+                1, ColumnInfoTypeName.STRING, "STRING", new ColumnInfo()));
+      }
+      assertFalse(iterator.nextRow());
+    }
+  }
+
   @ParameterizedTest
   @CsvSource({
     "SECOND,33300,09:15:00,false", "SECOND,33300,09:15:00,true",

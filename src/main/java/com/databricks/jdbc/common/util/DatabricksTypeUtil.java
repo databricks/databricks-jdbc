@@ -574,10 +574,17 @@ public class DatabricksTypeUtil {
 
   public static int[] getTimePrecisionAndScale(String typeText) {
     int open = typeText == null ? -1 : typeText.indexOf('(');
-    int scale =
-        open < 0
-            ? 6
-            : Integer.parseInt(typeText.substring(open + 1, typeText.indexOf(')', open)).trim());
+    int close = open < 0 ? -1 : typeText.indexOf(')', open);
+    int scale = 6;
+    if (close > open && open >= 0) {
+      try {
+        int parsed = Integer.parseInt(typeText.substring(open + 1, close).trim());
+        if (parsed >= 0 && parsed <= 6) {
+          scale = parsed;
+        }
+      } catch (NumberFormatException ignored) {
+      }
+    }
     return new int[] {8 + (scale > 0 ? scale + 1 : 0), scale};
   }
 

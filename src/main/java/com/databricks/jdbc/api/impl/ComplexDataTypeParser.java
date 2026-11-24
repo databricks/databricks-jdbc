@@ -41,6 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.Field;
 
 public class ComplexDataTypeParser {
@@ -83,11 +84,15 @@ public class ComplexDataTypeParser {
     this(geoSpatialSupportEnabled, timestampZone, null);
   }
 
-  public ComplexDataTypeParser(
-      boolean geoSpatialSupportEnabled, ZoneId timestampZone, Field arrowField) {
+  ComplexDataTypeParser(boolean geoSpatialSupportEnabled, ZoneId timestampZone, Field arrowField) {
     this.geoSpatialSupportEnabled = geoSpatialSupportEnabled;
     this.timestampZone = timestampZone;
     this.arrowField = arrowField;
+  }
+
+  public static ComplexDataTypeParser forArrow(
+      boolean geoSpatialSupportEnabled, ZoneId timestampZone, ValueVector vector) {
+    return new ComplexDataTypeParser(geoSpatialSupportEnabled, timestampZone, vector.getField());
   }
 
   private MetadataParser.TimeType timeType(String metadata) {
@@ -638,6 +643,9 @@ public class ComplexDataTypeParser {
         } else if (node.asText().indexOf(':') >= 0) {
           value = TimeConverter.toLocalTime(node.asText());
         } else {
+          if (type.unit == null) {
+            throw new DateTimeException("Unknown TIME unit");
+          }
           long count = Long.parseLong(node.asText());
           switch (type.unit) {
             case SECOND:

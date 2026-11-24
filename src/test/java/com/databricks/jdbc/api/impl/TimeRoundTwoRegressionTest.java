@@ -45,8 +45,7 @@ class TimeRoundTwoRegressionTest {
             "time(6)",
             "ARRAY<TIME(3)>",
             "STRUCT<t:TIMESTAMP_NTZ,clock:TIME(6)>",
-            "TIMESTAMPTIME",
-            "STRUCT<`time`:INT>")) {
+            "STRUCT<`time`:TIME(6)>")) {
       assertTrue(MetadataParser.mayContainTime(metadata), metadata);
     }
     for (String metadata :
@@ -71,7 +70,8 @@ class TimeRoundTwoRegressionTest {
                 for (int iteration = 0; iteration < 1000; iteration++) {
                   assertEquals(
                       "[\"01:02:03.123456\"]",
-                      parser.formatComplexTypeString("[3723123456000]", "ARRAY", "ARRAY<TIME(6)>"));
+                      parser.formatComplexTypeString(
+                          "[\"01:02:03.123456\"]", "ARRAY", "ARRAY<TIME(6)>"));
                 }
                 return null;
               });
@@ -82,7 +82,7 @@ class TimeRoundTwoRegressionTest {
                   assertEquals(
                       "{\"a\":\"01:02:03.123456\"}",
                       parser.formatComplexTypeString(
-                          "{\"a\":3723123456000}", "MAP", "MAP<STRING,TIME(6)>"));
+                          "{\"a\":\"01:02:03.123456\"}", "MAP", "MAP<STRING,TIME(6)>"));
                 }
                 return null;
               });
@@ -178,7 +178,7 @@ class TimeRoundTwoRegressionTest {
         "{\"clock\":\"01:02:03.123456\",\"e\":null}",
         parser
             .parseJsonStringToDbStruct(
-                "{\"clock\":3723123456000,\"e\":null}", "STRUCT<clock:TIME(6),e:STRUCT<>>")
+                "{\"clock\":\"01:02:03.123456\",\"e\":null}", "STRUCT<clock:TIME(6),e:STRUCT<>>")
             .toString());
   }
 
@@ -234,15 +234,17 @@ class TimeRoundTwoRegressionTest {
   @Test
   void mutatedContainersRenderNonTimeValuesWithoutThrowing() throws Exception {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    DatabricksArray array = parser.parseJsonStringToDbArray("[3723123456000]", "ARRAY<TIME(6)>");
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray("[\"01:02:03.123456\"]", "ARRAY<TIME(6)>");
     ((Object[]) array.getArray())[0] = "not a time";
     assertEquals("[\"not a time\"]", array.toString());
     DatabricksStruct struct =
-        parser.parseJsonStringToDbStruct("{\"clock\":3723123456000}", "STRUCT<clock:TIME(6)>");
+        parser.parseJsonStringToDbStruct(
+            "{\"clock\":\"01:02:03.123456\"}", "STRUCT<clock:TIME(6)>");
     struct.getAttributes()[0] = "not a time";
     assertEquals("{\"clock\":\"not a time\"}", struct.toString());
     DatabricksMap<String, Object> map =
-        parser.parseJsonStringToDbMap("{\"a\":3723123456000}", "MAP<STRING,TIME(6)>");
+        parser.parseJsonStringToDbMap("{\"a\":\"01:02:03.123456\"}", "MAP<STRING,TIME(6)>");
     map.put("a", "not a time");
     assertEquals("{\"a\":\"not a time\"}", map.toString());
   }
@@ -251,7 +253,7 @@ class TimeRoundTwoRegressionTest {
   @ValueSource(booleans = {false, true})
   void seaJsonInlineNestedTimeIsExact(boolean complex) throws Exception {
     try (DatabricksResultSet result =
-        inlineResult("ARRAY<TIME(6)>", "[3723123456000,null]", false, complex)) {
+        inlineResult("ARRAY<TIME(6)>", "[\"01:02:03.123456\",null]", false, complex)) {
       assertTrue(result.next());
       assertEquals("[\"01:02:03.123456\",null]", result.getString(1));
       assertEquals("[\"01:02:03.123456\",null]", result.getObject(1).toString());
@@ -259,7 +261,7 @@ class TimeRoundTwoRegressionTest {
     try (DatabricksResultSet result =
         inlineResult(
             "MAP<TIME(6),INT>",
-            "{\"3723000100000\":\"1\",\"3723000200000\":\"2\"}",
+            "{\"01:02:03.0001\":\"1\",\"01:02:03.0002\":\"2\"}",
             false,
             complex)) {
       assertTrue(result.next());
