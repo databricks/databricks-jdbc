@@ -564,7 +564,7 @@ public class DatabricksTypeUtil {
     if (value == null) {
       return null;
     }
-    if (value instanceof java.sql.Timestamp || value instanceof java.sql.Date) {
+    if (value.getClass() == java.sql.Timestamp.class || value.getClass() == java.sql.Date.class) {
       long millis = ((java.util.Date) value).getTime();
       if (millis >= MIN_SAFE_AD_MILLIS && millis <= MAX_SAFE_AD_MILLIS) {
         return value.toString();

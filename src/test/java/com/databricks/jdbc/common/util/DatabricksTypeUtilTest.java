@@ -28,6 +28,7 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -83,6 +84,39 @@ class DatabricksTypeUtilTest {
     } finally {
       TimeZone.setDefault(original);
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("legacyTemporalSubclasses")
+  void testLegacyTemporalSubclassKeepsCustomText(Object value, String expected) {
+    for (ColumnInfoTypeName type : ColumnInfoTypeName.values()) {
+      assertEquals(expected, DatabricksTypeUtil.getParameterValueString(type, value));
+    }
+  }
+
+  static Stream<Arguments> legacyTemporalSubclasses() {
+    Calendar calendar = new GregorianCalendar();
+    calendar.clear();
+    calendar.set(Calendar.ERA, GregorianCalendar.BC);
+    calendar.set(101, Calendar.JANUARY, 2, 3, 4, 5);
+    long millis = calendar.getTimeInMillis();
+    return Stream.of(
+        Arguments.of(
+            new Timestamp(millis) {
+              @Override
+              public String toString() {
+                return "custom timestamp";
+              }
+            },
+            "custom timestamp"),
+        Arguments.of(
+            new Date(millis) {
+              @Override
+              public String toString() {
+                return "custom date";
+              }
+            },
+            "custom date"));
   }
 
   static Stream<Object[]> dataProvider() {

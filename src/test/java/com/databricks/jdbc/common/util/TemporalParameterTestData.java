@@ -21,7 +21,7 @@ public final class TemporalParameterTestData {
   private TemporalParameterTestData() {}
 
   public static Stream<Arguments> values() {
-    return Stream.concat(signedValues(), legacyValues());
+    return Stream.of(signedValues(), legacyValues(), sentinelValues()).flatMap(stream -> stream);
   }
 
   public static Stream<Arguments> bindingMatrix() {
@@ -102,6 +102,14 @@ public final class TemporalParameterTestData {
             "2026-01-02T03:04:05.123456-05:00"),
         timestamp(Instant.parse("-0100-01-02T03:04:05.123456Z"), "-0100-01-02T03:04:05.123456Z"),
         timestamp(null, null));
+  }
+
+  private static Stream<Arguments> sentinelValues() {
+    return Stream.of(
+        timestamp(Timestamp.valueOf("0001-01-01 00:00:00.0"), "0001-01-01 00:00:00.0"),
+        date(Date.valueOf("0001-01-01"), "0001-01-01"),
+        timestamp(Timestamp.valueOf("9999-12-31 23:59:59.999999"), "9999-12-31 23:59:59.999999"),
+        date(Date.valueOf("9999-12-31"), "9999-12-31"));
   }
 
   private static Stream<Arguments> legacyValues() {
