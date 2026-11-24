@@ -5,7 +5,9 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
@@ -39,7 +41,7 @@ class CreateSessionRetryHandlerTest {
       FakeTimer clock = new FakeTimer();
       AtomicInteger attempts = new AtomicInteger();
       CreateSessionRetryHandler handler =
-          new CreateSessionRetryHandler(context(seconds, seconds, null), clock, () -> 1.0);
+          new CreateSessionRetryHandler(context(seconds, seconds, null), clock, () -> 1.0, "wh");
       handler.execute(
           ignored -> {
             attempts.incrementAndGet();
@@ -47,7 +49,7 @@ class CreateSessionRetryHandlerTest {
           },
           request,
           config);
-      assertEquals(seconds, attempts.get());
+      assertEquals(seconds + 1, attempts.get());
       assertEquals(seconds * 1000L, clock.now);
     }
   }
@@ -124,7 +126,7 @@ class CreateSessionRetryHandlerTest {
   @ValueSource(doubles = {0.8, 1.0, 1.1999})
   void fallbackAppliesJitter(double jitter) throws Exception {
     AtomicInteger attempts = new AtomicInteger();
-    new CreateSessionRetryHandler(context(120, 900, null), timer, () -> jitter)
+    new CreateSessionRetryHandler(context(120, 900, null), timer, () -> jitter, "wh")
         .execute(
             ignored -> response(attempts.incrementAndGet() == 1 ? 503 : 200, null),
             request,
@@ -144,7 +146,11 @@ class CreateSessionRetryHandlerTest {
   @Test
   void delayOutsideBudgetReturnsOriginalResponseWithoutWaiting() throws Exception {
     Response last = response(429, "100");
-    assertSame(last, handler(1, 900, null).execute(ignored -> last, request, config));
+    CreateSessionRetryHandler handler = handler(1, 900, null);
+    try (LogCapture logs = new LogCapture()) {
+      assertSame(last, handler.execute(ignored -> last, request, config));
+      assertTrue(logs.getOutput().contains("Retry-After exceeds remaining retry budget"));
+    }
     assertTrue(timer.sleeps.isEmpty());
   }
 
@@ -156,12 +162,12 @@ class CreateSessionRetryHandlerTest {
             ignored -> response(attempts.incrementAndGet() == 1 ? 429 : 200, "2147483647"),
             request,
             config);
-    assertEquals(1, attempts.get());
+    assertEquals(2, attempts.get());
     assertEquals(List.of(2147483647000L), timer.sleeps);
   }
 
   @Test
-  void oversleepDoesNotStartAnotherAttempt() throws Exception {
+  void scheduledRetryStillRunsAfterOversleep() throws Exception {
     timer.oversleep = 5000;
     AtomicInteger attempts = new AtomicInteger();
     handler(2, 2, null)
@@ -172,18 +178,42 @@ class CreateSessionRetryHandlerTest {
             },
             request,
             config);
-    assertEquals(1, attempts.get());
+    assertEquals(2, attempts.get());
   }
 
   @Test
-  void interruptionRestoresFlagAndReturnsOriginalResponse() throws Exception {
+  void interruptionRestoresFlagAndReportsInterruption() throws Exception {
     timer.interruptSleep = true;
     Response last = response(503, "1");
     try {
-      assertSame(last, handler(120, 900, null).execute(ignored -> last, request, config));
+      DatabricksException error =
+          assertThrows(
+              DatabricksException.class,
+              () -> handler(120, 900, null).execute(ignored -> last, request, config));
+      assertEquals("Current thread was interrupted", error.getMessage());
+      assertInstanceOf(InterruptedException.class, error.getCause());
       assertTrue(Thread.currentThread().isInterrupted());
     } finally {
       Thread.interrupted();
+    }
+  }
+
+  @Test
+  void retryDiagnosticsContainOnlySafeRequestDetails() throws Exception {
+    AtomicInteger attempts = new AtomicInteger();
+    request.withHeader("Authorization", "Bearer sensitive-token");
+    CreateSessionRetryHandler handler = handler(5, 5, null);
+    try (LogCapture logs = new LogCapture()) {
+      handler.execute(
+          ignored -> response(attempts.incrementAndGet() == 1 ? 503 : 200, "1"), request, config);
+      String output = logs.getOutput();
+      assertTrue(output.contains("status=503"));
+      assertTrue(output.contains("delayMs=1000"));
+      assertTrue(output.contains("attempt=2"));
+      assertTrue(output.contains("remainingMs=5000"));
+      assertTrue(output.contains("warehouseId=wh"));
+      assertFalse(output.contains("workspace.example.com"));
+      assertFalse(output.contains("sensitive-token"));
     }
   }
 
@@ -232,7 +262,7 @@ class CreateSessionRetryHandlerTest {
   private CreateSessionRetryHandler handler(int rateLimit, int unavailable, String disabledOption)
       throws Exception {
     return new CreateSessionRetryHandler(
-        context(rateLimit, unavailable, disabledOption), timer, () -> 1.0);
+        context(rateLimit, unavailable, disabledOption), timer, () -> 1.0, "wh");
   }
 
   private IDatabricksConnectionContext context(

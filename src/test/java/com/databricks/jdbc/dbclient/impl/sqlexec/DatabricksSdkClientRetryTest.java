@@ -9,13 +9,18 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -32,6 +37,135 @@ import org.mockito.MockedConstruction;
 class DatabricksSdkClientRetryTest {
   private static final String JDBC_URL =
       "jdbc:databricks://workspace.example.com/default;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse;UseThriftClient=0";
+
+  @ParameterizedTest
+  @ValueSource(ints = {429, 503})
+  void exhaustedNonzeroBudgetUsesJdbcErrorSurface(int status) throws Exception {
+    AtomicInteger attempts = new AtomicInteger();
+    DatabricksConfig config = config(status, attempts, Integer.MAX_VALUE);
+    Properties properties = new Properties();
+    properties.setProperty("RateLimitRetryTimeout", "2");
+    properties.setProperty("TemporarilyUnavailableRetryTimeout", "2");
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    try (MockedConstruction<ClientConfigurator> ignored =
+        mockConstruction(
+            ClientConfigurator.class,
+            (configurator, construction) ->
+                when(configurator.getDatabricksConfig()).thenReturn(config))) {
+      DatabricksSdkClient client = new DatabricksSdkClient(context);
+      DatabricksSQLException error =
+          assertThrows(
+              DatabricksSQLException.class,
+              () -> client.createSession(new Warehouse("warehouse"), null, null, null));
+      assertEquals(
+          status == 429 ? DatabricksRateLimitException.class : DatabricksSQLException.class,
+          error.getClass());
+      assertEquals(status == 429 ? "RATE_LIMIT_EXCEEDED" : "CONNECTION_ERROR", error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+      assertTrue(error.getMessage().contains("test request_id=retry-request"));
+      assertTrue(attempts.get() >= 2);
+    } finally {
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {429, 503})
+  void interruptedBackoffKeepsSdkInterruptionError(int status) throws Exception {
+    AtomicInteger attempts = new AtomicInteger();
+    DatabricksConfig config = config(status, attempts, Integer.MAX_VALUE);
+    HttpClient transport = config.getHttpClient();
+    config.setHttpClient(
+        request -> {
+          Response response = transport.execute(request);
+          if (response.getStatusCode() == status) {
+            Thread.currentThread().interrupt();
+          }
+          return response;
+        });
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    try (MockedConstruction<ClientConfigurator> ignored =
+        mockConstruction(
+            ClientConfigurator.class,
+            (configurator, construction) ->
+                when(configurator.getDatabricksConfig()).thenReturn(config))) {
+      DatabricksSdkClient client = new DatabricksSdkClient(context);
+      DatabricksException error =
+          assertThrows(
+              DatabricksException.class,
+              () -> client.createSession(new Warehouse("warehouse"), null, null, null));
+      assertEquals(DatabricksException.class, error.getClass());
+      assertEquals("Current thread was interrupted", error.getMessage());
+      assertInstanceOf(InterruptedException.class, error.getCause());
+      assertTrue(Thread.currentThread().isInterrupted());
+      assertEquals(1, attempts.get());
+    } finally {
+      Thread.interrupted();
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"501", "ConnectException", "IOExceptionAfter503"})
+  void remainingCreateSessionPoliciesMatchSdk(String scenario) throws Exception {
+    List<Exception> errors = new ArrayList<>();
+    List<Integer> counts = new ArrayList<>();
+    for (boolean baseline : new boolean[] {true, false}) {
+      AtomicInteger attempts = new AtomicInteger();
+      DatabricksConfig config = config(501, attempts, Integer.MAX_VALUE, "0");
+      HttpClient transport = config.getHttpClient();
+      config.setHttpClient(
+          request -> {
+            if (request.getUrl().contains("/.well-known/") || "501".equals(scenario)) {
+              return transport.execute(request);
+            }
+            int attempt = attempts.incrementAndGet();
+            if ("ConnectException".equals(scenario)) {
+              throw new ConnectException("test connection failure");
+            }
+            if (attempt == 1) {
+              return new Response(
+                  request,
+                  503,
+                  "Unavailable",
+                  Map.of("Retry-After", List.of("0")),
+                  "{\"error_code\":\"TEMPORARILY_UNAVAILABLE\",\"message\":\"unavailable\"}");
+            }
+            throw new IOException("test transport failure");
+          });
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+      try (MockedConstruction<ClientConfigurator> ignored =
+          mockConstruction(
+              ClientConfigurator.class,
+              (configurator, construction) ->
+                  when(configurator.getDatabricksConfig()).thenReturn(config))) {
+        DatabricksSdkClient client =
+            baseline
+                ? new DatabricksSdkClient(
+                    context, null, new ApiClient.Builder().withDatabricksConfig(config).build())
+                : new DatabricksSdkClient(context);
+        errors.add(
+            assertThrows(
+                Exception.class,
+                () -> client.createSession(new Warehouse("warehouse"), null, null, null)));
+        counts.add(attempts.get());
+      } finally {
+        DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+      }
+    }
+    assertEquals("IOExceptionAfter503".equals(scenario) ? 2 : 4, counts.get(0));
+    assertEquals(counts.get(0), counts.get(1));
+    assertEquals(errors.get(0).getClass(), errors.get(1).getClass());
+    assertEquals(errors.get(0).getMessage(), errors.get(1).getMessage());
+    if (errors.get(0) instanceof DatabricksSQLException) {
+      DatabricksSQLException baseline = (DatabricksSQLException) errors.get(0);
+      DatabricksSQLException actual = (DatabricksSQLException) errors.get(1);
+      assertEquals(baseline.getSQLState(), actual.getSQLState());
+      assertEquals(baseline.getErrorCode(), actual.getErrorCode());
+    }
+  }
 
   @ParameterizedTest
   @ValueSource(ints = {429, 503})

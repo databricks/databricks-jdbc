@@ -84,9 +84,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     final CreateSessionRetryHandler retryHandler;
 
     CreateSessionHttpRequest(
-        String path, String body, IDatabricksConnectionContext connectionContext) {
+        String path,
+        String body,
+        IDatabricksConnectionContext connectionContext,
+        String warehouseId) {
       super(Request.POST, path, body);
-      retryHandler = new CreateSessionRetryHandler(connectionContext);
+      retryHandler = new CreateSessionRetryHandler(connectionContext, warehouseId);
     }
   }
 
@@ -219,7 +222,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean realtimeSession;
     try {
       CreateSessionHttpRequest req =
-          new CreateSessionHttpRequest(createPath, apiClient.serialize(request), connectionContext);
+          new CreateSessionHttpRequest(
+              createPath,
+              apiClient.serialize(request),
+              connectionContext,
+              ((Warehouse) warehouse).getWarehouseId());
       req.withHeaders(getHeaders("createSession"));
       createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;

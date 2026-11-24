@@ -5,11 +5,13 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.core.utils.Timer;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.DoubleSupplier;
 import org.apache.http.HttpStatus;
@@ -33,19 +35,24 @@ final class CreateSessionRetryHandler {
   private final IDatabricksConnectionContext context;
   private final Timer timer;
   private final DoubleSupplier jitter;
+  private final String warehouseId;
   private RetryBudget rateLimitBudget;
   private RetryBudget unavailableBudget;
   private long attempts;
 
-  CreateSessionRetryHandler(IDatabricksConnectionContext context) {
-    this(context, TIMER, () -> ThreadLocalRandom.current().nextDouble(0.8, 1.2));
+  CreateSessionRetryHandler(IDatabricksConnectionContext context, String warehouseId) {
+    this(context, TIMER, () -> ThreadLocalRandom.current().nextDouble(0.8, 1.2), warehouseId);
   }
 
   CreateSessionRetryHandler(
-      IDatabricksConnectionContext context, Timer timer, DoubleSupplier jitter) {
+      IDatabricksConnectionContext context,
+      Timer timer,
+      DoubleSupplier jitter,
+      String warehouseId) {
     this.context = context;
     this.timer = timer;
     this.jitter = jitter;
+    this.warehouseId = warehouseId;
   }
 
   Response execute(HttpClient transport, Request request, DatabricksConfig config)
@@ -72,44 +79,56 @@ final class CreateSessionRetryHandler {
       } else {
         return response;
       }
+      Optional<Long> retryAfter =
+          ApiClient.getBackoffFromRetryAfterHeader(response).filter(value -> value > 0);
       long delay =
-          ApiClient.getBackoffFromRetryAfterHeader(response)
-              .filter(value -> value > 0)
-              .orElseGet(
-                  () -> (long) ((1000L << Math.min(budget.retries, 5)) * jitter.getAsDouble()));
-      if (delay > budget.timeoutMillis - (timer.getCurrentTime() - budget.started)) {
-        warnExhausted(budget, status);
+          retryAfter.orElseGet(
+              () -> (long) ((1000L << Math.min(budget.retries, 5)) * jitter.getAsDouble()));
+      long elapsed = timer.getCurrentTime() - budget.started;
+      long remaining = budget.timeoutMillis - elapsed;
+      if (delay > remaining) {
+        LOGGER.warn(
+            "CreateSession {}: attempts={}, elapsedMs={}, budgetMs={}, lastStatus={}, delayMs={}, remainingMs={}, warehouseId={}",
+            retryAfter.isPresent()
+                ? "Retry-After exceeds remaining retry budget"
+                : "retry budget exhausted",
+            attempts,
+            elapsed,
+            budget.timeoutMillis,
+            status,
+            delay,
+            remaining,
+            warehouseId);
         return response;
+      }
+      LOGGER.debug(
+          "Retrying CreateSession: status={}, delayMs={}, attempt={}, remainingMs={}, warehouseId={}",
+          status,
+          delay,
+          attempts + 1,
+          remaining,
+          warehouseId);
+      if (response.getBody() != null) {
+        try {
+          response.getBody().close();
+        } catch (IOException exception) {
+          LOGGER.debug(
+              "Unable to close retried CreateSession response: {}",
+              exception.getClass().getSimpleName());
+        }
       }
       try {
         timer.sleep(delay);
       } catch (InterruptedException exception) {
         Thread.currentThread().interrupt();
-        return response;
-      }
-      if (timer.getCurrentTime() - budget.started >= budget.timeoutMillis) {
-        warnExhausted(budget, status);
-        return response;
+        LOGGER.debug(
+            "Current thread was interrupted during CreateSession retry: warehouseId={}",
+            warehouseId);
+        throw new DatabricksException("Current thread was interrupted", exception);
       }
       budget.retries = Math.min(budget.retries + 1, 5);
-      if (response.getBody() != null) {
-        try {
-          response.getBody().close();
-        } catch (IOException exception) {
-          LOGGER.debug("Unable to close retried CreateSession response", exception);
-        }
-      }
       request.withHeaders(config.authenticate());
     }
-  }
-
-  private void warnExhausted(RetryBudget budget, int status) {
-    LOGGER.warn(
-        "CreateSession retry budget exhausted: attempts={}, elapsedMs={}, budgetMs={}, lastStatus={}",
-        attempts,
-        timer.getCurrentTime() - budget.started,
-        budget.timeoutMillis,
-        status);
   }
 
   private static final class RetryBudget {
