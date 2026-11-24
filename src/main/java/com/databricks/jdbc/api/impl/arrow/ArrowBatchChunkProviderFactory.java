@@ -44,7 +44,6 @@ final class ArrowBatchChunkProviderFactory {
     }
     validatePageShape(resultData);
     if (!hasMorePages(resultData)
-        && Long.valueOf(0L).equals(resultManifest.getTotalRowCount())
         && (resultData.getRowCount() == null || Long.valueOf(0L).equals(resultData.getRowCount()))
         && (resultData.getArrowBatches() == null || resultData.getArrowBatches().isEmpty())) {
       return new EmptyChunkProvider();
@@ -60,10 +59,7 @@ final class ArrowBatchChunkProviderFactory {
   static ArrowResultChunk decodePage(ResultData page, ResultManifest resultManifest)
       throws DatabricksSQLException {
     validatePageShape(page);
-    boolean isEmptySinglePage =
-        page.getNextChunkIndex() == null
-            && Long.valueOf(0L).equals(resultManifest.getTotalRowCount());
-    List<ArrowBatch> arrowBatches = normalizeArrowBatches(page, resultManifest, isEmptySinglePage);
+    List<ArrowBatch> arrowBatches = normalizeArrowBatches(page);
     long pageRows = validateAndCountRows(arrowBatches, page);
     try {
       ByteArrayInputStream stream = toArrowStream(arrowBatches, resultManifest);
@@ -142,12 +138,8 @@ final class ArrowBatchChunkProviderFactory {
     return decompressedBatches;
   }
 
-  /**
-   * Returns the page's batches, treating omitted batches as empty only when the page (or, for a
-   * single-page result, the manifest) reports zero rows.
-   */
-  private static List<ArrowBatch> normalizeArrowBatches(
-      ResultData resultData, ResultManifest resultManifest, boolean isSinglePage)
+  /** Returns the page's batches, treating a terminal page with no rows as an empty result. */
+  private static List<ArrowBatch> normalizeArrowBatches(ResultData resultData)
       throws DatabricksParsingException {
     List<ArrowBatch> arrowBatches = resultData.getArrowBatches();
     if (arrowBatches != null) {
@@ -156,9 +148,7 @@ final class ArrowBatchChunkProviderFactory {
 
     Long resultRowCount = resultData.getRowCount();
     if (Long.valueOf(0L).equals(resultRowCount)
-        || (isSinglePage
-            && resultRowCount == null
-            && Long.valueOf(0L).equals(resultManifest.getTotalRowCount()))) {
+        || (resultData.getNextChunkIndex() == null && resultRowCount == null)) {
       return Collections.emptyList();
     }
     throw parsingError("ARROW_BATCH response is missing arrow_batches");

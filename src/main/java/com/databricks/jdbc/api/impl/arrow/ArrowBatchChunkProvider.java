@@ -16,7 +16,12 @@ final class ArrowBatchChunkProvider extends PagedArrowChunkProvider {
       StatementId statementId,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    super(firstPage, statementId, session, decoder(resultManifest), WORKER_NAME);
+    super(
+        firstPage,
+        statementId,
+        session,
+        page -> ArrowBatchChunkProviderFactory.decodePage(page, resultManifest),
+        WORKER_NAME);
   }
 
   ArrowBatchChunkProvider(
@@ -31,36 +36,9 @@ final class ArrowBatchChunkProvider extends PagedArrowChunkProvider {
         firstPage,
         statementId,
         session,
-        decoder(resultManifest),
+        page -> ArrowBatchChunkProviderFactory.decodePage(page, resultManifest),
         maxChunksInMemory,
         chunkReadyTimeoutSeconds,
         WORKER_NAME);
-  }
-
-  private static PageDecoder decoder(ResultManifest resultManifest) {
-    return new PageDecoder() {
-      private long decodedRows;
-
-      @Override
-      public ArrowResultChunk decode(ResultData page) throws DatabricksSQLException {
-        ArrowResultChunk chunk = ArrowBatchChunkProviderFactory.decodePage(page, resultManifest);
-        try {
-          decodedRows = Math.addExact(decodedRows, chunk.getNumRows());
-        } catch (ArithmeticException e) {
-          chunk.releaseChunk();
-          throw ArrowBatchChunkProviderFactory.parsingError("Arrow batch row count overflowed");
-        }
-        if (page.getNextChunkIndex() == null
-            && resultManifest.getTotalRowCount() != null
-            && resultManifest.getTotalRowCount() != decodedRows) {
-          chunk.releaseChunk();
-          throw ArrowBatchChunkProviderFactory.parsingError(
-              String.format(
-                  "Arrow batch row_count total %d does not match manifest total_row_count %d",
-                  decodedRows, resultManifest.getTotalRowCount()));
-        }
-        return chunk;
-      }
-    };
   }
 }

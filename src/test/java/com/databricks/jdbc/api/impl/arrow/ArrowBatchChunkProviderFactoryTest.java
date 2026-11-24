@@ -55,7 +55,7 @@ class ArrowBatchChunkProviderFactoryTest {
   void readsSingleNativeArrowBatch() throws Exception {
     ChunkProvider provider =
         ArrowBatchChunkProviderFactory.create(
-            resultData(Collections.singletonList(arrowBatch(1, 2)), 2), manifest(2));
+            resultData(Collections.singletonList(arrowBatch(1, 2)), 2), manifest());
 
     assertInstanceOf(ArrowBatchChunkProvider.class, provider);
     assertEquals(Arrays.asList(1, 2), readValues(provider));
@@ -65,7 +65,7 @@ class ArrowBatchChunkProviderFactoryTest {
   void readsOrderedNativeArrowBatches() throws Exception {
     List<ArrowBatch> batches = Arrays.asList(arrowBatch(1, 2), arrowBatch(3), arrowBatch(4, 5));
     ChunkProvider provider =
-        ArrowBatchChunkProviderFactory.create(resultData(batches, 5), manifest(5));
+        ArrowBatchChunkProviderFactory.create(resultData(batches, 5), manifest());
 
     assertEquals(Arrays.asList(1, 2, 3, 4, 5), readValues(provider));
   }
@@ -76,7 +76,7 @@ class ArrowBatchChunkProviderFactoryTest {
     ChunkProvider provider =
         ArrowBatchChunkProviderFactory.create(
             resultData(Collections.singletonList(compress(batch)), 2),
-            manifest(2).setResultCompression(CompressionCodec.LZ4_FRAME));
+            manifest().setResultCompression(CompressionCodec.LZ4_FRAME));
 
     assertEquals(Arrays.asList(1, 2), readValues(provider));
   }
@@ -84,7 +84,7 @@ class ArrowBatchChunkProviderFactoryTest {
   @Test
   void acceptsExplicitZeroBatchResult() throws Exception {
     ChunkProvider provider =
-        ArrowBatchChunkProviderFactory.create(resultData(Collections.emptyList(), 0), manifest(0));
+        ArrowBatchChunkProviderFactory.create(resultData(Collections.emptyList(), 0), manifest());
     try {
       assertEquals(0, provider.getRowCount());
       assertFalse(provider.hasNextChunk());
@@ -96,7 +96,7 @@ class ArrowBatchChunkProviderFactoryTest {
   @Test
   void acceptsOmittedZeroBatchResult() throws Exception {
     for (ResultData resultData : Arrays.asList(new ResultData(), resultData(null, 0))) {
-      ChunkProvider provider = ArrowBatchChunkProviderFactory.create(resultData, manifest(0));
+      ChunkProvider provider = ArrowBatchChunkProviderFactory.create(resultData, manifest());
       try {
         assertEquals(0, provider.getRowCount());
         assertFalse(provider.hasNextChunk());
@@ -110,24 +110,24 @@ class ArrowBatchChunkProviderFactoryTest {
   void rejectsMissingBatchFields() {
     assertThrows(
         DatabricksParsingException.class,
-        () -> ArrowBatchChunkProviderFactory.create(null, manifest(0)));
+        () -> ArrowBatchChunkProviderFactory.create(null, manifest()));
     assertThrows(
         DatabricksParsingException.class,
         () ->
             ArrowBatchChunkProviderFactory.create(
                 resultData(Collections.singletonList(new ArrowBatch().setRowCount(1L)), 1),
-                manifest(1)));
+                manifest()));
     assertThrows(
         DatabricksParsingException.class,
         () ->
             ArrowBatchChunkProviderFactory.create(
                 resultData(Collections.singletonList(new ArrowBatch().setBatch(new byte[] {1})), 1),
-                manifest(1)));
+                manifest()));
   }
 
   @Test
   void rejectsMissingRawArrowSchema() throws Exception {
-    ResultManifest manifest = manifest(1).setArrowSchema(null);
+    ResultManifest manifest = manifest().setArrowSchema(null);
 
     assertThrows(
         DatabricksParsingException.class,
@@ -142,10 +142,16 @@ class ArrowBatchChunkProviderFactoryTest {
 
     assertThrows(
         DatabricksParsingException.class,
-        () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 2), manifest(1)));
-    assertThrows(
-        DatabricksParsingException.class,
-        () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 1), manifest(2)));
+        () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 2), manifest()));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            resultData(batches, 1), manifest().setTotalRowCount(2L));
+    try {
+      assertEquals(Collections.singletonList(7), readValues(provider));
+    } finally {
+      provider.close();
+    }
   }
 
   @Test
@@ -158,7 +164,7 @@ class ArrowBatchChunkProviderFactoryTest {
             ArrowBatchChunkProviderFactory.create(
                 resultData(batches, 1)
                     .setExternalLinks(Collections.singletonList(new ExternalLink())),
-                manifest(1)));
+                manifest()));
   }
 
   @Test
@@ -286,8 +292,7 @@ class ArrowBatchChunkProviderFactoryTest {
     try {
       assertTrue(provider.next());
       DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
-      assertEquals(
-          DatabricksDriverErrorCode.CHUNK_READY_ERROR.toString(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CHUNK_READY_ERROR.toString(), error.getSQLState());
       assertInstanceOf(DatabricksParsingException.class, error.getCause());
     } finally {
       provider.close();
@@ -314,7 +319,7 @@ class ArrowBatchChunkProviderFactoryTest {
     DatabricksParsingException error =
         assertThrows(
             DatabricksParsingException.class,
-            () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 1), manifest(1)));
+            () -> ArrowBatchChunkProviderFactory.create(resultData(batches, 1), manifest()));
 
     assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
     assertInstanceOf(Exception.class, error.getCause());
@@ -324,8 +329,7 @@ class ArrowBatchChunkProviderFactoryTest {
   void wrapsCheckedDecompressionFailure() {
     List<ArrowBatch> batches =
         Collections.singletonList(new ArrowBatch().setBatch(new byte[] {1, 2, 3}).setRowCount(1L));
-    ResultManifest compressedManifest =
-        manifest(1).setResultCompression(CompressionCodec.LZ4_FRAME);
+    ResultManifest compressedManifest = manifest().setResultCompression(CompressionCodec.LZ4_FRAME);
 
     DatabricksParsingException error =
         assertThrows(
@@ -392,19 +396,17 @@ class ArrowBatchChunkProviderFactoryTest {
 
   /** APC manifests carry no chunk or row totals; pages are discovered by next_chunk_index. */
   private static ResultManifest pagedManifest() {
-    return manifest(0).setTotalChunkCount(null).setTotalRowCount(null);
+    return manifest();
   }
 
-  private static ResultManifest manifest(long rowCount) {
+  private static ResultManifest manifest() {
     return new ResultManifest()
         .setFormat(Format.ARROW_BATCH)
         .setSchema(
             new ResultSchema()
                 .setColumnCount(1L)
                 .setColumns(Collections.singletonList(intColumn())))
-        .setArrowSchema(arrowSchema())
-        .setTotalChunkCount(1L)
-        .setTotalRowCount(rowCount);
+        .setArrowSchema(arrowSchema());
   }
 
   private static byte[] arrowSchema() {

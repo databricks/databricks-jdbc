@@ -54,8 +54,7 @@ class ArrowBatchChunkProviderPrefetchTest {
   void timesOutConsumerAndStopsBlockedPrefetchWorkerOnClose() throws Exception {
     CountDownLatch fetchStarted = new CountDownLatch(1);
     CountDownLatch releaseFetch = new CountDownLatch(1);
-    ArrowBatchChunkProvider provider =
-        provider(blockingClient(fetchStarted, releaseFetch), 2, 1);
+    ArrowBatchChunkProvider provider = provider(blockingClient(fetchStarted, releaseFetch), 2, 1);
 
     try {
       assertTrue(fetchStarted.await(5, TimeUnit.SECONDS), "prefetch did not start");
@@ -78,8 +77,7 @@ class ArrowBatchChunkProviderPrefetchTest {
   void interruptedConsumerRestoresInterruptAndCloseStopsWorker() throws Exception {
     CountDownLatch fetchStarted = new CountDownLatch(1);
     CountDownLatch releaseFetch = new CountDownLatch(1);
-    ArrowBatchChunkProvider provider =
-        provider(blockingClient(fetchStarted, releaseFetch), 2, 0);
+    ArrowBatchChunkProvider provider = provider(blockingClient(fetchStarted, releaseFetch), 2, 0);
     AtomicReference<Throwable> consumerFailure = new AtomicReference<>();
     AtomicBoolean interruptRestored = new AtomicBoolean();
 
