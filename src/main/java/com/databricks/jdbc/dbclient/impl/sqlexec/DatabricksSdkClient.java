@@ -232,7 +232,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 HttpStatus.SC_TOO_MANY_REQUESTS,
                 ((Warehouse) warehouse).getWarehouseId(),
                 e.getMessage());
-        LOGGER.warn(errorMessage, e);
+        LOGGER.debug(errorMessage, e);
         throw new DatabricksRateLimitException(errorMessage, e, HttpStatus.SC_TOO_MANY_REQUESTS);
       }
       String errorReason = buildErrorMessage(e);

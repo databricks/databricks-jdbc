@@ -20,6 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -38,6 +42,24 @@ class DatabricksSdkClientRetryTest {
     properties.setProperty("RateLimitRetryTimeout", "0");
     properties.setProperty("TemporarilyUnavailableRetryTimeout", "0");
     IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    AtomicInteger warnings = new AtomicInteger();
+    Logger logger = Logger.getLogger("com.databricks.jdbc.dbclient.impl.sqlexec");
+    Handler capture =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            if (record.getLevel() == Level.WARNING) {
+              warnings.incrementAndGet();
+            }
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    logger.addHandler(capture);
     try (MockedConstruction<ClientConfigurator> ignored =
         mockConstruction(
             ClientConfigurator.class,
@@ -55,7 +77,9 @@ class DatabricksSdkClientRetryTest {
       assertEquals("TEMPORARILY_UNAVAILABLE", cause.getErrorCode());
       assertTrue(cause.getMessage().contains("test request_id=retry-request"));
       assertEquals(1, attempts.get());
+      assertEquals(1, warnings.get());
     } finally {
+      logger.removeHandler(capture);
       DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
     }
   }
