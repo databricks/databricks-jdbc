@@ -46,13 +46,7 @@ class TimeRoundThreeRegressionTest {
         new ComplexDataTypeParser()
             .parseJsonStringToDbStruct("{\"t\":\"01:02:03.123456\"}", "STRUCT<t:TIME(6)>");
     for (Class<?> target :
-        Arrays.asList(
-            LocalDate.class,
-            LocalDateTime.class,
-            Instant.class,
-            OffsetDateTime.class,
-            String.class,
-            java.sql.Time.class)) {
+        Arrays.asList(LocalDate.class, LocalDateTime.class, Instant.class, OffsetDateTime.class)) {
       Map<String, Class<?>> mapping = Collections.singletonMap("TIME", target);
       assertNull(JavaTimeConverter.findJavaTimeMapping(mapping, "TIME"));
       assertNull(JavaTimeConverter.getJavaTimeMapping(mapping, "TIME(6)"));

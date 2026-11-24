@@ -689,6 +689,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (resultSetType == ResultSetType.SEA_INLINE) {
       return getStringForSeaInline(columnIndex);
     }
+    if (resultSetType == ResultSetType.UNASSIGNED) {
+      checkIfClosed();
+      Object object = getObjectInternal(columnIndex);
+      if (object == null) {
+        return null;
+      }
+      if (resultSetMetaData.getColumnType(columnIndex) == Types.TIME) {
+        object = executionResult.getTemporalObject(columnIndex - 1);
+      }
+      return resultSetMetaData.getColumnConverter(columnIndex).toString(object);
+    }
     return getConvertedObject(columnIndex, ObjectConverter::toString, () -> null);
   }
 
@@ -1648,7 +1659,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeText = resultSetMetaData.getColumnTypeName(columnIndex);
     Class<?> returnObjectType = map.get(columnTypeText);
-    if (columnSqlType == Types.TIME) {
+    if (columnSqlType == Types.TIME && JavaTimeConverter.isJavaTimeType(returnObjectType)) {
       return null;
     }
     if (returnObjectType != null) {
