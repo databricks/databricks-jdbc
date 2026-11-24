@@ -11,6 +11,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,10 +25,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
+import org.apache.arrow.vector.complex.writer.VarCharWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -728,8 +731,8 @@ public class ComplexDataTypeParserTest {
       writer.startMap();
       for (String[] entry : entries) {
         writer.startEntry();
-        writer.key().varChar().writeVarChar(entry[0]);
-        writer.value().varChar().writeVarChar(entry[1]);
+        writeVarChar(allocator, writer.key().varChar(), entry[0]);
+        writeVarChar(allocator, writer.value().varChar(), entry[1]);
         writer.endEntry();
       }
       writer.endMap();
@@ -746,6 +749,15 @@ public class ComplexDataTypeParserTest {
       for (String[] entry : entries) {
         assertEquals(entry[1], parsed.get(entry[0]).asText());
       }
+    }
+  }
+
+  // writeVarChar(String) needs Arrow 14+; the jdk-8 branch uses Arrow 13.
+  private static void writeVarChar(BufferAllocator allocator, VarCharWriter writer, String text) {
+    byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    try (ArrowBuf buffer = allocator.buffer(bytes.length)) {
+      buffer.setBytes(0, bytes);
+      writer.writeVarChar(0, bytes.length, buffer);
     }
   }
 
