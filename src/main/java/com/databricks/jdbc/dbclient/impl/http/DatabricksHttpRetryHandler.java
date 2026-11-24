@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.HttpStatus;
@@ -27,6 +28,9 @@ public class DatabricksHttpRetryHandler
 
   static final String RETRY_INTERVAL_KEY = "retryInterval";
   public static final String OPEN_SESSION_REQUEST_KEY = "databricks.thrift.openSession";
+  private static final String OPEN_SESSION_RETRY_START_KEY = "openSessionRetryStart";
+  private static final String OPEN_SESSION_RETRY_COUNT_KEY = "openSessionRetryCount";
+  private static final String OPEN_SESSION_RETRY_DELAY_KEY = "openSessionRetryDelay";
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
@@ -35,6 +39,7 @@ public class DatabricksHttpRetryHandler
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
+  private static final int MAX_OPEN_SESSION_BACKOFF_INTERVAL = 32 * 1000;
 
   private final IDatabricksConnectionContext connectionContext;
 
@@ -75,15 +80,19 @@ public class DatabricksHttpRetryHandler
       return;
     }
 
-    // Extract the retry interval from the response. Relevant for 503 and 429 status codes
-    int retryInterval = -1;
-    if (httpResponse.containsHeader(RETRY_AFTER_HEADER)) {
-      retryInterval = Integer.parseInt(httpResponse.getFirstHeader(RETRY_AFTER_HEADER).getValue());
+    if (isOpenSessionRequest(httpContext) && isOpenSessionRetryStatus(statusCode)) {
+      if (!prepareOpenSessionRetry(httpResponse, httpContext, statusCode)) {
+        return;
+      }
+    } else {
+      int retryInterval = -1;
+      if (httpResponse.containsHeader(RETRY_AFTER_HEADER)) {
+        retryInterval =
+            Integer.parseInt(httpResponse.getFirstHeader(RETRY_AFTER_HEADER).getValue());
+      }
+      httpContext.setAttribute(RETRY_INTERVAL_KEY, retryInterval);
+      initializeRetryAccumulatedTimeIfNotExist(httpContext);
     }
-
-    // Set the context state
-    httpContext.setAttribute(RETRY_INTERVAL_KEY, retryInterval);
-    initializeRetryAccumulatedTimeIfNotExist(httpContext);
 
     // Throw an exception to trigger the retry mechanism
     String errorReason;
@@ -135,6 +144,15 @@ public class DatabricksHttpRetryHandler
       return false;
     }
 
+    if (isOpenSessionRequest(context) && isOpenSessionRetryStatus(statusCode)) {
+      Long delayMillis = (Long) context.getAttribute(OPEN_SESSION_RETRY_DELAY_KEY);
+      if (delayMillis == null || delayMillis <= 0) {
+        return false;
+      }
+      doSleepForDelay(delayMillis);
+      return true;
+    }
+
     // check if retry interval is valid for 503 and 429
     int retryInterval = (int) context.getAttribute(RETRY_INTERVAL_KEY);
 
@@ -154,6 +172,9 @@ public class DatabricksHttpRetryHandler
     // If no retry-after header (retryInterval == -1), calculate delay using exponential backoff
     if (retryInterval == -1) {
       retryInterval = (int) (calculateExponentialBackoff(executionCount) / 1000);
+      if (retryInterval <= 0) {
+        return false;
+      }
     }
 
     long tempUnavailableAccumulatedTime =
@@ -245,8 +266,72 @@ public class DatabricksHttpRetryHandler
 
   static long calculateExponentialBackoff(int executionCount) {
     return Math.min(
-        MIN_BACKOFF_INTERVAL * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
+        MIN_BACKOFF_INTERVAL
+            * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, Math.max(0, Math.min(executionCount, 4))),
         MAX_RETRY_INTERVAL);
+  }
+
+  static long calculateOpenSessionBackoff(int executionCount) {
+    int exponent = Math.max(0, Math.min(executionCount, 6) - 1);
+    long interval =
+        Math.min(MIN_BACKOFF_INTERVAL * (1L << exponent), MAX_OPEN_SESSION_BACKOFF_INTERVAL);
+    return (long) (interval * ThreadLocalRandom.current().nextDouble(0.8, 1.2));
+  }
+
+  private boolean prepareOpenSessionRetry(
+      HttpResponse response, HttpContext context, int statusCode) {
+    if (!isRequestMethodRetryable(
+        HttpClientContext.adapt(context).getRequest().getRequestLine().getMethod())) {
+      return false;
+    }
+    Long started = (Long) context.getAttribute(OPEN_SESSION_RETRY_START_KEY);
+    if (started == null) {
+      started = currentTimeMillis();
+      context.setAttribute(OPEN_SESSION_RETRY_START_KEY, started);
+    }
+    Integer retryCount = (Integer) context.getAttribute(OPEN_SESSION_RETRY_COUNT_KEY);
+    int nextRetryCount = retryCount == null ? 1 : Math.min(retryCount + 1, 6);
+    boolean customCode = connectionContext.getApiRetriableHttpCodes().contains(statusCode);
+    int retryAfter = -1;
+    if (response.containsHeader(RETRY_AFTER_HEADER)) {
+      try {
+        retryAfter = Integer.parseInt(response.getFirstHeader(RETRY_AFTER_HEADER).getValue());
+      } catch (NumberFormatException exception) {
+        retryAfter = -1;
+      }
+    }
+    long delayMillis =
+        retryAfter > 0
+            ? retryAfter * 1000L
+            : customCode
+                ? calculateExponentialBackoff(nextRetryCount)
+                : calculateOpenSessionBackoff(nextRetryCount);
+    int timeoutSeconds =
+        customCode
+            ? connectionContext.getApiRetryTimeout()
+            : statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
+                ? connectionContext.getRateLimitRetryTimeout()
+                : connectionContext.getTemporarilyUnavailableRetryTimeout();
+    long elapsedMillis = currentTimeMillis() - started;
+    if (delayMillis <= 0 || delayMillis > timeoutSeconds * 1000L - elapsedMillis) {
+      return false;
+    }
+    context.setAttribute(OPEN_SESSION_RETRY_COUNT_KEY, nextRetryCount);
+    context.setAttribute(OPEN_SESSION_RETRY_DELAY_KEY, delayMillis);
+    return true;
+  }
+
+  @VisibleForTesting
+  protected long currentTimeMillis() {
+    return System.nanoTime() / 1_000_000;
+  }
+
+  private static boolean isOpenSessionRetryStatus(int statusCode) {
+    return statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
+        || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
+        || statusCode == HttpStatus.SC_BAD_GATEWAY
+        || statusCode == HttpStatus.SC_GATEWAY_TIMEOUT
+        || statusCode == HttpStatus.SC_REQUEST_TIMEOUT;
   }
 
   static int getErrorCodeFromException(IOException exception) {

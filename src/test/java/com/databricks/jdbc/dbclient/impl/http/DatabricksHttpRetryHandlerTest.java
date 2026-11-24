@@ -42,6 +42,7 @@ public class DatabricksHttpRetryHandlerTest {
   private HttpClientContext httpContext;
   private DatabricksHttpRetryHandler retryHandler;
   private List<Long> sleepDurations;
+  private long currentTimeMillis;
 
   private class TestDatabricksHttpRetryHandler extends DatabricksHttpRetryHandler {
     TestDatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
@@ -51,6 +52,12 @@ public class DatabricksHttpRetryHandlerTest {
     @Override
     protected void doSleepForDelay(long delayMillis) {
       sleepDurations.add(delayMillis);
+      currentTimeMillis += delayMillis;
+    }
+
+    @Override
+    protected long currentTimeMillis() {
+      return currentTimeMillis;
     }
   }
 
@@ -223,6 +230,12 @@ public class DatabricksHttpRetryHandlerTest {
     assertEquals(10000L, delay); // Should be capped at MAX_RETRY_INTERVAL (10 seconds)
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {31, 53, 54, 55, 63, 100, Integer.MAX_VALUE})
+  void exponentialBackoffCannotOverflow(int executionCount) {
+    assertEquals(10000L, DatabricksHttpRetryHandler.calculateExponentialBackoff(executionCount));
+  }
+
   @Test
   void testRetryAfterHeaderPrecedence() {
     // For 503/429, Retry-After header should take precedence over exponential backoff
@@ -304,9 +317,10 @@ public class DatabricksHttpRetryHandlerTest {
             () -> retryHandler.process(createResponse(statusCode), httpContext));
 
     assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
-    assertEquals(List.of(2000L), sleepDurations);
+    assertEquals(1, sleepDurations.size());
+    assertTrue(sleepDurations.get(0) >= 800 && sleepDurations.get(0) < 1200);
     retryHandler.process(createResponse(200), httpContext);
-    assertEquals(List.of(2000L), sleepDurations);
+    assertEquals(1, sleepDurations.size());
   }
 
   @ParameterizedTest
@@ -335,15 +349,19 @@ public class DatabricksHttpRetryHandlerTest {
     configureOpenSession();
     lenient().when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(6);
     lenient().when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(6);
-    DatabricksRetryHandlerException exception =
-        assertThrows(
-            DatabricksRetryHandlerException.class,
-            () -> retryHandler.process(createResponse(statusCode), httpContext));
-
-    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
-    assertTrue(retryHandler.retryRequest(exception, 2, httpContext));
-    assertFalse(retryHandler.retryRequest(exception, 3, httpContext));
-    assertEquals(List.of(2000L, 4000L), sleepDurations);
+    for (int executionCount = 1; executionCount <= 5; executionCount++) {
+      try {
+        retryHandler.process(createResponse(statusCode), httpContext);
+        assertTrue(currentTimeMillis <= 6000);
+        assertTrue(sleepDurations.size() >= 2 && sleepDurations.size() <= 3);
+        return;
+      } catch (DatabricksRetryHandlerException exception) {
+        assertTrue(retryHandler.retryRequest(exception, executionCount, httpContext));
+      } catch (IOException exception) {
+        fail(exception);
+      }
+    }
+    fail("OpenSession retry budget did not exhaust");
   }
 
   @ParameterizedTest
@@ -368,14 +386,18 @@ public class DatabricksHttpRetryHandlerTest {
     when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(6);
     int executionCount = 1;
     for (int statusCode : new int[] {503, 502, 504}) {
+      if (executionCount == 3) {
+        assertDoesNotThrow(
+            () -> retryHandler.process(createResponse(statusCode, "3"), httpContext));
+        break;
+      }
       DatabricksRetryHandlerException exception =
           assertThrows(
               DatabricksRetryHandlerException.class,
-              () -> retryHandler.process(createResponse(statusCode), httpContext));
-      assertEquals(
-          executionCount < 3, retryHandler.retryRequest(exception, executionCount++, httpContext));
+              () -> retryHandler.process(createResponse(statusCode, "3"), httpContext));
+      assertTrue(retryHandler.retryRequest(exception, executionCount++, httpContext));
     }
-    assertEquals(List.of(2000L, 4000L), sleepDurations);
+    assertEquals(List.of(3000L, 3000L), sleepDurations);
   }
 
   private void configureOpenSession() {
@@ -401,7 +423,7 @@ public class DatabricksHttpRetryHandlerTest {
     assertEquals(List.of(3000L), sleepDurations);
     lenient().when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(0);
     lenient().when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(0);
-    assertFalse(retryHandler.retryRequest(exception, 2, httpContext));
+    assertDoesNotThrow(() -> retryHandler.process(response, httpContext));
     assertEquals(List.of(3000L), sleepDurations);
   }
 
@@ -418,8 +440,48 @@ public class DatabricksHttpRetryHandlerTest {
             DatabricksRetryHandlerException.class,
             () -> retryHandler.process(createResponse(502), httpContext));
     assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
-    assertFalse(retryHandler.retryRequest(exception, 2, httpContext));
+    assertDoesNotThrow(() -> retryHandler.process(createResponse(502), httpContext));
     assertEquals(List.of(2000L), sleepDurations);
+  }
+
+  @Test
+  void openSessionCountsResponseTimeAgainstBudget() {
+    configureOpenSession();
+    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(6);
+    DatabricksRetryHandlerException exception =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () -> retryHandler.process(createResponse(504, "3"), httpContext));
+    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+    currentTimeMillis += 4000;
+    assertDoesNotThrow(() -> retryHandler.process(createResponse(504, "1"), httpContext));
+    assertEquals(List.of(3000L), sleepDurations);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2, 3, 5, 6, 54, Integer.MAX_VALUE})
+  void openSessionBackoffIsJitteredAndCapped(int executionCount) {
+    long interval = 1000L << Math.max(0, Math.min(executionCount, 6) - 1);
+    java.util.Set<Long> delays = new java.util.HashSet<>();
+    for (int sample = 0; sample < 64; sample++) {
+      long delay = DatabricksHttpRetryHandler.calculateOpenSessionBackoff(executionCount);
+      assertTrue(delay >= interval * 0.8 && delay < interval * 1.2);
+      delays.add(delay);
+    }
+    assertTrue(delays.size() > 1);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "-1", "invalid", "Tue, 24 Nov 2026 12:00:00 GMT"})
+  void openSessionInvalidRetryAfterFallsBack(String retryAfter) {
+    configureOpenSession();
+    DatabricksRetryHandlerException exception =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () -> retryHandler.process(createResponse(429, retryAfter), httpContext));
+    assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+    assertEquals(1, sleepDurations.size());
+    assertTrue(sleepDurations.get(0) >= 800 && sleepDurations.get(0) < 1200);
   }
 
   private HttpResponse createResponse(int statusCode) {

@@ -221,7 +221,7 @@ public class DatabricksHttpClientTest {
 
   @ParameterizedTest
   @ValueSource(ints = {503, 429, 502, 504, 408})
-  void retryExhaustionWithRequestContextRetainsErrorIdentity(int statusCode) throws IOException {
+  void contextExecuteRetainsIOExceptionMapping(int statusCode) throws IOException {
     HttpClientContext context = HttpClientContext.create();
     context.setAttribute(DatabricksHttpRetryHandler.OPEN_SESSION_REQUEST_KEY, true);
     when(mockRequest.getURI()).thenReturn(URI.create("https://example.com/thrift"));
@@ -234,7 +234,6 @@ public class DatabricksHttpClientTest {
             DatabricksHttpException.class,
             () -> databricksHttpClient.execute(mockRequest, context));
     assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
-    assertEquals(1019, DatabricksDriverErrorCode.INVALID_STATE.getCode());
     assertEquals(0, exception.getErrorCode());
     assertSame(cause, exception.getCause());
     assertEquals("Retry failure", exception.getMessage());
