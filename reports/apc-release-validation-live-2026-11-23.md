@@ -15,7 +15,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | Region | AWS us-west-2 staging |
 | Runtime | `19.x-photon-scala2.13` |
 | APC cluster | `RUNNING` |
-| Warehouse | Existing accessible `RUNNING` warehouse; `SELECT 1` only |
+| Warehouse | Temporary standard and Real-Time warehouses; deleted after validation |
 | Driver under test | `854809f5caee6ff05d20213016dcc2fb6c3f4b8e` |
 
 ## AC1–AC29 matrix
@@ -32,7 +32,7 @@ session ID, statement ID, cluster ID, or workspace ID is recorded.
 | AC8 | **PARTIAL** | With cloud download disabled, `UseBoundedSeaApi=0/1` selected SEA with `cloud_fetch=false` and bounded mode false/true respectively; `SELECT 1` passed. Inline-only multi-page validation remains gated by SC-258787. |
 | AC9 | **BLOCKED** | Server APC-unsupported/KP001 responses cannot be injected from this client. |
 | AC10 | **FAIL** | INFO telemetry output did not contain the token, workspace, or cluster ID, and connection/context strings were clean; however, `DatabricksSession.toString()` contained the raw workspace ID. |
-| AC11 | **PARTIAL** | Existing running warehouse selected `DatabricksSdkClient` and passed `SELECT 1`; serialized wire-fixture parity is not observable in this live probe. |
+| AC11 | **PASS** | Dedicated standard and Real-Time warehouses each opened with the expected session mode, returned 100,000 ordered rows with checksum `4,999,950,000`, cancelled a running statement, reused the session, and closed cleanly. The six standard/Real-Time bounded/unbounded lifecycle wire-fixture cases passed with exact methods, URLs, bodies, and headers. Both temporary warehouses were deleted. |
 | AC12 | **PASS** | SEA and Thrift each returned 100,000 ordered rows with identical checksum when direct results were disabled. |
 | AC13 | **PASS** | SEA and Thrift returned identical type codes and classes for BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, DECIMAL, DATE, and TIMESTAMP. |
 | AC14 | **PASS** | SEA and Thrift each returned 100,000 ordered rows with identical checksum, with direct results both enabled and disabled. |
@@ -94,8 +94,8 @@ The rejection is local and prevents execution, but it does not meet the APC-spec
 
 | Outcome | Count |
 | --- | ---: |
-| PASS | 16 |
-| PARTIAL | 4 |
+| PASS | 17 |
+| PARTIAL | 3 |
 | FAIL | 4 |
 | SKIP | 0 |
 | BLOCKED | 5 |

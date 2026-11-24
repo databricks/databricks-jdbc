@@ -129,10 +129,24 @@
       "outcome": "PASS"
     },
     "warehouse_sea": {
-      "warehouse_state": "RUNNING",
-      "client": "DatabricksSdkClient",
-      "session_id_present": true,
-      "select_one": "PASS"
+      "standard": {
+        "observed_realtime_session": false,
+        "rows": 100000,
+        "checksum": 4999950000,
+        "cancel": "PASS",
+        "session_reuse": "PASS"
+      },
+      "realtime": {
+        "observed_realtime_session": true,
+        "rows": 100000,
+        "checksum": 4999950000,
+        "cancel": "PASS",
+        "session_reuse": "PASS"
+      },
+      "wire_fixture_cases": 6,
+      "wire_fixture_failures": 0,
+      "temporary_warehouse_cleanup": "PASS",
+      "outcome": "PASS"
     },
     "dogfood_compute": {
       "cluster_state": "RUNNING",
