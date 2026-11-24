@@ -627,11 +627,15 @@ public class DatabricksSdkClientTest {
     assertTrue(waitTimeout == null || waitTimeout.isNull() || "0s".equals(waitTimeout.asText()));
   }
 
-  @Test
-  public void testApcMetadataUsesArrowStreamForInlineOrCloudResults() throws Exception {
+  @ParameterizedTest(name = "cloudFetch={0}, disposition={1}")
+  @CsvSource({"true, EXTERNAL_LINKS", "false, INLINE"})
+  public void testApcMetadataUsesArrowStreamWithConfiguredDisposition(
+      boolean cloudFetchEnabled, String expectedDisposition) throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(
+            APC_JDBC_URL + "EnableQueryResultDownload=" + (cloudFetchEnabled ? "1" : "0") + ";",
+            new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     IDatabricksSession session = mock(IDatabricksSession.class);
@@ -657,7 +661,7 @@ public class DatabricksSdkClientTest {
     verify(apiClient).execute(transportCaptor.capture(), eq(ExecuteStatementResponse.class));
     JsonNode body = new ObjectMapper().readTree(transportCaptor.getValue().getBodyString());
     assertEquals("ARROW_STREAM", body.path("format").asText());
-    assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
+    assertEquals(expectedDisposition, body.path("disposition").asText());
     assertEquals("LZ4_FRAME", body.path("result_compression").asText());
   }
 

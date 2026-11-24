@@ -1020,7 +1020,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     Disposition disposition;
     if (isApc && statementType == StatementType.METADATA) {
       format = Format.ARROW_STREAM;
-      disposition = Disposition.INLINE_OR_EXTERNAL_LINKS;
+      disposition = cloudFetch ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     } else if (isApc) {
       format = Format.ARROW_BATCH;
       disposition = cloudFetch ? Disposition.INLINE_OR_EXTERNAL_LINKS : Disposition.INLINE;
