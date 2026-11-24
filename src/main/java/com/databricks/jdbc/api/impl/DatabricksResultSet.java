@@ -65,6 +65,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
+  private static final String REPEAT_COUNT = "repeat";
   private final ExecutionStatus executionStatus;
   private final StatementId statementId;
   private final IExecutionResult executionResult;
@@ -101,6 +102,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // per-row overhead in next(). The connection-to-collector mapping is stable
   // for the lifetime of a result set.
   private final TelemetryCollector cachedTelemetryCollector;
+  private boolean iterationTelemetryStarted = false;
 
   // Client-side maxRows enforcement. This central check in next() is the single
   // enforcement point using the full long precision from getLargeMaxRows().
@@ -417,7 +419,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (hasNext && !countingUpdateRows) {
       rowsReturned++;
     }
-    if (cachedTelemetryCollector != null) {
+    // Iteration telemetry only uses the first call (start time) and end of stream (latency), so
+    // skip the per-row calls in between.
+    if ((!hasNext || !iterationTelemetryStarted) && cachedTelemetryCollector != null) {
+      iterationTelemetryStarted = true;
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
     }
@@ -2441,6 +2446,44 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return updateCount;
   }
 
+  long[] getBatchUpdateCounts(int expectedCount) throws SQLException {
+    checkIfClosed();
+    if (resultSetMetaData.getColumnNameIndex(AFFECTED_ROWS_COUNT) < 1) {
+      throw new DatabricksSQLException(
+          "Native batch result is missing column " + AFFECTED_ROWS_COUNT,
+          DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
+
+    long[] counts = new long[expectedCount];
+    int index = 0;
+    boolean hasRepeatCount = resultSetMetaData.getColumnNameIndex(REPEAT_COUNT) > 0;
+    countingUpdateRows = true;
+    try {
+      while (next()) {
+        long repeatCount = hasRepeatCount ? getLong(REPEAT_COUNT) : 1;
+        if (repeatCount < 1 || repeatCount > expectedCount - index) {
+          throw new DatabricksSQLException(
+              "Native batch returned an invalid repeat count: " + repeatCount,
+              DatabricksDriverErrorCode.RESULT_SET_ERROR);
+        }
+        long affectedRows = getLong(AFFECTED_ROWS_COUNT);
+        for (long repeated = 0; repeated < repeatCount; repeated++) {
+          counts[index++] = affectedRows;
+        }
+      }
+    } finally {
+      countingUpdateRows = false;
+    }
+
+    if (index != expectedCount) {
+      throw new DatabricksSQLException(
+          String.format(
+              "Native batch returned %d update counts for %d parameter sets", index, expectedCount),
+          DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
+    return counts;
+  }
+
   @Override
   public boolean hasUpdateCount() throws SQLException {
     checkIfClosed();
@@ -2595,16 +2638,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (exactTemporal) {
-      obj = getExactTemporalValue(columnIndex, columnType, obj);
+      obj = getExactTemporalValue(columnIndex, resultSetMetaData.getColumnType(columnIndex), obj);
     }
 
-    // Use metadata-aware converter selection for proper handling of databricks-specific types
-    ObjectConverter converter =
-        ConverterHelper.getConverterForColumnType(columnType, columnTypeName);
-    return convertMethod.apply(converter, obj);
+    return convertMethod.apply(resultSetMetaData.getColumnConverter(columnIndex), obj);
   }
 
   /**

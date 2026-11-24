@@ -25,11 +25,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+  private static final Pattern CTE_STATEMENT_PATTERN =
+      Pattern.compile("\\)\\s*(\\w+)", Pattern.UNICODE_CHARACTER_CLASS);
+  private static final Pattern DML_PATTERN =
+      Pattern.compile("INSERT|UPDATE|DELETE|MERGE", Pattern.CASE_INSENSITIVE);
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -806,7 +812,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || SHOW_PATTERN.matcher(trimmedQuery).find()
         || DESCRIBE_PATTERN.matcher(trimmedQuery).find()
         || EXPLAIN_PATTERN.matcher(trimmedQuery).find()
-        || WITH_PATTERN.matcher(trimmedQuery).find()
+        || (WITH_PATTERN.matcher(trimmedQuery).find() && !isCteDml(trimmedQuery))
         || SET_PATTERN.matcher(trimmedQuery).find()
         || MAP_PATTERN.matcher(trimmedQuery).find()
         || FROM_PATTERN.matcher(trimmedQuery).find()
@@ -828,6 +834,37 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         query, connection.getConnectionContext().getNonRowcountQueryPrefixes());
   }
 
+  private static boolean isCteDml(String query) {
+    // Only the words outside CTE bodies and column lists determine the outer statement.
+    StringBuilder topLevel = new StringBuilder();
+    int[] depth = {0};
+    SqlCommentParser.forEachNonCommentChar(
+        query,
+        (state, c) -> {
+          if (state != SqlCommentParser.State.NORMAL) {
+            return;
+          }
+          if (c == '(') {
+            depth[0]++;
+          } else if (c == ')') {
+            depth[0]--;
+          }
+          if (depth[0] == 0) {
+            topLevel.append(c);
+          }
+        });
+
+    Matcher statement = CTE_STATEMENT_PATTERN.matcher(topLevel);
+    while (statement.find()) {
+      String keyword = statement.group(1);
+      // A column list can be followed by AS or MAX RECURSION LEVEL before the CTE body.
+      if (!keyword.equalsIgnoreCase("AS") && !keyword.equalsIgnoreCase("MAX")) {
+        return DML_PATTERN.matcher(keyword).matches();
+      }
+    }
+    return false;
+  }
+
   static boolean isSelectQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find();
@@ -836,17 +873,17 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   /**
    * Returns whether the query can have its result-set metadata retrieved via {@code DESCRIBE QUERY}
    * without executing it. {@code DESCRIBE QUERY} accepts the query forms that produce a result set
-   * from a top-level query expression: {@code SELECT}, {@code WITH} (CTEs), {@code VALUES}, {@code
-   * FROM (...)} and parenthesized selects. Other result-set-producing statements such as {@code
-   * SHOW}, {@code DESCRIBE} and {@code EXPLAIN} are not valid inputs to {@code DESCRIBE QUERY} and
-   * must be excluded.
+   * from a top-level query expression: {@code SELECT}, CTE queries, {@code VALUES}, {@code FROM
+   * (...)} queries and parenthesized selects. CTE-prefixed DML is excluded, as are other
+   * result-set-producing statements such as {@code SHOW}, {@code DESCRIBE} and {@code EXPLAIN} that
+   * are not valid inputs to {@code DESCRIBE QUERY}.
    */
   static boolean isDescribableQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find()
-        || WITH_PATTERN.matcher(trimmedQuery).find()
-        || VALUES_PATTERN.matcher(trimmedQuery).find()
-        || FROM_PATTERN.matcher(trimmedQuery).find();
+        || (WITH_PATTERN.matcher(trimmedQuery).find() && !isCteDml(trimmedQuery))
+        || FROM_PATTERN.matcher(trimmedQuery).find()
+        || VALUES_PATTERN.matcher(trimmedQuery).find();
   }
 
   static boolean isInsertQuery(String query) {
@@ -870,6 +907,15 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug(stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
+    return waitForExecutionResult(sql, stackTraceMessage, futureResultSet, closeStatement);
+  }
+
+  private DatabricksResultSet waitForExecutionResult(
+      String sql,
+      String stackTraceMessage,
+      CompletableFuture<DatabricksResultSet> futureResultSet,
+      boolean closeStatement)
+      throws SQLException {
     try {
       resultSet =
           timeoutInSeconds == 0
@@ -942,6 +988,38 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return result;
   }
 
+  boolean supportsNativeParameterBatching() {
+    try {
+      IDatabricksClient client = connection.getSession().getDatabricksClient();
+      return client.supportsNativeParameterBatching(connection.getSession().getComputeResource());
+    } catch (DatabricksSQLException e) {
+      LOGGER.warn("Unable to determine native batch capability, using legacy execution", e);
+      return false;
+    }
+  }
+
+  long[] executeNativeBatchInternal(String sql, List<BatchParameterSet> parameterSets)
+      throws SQLException {
+    resetForNewExecution();
+    DatabricksThreadContextHolder.setStatementType(StatementType.UPDATE);
+    String stackTraceMessage =
+        format(
+            "DatabricksResultSet executeNativeBatchInternal(String sql = %s, parameterSetCount = %s)",
+            sql, parameterSets.size());
+    LOGGER.debug(stackTraceMessage);
+    DatabricksResultSet result =
+        waitForExecutionResult(
+            sql,
+            stackTraceMessage,
+            getFutureBatchResult(sql, parameterSets, StatementType.UPDATE),
+            false);
+    try {
+      return result.getBatchUpdateCounts(parameterSets.size());
+    } catch (SQLException e) {
+      throw new NativeBatchResultException(e);
+    }
+  }
+
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
     return CompletableFuture.supplyAsync(
@@ -951,6 +1029,21 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             // Remove empty ESCAPE clauses that cause syntax errors in Databricks
             SQLString = StringUtil.removeRedundantEscapeClause(SQLString);
             return getResultFromClient(SQLString, params, statementType);
+          } catch (SQLException e) {
+            throw new RuntimeException(e);
+          }
+        },
+        executor);
+  }
+
+  private CompletableFuture<DatabricksResultSet> getFutureBatchResult(
+      String sql, List<BatchParameterSet> parameterSets, StatementType statementType) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            String sqlString = escapeProcessing ? StringUtil.convertJdbcEscapeSequences(sql) : sql;
+            sqlString = StringUtil.removeRedundantEscapeClause(sqlString);
+            return getBatchResultFromClient(sqlString, parameterSets, statementType);
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
@@ -970,6 +1063,19 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         connection.getSession(),
         this,
         null /* metadataOperationType */);
+  }
+
+  private DatabricksResultSet getBatchResultFromClient(
+      String sql, List<BatchParameterSet> parameterSets, StatementType statementType)
+      throws SQLException {
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
+    return client.executeStatementBatch(
+        sql,
+        connection.getSession().getComputeResource(),
+        parameterSets,
+        statementType,
+        connection.getSession(),
+        this);
   }
 
   void checkIfClosed() throws DatabricksSQLException {

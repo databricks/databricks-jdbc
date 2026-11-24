@@ -34,6 +34,8 @@ public class ProtocolFeatureUtilTest {
   private static final TProtocolVersion MIN_VERSION_PARAMETERIZED = SPARK_CLI_SERVICE_PROTOCOL_V8;
   private static final TProtocolVersion MIN_VERSION_ASYNC_OPERATIONS =
       SPARK_CLI_SERVICE_PROTOCOL_V9;
+  private static final TProtocolVersion MIN_VERSION_NATIVE_PARAMETER_BATCHING =
+      SPARK_CLI_SERVICE_PROTOCOL_V10;
 
   private static Stream<Arguments> protocolVersionProvider() {
     return Stream.of(
@@ -151,6 +153,14 @@ public class ProtocolFeatureUtilTest {
   public void testSupportsAsyncMetadataOperations(TProtocolVersion version) {
     boolean expected = version.compareTo(MIN_VERSION_ASYNC_OPERATIONS) >= 0;
     boolean actual = ProtocolFeatureUtil.supportsAsyncMetadataOperations(version);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsNativeParameterBatching(TProtocolVersion version) {
+    boolean expected = version.compareTo(MIN_VERSION_NATIVE_PARAMETER_BATCHING) >= 0;
+    boolean actual = ProtocolFeatureUtil.supportsNativeParameterBatching(version);
     assertEquals(expected, actual);
   }
 

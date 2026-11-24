@@ -44,6 +44,9 @@ public class ExecuteStatementRequest {
   @JsonProperty("parameters")
   private Collection<StatementParameterListItem> parameters;
 
+  @JsonProperty("parameter_sets")
+  private Collection<StatementParameterSet> parameterSets;
+
   @JsonProperty("result_compression")
   private CompressionCodec resultCompression;
 
@@ -86,6 +89,10 @@ public class ExecuteStatementRequest {
     return parameters;
   }
 
+  public Collection<StatementParameterSet> getParameterSets() {
+    return parameterSets;
+  }
+
   public CompressionCodec getResultCompression() {
     return resultCompression;
   }
@@ -112,6 +119,11 @@ public class ExecuteStatementRequest {
 
   public ExecuteStatementRequest setRowLimit(long rowLimit) {
     this.rowLimit = rowLimit;
+    return this;
+  }
+
+  public ExecuteStatementRequest unsetRowLimit() {
+    this.rowLimit = null;
     return this;
   }
 
@@ -143,6 +155,17 @@ public class ExecuteStatementRequest {
 
   public ExecuteStatementRequest setParameters(Collection<StatementParameterListItem> parameters) {
     this.parameters = parameters;
+    if (parameters != null) {
+      this.parameterSets = null;
+    }
+    return this;
+  }
+
+  public ExecuteStatementRequest setParameterSets(Collection<StatementParameterSet> parameterSets) {
+    this.parameterSets = parameterSets;
+    if (parameterSets != null) {
+      this.parameters = null;
+    }
     return this;
   }
 
@@ -158,6 +181,7 @@ public class ExecuteStatementRequest {
         .add("format", format)
         .add("onWaitTimeout", onWaitTimeout)
         .add("parameters", parameters)
+        .add("parameterSetCount", parameterSets == null ? 0 : parameterSets.size())
         .add("statement", statement)
         .add("sessionId", sessionId)
         .add("sessionVersion", sessionVersion)
@@ -174,6 +198,7 @@ public class ExecuteStatementRequest {
         format,
         onWaitTimeout,
         parameters,
+        parameterSets,
         rowLimit,
         sessionVersion,
         statement,
@@ -192,6 +217,7 @@ public class ExecuteStatementRequest {
         && Objects.equals(format, that.format)
         && Objects.equals(onWaitTimeout, that.onWaitTimeout)
         && Objects.equals(parameters, that.parameters)
+        && Objects.equals(parameterSets, that.parameterSets)
         && Objects.equals(rowLimit, that.rowLimit)
         && Objects.equals(statement, that.statement)
         && Objects.equals(waitTimeout, that.waitTimeout)

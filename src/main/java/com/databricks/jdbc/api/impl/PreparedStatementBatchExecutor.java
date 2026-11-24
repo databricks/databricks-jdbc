@@ -1,9 +1,12 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.InsertStatementParser;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -40,8 +43,7 @@ class PreparedStatementBatchExecutor {
   interface NativeBatchExecutor {
     boolean isSupported();
 
-    long[] execute(String sql, List<BatchParameterSet> parameterSets)
-        throws DatabricksBatchUpdateException;
+    long[] execute(String sql, List<BatchParameterSet> parameterSets) throws SQLException;
   }
 
   PreparedStatementBatchExecutor(
@@ -66,18 +68,36 @@ class PreparedStatementBatchExecutor {
     this.nativeExecutor = nativeExecutor;
   }
 
-  long[] executeBatch(List<BatchParameterSet> batchParameterSets)
-      throws DatabricksBatchUpdateException {
-    if (canUseNativeBatching(batchParameterSets)) {
-      return nativeExecutor.execute(sql, batchParameterSets);
+  long[] executeBatch(List<BatchParameterSet> batchParameterSets) throws SQLException {
+    if (batchParameterSets.isEmpty()) {
+      return new long[0];
     }
-    return legacyExecutor.executeBatch(batchParameterSets);
+    if (!InsertStatementParser.isParametrizedInsert(sql)) {
+      return legacyExecutor.executeIndividualStatements(batchParameterSets);
+    }
+    if (!connection.getConnectionContext().isNativeBatchingEnabled()
+        || !nativeExecutor.isSupported()) {
+      return legacyExecutor.executeBatch(batchParameterSets);
+    }
+    try {
+      return nativeExecutor.execute(sql, batchParameterSets);
+    } catch (NativeBatchResultException e) {
+      throw e;
+    } catch (SQLException e) {
+      if (isUnsupportedNativeBatching(e)) {
+        return legacyExecutor.executeBatch(batchParameterSets);
+      }
+      long[] failedCounts = new long[batchParameterSets.size()];
+      Arrays.fill(failedCounts, Statement.EXECUTE_FAILED);
+      throw new DatabricksBatchUpdateException(
+          e.getMessage(), e.getSQLState(), e.getErrorCode(), failedCounts, e);
+    }
   }
 
-  private boolean canUseNativeBatching(List<BatchParameterSet> batchParameterSets) {
-    return !batchParameterSets.isEmpty()
-        && connection.getConnectionContext().isNativeBatchingEnabled()
-        && InsertStatementParser.isParametrizedInsert(sql)
-        && nativeExecutor.isSupported();
+  private boolean isUnsupportedNativeBatching(SQLException exception) {
+    return connection.getConnectionContext().getComputeResource() instanceof Warehouse
+        && "42P02".equals(exception.getSQLState())
+        && exception.getMessage() != null
+        && exception.getMessage().contains("[UNBOUND_SQL_PARAMETER]");
   }
 }

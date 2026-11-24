@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -13,7 +14,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.sql.SQLException;
@@ -69,8 +72,6 @@ class PreparedStatementBatchExecutorTest {
 
   @Test
   void ineligibleSqlFallsBackToIndividualExecution() throws Exception {
-    setBatchedInsertsEnabled(true);
-    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
     List<BatchParameterSet> batch = createBatch(1);
     when(statementExecutor.execute(eq(UPDATE_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
         .thenReturn(firstResultSet);
@@ -118,6 +119,112 @@ class PreparedStatementBatchExecutorTest {
     verify(nativeBatchExecutor, never()).execute(anyString(), eq(batch));
     verify(statementExecutor)
         .execute(eq(multiRowInsert(2)), anyMap(), eq(StatementType.UPDATE), eq(false));
+  }
+
+  @Test
+  void unboundParameterCompatibilityErrorFallsBackToLegacyExecution() throws Exception {
+    setBatchedInsertsEnabled(false);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(connectionContext.getComputeResource()).thenReturn(new Warehouse("warehouse"));
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(1);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch))
+        .thenThrow(
+            new SQLException("[UNBOUND_SQL_PARAMETER] Native batching is unsupported", "42P02", 0));
+    when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenReturn(firstResultSet);
+    when(firstResultSet.getUpdateCount()).thenReturn(4L);
+
+    long[] counts = newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch);
+
+    assertArrayEquals(new long[] {4}, counts);
+    verify(statementExecutor)
+        .execute(INSERT_SQL, batch.get(0).getParameterBindings(), StatementType.UPDATE, false);
+  }
+
+  @Test
+  void unboundParameterCompatibilityErrorDoesNotFallbackOnAllPurposeCluster() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(connectionContext.getComputeResource())
+        .thenReturn(new AllPurposeCluster("org", "cluster"));
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(1);
+    SQLException cause =
+        new SQLException("[UNBOUND_SQL_PARAMETER] Native batching is unsupported", "42P02", 0);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(cause);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertSame(cause, exception.getCause());
+    assertArrayEquals(new long[] {Statement.EXECUTE_FAILED}, exception.getLargeUpdateCounts());
+    verifyNoInteractions(statementExecutor);
+  }
+
+  @Test
+  void nonCompatibilityNativeErrorDoesNotFallback() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    SQLException cause =
+        new SQLException("[PARAMETER_BATCH_ERROR] Too many parameters", "22023", 7);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(cause);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertEquals("22023", exception.getSQLState());
+    assertEquals(7, exception.getErrorCode());
+    assertSame(cause, exception.getCause());
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        exception.getLargeUpdateCounts());
+    verifyNoInteractions(statementExecutor);
+  }
+
+  @Test
+  void resultExtractionFailureThrowsDedicatedException() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    SQLException cause = new SQLException("Missing update-count column", "RESULT_SET_ERROR", 11);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch))
+        .thenThrow(new NativeBatchResultException(cause));
+
+    NativeBatchResultException exception =
+        assertThrows(
+            NativeBatchResultException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertEquals("RESULT_SET_ERROR", exception.getSQLState());
+    assertSame(cause, exception.getCause());
+    assertTrue(exception.getMessage().contains("Inserted rows may already be committed"));
+    verifyNoInteractions(statementExecutor);
+  }
+
+  @Test
+  void unboundSqlStateWithoutCompatibilityMarkerDoesNotFallback() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(1);
+    SQLException cause = new SQLException("A different unbound parameter error", "42P02", 3);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(cause);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertSame(cause, exception.getCause());
+    verifyNoInteractions(statementExecutor);
   }
 
   @Test
