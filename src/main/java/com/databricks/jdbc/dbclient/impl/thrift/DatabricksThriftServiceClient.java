@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfi
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getParameterValueString;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.CommandName.LIST_FUNCTIONS;
 
 import com.databricks.jdbc.api.impl.*;
@@ -234,7 +235,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     return new TSparkParameter()
         .setOrdinal(ordinal)
         .setType(typeString)
-        .setValue(value != null ? TSparkParameterValue.stringValue(value.toString()) : null);
+        .setValue(
+            value != null
+                ? TSparkParameterValue.stringValue(getParameterValueString(value))
+                : null);
   }
 
   private TExecuteStatementReq getBatchRequest(

@@ -54,6 +54,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksThriftServiceClientTest {
 
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#values")
+  void testTemporalParameterWireValue(
+      Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected) {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(type).value(value).build();
+    com.databricks.jdbc.api.impl.BatchParameterSet snapshot =
+        com.databricks.jdbc.api.impl.BatchParameterSet.from(Map.of(1, parameter));
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TSparkParameter result = client.mapToSparkParameterListItem(snapshot.getParameters().get(0));
+    assertEquals(type.name(), result.getType());
+    assertEquals(expected, result.getValue() == null ? null : result.getValue().getStringValue());
+  }
+
   private static final String NEW_ACCESS_TOKEN = "new-access-token";
   private static final StatementId TEST_STMT_ID =
       StatementId.deserialize(

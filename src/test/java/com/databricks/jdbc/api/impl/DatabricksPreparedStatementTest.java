@@ -50,6 +50,36 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksPreparedStatementTest {
 
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#values")
+  void testTemporalSetObject(
+      Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(new DatabricksConnection(context, client), "SELECT ?");
+    statement.setObject(1, value);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(
+        value == null ? com.databricks.jdbc.model.core.ColumnInfoTypeName.NULL : type,
+        metadata.getParameterBindings().get(1).type());
+    if (type == com.databricks.jdbc.model.core.ColumnInfoTypeName.TIMESTAMP) {
+      for (int sqlType : new int[] {Types.TIMESTAMP, Types.TIMESTAMP_WITH_TIMEZONE}) {
+        statement.setObject(1, value, sqlType);
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        statement.setObject(1, value, sqlType, 6);
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        statement.setObject(1, value, JDBCType.valueOf(sqlType));
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        statement.setObject(1, value, JDBCType.valueOf(sqlType), 6);
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+      }
+    }
+    assertSame(value, metadata.getParameterBindings().get(1).value());
+  }
+
   private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";

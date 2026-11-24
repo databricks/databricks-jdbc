@@ -6,6 +6,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getParameterValueString;
 import static com.databricks.jdbc.common.util.SqlStateClassifier.classifyTransientSqlState;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
@@ -1011,7 +1012,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)
         .setType(typeString)
-        .setValue(value != null ? value.toString() : null);
+        .setValue(getParameterValueString(value));
   }
 
   /** Handles a failed execution and throws appropriate exception */

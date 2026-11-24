@@ -19,6 +19,18 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class SQLInterpolatorTest {
 
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#values")
+  void testTemporalParameters(
+      Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+      throws Exception {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(type).value(value).build();
+    assertEquals(
+        "SELECT " + (expected == null ? "NULL" : "'" + expected + "'"),
+        SQLInterpolator.interpolateSQL("SELECT ?", Map.of(1, parameter)));
+  }
+
   @Test
   public void testInterpolateSQLWithStrings() throws DatabricksValidationException {
     String sql = "SELECT * FROM users WHERE name = ? AND city = ?";

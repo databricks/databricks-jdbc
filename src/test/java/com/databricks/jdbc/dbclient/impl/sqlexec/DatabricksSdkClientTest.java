@@ -72,6 +72,25 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksSdkClientTest {
+
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#values")
+  void testTemporalParameterWireValue(
+      Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(type).value(value).build();
+    BatchParameterSet snapshot = BatchParameterSet.from(Map.of(1, parameter));
+    StatementParameterListItem result =
+        databricksSdkClient.mapToParameterListItem(snapshot.getParameters().get(0));
+    assertEquals(type.name(), result.getType());
+    assertEquals(expected, result.getValue());
+  }
+
   @Mock StatementExecutionService statementExecutionService;
   @Mock ApiClient apiClient;
   @Mock ResultData resultData;
