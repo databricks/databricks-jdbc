@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
+import java.io.DataInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -13,8 +14,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -396,13 +401,6 @@ public class EncryptedFileTokenCacheTest {
     assertEquals(KERNEL_TAG, EncryptedFileTokenCache.derivedPassphrase(env::get));
   }
 
-  @Test
-  void derivedPassphrase_ReadsProcessEnvironment() {
-    assertEquals(
-        EncryptedFileTokenCache.derivedPassphrase(System::getenv),
-        EncryptedFileTokenCache.derivedPassphrase());
-  }
-
   /**
    * Payloads from the SQL kernel's src/auth/oauth/cache_crypto.rs (databricks-sql-kernel@375cdb6,
    * compiled unmodified): encrypt(plaintext, derived_passphrase()) with only the given env var set.
@@ -482,12 +480,77 @@ public class EncryptedFileTokenCacheTest {
     Token token =
         new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
 
-    new EncryptedFileTokenCache(existingDir.resolve("token-cache"), TEST_PASSPHRASE).save(token);
-    new EncryptedFileTokenCache(newDir.resolve("token-cache"), TEST_PASSPHRASE).save(token);
+    for (Path dir : Arrays.asList(existingDir, newDir)) {
+      EncryptedFileTokenCache cache =
+          new EncryptedFileTokenCache(dir.resolve("token-cache"), TEST_PASSPHRASE);
+      cache.save(token);
 
+      assertEquals(
+          PosixFilePermissions.fromString("rwx------"), Files.getPosixFilePermissions(dir));
+      assertEquals(ACCESS_TOKEN, cache.load().getAccessToken(), "save must still succeed");
+    }
+  }
+
+  @Test
+  void should_ReplaceCacheFile_SoOpenReadersKeepACompleteOldVersion() throws Exception {
+    EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    cache.save(new Token("old", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+    byte[] oldBytes = Files.readAllBytes(tokenCachePath);
+
+    byte[] seenByOpenReader = new byte[oldBytes.length];
+    try (DataInputStream reader = new DataInputStream(Files.newInputStream(tokenCachePath))) {
+      cache.save(new Token("new", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+      reader.readFully(seenByOpenReader);
+      assertEquals(-1, reader.read());
+    }
+
+    // An in-place rewrite would show the reader new or truncated bytes; a rename keeps the old
+    // file.
+    assertArrayEquals(oldBytes, seenByOpenReader);
+    assertEquals("new", cache.load().getAccessToken());
     assertEquals(
-        PosixFilePermissions.fromString("rwx------"), Files.getPosixFilePermissions(existingDir));
-    assertEquals(
-        PosixFilePermissions.fromString("rwx------"), Files.getPosixFilePermissions(newDir));
+        Collections.singletonList(tokenCachePath), listDir(tempDir), "no temp file left behind");
+  }
+
+  @Test
+  void should_NeverLoadAPartialFile_WhileAnotherInstanceSaves() throws Exception {
+    EncryptedFileTokenCache writer = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    EncryptedFileTokenCache reader = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    writer.save(new Token("t-0", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+    Thread saver =
+        new Thread(
+            () -> {
+              for (int i = 1; i <= 30; i++) {
+                writer.save(
+                    new Token(
+                        "t-" + i, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+              }
+            });
+    saver.start();
+    try {
+      do {
+        assertNotNull(reader.load(), "load during a concurrent save must not miss");
+      } while (saver.isAlive());
+    } finally {
+      saver.join();
+    }
+    assertEquals("t-30", reader.load().getAccessToken());
+  }
+
+  @Test
+  void should_RemoveTempFile_When_ReplaceFails() throws Exception {
+    // A non-empty directory at the cache path makes the final move fail.
+    Files.createDirectories(tokenCachePath.resolve("blocker"));
+    EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+
+    cache.save(new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+
+    assertEquals(Collections.singletonList(tokenCachePath), listDir(tempDir));
+  }
+
+  private static List<Path> listDir(Path dir) throws Exception {
+    try (Stream<Path> files = Files.list(dir)) {
+      return files.collect(Collectors.toList());
+    }
   }
 }

@@ -11,9 +11,10 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
@@ -72,7 +73,8 @@ public class EncryptedFileTokenCache implements TokenCache {
    * Passphrase for a cache enabled without {@code TokenCachePassPhrase}, matching the SQL kernel
    * and ODBC driver: a fixed tag plus the OS user name ({@code USER}, {@code USERNAME}, then {@code
    * LOGNAME}; empty if none is set). It is obfuscation, not a secret: anyone who knows the user
-   * name can derive it, so the owner-only file mode is the real local control.
+   * name can derive it. The real local control is the owner-only file mode on POSIX file systems,
+   * and the user profile's ACLs on Windows.
    */
   public static String derivedPassphrase() {
     return derivedPassphrase(System::getenv);
@@ -102,7 +104,11 @@ public class EncryptedFileTokenCache implements TokenCache {
       writeOwnerOnly(cacheFile, dataToWrite);
       LOGGER.debug("Successfully saved encrypted token to cache: {}", cacheFile);
     } catch (Exception e) {
-      LOGGER.warn("Failed to save token cache to {}: {}", cacheFile, e.getMessage());
+      LOGGER.warn(
+          "Failed to save token cache to {}: {}: {}",
+          cacheFile,
+          e.getClass().getSimpleName(),
+          e.getMessage());
     }
   }
 
@@ -126,15 +132,18 @@ public class EncryptedFileTokenCache implements TokenCache {
         return null;
       }
       byte[] fileContent = Files.readAllBytes(cacheFile);
-      byte[] decodedContent;
+      Token token;
       try {
-        decodedContent = decrypt(fileContent);
+        token =
+            mapper.readValue(new String(decrypt(fileContent), StandardCharsets.UTF_8), Token.class);
       } catch (Exception e) {
-        LOGGER.debug("Failed to decrypt token cache: {}", e.getMessage());
+        // Logged at WARN like the kernel: otherwise repeated browser logins have no visible cause.
+        LOGGER.warn(
+            "Token cache at {} could not be decrypted (TokenCachePassPhrase or OS user name"
+                + " changed, or the file is corrupt); ignoring it, the next login rewrites it",
+            cacheFile);
         return null;
       }
-      String json = new String(decodedContent, StandardCharsets.UTF_8);
-      Token token = mapper.readValue(json, Token.class);
       LOGGER.debug("Successfully loaded encrypted token from cache: {}", cacheFile);
       return token;
     } catch (Exception e) {
@@ -143,23 +152,39 @@ public class EncryptedFileTokenCache implements TokenCache {
     }
   }
 
-  /** Writes the file owner-only, setting permissions BEFORE the content is written. */
+  /**
+   * Writes an owner-only temp file in the same directory, then moves it over the cache file, so a
+   * concurrent load() sees the old or the new file, never a partly written one (as the kernel
+   * does).
+   */
   private void writeOwnerOnly(Path path, byte[] data) throws IOException {
     boolean posix = path.getFileSystem().supportedFileAttributeViews().contains("posix");
-    if (posix) {
-      try {
-        Files.createFile(path, PosixFilePermissions.asFileAttribute(OWNER_ONLY));
-      } catch (FileAlreadyExistsException e) {
-        Files.setPosixFilePermissions(path, OWNER_ONLY);
+    String prefix = path.getFileName() + ".";
+    Path tmp =
+        posix
+            ? Files.createTempFile(
+                path.getParent(), prefix, ".tmp", PosixFilePermissions.asFileAttribute(OWNER_ONLY))
+            : Files.createTempFile(path.getParent(), prefix, ".tmp");
+    try {
+      if (!posix) {
+        File file = tmp.toFile();
+        file.setReadable(false, false);
+        file.setReadable(true, true);
+        file.setWritable(false, false);
+        file.setWritable(true, true);
       }
-      Files.write(path, data);
-    } else {
-      Files.write(path, data);
-      File file = path.toFile();
-      file.setReadable(false, false);
-      file.setReadable(true, true);
-      file.setWritable(false, false);
-      file.setWritable(true, true);
+      Files.write(tmp, data);
+      try {
+        Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      } catch (AtomicMoveNotSupportedException e) {
+        Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
+      }
+    } finally {
+      try {
+        Files.deleteIfExists(tmp);
+      } catch (IOException e) {
+        LOGGER.debug("Could not delete temporary token cache file {}: {}", tmp, e.getMessage());
+      }
     }
   }
 

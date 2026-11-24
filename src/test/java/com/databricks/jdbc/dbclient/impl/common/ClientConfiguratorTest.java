@@ -56,6 +56,7 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -645,7 +646,8 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void testSetupU2MConfig_DefaultUrlWithoutPassphrase_Connects() throws DatabricksSQLException {
+  void testSetupU2MConfig_DefaultUrlWithoutPassphrase_UsesDerivedKeyCache()
+      throws DatabricksSQLException {
     // EnableTokenCache defaults to 1 and TokenCachePassPhrase has no default (#1612).
     String jdbcUrl =
         "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
@@ -654,14 +656,28 @@ public class ClientConfiguratorTest {
         DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
     assertTrue(connectionContext.isTokenCacheEnabled());
     assertNull(connectionContext.getTokenCachePassPhrase());
+    List<List<?>> cacheArgs = new ArrayList<>();
 
-    configurator = new ClientConfigurator(connectionContext);
+    try (MockedConstruction<EncryptedFileTokenCache> ignored =
+        mockConstruction(
+            EncryptedFileTokenCache.class,
+            (cache, context) -> cacheArgs.add(context.arguments()))) {
+      configurator = new ClientConfigurator(connectionContext);
+    }
 
     DatabricksTokenFederationProvider federationProvider =
         (DatabricksTokenFederationProvider)
             configurator.getDatabricksConfig().getCredentialsProvider();
     assertInstanceOf(
         ExternalBrowserCredentialsProvider.class, federationProvider.getCredentialsProvider());
+    assertEquals(1, cacheArgs.size(), "one encrypted file cache is built");
+    assertEquals(
+        ClientConfigurator.getTokenCachePath(
+            connectionContext.getHostForOAuth(),
+            connectionContext.getClientId(),
+            new ArrayList<>(connectionContext.getOAuthScopesForU2M())),
+        cacheArgs.get(0).get(0));
+    assertEquals(EncryptedFileTokenCache.derivedPassphrase(), cacheArgs.get(0).get(1));
   }
 
   @ParameterizedTest
