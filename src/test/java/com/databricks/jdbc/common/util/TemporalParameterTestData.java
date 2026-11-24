@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.stream.Stream;
@@ -27,26 +28,40 @@ public final class TemporalParameterTestData {
                         value,
                         DatabricksTypeUtil.getColumnInfoType(
                             DatabricksTypeUtil.inferDatabricksType(value)),
-                        value.toString())));
+                        value instanceof ZonedDateTime
+                            ? ((ZonedDateTime) value).toOffsetDateTime().toString()
+                            : value.toString())));
+  }
+
+  public static Stream<Arguments> explicitOffsetValues() {
+    return Stream.of("2024-01-01T01:00:00+05:00", "2024-06-30T23:59:59.999999-03:00")
+        .map(OffsetDateTime::parse)
+        .flatMap(
+            value ->
+                Stream.of(
+                        ColumnInfoTypeName.DATE,
+                        ColumnInfoTypeName.STRING,
+                        ColumnInfoTypeName.TIMESTAMP)
+                    .map(type -> Arguments.of(value, type, value.toString())));
   }
 
   private static Stream<Arguments> signedValues() {
     return Stream.of(
         timestamp(
             OffsetDateTime.parse("2026-01-02T03:04:05.123456+05:45"),
-            "2026-01-01T21:19:05.123456Z"),
+            "2026-01-02T03:04:05.123456+05:45"),
         timestamp(
             OffsetDateTime.parse("2026-01-02T03:04:05.123456-07:00"),
-            "2026-01-02T10:04:05.123456Z"),
+            "2026-01-02T03:04:05.123456-07:00"),
         timestamp(
             OffsetDateTime.parse("0000-01-02T03:04:05.123456+00:00:01"),
-            "0000-01-02T03:04:04.123456Z"),
+            "0000-01-02T03:04:05.123456+00:00:01"),
         timestamp(
             OffsetDateTime.parse("-0100-01-02T03:04:05.123456+18:00"),
-            "-0100-01-01T09:04:05.123456Z"),
+            "-0100-01-02T03:04:05.123456+18:00"),
         timestamp(
             OffsetDateTime.parse("1000-01-02T03:04:05.123456-18:00"),
-            "1000-01-02T21:04:05.123456Z"),
+            "1000-01-02T03:04:05.123456-18:00"),
         timestamp(
             OffsetDateTime.parse("+10000-01-02T03:04:05.123456Z"), "+10000-01-02T03:04:05.123456Z"),
         timestamp(legacyTimestamp(-100), "-0100-01-02 03:04:05.123456789"),
@@ -59,6 +74,14 @@ public final class TemporalParameterTestData {
         date(LocalDate.of(10000, 1, 2), "+10000-01-02"),
         timestamp(
             LocalDateTime.parse("-0100-01-02T03:04:05.123456"), "-0100-01-02T03:04:05.123456"),
+        timestamp(LocalDateTime.parse("+10000-01-02T03:04"), "+10000-01-02T03:04"),
+        timestamp(LocalDateTime.parse("0000-01-02T03:04"), "0000-01-02T03:04"),
+        timestamp(
+            ZonedDateTime.parse("+10000-01-02T03:04+01:00[Europe/Paris]"),
+            "+10000-01-02T03:04+01:00"),
+        timestamp(
+            ZonedDateTime.parse("2026-01-02T03:04:05.123456-05:00[America/New_York]"),
+            "2026-01-02T03:04:05.123456-05:00"),
         timestamp(Instant.parse("-0100-01-02T03:04:05.123456Z"), "-0100-01-02T03:04:05.123456Z"),
         timestamp(null, null));
   }

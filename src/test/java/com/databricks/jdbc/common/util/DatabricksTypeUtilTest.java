@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.DatabricksArray;
+import com.databricks.jdbc.api.impl.DatabricksMap;
+import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -13,7 +16,11 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.OffsetDateTime;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.GregorianCalendar;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.stream.Stream;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -31,6 +38,50 @@ class DatabricksTypeUtilTest {
     assertTrue(DatabricksTypeUtil.isTimestamp(value));
     assertTrue(DatabricksTypeUtil.isTemporalType(value));
     assertEquals("\"" + value + "\"", JsonUtil.formatComplexValue(value));
+  }
+
+  @Test
+  void testOffsetDateTimeLeavesInPublicComplexValueViews() throws SQLException {
+    OffsetDateTime value = OffsetDateTime.parse("2024-01-01T01:00:00+05:00");
+    DatabricksArray array =
+        new DatabricksArray(Collections.singletonList(new Timestamp(0)), "ARRAY<TIMESTAMP>");
+    ((Object[]) array.getArray())[0] = value;
+    DatabricksStruct struct =
+        new DatabricksStruct(Map.of("value", new Timestamp(0)), "STRUCT<value:TIMESTAMP>");
+    struct.getAttributes()[0] = value;
+    DatabricksMap<String, Object> map =
+        new DatabricksMap<>(Map.of("value", new Timestamp(0)), "MAP<STRING,TIMESTAMP>");
+    map.put("value", value);
+    assertEquals("[\"" + value + "\"]", array.toString());
+    assertEquals("{\"value\":\"" + value + "\"}", struct.toString());
+    assertEquals("{\"value\":\"" + value + "\"}", map.toString());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"-1,-0001", "0,0000", "1,0001", "2,0002", "9998,9998", "9999,9999", "10000,+10000"})
+  void testLegacyParameterYearBoundaries(int year, String expectedYear) {
+    TimeZone original = TimeZone.getDefault();
+    try {
+      for (int offset :
+          new int[] {Integer.MIN_VALUE / 60000 * 60000, 0, Integer.MAX_VALUE / 60000 * 60000}) {
+        TimeZone.setDefault(new java.util.SimpleTimeZone(offset, "test-offset"));
+        Calendar calendar = new GregorianCalendar();
+        calendar.clear();
+        calendar.set(Calendar.ERA, year <= 0 ? GregorianCalendar.BC : GregorianCalendar.AD);
+        calendar.set(Calendar.YEAR, year <= 0 ? 1 - year : year);
+        calendar.set(Calendar.MONTH, Calendar.JANUARY);
+        calendar.set(Calendar.DAY_OF_MONTH, 2);
+        Timestamp timestamp = new Timestamp(calendar.getTimeInMillis());
+        assertEquals(
+            expectedYear + "-01-02 00:00:00.0",
+            DatabricksTypeUtil.getParameterValueString(timestamp));
+        assertEquals(
+            expectedYear + "-01-02",
+            DatabricksTypeUtil.getParameterValueString(new Date(timestamp.getTime())));
+      }
+    } finally {
+      TimeZone.setDefault(original);
+    }
   }
 
   static Stream<Object[]> dataProvider() {

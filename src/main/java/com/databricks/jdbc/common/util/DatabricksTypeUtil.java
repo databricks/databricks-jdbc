@@ -14,9 +14,6 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.Year;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -42,6 +39,10 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 public class DatabricksTypeUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
+  private static final long MIN_SAFE_AD_MILLIS =
+      Instant.parse("0001-02-01T00:00:00Z").toEpochMilli();
+  private static final long MAX_SAFE_AD_MILLIS =
+      Instant.parse("9999-12-01T00:00:00Z").toEpochMilli();
   private static final DateTimeFormatter ISO_YEAR =
       new DateTimeFormatterBuilder()
           .appendValue(ChronoField.YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
@@ -562,10 +563,11 @@ public class DatabricksTypeUtil {
     if (value == null) {
       return null;
     }
-    if (value instanceof OffsetDateTime || value instanceof Instant) {
-      return DateTimeFormatter.ISO_INSTANT.format((java.time.temporal.TemporalAccessor) value);
-    }
     if (value instanceof java.sql.Timestamp || value instanceof java.sql.Date) {
+      long millis = ((java.util.Date) value).getTime();
+      if (millis >= MIN_SAFE_AD_MILLIS && millis <= MAX_SAFE_AD_MILLIS) {
+        return value.toString();
+      }
       Calendar calendar = new GregorianCalendar();
       calendar.setTime((java.util.Date) value);
       int year = calendar.get(Calendar.YEAR);
@@ -577,20 +579,8 @@ public class DatabricksTypeUtil {
           ? text
           : ISO_YEAR.format(Year.of(year)) + text.substring(text.indexOf('-'));
     }
-    if (value instanceof LocalDate) {
-      return DateTimeFormatter.ISO_LOCAL_DATE.format((LocalDate) value);
-    }
-    if (value instanceof LocalDateTime) {
-      LocalDateTime timestamp = (LocalDateTime) value;
-      if (timestamp.getYear() <= 0 || timestamp.getYear() > 9999) {
-        return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timestamp);
-      }
-    }
     if (value instanceof ZonedDateTime) {
-      ZonedDateTime timestamp = (ZonedDateTime) value;
-      if (timestamp.getYear() <= 0 || timestamp.getYear() > 9999) {
-        return DateTimeFormatter.ISO_ZONED_DATE_TIME.format(timestamp);
-      }
+      return ((ZonedDateTime) value).toOffsetDateTime().toString();
     }
     return value.toString();
   }

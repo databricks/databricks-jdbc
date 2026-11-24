@@ -19,6 +19,7 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
@@ -31,6 +32,7 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
+import java.time.OffsetDateTime;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -78,6 +80,57 @@ public class DatabricksPreparedStatementTest {
       }
     }
     assertSame(value, metadata.getParameterBindings().get(1).value());
+    assertEquals(
+        expected,
+        DatabricksTypeUtil.getParameterValueString(metadata.getParameterBindings().get(1).value()));
+  }
+
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#explicitOffsetValues")
+  void testExplicitOffsetDateTimeTargets(
+      OffsetDateTime value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(new DatabricksConnection(context, client), "SELECT ?");
+    int[] sqlTypes =
+        type == com.databricks.jdbc.model.core.ColumnInfoTypeName.DATE
+            ? new int[] {Types.DATE}
+            : type == com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING
+                ? new int[] {Types.VARCHAR}
+                : new int[] {Types.TIMESTAMP, Types.TIMESTAMP_WITH_TIMEZONE};
+    for (int sqlType : sqlTypes) {
+      for (int overload = 0; overload < 4; overload++) {
+        switch (overload) {
+          case 0:
+            statement.setObject(1, value, sqlType);
+            break;
+          case 1:
+            statement.setObject(1, value, sqlType, 6);
+            break;
+          case 2:
+            statement.setObject(1, value, JDBCType.valueOf(sqlType));
+            break;
+          default:
+            statement.setObject(1, value, JDBCType.valueOf(sqlType), 6);
+        }
+        DatabricksParameterMetaData metadata =
+            (DatabricksParameterMetaData) statement.getParameterMetaData();
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        assertSame(value, metadata.getParameterBindings().get(1).value());
+        assertEquals(
+            expected,
+            DatabricksTypeUtil.getParameterValueString(
+                metadata.getParameterBindings().get(1).value()));
+        assertEquals(
+            "SELECT "
+                + (type == com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING
+                    ? expected
+                    : "'" + expected + "'"),
+            SQLInterpolator.interpolateSQL("SELECT ?", metadata.getParameterBindings()));
+      }
+    }
   }
 
   private static final String WAREHOUSE_ID = "99999999";

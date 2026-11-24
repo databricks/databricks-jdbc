@@ -55,7 +55,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksThriftServiceClientTest {
 
   @ParameterizedTest
-  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#values")
+  @MethodSource({
+    "com.databricks.jdbc.common.util.TemporalParameterTestData#values",
+    "com.databricks.jdbc.common.util.TemporalParameterTestData#explicitOffsetValues"
+  })
   void testTemporalParameterWireValue(
       Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected) {
     ImmutableSqlParameter parameter =
