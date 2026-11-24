@@ -685,11 +685,11 @@ public class ComplexDataTypeParserTest {
     }
   }
 
-  @Test
-  void testFormatMapString_unescapedControlCharacterInputIsReturnedUnchanged() {
-    // The no-backslash fast path relies on strict parsing rejecting raw control characters.
-    String jsonString = "[{\"key\":\"a\tb\",\"value\":\"v\"}]";
-
+  @ParameterizedTest
+  @ValueSource(strings = {"[{\"key\":\"a\tb\",\"value\":\"v\"}]", "[{'key':'a\"b','value':'v'}]"})
+  void testFormatMapString_nonStrictJsonInputIsReturnedUnchanged(String jsonString) {
+    // The no-backslash fast path relies on strict parsing: no raw control characters and no
+    // single-quoted strings that could hold an unescaped '"'.
     assertEquals(
         jsonString, parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>"));
   }
