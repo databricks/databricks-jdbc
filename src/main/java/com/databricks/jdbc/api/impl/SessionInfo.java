@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import javax.annotation.Nullable;
@@ -21,5 +22,10 @@ public interface SessionInfo {
   }
 
   @Nullable
-  TSessionHandle sessionHandle(); // This field is set only for all-purpose cluster compute
+  TSessionHandle sessionHandle(); // This field is set only for Thrift sessions.
+
+  @Value.Derived
+  default DatabricksClientType clientType() {
+    return sessionHandle() == null ? DatabricksClientType.SEA : DatabricksClientType.THRIFT;
+  }
 }

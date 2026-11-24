@@ -311,9 +311,8 @@ empty map. Setting the interpolation flag alone does not affect
 below V8 downgrades to client-side parameter interpolation, the driver records that downgrade
 in logs and telemetry. A missing protocol version is treated conservatively as below V8:
 native parameters and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
-present but old version. Only the live CreateSession response on the current connection grants
-capabilities. A version reconstructed from serialized `SessionId` is diagnostic state and must
-never enable native `parameters` or `parameter_sets` by itself.
+present but old version. The connection ID does not serialize the protocol version. Only the live
+CreateSession response on the current connection grants capabilities.
 For APC `PreparedStatement.getMetaData()` before execution, build `DESCRIBE QUERY` from the
 original SQL with real placeholders quoted as literal `'?'`, then execute that metadata query
 with no original parameter bindings at any protocol version. Do not run ordinary interpolation
@@ -345,13 +344,12 @@ compound session/statement ids; use a redacted compute-type label instead.
 `StatementId` is type-safe — no unchecked cast to `Warehouse`. `ImmutableSessionInfo` records the
 client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
 SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
-id: sessions use `s|a|orgId|clusterId|sessionId|protocolVersion-or--`, and statements use
-`s|a|orgId|clusterId|statementId`. The `-` marker preserves an absent protocol version. Dispatch
-is by prefix: any identifier whose first two segments are exactly `s|a` uses the APC grammar only,
-never the warehouse grammar. Session ids must have exactly six segments and statement ids exactly
-five; any other count, or an empty segment, raises the malformed-id error (`SESSION_ID_PARSING_EXCEPTION`
-for sessions). Parsing of all other identifiers remains backward-compatible with existing warehouse
-`s|warehouseId|sessionId[|r]` and raw SEA statement ids. The compound session form is also returned by the public
+id: sessions use `s|orgId|clusterId|sessionId|a`, and statements use
+`s|a|orgId|clusterId|statementId`. APC session ids have exactly five non-empty segments and the
+trailing `a` compute discriminator; malformed APC session ids raise
+`SESSION_ID_PARSING_EXCEPTION`. Parsing remains backward-compatible with existing warehouse
+`s|warehouseId|sessionId[|r]` identifiers, including a raw warehouse session id equal to `a`, and
+raw SEA statement ids. The compound session form is also returned by the public
 `IDatabricksConnection.getConnectionId()` API so callers can later close that session; the
 compound statement form is internal routing serialization only: use a separate
 internal statement-id serializer. `StatementId.toString()`, `toSQLExecStatementId()`, and public
@@ -714,23 +712,22 @@ missing-version session through the binding-free `DESCRIBE QUERY` path in AC6.
 open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
 `GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
 logs that heartbeat is unsupported for APC.
-- AC25: GIVEN an APC-SEA session with org id, cluster id, session id, and a present or absent
-negotiated protocol version WHEN its `SessionId` and a derived `StatementId` are round-tripped
-through their internal serializers THEN client type, APC compute target, raw ids, and serialized protocol-version field
-round-trip unchanged; existing warehouse and Thrift serialized identifiers still parse identically. Creating
+- AC25: GIVEN an APC-SEA session with org id, cluster id, and session id WHEN its `SessionId` and a
+derived `StatementId` are round-tripped through their internal serializers THEN client type, APC
+compute target, and raw ids round-trip unchanged; existing warehouse and Thrift serialized
+identifiers still parse identically. Creating
 an APC SEA `SessionId` never dereferences a Thrift session handle. The serialized APC forms match
-the R9 formats exactly, including `-` for a missing protocol version. Public
+the R9 formats exactly. Public
 `IDatabricksConnection.getConnectionId()` returns the compound APC session form so a caller can
 pass it to `Driver.closeConnection`; it is not written to logs or telemetry. Public
 `IDatabricksResultSet.getStatementId()` and `StatementId.toString()` return the raw server
 statement id. Statement-id-bearing logs and telemetry use the raw id and never expose the
 internal compound form, org id, or cluster id.
-GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments or a malformed
-version THEN parsing raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
+GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments THEN parsing
+raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
 describe only the structural defect and never include the serialized input, org id, or cluster
-id. GIVEN a serialized version altered from the current connection's live CreateSession version
-THEN reconstruction may display the altered value for diagnostics but cannot enable native
-`parameters` or `parameter_sets`.
+id. The serialized connection ID cannot affect native `parameters` or `parameter_sets`; those
+capabilities come only from the current connection's live CreateSession response.
 GIVEN `connection.getStatement(resultSet.getStatementId())` on that APC SEA connection, WHEN the
 recovered statement fetches, cancels, and closes THEN all three SEA requests carry the current
 connection's `backend_compute`, while `getStatementId()` remains the raw server id.
@@ -832,10 +829,10 @@ propagate without fallback.
    `SeaComputeTarget` through to CloudFetch: use presigned external-link URLs and headers exactly
    as returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
    dispatch on it. Preserve legacy warehouse identifier parsing, and add APC SEA session and
-   statement forms carrying the compute discriminator, org/cluster ids, raw id, and (for sessions)
-   nullable negotiated protocol version so reconstruction cannot turn APC into warehouse compute.
-   The reconstructed version is diagnostic only; only the live CreateSession response on this
-   connection enables native parameter capabilities. Reject malformed APC segments with
+   statement forms carrying the compute discriminator, org/cluster ids, and raw id so
+   reconstruction cannot turn APC into warehouse compute. Do not serialize the negotiated protocol
+   version; only the live CreateSession response on this connection enables native parameter
+   capabilities. Reject malformed APC segments with
    `SESSION_ID_PARSING_EXCEPTION` and structural-only errors, logs, and telemetry. The compound
    APC session form is public through `DatabricksConnection.getConnectionId()`; the compound
    statement form stays internal. Public statement-id APIs and `StatementId.toString()` return
