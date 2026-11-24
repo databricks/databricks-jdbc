@@ -1422,7 +1422,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                         entry -> entry.getKey().substring(filterPrefix.length()),
                         Map.Entry::getValue)));
 
-    if (!headers.containsKey(ORG_ID_HEADER)) {
+    if (headers.keySet().stream().noneMatch(ORG_ID_HEADER::equalsIgnoreCase)) {
       String httpPath =
           parameters.getOrDefault(
               DatabricksJdbcUrlParams.HTTP_PATH.getParamName().toLowerCase(), "");
@@ -1445,7 +1445,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
             "SPOG header extraction: malformed httpPath, skipping org-id extraction: "
                 + e.getMessage());
       }
-      if (!headers.containsKey(ORG_ID_HEADER)) {
+      if (headers.keySet().stream().noneMatch(ORG_ID_HEADER::equalsIgnoreCase)) {
         Matcher clusterPathMatcher = ORG_ID_CLUSTER_PATH_PATTERN.matcher(httpPath);
         if (clusterPathMatcher.find()) {
           headers.put(ORG_ID_HEADER, clusterPathMatcher.group(1));

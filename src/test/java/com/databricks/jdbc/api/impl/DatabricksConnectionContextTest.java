@@ -1601,7 +1601,7 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
 
     Map<String, String> headers = ctx.getCustomHeaders();
-    assertFalse(headers.containsKey("x-databricks-org-id"));
+    assertTrue(headers.keySet().stream().noneMatch("x-databricks-org-id"::equalsIgnoreCase));
   }
 
   @ParameterizedTest
@@ -1630,23 +1630,42 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             "jdbc:databricks://host/default;ssl=1;AuthMech=3;httpPath=" + httpPath, properties);
 
-    assertEquals(expectedOrgId, ctx.getCustomHeaders().get("x-databricks-org-id"));
+    if (expectedOrgId == null) {
+      assertTrue(
+          ctx.getCustomHeaders().keySet().stream()
+              .noneMatch("x-databricks-org-id"::equalsIgnoreCase));
+    } else {
+      assertEquals(expectedOrgId, ctx.getCustomHeaders().get("x-databricks-org-id"));
+    }
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"http.header.x-databricks-org-id", "HTTP.HEADER.X-Databricks-Org-Id"})
-  void testSpogContext_explicitHeaderBeatsClusterPath(String headerProperty)
+  @CsvSource({
+    "http.header.x-databricks-org-id, /sql/protocolv1/o/123/0528-cluster",
+    "http.header.x-databricks-org-id, /sql/protocolv1/o/123/0528-cluster?o=456",
+    "http.header.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster",
+    "http.header.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster?o=456",
+    "HTTP.HEADER.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster",
+    "HTTP.HEADER.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster?o=456"
+  })
+  void testSpogContext_explicitHeaderBeatsClusterPath(String headerProperty, String httpPath)
       throws DatabricksSQLException {
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(
             "jdbc:databricks://host/default;ssl=1;AuthMech=3;"
-                + "httpPath=/sql/protocolv1/o/123/0528-cluster?o=456;"
+                + "httpPath="
+                + httpPath
+                + ";"
                 + headerProperty
                 + "=fromheader",
             properties);
 
-    assertEquals("fromheader", ctx.getCustomHeaders().get("x-databricks-org-id"));
-    assertEquals(1, ctx.getCustomHeaders().size());
+    Map<String, String> headers = ctx.getCustomHeaders();
+    assertEquals(
+        1L, headers.keySet().stream().filter("x-databricks-org-id"::equalsIgnoreCase).count());
+    headers.entrySet().stream()
+        .filter(entry -> "x-databricks-org-id".equalsIgnoreCase(entry.getKey()))
+        .forEach(entry -> assertEquals("fromheader", entry.getValue()));
   }
 
   @Test

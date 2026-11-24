@@ -17,23 +17,34 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksTelemetryException;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
 import java.util.Properties;
+import org.apache.http.Header;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 public class TelemetryPushClientTest {
 
-  @Test
-  public void pushEvent_sendsClusterPathOrgId() throws Exception {
+  @ParameterizedTest
+  @CsvSource({
+    "/sql/protocolv1/o/6051921418418893/0528-cluster, , 6051921418418893",
+    "/sql/protocolv1/o/123/0528-cluster, http.header.X-Databricks-Org-Id=caller, caller",
+    "/sql/protocolv1/o/123/0528-cluster?o=456, http.header.X-Databricks-Org-Id=caller, caller"
+  })
+  public void pushEvent_sendsClusterPathOrgId(
+      String httpPath, String customHeader, String expectedOrgId) throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(
-            "jdbc:databricks://host/default;AuthMech=3;"
-                + "httpPath=/sql/protocolv1/o/6051921418418893/0528-cluster",
+            "jdbc:databricks://host/default;AuthMech=3;TelemetryCircuitBreakerEnabled=1;"
+                + "httpPath="
+                + httpPath
+                + ";"
+                + (customHeader == null ? "" : customHeader),
             new Properties());
     DatabricksHttpClientFactory factory = mock(DatabricksHttpClientFactory.class);
     IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
@@ -53,8 +64,9 @@ public class TelemetryPushClientTest {
 
       ArgumentCaptor<HttpPost> request = ArgumentCaptor.forClass(HttpPost.class);
       verify(httpClient).execute(request.capture());
-      assertEquals(
-          "6051921418418893", request.getValue().getFirstHeader("x-databricks-org-id").getValue());
+      Header[] orgIdHeaders = request.getValue().getHeaders("x-databricks-org-id");
+      assertEquals(1, orgIdHeaders.length);
+      assertEquals(expectedOrgId, orgIdHeaders[0].getValue());
     }
   }
 
