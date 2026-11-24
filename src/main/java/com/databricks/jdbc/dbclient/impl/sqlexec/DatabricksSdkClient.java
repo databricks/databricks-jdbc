@@ -278,24 +278,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException {
     LOGGER.debug("public void deleteSession(String sessionId = {})", sessionInfo.sessionId());
     DatabricksThreadContextHolder.setSessionId(sessionInfo.sessionId());
-    DeleteSessionRequest request = new DeleteSessionRequest().setSessionId(sessionInfo.sessionId());
-    if (sessionInfo.computeResource() instanceof Warehouse) {
-      request.setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
-    } else {
-      request.setBackendCompute(apcBackendComputeFor(sessionInfo.computeResource()));
-    }
+    DeleteSessionRequest request =
+        new DeleteSessionRequest()
+            .setSessionId(sessionInfo.sessionId())
+            .setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
     String path = sessionPath(sessionInfo);
     try {
-      Request req;
-      if (request.getBackendCompute() == null) {
-        req = new Request(Request.DELETE, path);
-        if (!sessionInfo.realtimeSession()) {
-          ApiClient.setQuery(req, request);
-        }
-      } else {
-        req = new Request(Request.DELETE, path, apiClient.serialize(request));
-      }
+      Request req = new Request(Request.DELETE, path);
       req.withHeaders(getHeaders("deleteSession"));
+      if (!sessionInfo.realtimeSession()) {
+        ApiClient.setQuery(req, request);
+      }
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while performing the deleting session operation";
@@ -714,19 +707,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statementId = typedStatementId.toSQLExecStatementId();
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     LOGGER.debug(String.format("public void closeStatement(String statementId = {})", statementId));
-    BackendCompute backendCompute = apcBackendComputeFor(connectionContext.getComputeResource());
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = statementPath(typedStatementId);
     try {
-      Request req;
-      if (backendCompute == null) {
-        req =
-            new Request(Request.DELETE, path, serializeStatementRequest(typedStatementId, request));
-      } else {
-        request.setBackendCompute(backendCompute);
-        req = new Request(Request.DELETE, path);
-        ApiClient.setQuery(req, request);
-      }
+      Request req =
+          new Request(Request.DELETE, path, serializeStatementRequest(typedStatementId, request));
       req.withHeaders(getHeaders("closeStatement"));
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
