@@ -345,16 +345,17 @@ compound session/statement ids; use a redacted compute-type label instead.
 client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
 SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
 id: sessions use `s|orgId|clusterId|sessionId|a`, and statements use
-`s|a|orgId|clusterId|statementId`. APC session ids have exactly five non-empty segments and the
-trailing `a` compute discriminator; malformed APC session ids raise
+`s|orgId|clusterId|statementId|a`. APC session and statement ids have exactly five non-empty
+segments and the trailing `a` compute discriminator; malformed APC session ids raise
 `SESSION_ID_PARSING_EXCEPTION`. Parsing remains backward-compatible with existing warehouse
 `s|warehouseId|sessionId[|r]` identifiers, including a raw warehouse session id equal to `a`, and
 raw SEA statement ids. The compound session form is also returned by the public
 `IDatabricksConnection.getConnectionId()` API so callers can later close that session; the
 compound statement form is internal routing serialization only: use a separate
-internal statement-id serializer. `StatementId.toString()`, `toSQLExecStatementId()`, and public
-`IDatabricksResultSet.getStatementId()` continue to expose only the raw server statement id;
-statement-id-bearing logs and telemetry use that raw id, not the compound form.
+internal statement-id serializer. `StatementId.toString()` emits the compound APC form, while
+`toSQLExecStatementId()` and public `IDatabricksResultSet.getStatementId()` continue to expose only
+the raw server statement id; statement-id-bearing logs and telemetry use that raw id, not the
+compound form.
 `DatabricksConnection.getStatement(rawId)` attaches the current connection's
 APC SEA session and compute target to its reconstructed internal `StatementId`; fetch, cancel,
 and close use that target. It does not change the public raw id or infer a target from id text.
@@ -720,9 +721,9 @@ an APC SEA `SessionId` never dereferences a Thrift session handle. The serialize
 the R9 formats exactly. Public
 `IDatabricksConnection.getConnectionId()` returns the compound APC session form so a caller can
 pass it to `Driver.closeConnection`; it is not written to logs or telemetry. Public
-`IDatabricksResultSet.getStatementId()` and `StatementId.toString()` return the raw server
-statement id. Statement-id-bearing logs and telemetry use the raw id and never expose the
-internal compound form, org id, or cluster id.
+`IDatabricksResultSet.getStatementId()` returns the raw server statement id, while
+`StatementId.toString()` returns the compound APC statement form. Statement-id-bearing logs and
+telemetry use the raw id and never expose the internal compound form, org id, or cluster id.
 GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments THEN parsing
 raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
 describe only the structural defect and never include the serialized input, org id, or cluster
@@ -835,7 +836,7 @@ propagate without fallback.
    capabilities. Reject malformed APC segments with
    `SESSION_ID_PARSING_EXCEPTION` and structural-only errors, logs, and telemetry. The compound
    APC session form is public through `DatabricksConnection.getConnectionId()`; the compound
-   statement form stays internal. Public statement-id APIs and `StatementId.toString()` return
+   statement form stays internal through `StatementId.toString()`. Public statement-id APIs return
    the raw server statement id, while logs and telemetry never expose either compound form. On
    `DatabricksConnection.getStatement(rawId)`, attach the current APC SEA connection's session
    and compute target to the reconstructed internal id before any fetch, cancel, or close.

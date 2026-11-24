@@ -509,6 +509,26 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcCreateSessionPreservesResultDownloadOptOut() throws Exception {
+    useRealJsonSerialization();
+    setupSessionMocks();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            APC_JDBC_URL + "EnableQueryResultDownload=0;UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    databricksSdkClient.createSession(allPurposeCluster, null, null, Map.of("timezone", "UTC"));
+
+    ArgumentCaptor<Request> createCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(createCaptor.capture(), eq(CreateSessionResponse.class));
+    JsonNode sessionConfigs =
+        new ObjectMapper().readTree(createCaptor.getValue().getBodyString()).path("session_confs");
+    assertEquals("false", sessionConfigs.path("can_cloud_download").asText());
+    assertEquals("UTC", sessionConfigs.path("timezone").asText());
+  }
+
+  @Test
   public void testApcExecuteStatementUsesNativeArrowBatchRequest() throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =

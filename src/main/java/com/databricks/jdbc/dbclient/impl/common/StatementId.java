@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
@@ -22,9 +23,11 @@ public class StatementId {
   final String secret;
   private final String sessionId;
   private final String warehouseId;
+  private final String orgId;
+  private final String clusterId;
 
   StatementId(DatabricksClientType clientType, String guid, String secret) {
-    this(clientType, guid, secret, null, null);
+    this(clientType, guid, secret, null, null, null, null);
   }
 
   private StatementId(
@@ -32,12 +35,16 @@ public class StatementId {
       String guid,
       String secret,
       String sessionId,
-      String warehouseId) {
+      String warehouseId,
+      String orgId,
+      String clusterId) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
     this.sessionId = sessionId;
     this.warehouseId = warehouseId;
+    this.orgId = orgId;
+    this.clusterId = clusterId;
   }
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
@@ -47,6 +54,9 @@ public class StatementId {
 
   public static StatementId forCurrentSession(
       String statementId, ImmutableSessionInfo sessionInfo) {
+    if (sessionInfo.computeResource() instanceof AllPurposeCluster) {
+      return forAllPurposeCluster(statementId, (AllPurposeCluster) sessionInfo.computeResource());
+    }
     if (!sessionInfo.realtimeSession()) {
       return new StatementId(statementId);
     }
@@ -55,7 +65,20 @@ public class StatementId {
         statementId,
         null,
         sessionInfo.sessionId(),
-        ((Warehouse) sessionInfo.computeResource()).getWarehouseId());
+        ((Warehouse) sessionInfo.computeResource()).getWarehouseId(),
+        null,
+        null);
+  }
+
+  public static StatementId forAllPurposeCluster(String statementId, AllPurposeCluster cluster) {
+    return new StatementId(
+        DatabricksClientType.SEA,
+        statementId,
+        null,
+        null,
+        null,
+        cluster.getOrgId(),
+        cluster.getClusterId());
   }
 
   public String sessionId() {
@@ -76,15 +99,22 @@ public class StatementId {
 
   /** Deserializes a StatementId from a serialized string */
   public static StatementId deserialize(String serializedStatementId) {
-    String[] idParts = serializedStatementId.split("\\|");
+    String[] idParts = serializedStatementId.split("\\|", -1);
     if (idParts.length == 1) {
       return new StatementId(DatabricksClientType.SEA, serializedStatementId, null);
     } else if (idParts.length == 2) {
       return new StatementId(DatabricksClientType.THRIFT, idParts[0], idParts[1]);
+    } else if (idParts.length == 5
+        && "s".equals(idParts[0])
+        && "a".equals(idParts[4])
+        && !idParts[1].isEmpty()
+        && !idParts[2].isEmpty()
+        && !idParts[3].isEmpty()) {
+      return new StatementId(
+          DatabricksClientType.SEA, idParts[3], null, null, null, idParts[1], idParts[2]);
     } else {
-      LOGGER.error("Invalid statement-Id {}", serializedStatementId);
-      throw new DatabricksDriverException(
-          "Invalid statement-Id " + serializedStatementId, INPUT_VALIDATION_ERROR);
+      LOGGER.error("Invalid statement-Id structure");
+      throw new DatabricksDriverException("Invalid statement-Id structure", INPUT_VALIDATION_ERROR);
     }
   }
 
@@ -92,6 +122,9 @@ public class StatementId {
   public String toString() {
     switch (clientType) {
       case SEA:
+        if (orgId != null && clusterId != null) {
+          return String.format("s|%s|%s|%s|a", orgId, clusterId, guid);
+        }
         return guid;
       case THRIFT:
         return String.format("%s|%s", guid, secret);
@@ -112,6 +145,11 @@ public class StatementId {
   /** Returns a SQL Exec statement handle for the given StatementId */
   public String toSQLExecStatementId() {
     return guid;
+  }
+
+  /** Returns the identifier exposed by the JDBC ResultSet API. */
+  public String toPublicString() {
+    return clientType == DatabricksClientType.SEA && orgId != null ? guid : toString();
   }
 
   /**
@@ -137,11 +175,15 @@ public class StatementId {
       return false;
     }
     return Objects.equals(this.guid, ((StatementId) otherStatement).guid)
-        && Objects.equals(this.secret, ((StatementId) otherStatement).secret);
+        && Objects.equals(this.secret, ((StatementId) otherStatement).secret)
+        && Objects.equals(this.sessionId, ((StatementId) otherStatement).sessionId)
+        && Objects.equals(this.warehouseId, ((StatementId) otherStatement).warehouseId)
+        && Objects.equals(this.orgId, ((StatementId) otherStatement).orgId)
+        && Objects.equals(this.clusterId, ((StatementId) otherStatement).clusterId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(clientType, guid, secret);
+    return Objects.hash(clientType, guid, secret, sessionId, warehouseId, orgId, clusterId);
   }
 }

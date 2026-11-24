@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
@@ -73,6 +74,18 @@ public class StatementIdTest {
   }
 
   @Test
+  public void testApcSeaStatementRoundTrip() {
+    StatementId statementId =
+        StatementId.forAllPurposeCluster(
+            "test-statement-id", new AllPurposeCluster("org", "cluster"));
+
+    assertEquals("s|org|cluster|test-statement-id|a", statementId.toString());
+    assertEquals("test-statement-id", statementId.toSQLExecStatementId());
+    assertEquals("test-statement-id", statementId.toPublicString());
+    assertEquals(statementId, StatementId.deserialize(statementId.toString()));
+  }
+
+  @Test
   public void testRealtimeStatementRouteIsLocalToOwnedId() {
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder()
@@ -107,6 +120,8 @@ public class StatementIdTest {
     assertThrows(
         DatabricksDriverException.class,
         () -> StatementId.deserialize(invalidSerializedStatementId));
+    assertThrows(
+        DatabricksDriverException.class, () -> StatementId.deserialize("s|org|cluster||a"));
   }
 
   /** Test the toString method for SQL Exec client type. */
