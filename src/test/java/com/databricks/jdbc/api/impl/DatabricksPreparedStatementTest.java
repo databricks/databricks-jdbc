@@ -828,6 +828,81 @@ public class DatabricksPreparedStatementTest {
     }
   }
 
+  @ParameterizedTest
+  @MethodSource("outOfRangeExplicitDecimalScales")
+  void testExplicitDecimalRejectsOutOfRangeScale(int targetType, int scale) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    DatabricksSQLException exception =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(2),
+            () ->
+                assertThrows(
+                    DatabricksSQLException.class,
+                    () -> statement.setObject(1, 123.4d, targetType, scale)));
+    assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+    assertEquals(1015, exception.getErrorCode());
+  }
+
+  static Stream<Arguments> outOfRangeExplicitDecimalScales() {
+    return Stream.of(Types.DECIMAL, Types.NUMERIC)
+        .flatMap(type -> Stream.of(-39, 39).map(scale -> Arguments.of(type, scale)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("explicitDecimalPreflightCases")
+  void testExplicitDecimalPreflightPreservesRounding(
+      Object value, int targetType, int scale, String expectedValue) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, new BigDecimal("123.45"), targetType);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () -> {
+          if (expectedValue == null) {
+            DatabricksSQLException exception =
+                assertThrows(
+                    DatabricksSQLException.class,
+                    () -> statement.setObject(1, value, targetType, scale));
+            assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+            assertEquals(1015, exception.getErrorCode());
+            assertTrue(exception.getMessage().contains("parameter 1"));
+            assertEquals(new BigDecimal("123.45"), metadata.getParameterBindings().get(1).value());
+            assertThrows(
+                DatabricksSQLException.class,
+                () -> statement.setObject(1, value, JDBCType.valueOf(targetType), scale));
+          } else {
+            statement.setObject(1, value, targetType, scale);
+            assertEquals(
+                new BigDecimal(expectedValue), metadata.getParameterBindings().get(1).value());
+            statement.setObject(1, value, JDBCType.valueOf(targetType), scale);
+            assertEquals(
+                new BigDecimal(expectedValue), metadata.getParameterBindings().get(1).value());
+          }
+        });
+  }
+
+  static Stream<Arguments> explicitDecimalPreflightCases() {
+    return Stream.of(
+            new Object[] {new ExponentNumber(), 2, null},
+            new Object[] {new BigDecimal("1E+1000000000"), 2, null},
+            new Object[] {new BigDecimal("1E-1000000000"), 2, "0.00"},
+            new Object[] {
+              new BigDecimal("1.235" + String.join("", Collections.nCopies(97, "0"))), 2, "1.24"
+            },
+            new Object[] {123.4d, -1, "1.2E+2"},
+            new Object[] {new BigDecimal("0.005"), 2, "0.01"},
+            new Object[] {new BigDecimal("-0.005"), 2, "-0.01"},
+            new Object[] {new BigDecimal(BigInteger.ZERO, Integer.MIN_VALUE), 2, "0.00"},
+            new Object[] {new BigDecimal("1E+38"), 0, null})
+        .flatMap(
+            input ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC)
+                    .map(type -> Arguments.of(input[0], type, input[1], input[2])));
+  }
+
   private static final class FractionLikeNumber extends Number {
     @Override
     public int intValue() {

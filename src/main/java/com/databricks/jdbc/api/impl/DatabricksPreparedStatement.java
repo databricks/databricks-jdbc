@@ -634,7 +634,22 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         throw new DatabricksSQLException(
             "Invalid object type for DECIMAL/NUMERIC", DatabricksDriverErrorCode.INVALID_STATE);
       }
-      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP); // Round up to nearest value.
+      if (bd.signum() == 0) {
+        bd = BigDecimal.ZERO;
+      }
+      long integerDigits = (long) bd.precision() - bd.scale();
+      if (scaleOrLength < -38 || scaleOrLength > 38 || integerDigits > 38) {
+        throw new DatabricksSQLException(
+            "Invalid DECIMAL/NUMERIC precision or scale for parameter "
+                + parameterIndex
+                + "; scale must be between -38 and 38 and integer digits must not exceed 38",
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+      }
+      bd =
+          integerDigits < -(long) scaleOrLength
+              ? BigDecimal.ZERO.setScale(scaleOrLength)
+              : bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
       setObject(parameterIndex, bd, databricksType);
     } else {
       setObject(parameterIndex, x, databricksType);
