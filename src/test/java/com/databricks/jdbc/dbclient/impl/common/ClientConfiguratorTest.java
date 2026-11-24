@@ -10,6 +10,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.DatabricksTokenFederationProvider;
+import com.databricks.jdbc.auth.EncryptedFileTokenCache;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
@@ -26,13 +27,17 @@ import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
+import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.utils.Cloud;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,8 +49,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EmptySource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -54,6 +61,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ClientConfiguratorTest {
   @Mock private IDatabricksConnectionContext mockContext;
+  @TempDir Path tempDir;
   private ClientConfigurator configurator;
 
   // Local test servers reuse ephemeral ports, so cached discovery responses must not leak.
@@ -614,7 +622,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void testSetupU2MConfig_WithTokenCacheNoPassphrase()
-      throws DatabricksParsingException, DatabricksValidationException {
+      throws DatabricksParsingException, DatabricksSSLException, DatabricksValidationException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -629,7 +637,61 @@ public class ClientConfiguratorTest {
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
-    assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
+    configurator = new ClientConfigurator(mockContext);
+
+    assertInstanceOf(
+        ExternalBrowserCredentialsProvider.class,
+        configurator.getDatabricksConfig().getCredentialsProvider());
+  }
+
+  @Test
+  void testSetupU2MConfig_DefaultUrlWithoutPassphrase_Connects() throws DatabricksSQLException {
+    // EnableTokenCache defaults to 1 and TokenCachePassPhrase has no default (#1612).
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=2;httpPath=/sql/1.0/warehouses/99999999";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertTrue(connectionContext.isTokenCacheEnabled());
+    assertNull(connectionContext.getTokenCachePassPhrase());
+
+    configurator = new ClientConfigurator(connectionContext);
+
+    DatabricksTokenFederationProvider federationProvider =
+        (DatabricksTokenFederationProvider)
+            configurator.getDatabricksConfig().getCredentialsProvider();
+    assertInstanceOf(
+        ExternalBrowserCredentialsProvider.class, federationProvider.getCredentialsProvider());
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"", "   "})
+  void createEncryptedTokenCache_WithoutPassphrase_UsesDerivedKey(String passphrase) {
+    when(mockContext.getTokenCachePassPhrase()).thenReturn(passphrase);
+    Path cachePath = tempDir.resolve("token-cache");
+
+    ClientConfigurator.createEncryptedTokenCache(mockContext, cachePath).save(cacheTestToken());
+
+    assertNotNull(
+        new EncryptedFileTokenCache(cachePath, EncryptedFileTokenCache.derivedPassphrase()).load());
+    assertNull(new EncryptedFileTokenCache(cachePath, "").load());
+  }
+
+  @Test
+  void createEncryptedTokenCache_WithPassphrase_UsesIt() {
+    when(mockContext.getTokenCachePassPhrase()).thenReturn("explicit-passphrase");
+    Path cachePath = tempDir.resolve("token-cache");
+
+    ClientConfigurator.createEncryptedTokenCache(mockContext, cachePath).save(cacheTestToken());
+
+    assertNotNull(new EncryptedFileTokenCache(cachePath, "explicit-passphrase").load());
+    assertNull(
+        new EncryptedFileTokenCache(cachePath, EncryptedFileTokenCache.derivedPassphrase()).load());
+  }
+
+  private static Token cacheTestToken() {
+    return new Token("at", "Bearer", "rt", Instant.now().plus(1, ChronoUnit.HOURS));
   }
 
   @Test

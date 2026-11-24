@@ -7,6 +7,7 @@ import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.utils.SerDeUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +23,7 @@ import java.util.Base64;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
@@ -45,6 +47,14 @@ public class EncryptedFileTokenCache implements TokenCache {
 
   private static final Set<PosixFilePermission> OWNER_ONLY =
       EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+  private static final Set<PosixFilePermission> OWNER_ONLY_DIR =
+      EnumSet.of(
+          PosixFilePermission.OWNER_READ,
+          PosixFilePermission.OWNER_WRITE,
+          PosixFilePermission.OWNER_EXECUTE);
+
+  // Same tag as the SQL kernel's cache_crypto.rs, so both derive the same key for a user.
+  private static final String DERIVED_PASSPHRASE_TAG = "databricks-sql-kernel/token-cache/v1";
 
   private final Path cacheFile;
   private final ObjectMapper mapper;
@@ -58,16 +68,53 @@ public class EncryptedFileTokenCache implements TokenCache {
     this.passphrase = passphrase;
   }
 
+  /**
+   * Passphrase for a cache enabled without {@code TokenCachePassPhrase}, matching the SQL kernel
+   * and ODBC driver: a fixed tag plus the OS user name ({@code USER}, {@code USERNAME}, then {@code
+   * LOGNAME}; empty if none is set). It is obfuscation, not a secret: anyone who knows the user
+   * name can derive it, so the owner-only file mode is the real local control.
+   */
+  public static String derivedPassphrase() {
+    return derivedPassphrase(System::getenv);
+  }
+
+  @VisibleForTesting
+  static String derivedPassphrase(UnaryOperator<String> getenv) {
+    String user = getenv.apply("USER");
+    if (user == null) {
+      user = getenv.apply("USERNAME");
+    }
+    if (user == null) {
+      user = getenv.apply("LOGNAME");
+    }
+    return DERIVED_PASSPHRASE_TAG + '\u001f' + (user == null ? "" : user);
+  }
+
+  /** Best effort: a failed write is logged and never fails authentication or token refresh. */
   @Override
   public void save(Token token) throws DatabricksException {
     try {
-      Files.createDirectories(cacheFile.getParent());
+      Path dir = cacheFile.getParent();
+      Files.createDirectories(dir);
+      restrictDirectoryToOwner(dir);
       String json = mapper.writeValueAsString(token);
       byte[] dataToWrite = encrypt(json.getBytes(StandardCharsets.UTF_8));
       writeOwnerOnly(cacheFile, dataToWrite);
       LOGGER.debug("Successfully saved encrypted token to cache: {}", cacheFile);
     } catch (Exception e) {
-      throw new DatabricksException("Failed to save token cache: " + e.getMessage(), e);
+      LOGGER.warn("Failed to save token cache to {}: {}", cacheFile, e.getMessage());
+    }
+  }
+
+  /** Sets the cache directory to 0700 where POSIX permissions are supported, as the kernel does. */
+  private static void restrictDirectoryToOwner(Path dir) {
+    if (!dir.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+      return;
+    }
+    try {
+      Files.setPosixFilePermissions(dir, OWNER_ONLY_DIR);
+    } catch (IOException | RuntimeException e) {
+      LOGGER.debug("Could not restrict token cache directory {}: {}", dir, e.getMessage());
     }
   }
 

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,10 +13,13 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class EncryptedFileTokenCacheTest {
@@ -373,5 +377,118 @@ public class EncryptedFileTokenCacheTest {
         PosixFilePermissions.fromString("rw-------"),
         Files.getPosixFilePermissions(tokenCachePath),
         "overwrite must normalize to 0600");
+  }
+
+  private static final String KERNEL_TAG = "databricks-sql-kernel/token-cache/v1\u001f";
+
+  @Test
+  void derivedPassphrase_UsesFirstSetOfUserUsernameLogname() {
+    Map<String, String> env = new HashMap<>();
+    assertEquals(KERNEL_TAG, EncryptedFileTokenCache.derivedPassphrase(env::get));
+    env.put("LOGNAME", "from-logname");
+    assertEquals(KERNEL_TAG + "from-logname", EncryptedFileTokenCache.derivedPassphrase(env::get));
+    env.put("USERNAME", "from-username");
+    assertEquals(KERNEL_TAG + "from-username", EncryptedFileTokenCache.derivedPassphrase(env::get));
+    env.put("USER", "from-user");
+    assertEquals(KERNEL_TAG + "from-user", EncryptedFileTokenCache.derivedPassphrase(env::get));
+    // A set-but-empty USER is used as-is, like the kernel's std::env::var.
+    env.put("USER", "");
+    assertEquals(KERNEL_TAG, EncryptedFileTokenCache.derivedPassphrase(env::get));
+  }
+
+  @Test
+  void derivedPassphrase_ReadsProcessEnvironment() {
+    assertEquals(
+        EncryptedFileTokenCache.derivedPassphrase(System::getenv),
+        EncryptedFileTokenCache.derivedPassphrase());
+  }
+
+  /**
+   * Payloads written by the SQL kernel's own cache_crypto.rs (encrypt(plaintext,
+   * derived_passphrase())) with the given user env var set and the others unset. Generator and
+   * provenance: kernel-fixture crate in the PR description.
+   */
+  @ParameterizedTest
+  @CsvSource({
+    "USER,jdbc-fixture-user,o5MGqx4C/6QzrXv/LqzSJmLatxzYU4Tt29Mb8rAxLbCJtK/s1PW74fA+JEVlFsqxhG+WVk+n9ImCPtOzX6Q1pPgbah6uOlO0kgH6VHtZGOwODgJshUICuHZbmbQlDIFN6Abq6/Rl4Lbj3mEf2vFyvAlwQfXGEM+1aXywn1yv36N/HS84oXVlEuC+j3TMvZyehrQARTIXk6P00nulPXXLMQ==",
+    "USER,jösé-ユーザー,oF5A6xMiGZeHBqF3M7SFtpI1c6NurJ6gNsuq7CA5VDdAjKcpPanwVjZID1uMZsnt2z3UF+mJBkb7kXUKg/5/Sn6ucanVlWG8sNapFCI135FoUtMpjLvzXuZSah43F2WASwumb4yIvlJ5y36GQQ6cEShJf/XFF9rBFRgkyuL4iCO1U13EAeoFxVUDQY26kHEjFJL+WjKK/yQK6T+c0LTCKw==",
+    "USERNAME,win-fixture-user,63xHudJGJFg8/d/BaE8oXNCpB3DhUol1we37FJXlJJm/oECcQuW72lZdaqTDKpWvF87PE3qRgRXoiucosvyltIEsvGXiCikwl9G1N5bM5buzJKAOtgMBtYUIkhaNPNNCqrSBvXcmfAaQBf89RCvNrd8srEfpyTpQGekt/4wRczjU16quKQkn41ZNtvMc3nvdYuRhnIWZtPOC8SentfdBcQ==",
+    "NONE,,26ODVLH7m0/REl7FylHyp6mXE7e8HG1VfuDzZ1vWwF+6so2mLyafRVwQxF/5a5woGwFGpvaeGcO3IupY+h7dYsTpajGiNQ1Uj486vcWvHVccbLyrrRxNLJ57NHClOvqKaYf1LCVnDv5mesx0+aq8VfzdZDu3BDKodKva8n92Xx1IIKd3btZf/UtDiSuuiNc5h+s3exfkx/eHmMCaqvpyWg=="
+  })
+  void should_DecryptKernelPayload_WithDerivedPassphrase(String var, String user, String payload)
+      throws Exception {
+    Map<String, String> env = new HashMap<>();
+    if (user != null) {
+      env.put(var, user);
+    }
+    Files.write(tokenCachePath, payload.getBytes(StandardCharsets.US_ASCII));
+
+    Token token =
+        new EncryptedFileTokenCache(
+                tokenCachePath, EncryptedFileTokenCache.derivedPassphrase(env::get))
+            .load();
+
+    assertNotNull(token, "kernel payload must decrypt with the JDBC-derived passphrase");
+    assertEquals("at-kernel-fixture", token.getAccessToken());
+    assertEquals("rt-kernel-fixture", token.getRefreshToken());
+    assertEquals(Instant.parse("2030-01-01T00:00:00Z"), token.getExpiry());
+    env.put("USER", "someone-else");
+    assertNull(
+        new EncryptedFileTokenCache(
+                tokenCachePath, EncryptedFileTokenCache.derivedPassphrase(env::get))
+            .load(),
+        "another user's derived key must not decrypt it");
+  }
+
+  @Test
+  void should_TreatUndecryptableCacheAsMiss_AndOverwriteOnSave() {
+    Token old =
+        new Token("old", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
+    new EncryptedFileTokenCache(tokenCachePath, "explicit-passphrase").save(old);
+    EncryptedFileTokenCache derived =
+        new EncryptedFileTokenCache(tokenCachePath, EncryptedFileTokenCache.derivedPassphrase());
+
+    assertNull(derived.load(), "a file written under another passphrase is a cache miss");
+
+    derived.save(
+        new Token("new", TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS)));
+    assertEquals("new", derived.load().getAccessToken());
+  }
+
+  @Test
+  void should_NotThrow_When_SaveFails() throws Exception {
+    Path notADirectory = tempDir.resolve("file");
+    Files.write(notADirectory, new byte[] {1});
+    EncryptedFileTokenCache cache =
+        new EncryptedFileTokenCache(notADirectory.resolve("token-cache"), TEST_PASSPHRASE);
+
+    assertDoesNotThrow(
+        () ->
+            cache.save(
+                new Token(
+                    ACCESS_TOKEN,
+                    TOKEN_TYPE,
+                    REFRESH_TOKEN,
+                    Instant.now().plus(1, ChronoUnit.HOURS))));
+    assertNull(cache.load());
+  }
+
+  @Test
+  void should_RestrictCacheDirectoryToOwner() throws Exception {
+    org.junit.jupiter.api.Assumptions.assumeTrue(
+        FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+    Path existingDir = Files.createDirectory(tempDir.resolve("existing"));
+    Files.setPosixFilePermissions(existingDir, PosixFilePermissions.fromString("rwxr-xr-x"));
+    Path newDir = tempDir.resolve("new/oauth");
+    Token token =
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
+
+    new EncryptedFileTokenCache(existingDir.resolve("token-cache"), TEST_PASSPHRASE).save(token);
+    new EncryptedFileTokenCache(newDir.resolve("token-cache"), TEST_PASSPHRASE).save(token);
+
+    assertEquals(
+        PosixFilePermissions.fromString("rwx------"), Files.getPosixFilePermissions(existingDir));
+    assertEquals(
+        PosixFilePermissions.fromString("rwx------"), Files.getPosixFilePermissions(newDir));
   }
 }

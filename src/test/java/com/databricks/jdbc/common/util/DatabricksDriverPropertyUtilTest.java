@@ -132,6 +132,21 @@ public class DatabricksDriverPropertyUtilTest {
   }
 
   @Test
+  public void testU2MTokenCachePassphraseIsOptional() throws DatabricksSQLException {
+    String u2m = test_host + "AuthMech=11;Auth_Flow=2;";
+    for (String jdbcUrl : List.of(u2m, u2m + "EnableTokenCache=1")) {
+      DriverPropertyInfo passphrase =
+          DatabricksDriverPropertyUtil.getMissingProperties(jdbcUrl, new Properties()).stream()
+              .filter(p -> p.name.equals(TOKEN_CACHE_PASS_PHRASE.getParamName()))
+              .findFirst()
+              .orElseThrow(() -> new AssertionError("passphrase not advertised: " + jdbcUrl));
+      assertFalse(passphrase.required, jdbcUrl);
+    }
+    assertNotMissingProperties(
+        u2m + "EnableTokenCache=0", new Properties(), TOKEN_CACHE_PASS_PHRASE.getParamName());
+  }
+
+  @Test
   public void testM2MMissingSecretStillReportedWithoutPassword() throws DatabricksSQLException {
     // Without user/password and without explicit OAuth params, both are still reported missing.
     String jdbcUrl = test_host + "AuthMech=11;Auth_Flow=1;";

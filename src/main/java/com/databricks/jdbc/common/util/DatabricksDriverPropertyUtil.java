@@ -172,10 +172,10 @@ public class DatabricksDriverPropertyUtil {
             addMissingProperty(
                 missingPropertyInfos, connectionContext, OAUTH_REDIRECT_URL_PORT, false);
             addMissingProperty(missingPropertyInfos, connectionContext, ENABLE_TOKEN_CACHE, false);
-            if (connectionContext.isPropertyPresent(ENABLE_TOKEN_CACHE)
-                && connectionContext.isTokenCacheEnabled()) {
+            if (connectionContext.isTokenCacheEnabled()) {
+              // Optional: without it the cache is encrypted with a key derived from the OS user.
               addMissingProperty(
-                  missingPropertyInfos, connectionContext, TOKEN_CACHE_PASS_PHRASE, true);
+                  missingPropertyInfos, connectionContext, TOKEN_CACHE_PASS_PHRASE, false);
             }
             break;
 

@@ -243,19 +243,31 @@ public class ClientConfigurator implements Closeable {
     databricksConfig.setScopes(new ArrayList<>(connectionContext.getOAuthScopesForU2M()));
     TokenCache tokenCache;
     if (connectionContext.isTokenCacheEnabled()) {
-      if (connectionContext.getTokenCachePassPhrase() == null) {
-        LOGGER.error("No token cache passphrase configured");
-        throw new DatabricksException("No token cache passphrase configured");
-      }
       Path tokenCachePath = getTokenCachePath(host, clientId, databricksConfig.getScopes());
-      tokenCache =
-          new EncryptedFileTokenCache(tokenCachePath, connectionContext.getTokenCachePassPhrase());
+      tokenCache = createEncryptedTokenCache(connectionContext, tokenCachePath);
     } else {
       tokenCache = new NoOpTokenCache();
     }
 
     databricksConfig.setCredentialsProvider(
         wrapWithTokenFederationIfEnabled(new ExternalBrowserCredentialsProvider(tokenCache)));
+  }
+
+  /**
+   * Encrypts with TokenCachePassPhrase when set; otherwise (unset or blank) with the key derived
+   * from the OS user name, as the SQL kernel and ODBC driver do.
+   */
+  @VisibleForTesting
+  static EncryptedFileTokenCache createEncryptedTokenCache(
+      IDatabricksConnectionContext connectionContext, Path tokenCachePath) {
+    String passphrase = connectionContext.getTokenCachePassPhrase();
+    if (passphrase == null || passphrase.trim().isEmpty()) {
+      LOGGER.info(
+          "TokenCachePassPhrase is not set; encrypting the OAuth token cache with a key derived"
+              + " from the OS user name");
+      passphrase = EncryptedFileTokenCache.derivedPassphrase();
+    }
+    return new EncryptedFileTokenCache(tokenCachePath, passphrase);
   }
 
   /**
