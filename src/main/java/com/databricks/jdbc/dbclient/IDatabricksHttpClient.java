@@ -20,6 +20,10 @@ public interface IDatabricksHttpClient {
    */
   CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
 
+  /**
+   * HTTP implementations must override this method and forward {@code context}, including retry
+   * markers. This default delegates to the legacy overload for compatibility.
+   */
   default CloseableHttpResponse execute(HttpUriRequest request, HttpContext context)
       throws DatabricksHttpException {
     return execute(request);
