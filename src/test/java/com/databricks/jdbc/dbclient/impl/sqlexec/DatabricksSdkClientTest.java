@@ -1381,6 +1381,7 @@ public class DatabricksSdkClientTest {
           () ->
               TelemetryHelper.exportFailureLog(
                   any(), eq(errorName), eq(exception.getMessage()), eq(TelemetryLogLevel.ERROR)));
+      telemetry.verifyNoMoreInteractions();
     }
     verify(client, timeout(1000)).cancelStatement(STATEMENT_ID);
     verify(apiClient, times(1)).execute(any(Request.class), eq(ExecuteStatementResponse.class));

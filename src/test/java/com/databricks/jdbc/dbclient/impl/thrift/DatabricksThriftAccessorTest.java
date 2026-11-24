@@ -1125,6 +1125,7 @@ public class DatabricksThriftAccessorTest {
           () ->
               TelemetryHelper.exportFailureLog(
                   any(), eq(errorName), eq(timeout.getMessage()), eq(TelemetryLogLevel.ERROR)));
+      telemetry.verifyNoMoreInteractions();
     }
     verify(thriftClient, timeout(1000)).CancelOperation(any());
     if (metadata) {

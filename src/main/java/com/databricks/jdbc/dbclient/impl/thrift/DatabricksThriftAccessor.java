@@ -114,7 +114,7 @@ final class DatabricksThriftAccessor {
       LOGGER.error(errorMessage);
       throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
     } catch (TException | SQLException e) {
-      Throwable cause = e;
+      Throwable cause = e instanceof DatabricksTimeoutException ? null : e;
       while (cause != null) {
         if (cause instanceof HttpException) {
           throw new DatabricksHttpException(
@@ -126,11 +126,18 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               requestType, e.getMessage());
-      LOGGER.error(e, errorMessage);
+      boolean reportTelemetry = !(e instanceof DatabricksTimeoutException);
+      if (reportTelemetry) {
+        LOGGER.error(e, errorMessage);
+      }
       if (e instanceof SQLException) {
         SQLException sqlException = (SQLException) e;
         throw new DatabricksSQLException(
-            errorMessage, sqlException.getSQLState(), sqlException.getErrorCode(), sqlException);
+            errorMessage,
+            sqlException.getSQLState(),
+            sqlException.getErrorCode(),
+            sqlException,
+            reportTelemetry);
       } else {
         throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
       }
