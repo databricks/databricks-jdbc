@@ -1613,6 +1613,7 @@ class DatabricksConnectionContextTest {
     "/sql/protocolv1/o/123/0528-cluster?o=456, 456",
     "sql/protocolv1/o/123/0528-cluster?o=456, 456",
     "/sql/protocolv1/o/123/0528-cluster?o=fromquery, fromquery",
+    "/sql/protocolv1/o/456/0528-cluster?o=123&x=a|b,",
     "/sql/protocolv1/o/123/0528-cluster?o=, 123",
     "/sql/protocolv1/o/123/0528-cluster?other=456, 123",
     "/sql/protocolv1/o/123/0528-cluster/extra, 123",

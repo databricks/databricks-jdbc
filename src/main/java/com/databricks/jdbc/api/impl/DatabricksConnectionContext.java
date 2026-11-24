@@ -1444,6 +1444,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         LOGGER.debug(
             "SPOG header extraction: malformed httpPath, skipping org-id extraction: "
                 + e.getMessage());
+        int queryStart = httpPath.indexOf('?');
+        if (queryStart >= 0) {
+          String rawQuery = httpPath.substring(queryStart + 1);
+          if (rawQuery.startsWith(ORG_ID_QUERY_PARAM + "=")
+              || rawQuery.contains("&" + ORG_ID_QUERY_PARAM + "=")) {
+            return headers;
+          }
+        }
       }
       if (headers.keySet().stream().noneMatch(ORG_ID_HEADER::equalsIgnoreCase)) {
         Matcher clusterPathMatcher = ORG_ID_CLUSTER_PATH_PATTERN.matcher(httpPath);
