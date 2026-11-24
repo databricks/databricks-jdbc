@@ -322,16 +322,20 @@ public class ArrowStreamResult implements IExecutionResult {
   /** {@inheritDoc} */
   @Override
   public boolean next() throws DatabricksSQLException {
-    if (!hasNext()) {
+    if (isClosed) {
       return false;
     }
 
-    if (chunkIterator == null || !chunkIterator.hasNextRow()) {
-      if (!chunkProvider.next()) {
-        return false;
-      }
-      chunkIterator = chunkProvider.getChunk().getChunkIterator();
+    if (chunkIterator != null && chunkIterator.nextRow()) {
+      currentRowIndex++;
+      return true;
     }
+
+    // The current chunk is exhausted (or none is open yet): move to the next one.
+    if (!chunkProvider.hasNextChunk() || !chunkProvider.next()) {
+      return false;
+    }
+    chunkIterator = chunkProvider.getChunk().getChunkIterator();
 
     currentRowIndex++;
     return chunkIterator.nextRow();

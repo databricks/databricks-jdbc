@@ -22,6 +22,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -60,6 +62,7 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
   @BeforeEach
   void setUp() {
+    DatabricksDriverFeatureFlagsContext.clearSnapshots();
     // Set up compute resources with different workspace IDs
     when(connectionContext1.getComputeResource()).thenReturn(computeResource1);
     when(connectionContext2.getComputeResource()).thenReturn(computeResource2);
@@ -78,6 +81,7 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     // Clean up any contexts created during tests
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext2);
+    DatabricksDriverFeatureFlagsContext.clearSnapshots();
   }
 
   @Test
@@ -484,6 +488,189 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     } finally {
       DatabricksDriverFeatureFlagsContextFactory.removeInstance(ctx);
     }
+  }
+
+  @Test
+  void contextCreatedAfterLastCloseReusesUnexpiredSnapshot() throws Exception {
+    IDatabricksConnectionContext first = hostContext("snapshot.databricks.com", "uuid-snap-1");
+    IDatabricksConnectionContext second = hostContext("snapshot.databricks.com", "uuid-snap-2");
+    IDatabricksHttpClient httpClient =
+        httpClientReturning(
+            flagsResponse(200, "[{\"name\":\"snap.flag\",\"value\":\"true\"}]", 3600));
+    ScheduledExecutorService scheduler = spy(Executors.newSingleThreadScheduledExecutor());
+    try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
+        MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
+      assertTrue(
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(first).getBoolean("snap.flag"));
+      // Closing the only connection shuts the context down.
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(first);
+
+      DatabricksDriverFeatureFlagsContext reopened;
+      try (MockedStatic<Executors> executors = mockStatic(Executors.class, CALLS_REAL_METHODS)) {
+        executors
+            .when(() -> Executors.newSingleThreadScheduledExecutor(any(ThreadFactory.class)))
+            .thenReturn(scheduler);
+        reopened = DatabricksDriverFeatureFlagsContextFactory.getInstance(second);
+      }
+
+      assertTrue(reopened.getBoolean("snap.flag"));
+      verify(httpClient, times(1)).execute(any(HttpGet.class));
+      // Reuse is capped at the 15 minutes a newly fetched context waits before its first refresh,
+      // even with a longer server TTL; the first refresh is due when the snapshot expires.
+      verify(scheduler)
+          .scheduleAtFixedRate(
+              any(Runnable.class),
+              longThat(delay -> delay >= 890 && delay < 900),
+              eq(900L),
+              eq(TimeUnit.SECONDS));
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(second);
+      scheduler.shutdownNow();
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(first);
+    }
+  }
+
+  @Test
+  void snapshotIsNotReusedForDifferentOrgIdOrUserAgent() throws Exception {
+    String host = "spog.databricks.com";
+    IDatabricksConnectionContext orgA = hostContext(host, "uuid-org-a");
+    IDatabricksConnectionContext orgB = hostContext(host, "uuid-org-b");
+    IDatabricksConnectionContext partnerInOrgA = hostContext(host, "uuid-partner");
+    IDatabricksConnectionContext orgAAgain = hostContext(host, "uuid-org-a-again");
+    when(orgA.getCustomHeaders()).thenReturn(Map.of("x-databricks-org-id", "111"));
+    when(orgB.getCustomHeaders()).thenReturn(Map.of("x-databricks-org-id", "222"));
+    when(partnerInOrgA.getCustomHeaders()).thenReturn(Map.of("x-databricks-org-id", "111"));
+    when(partnerInOrgA.getCustomerUserAgent()).thenReturn("PowerBI/1.0");
+    when(orgAAgain.getCustomHeaders()).thenReturn(Map.of("x-databricks-org-id", "111"));
+    IDatabricksHttpClient httpClient =
+        httpClientReturning(flagsResponse(200, "[{\"name\":\"f\",\"value\":\"true\"}]", 300));
+    IDatabricksConnectionContext[] sequence = {orgA, orgB, partnerInOrgA, orgAAgain};
+    try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
+        MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
+      for (IDatabricksConnectionContext ctx : sequence) {
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx);
+        DatabricksDriverFeatureFlagsContextFactory.removeInstance(ctx);
+      }
+
+      // Only the last connection repeats an earlier request.
+      verify(httpClient, times(3)).execute(any(HttpGet.class));
+    } finally {
+      for (IDatabricksConnectionContext ctx : sequence) {
+        DatabricksClientConfiguratorManager.getInstance().removeInstance(ctx);
+      }
+    }
+  }
+
+  @Test
+  void failedFetchIsNotReused() throws Exception {
+    IDatabricksConnectionContext first = hostContext("failed.databricks.com", "uuid-failed-1");
+    IDatabricksConnectionContext second = hostContext("failed.databricks.com", "uuid-failed-2");
+    IDatabricksHttpClient httpClient =
+        httpClientReturning(
+            flagsResponse(503, null, 0),
+            flagsResponse(200, "[{\"name\":\"f\",\"value\":\"true\"}]", 300));
+    try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
+        MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
+      assertFalse(DatabricksDriverFeatureFlagsContextFactory.getInstance(first).getBoolean("f"));
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(first);
+
+      assertTrue(DatabricksDriverFeatureFlagsContextFactory.getInstance(second).getBoolean("f"));
+      verify(httpClient, times(2)).execute(any(HttpGet.class));
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(second);
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(first);
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(second);
+    }
+  }
+
+  @Test
+  void expiredSnapshotIsNotReused() throws Exception {
+    IDatabricksConnectionContext first = hostContext("expired.databricks.com", "uuid-exp-1");
+    IDatabricksConnectionContext second = hostContext("expired.databricks.com", "uuid-exp-2");
+    IDatabricksHttpClient httpClient =
+        httpClientReturning(
+            flagsResponse(200, "[{\"name\":\"f\",\"value\":\"true\"}]", 1),
+            flagsResponse(200, "[{\"name\":\"f\",\"value\":\"false\"}]", 300));
+    try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
+        MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
+      assertTrue(DatabricksDriverFeatureFlagsContextFactory.getInstance(first).getBoolean("f"));
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(first);
+      Thread.sleep(1_100);
+
+      assertFalse(DatabricksDriverFeatureFlagsContextFactory.getInstance(second).getBoolean("f"));
+      verify(httpClient, times(2)).execute(any(HttpGet.class));
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(second);
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(first);
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(second);
+    }
+  }
+
+  @Test
+  void snapshotLookupFailureFallsBackToFetch() throws Exception {
+    IDatabricksConnectionContext ctx = hostContext("lookup.databricks.com", "uuid-lookup");
+    // Only the snapshot lookup, which reads the headers first, sees the failure.
+    when(ctx.getCustomHeaders())
+        .thenThrow(new IllegalStateException("simulated lookup failure"))
+        .thenReturn(Map.of());
+    IDatabricksHttpClient httpClient =
+        httpClientReturning(flagsResponse(200, "[{\"name\":\"f\",\"value\":\"true\"}]", 300));
+    try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
+        MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
+      assertTrue(DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx).getBoolean("f"));
+      verify(httpClient, times(1)).execute(any(HttpGet.class));
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(ctx);
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(ctx);
+    }
+  }
+
+  private static IDatabricksConnectionContext hostContext(String host, String uuid) {
+    IDatabricksConnectionContext ctx =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    when(ctx.getHost()).thenReturn(host);
+    when(ctx.getHostForOAuth()).thenReturn(host);
+    when(ctx.getConnectionUuid()).thenReturn(uuid);
+    return ctx;
+  }
+
+  private static CloseableHttpResponse flagsResponse(int status, String flagsJson, int ttlSeconds)
+      throws Exception {
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, status, "status"));
+    if (flagsJson != null) {
+      when(response.getEntity())
+          .thenReturn(
+              new StringEntity("{\"flags\":" + flagsJson + ",\"ttl_seconds\":" + ttlSeconds + "}"));
+    }
+    return response;
+  }
+
+  /** Returns the responses in order; the last one repeats. */
+  private static IDatabricksHttpClient httpClientReturning(
+      CloseableHttpResponse first, CloseableHttpResponse... rest) throws Exception {
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    when(httpClient.execute(any(HttpGet.class))).thenReturn(first, rest);
+    return httpClient;
+  }
+
+  private static MockedStatic<DatabricksHttpClientFactory> mockHttpClientFactory(
+      IDatabricksHttpClient httpClient) {
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(any())).thenReturn(httpClient);
+    MockedStatic<DatabricksHttpClientFactory> mocked =
+        mockStatic(DatabricksHttpClientFactory.class);
+    mocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+    return mocked;
+  }
+
+  private static MockedConstruction<ClientConfigurator> mockConfigurators() {
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Map.of());
+    return mockConstruction(
+        ClientConfigurator.class,
+        (mock, ctx) -> when(mock.getDatabricksConfig()).thenReturn(config));
   }
 
   @Test

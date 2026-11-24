@@ -7,6 +7,8 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
+import com.databricks.jdbc.api.impl.converters.StringConverter;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
@@ -16,6 +18,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import java.sql.ResultSetMetaData;
@@ -280,6 +283,48 @@ public class DatabricksResultSetMetaDataTest {
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
     assertTrue(metaData.isTimestampNtz(1));
     assertFalse(metaData.isTimestampNtz(2));
+  }
+
+  @Test
+  public void testConvertersForMetadataResultSetConstructors() throws SQLException {
+    List<String> names = List.of("geo", "text");
+    List<String> typeNames = List.of("GEOMETRY(4326)", "STRING");
+    List<ColumnMetadata> columns = new ArrayList<>();
+    for (int i = 0; i < names.size(); i++) {
+      columns.add(
+          new ColumnMetadata.Builder()
+              .name(names.get(i))
+              .typeText(typeNames.get(i))
+              .typeInt(Types.VARCHAR)
+              .build());
+    }
+    List<DatabricksResultSetMetaData> metadata =
+        List.of(
+            new DatabricksResultSetMetaData(STATEMENT_ID, columns, 1),
+            new DatabricksResultSetMetaData(
+                STATEMENT_ID,
+                names,
+                typeNames,
+                List.of(Types.VARCHAR, Types.VARCHAR),
+                List.of(0, 0),
+                List.of(NULLABLE, NULLABLE),
+                1),
+            new DatabricksResultSetMetaData(
+                STATEMENT_ID,
+                names,
+                typeNames,
+                new int[] {Types.VARCHAR, Types.VARCHAR},
+                new int[] {0, 0},
+                new int[] {1, 1},
+                1),
+            new DatabricksResultSetMetaData(STATEMENT_ID, names, typeNames, connectionContext));
+    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 4326);
+    for (DatabricksResultSetMetaData metaData : metadata) {
+      assertArrayEquals(geometry.getWKB(), metaData.getColumnConverter(1).toByteArray(geometry));
+      assertEquals("ordinary text", metaData.getColumnConverter(2).toString("ordinary text"));
+      assertThrows(IllegalStateException.class, () -> metaData.getColumnConverter(0));
+      assertThrows(IllegalStateException.class, () -> metaData.getColumnConverter(3));
+    }
   }
 
   @Test
@@ -801,12 +846,14 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("geom_col", metaData.getColumnName(1));
     assertEquals("STRING", metaData.getColumnTypeName(1));
     assertEquals(Types.VARCHAR, metaData.getColumnType(1));
+    assertInstanceOf(StringConverter.class, metaData.getColumnConverter(1));
     assertEquals("java.lang.String", metaData.getColumnClassName(1));
 
     // Verify GEOGRAPHY column is converted to STRING
     assertEquals("geog_col", metaData.getColumnName(2));
     assertEquals("STRING", metaData.getColumnTypeName(2));
     assertEquals(Types.VARCHAR, metaData.getColumnType(2));
+    assertInstanceOf(StringConverter.class, metaData.getColumnConverter(2));
     assertEquals("java.lang.String", metaData.getColumnClassName(2));
   }
 
@@ -833,6 +880,7 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("geom_col", metaData.getColumnName(1));
     assertEquals("GEOMETRY", metaData.getColumnTypeName(1));
     assertEquals(Types.OTHER, metaData.getColumnType(1));
+    assertInstanceOf(GeospatialConverter.class, metaData.getColumnConverter(1));
     assertEquals(
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOMETRY),
         metaData.getColumnClassName(1));
@@ -841,6 +889,7 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("geog_col", metaData.getColumnName(2));
     assertEquals("GEOGRAPHY", metaData.getColumnTypeName(2));
     assertEquals(Types.OTHER, metaData.getColumnType(2));
+    assertInstanceOf(GeospatialConverter.class, metaData.getColumnConverter(2));
     assertEquals(
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOGRAPHY),
         metaData.getColumnClassName(2));
