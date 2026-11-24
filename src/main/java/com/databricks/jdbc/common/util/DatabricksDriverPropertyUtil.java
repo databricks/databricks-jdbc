@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.utils.Cloud;
 import java.sql.DriverPropertyInfo;
@@ -58,19 +59,6 @@ public class DatabricksDriverPropertyUtil {
           "JDBC URL must be in the form: <protocol>://<host or domain>:<port>/<path>";
       return Collections.singletonList(hostProperty);
     }
-    List<DriverPropertyInfo> missingProperties = new ArrayList<>();
-    // check if url contains HTTP_PATH
-    if (!connectionContext.isPropertyPresent(HTTP_PATH)) {
-      missingProperties.add(getUrlParamInfo(HTTP_PATH, true));
-    }
-    // check if url contains AUTH_MECH
-    if (!connectionContext.isPropertyPresent(AUTH_MECH)) {
-      missingProperties.add(getUrlParamInfo(AUTH_MECH, true));
-    }
-    if (!missingProperties.isEmpty()) {
-      return missingProperties;
-    }
-
     return buildMissingPropertiesList(connectionContext);
   }
 
@@ -79,7 +67,7 @@ public class DatabricksDriverPropertyUtil {
     List<DriverPropertyInfo> missingPropertyInfos = new ArrayList<>();
     // add required properties
     for (DatabricksJdbcUrlParams param : DatabricksJdbcUrlParams.values()) {
-      if (param.isRequired()) {
+      if (param.isRequired() && param != PWD) {
         addMissingProperty(missingPropertyInfos, connectionContext, param, true);
       }
     }
@@ -123,18 +111,26 @@ public class DatabricksDriverPropertyUtil {
     }
 
     // auth-related properties
-    AuthMech authMech = connectionContext.getAuthMech();
+    AuthMech authMech = null;
+    try {
+      authMech =
+          connectionContext.hasNonBlankProperty(AUTH_MECH)
+              ? connectionContext.getAuthMech()
+              : AuthMech.parseAuthMech(AUTH_MECH.getDefaultValue());
+    } catch (DatabricksDriverException invalidAuthMech) {
+      missingPropertyInfos.add(getUrlParamInfo(AUTH_MECH, true));
+    }
     if (authMech == PAT) {
       addMissingProperty(missingPropertyInfos, connectionContext, PWD, true);
     } else if (authMech == OAUTH) {
-      AuthFlow authFlow = connectionContext.getAuthFlow();
       addMissingProperty(
           missingPropertyInfos, connectionContext, IDENTITY_FEDERATION_CLIENT_ID, false);
 
-      if (connectionContext.isPropertyPresent(AUTH_FLOW)) {
+      if (connectionContext.hasNonBlankProperty(AUTH_FLOW)) {
+        AuthFlow authFlow = connectionContext.getAuthFlow();
         switch (authFlow) {
           case TOKEN_PASSTHROUGH:
-            if (connectionContext.getOAuthRefreshToken() != null) {
+            if (!isNullOrBlank(connectionContext.getOAuthRefreshToken())) {
               addMissingClientId(missingPropertyInfos, connectionContext);
               addMissingClientSecret(missingPropertyInfos, connectionContext);
               handleTokenEndpointAndDiscoveryMode(missingPropertyInfos, connectionContext);
@@ -200,15 +196,25 @@ public class DatabricksDriverPropertyUtil {
       addMissingProperty(missingPropertyInfos, connectionContext, PROXY_PWD, false);
     }
 
-    return missingPropertyInfos;
+    List<DriverPropertyInfo> requiredProperties = new ArrayList<>();
+    List<DriverPropertyInfo> optionalProperties = new ArrayList<>();
+    for (DriverPropertyInfo property : missingPropertyInfos) {
+      if (property.required) {
+        requiredProperties.add(property);
+      } else {
+        optionalProperties.add(property);
+      }
+    }
+    requiredProperties.addAll(optionalProperties);
+    return requiredProperties;
   }
 
   private static void handleTokenEndpointAndDiscoveryMode(
       List<DriverPropertyInfo> missingPropertyInfos,
       DatabricksConnectionContext connectionContext) {
-    if (connectionContext.getTokenEndpoint() == null
+    if (isNullOrBlank(connectionContext.getTokenEndpoint())
         && connectionContext.isOAuthDiscoveryModeEnabled()
-        && connectionContext.getOAuthDiscoveryURL() == null) {
+        && isNullOrBlank(connectionContext.getOAuthDiscoveryURL())) {
       addMissingProperty(missingPropertyInfos, connectionContext, DISCOVERY_URL, true);
     } else {
       addMissingProperty(missingPropertyInfos, connectionContext, TOKEN_ENDPOINT, false);
@@ -222,7 +228,9 @@ public class DatabricksDriverPropertyUtil {
       DatabricksConnectionContext connectionContext,
       DatabricksJdbcUrlParams param,
       boolean required) {
-    if (!connectionContext.isPropertyPresent(param)) {
+    if (required
+        ? !connectionContext.hasNonBlankProperty(param)
+        : !connectionContext.isPropertyPresent(param)) {
       missingPropertyInfos.add(getUrlParamInfo(param, required));
     }
   }
@@ -237,7 +245,7 @@ public class DatabricksDriverPropertyUtil {
   private static void addMissingClientId(
       List<DriverPropertyInfo> missingPropertyInfos,
       DatabricksConnectionContext connectionContext) {
-    if (connectionContext.getNullableClientId() != null) {
+    if (!isNullOrBlank(connectionContext.getNullableClientId())) {
       return;
     }
     missingPropertyInfos.add(getUrlParamInfo(CLIENT_ID, true));
@@ -252,9 +260,13 @@ public class DatabricksDriverPropertyUtil {
   private static void addMissingClientSecret(
       List<DriverPropertyInfo> missingPropertyInfos,
       DatabricksConnectionContext connectionContext) {
-    if (connectionContext.getClientSecret() != null) {
+    if (!isNullOrBlank(connectionContext.getClientSecret())) {
       return;
     }
     missingPropertyInfos.add(getUrlParamInfo(CLIENT_SECRET, true));
+  }
+
+  private static boolean isNullOrBlank(String value) {
+    return value == null || value.isBlank();
   }
 }

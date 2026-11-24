@@ -1,6 +1,5 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +32,7 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 
@@ -407,8 +407,12 @@ public class DatabricksDriverExamples {
     // Retrieve driver property info for an "empty" URL
     DriverPropertyInfo[] driverPropertyInfos =
         new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
-    assertEquals(1, driverPropertyInfos.length);
-    assertEquals(HTTP_PATH.getParamName(), driverPropertyInfos[0].name);
+    assertEquals(
+        Arrays.asList("authmech", "httppath", "pwd"),
+        Arrays.stream(driverPropertyInfos)
+            .filter(property -> property.required)
+            .map(property -> property.name)
+            .collect(Collectors.toList()));
 
     String jdbcUrl =
         "jdbc:databricks://sample-host.cloud.databricks.com;AuthMech=11;Auth_Flow=0;"

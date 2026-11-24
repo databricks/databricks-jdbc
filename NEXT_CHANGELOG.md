@@ -8,7 +8,7 @@
 
 ### Fixed
 
-- Report both missing HTTP path and authentication mechanism in the initial `Driver.getPropertyInfo` negotiation round.
+- `Driver.getPropertyInfo` now reports every missing required property for the effective authentication mechanism in one call, with required entries first.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

@@ -5,11 +5,206 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.DriverPropertyInfo;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class DatabricksDriverPropertyUtilTest {
+
+  private static final String HOST_ONLY_URL = "jdbc:databricks://sample-host.cloud.databricks.com";
+  private static final List<String> OPTIONAL_PROPERTY_NAMES =
+      Arrays.asList(
+          "ssl",
+          "loglevel",
+          "useproxy",
+          "usethriftclient",
+          "EnableArrow",
+          "EnableDirectResults",
+          "QueryResultCompressionType",
+          "EnableQueryResultLZ4Compression",
+          "useragententry",
+          "EnableSQLExecHybridResults",
+          "EnableSQLExecDirectResults",
+          "EnableComplexDatatypeSupport",
+          "RowsFetchedPerBlock",
+          "DefaultStringColumnLength",
+          "socketTimeout",
+          "EnableTokenCache",
+          "EnableSQLValidationForIsValid",
+          "DisableOauthRefreshToken",
+          "enableMultipleCatalogSupport",
+          "IgnoreTransactions");
+
+  @ParameterizedTest
+  @MethodSource("patDiscoveryCases")
+  void reportsEveryRequiredPropertyForEffectivePat(String options, List<String> requiredNames)
+      throws DatabricksSQLException {
+    assertPropertyInfos(
+        HOST_ONLY_URL + options, new Properties(), requiredNames, OPTIONAL_PROPERTY_NAMES);
+  }
+
+  private static Stream<Arguments> patDiscoveryCases() {
+    return Stream.of(
+        Arguments.of("", Arrays.asList("authmech", "httppath", "pwd")),
+        Arguments.of("/", Arrays.asList("authmech", "httppath", "pwd")),
+        Arguments.of(";httpPath=/warehouse", Arrays.asList("authmech", "pwd")),
+        Arguments.of(";AuthMech=3", Arrays.asList("httppath", "pwd")),
+        Arguments.of(";AuthMech=3;httpPath=/warehouse", Collections.singletonList("pwd")),
+        Arguments.of(";AuthMech=3;httpPath=/warehouse;PWD=local-test", Collections.emptyList()),
+        Arguments.of(";httpPath=", Arrays.asList("authmech", "httppath", "pwd")),
+        Arguments.of(";httpPath= \t", Arrays.asList("authmech", "httppath", "pwd")),
+        Arguments.of(";httpPath=\u2003", Arrays.asList("authmech", "httppath", "pwd")),
+        Arguments.of(";AuthMech=3;PWD= \t", Arrays.asList("httppath", "pwd")),
+        Arguments.of(";AuthMech=", Arrays.asList("authmech", "httppath", "pwd")),
+        Arguments.of(";AuthMech= \t", Arrays.asList("authmech", "httppath", "pwd")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"99", "invalid"})
+  void reportsUnsupportedAuthMechInsteadOfThrowing(String authMech) throws DatabricksSQLException {
+    assertPropertyInfos(
+        HOST_ONLY_URL + ";AuthMech=" + authMech,
+        new Properties(),
+        Arrays.asList("httppath", "authmech"),
+        OPTIONAL_PROPERTY_NAMES);
+    assertPropertyInfos(
+        HOST_ONLY_URL + ";httpPath=/warehouse;AuthMech=" + authMech,
+        new Properties(),
+        Collections.singletonList("authmech"),
+        OPTIONAL_PROPERTY_NAMES);
+  }
+
+  @ParameterizedTest
+  @MethodSource("oauthDiscoveryCases")
+  void reportsOAuthRequirementsWithoutPwd(
+      String options, List<String> requiredNames, List<String> additionalOptionalNames)
+      throws DatabricksSQLException {
+    List<String> optionalNames = new ArrayList<>(OPTIONAL_PROPERTY_NAMES);
+    optionalNames.add("Identity_Federation_Client_Id");
+    optionalNames.addAll(additionalOptionalNames);
+    assertPropertyInfos(HOST_ONLY_URL + options, new Properties(), requiredNames, optionalNames);
+  }
+
+  private static Stream<Arguments> oauthDiscoveryCases() {
+    List<String> browserOptionalNames =
+        Arrays.asList(
+            "OAuth2ClientId",
+            "OAuth2Secret",
+            "Auth_Scope",
+            "OAuth2RedirectUrlPort",
+            "EnableTokenCache");
+    return Stream.of(
+        Arguments.of(
+            ";AuthMech=11", Arrays.asList("httppath", "auth_flow"), Collections.emptyList()),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=",
+            Arrays.asList("httppath", "auth_flow"),
+            Collections.emptyList()),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow= \t",
+            Arrays.asList("httppath", "auth_flow"),
+            Collections.emptyList()),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=0",
+            Arrays.asList("httppath", "Auth_AccessToken"),
+            Collections.singletonList("Auth_RefreshToken")),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=0;OAuthRefreshToken= ",
+            Arrays.asList("httppath", "Auth_AccessToken"),
+            Collections.singletonList("Auth_RefreshToken")),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=1",
+            Arrays.asList("httppath", "OAuth2Secret", "OAuth2ClientId"),
+            Collections.singletonList("UseJWTAssertion")),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=1;OAuth2ClientId= ;OAuth2Secret= ",
+            Arrays.asList("httppath", "OAuth2Secret", "OAuth2ClientId"),
+            Collections.singletonList("UseJWTAssertion")),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=2",
+            Collections.singletonList("httppath"),
+            browserOptionalNames),
+        Arguments.of(
+            ";httpPath=/warehouse;AuthMech=11;Auth_Flow=2",
+            Collections.emptyList(),
+            browserOptionalNames),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=3",
+            Arrays.asList("httppath", "azure_workspace_resource_id"),
+            Collections.emptyList()),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=0;OAuthRefreshToken=refresh",
+            Arrays.asList("httppath", "OAuth2ClientId", "OAuth2Secret", "OAuthDiscoveryURL"),
+            Collections.emptyList()),
+        Arguments.of(
+            ";AuthMech=11;Auth_Flow=0;OAuthRefreshToken=refresh;OAuth2TokenEndpoint= ;OAuthDiscoveryURL= ",
+            Arrays.asList("httppath", "OAuth2ClientId", "OAuth2Secret", "OAuthDiscoveryURL"),
+            Collections.emptyList()));
+  }
+
+  @Test
+  void honorsCaseInsensitivePropertiesAndUrlPrecedence() throws DatabricksSQLException {
+    Properties properties = new Properties();
+    properties.setProperty("HTTPPATH", "");
+    properties.setProperty("AUTHMECH", "3");
+    assertPropertyInfos(
+        HOST_ONLY_URL, properties, Arrays.asList("httppath", "pwd"), OPTIONAL_PROPERTY_NAMES);
+    assertPropertyInfos(
+        HOST_ONLY_URL + ";httpPath=/warehouse;AuthMech=11;Auth_Flow=0",
+        properties,
+        Collections.singletonList("Auth_AccessToken"),
+        Stream.concat(
+                OPTIONAL_PROPERTY_NAMES.stream(),
+                Stream.of("Identity_Federation_Client_Id", "Auth_RefreshToken"))
+            .collect(Collectors.toList()));
+  }
+
+  @Test
+  void reportsRequiredProxyPropertiesBeforeOptionalEntries() throws DatabricksSQLException {
+    List<String> optionalNames = new ArrayList<>(OPTIONAL_PROPERTY_NAMES);
+    optionalNames.remove("useproxy");
+    optionalNames.addAll(Arrays.asList("proxyuid", "proxypwd"));
+    assertPropertyInfos(
+        HOST_ONLY_URL + ";AuthMech=3;UseProxy=1",
+        new Properties(),
+        Arrays.asList("httppath", "pwd", "proxyhost", "proxyport"),
+        optionalNames);
+  }
+
+  @ParameterizedTest
+  @NullAndEmptySource
+  @ValueSource(strings = {"not-a-jdbc-url", "jdbc:other://localhost:8080"})
+  void preservesUnparseableUrlHostPrompt(String url) throws DatabricksSQLException {
+    assertPropertyInfos(
+        url, new Properties(), Collections.singletonList("host"), Collections.emptyList());
+  }
+
+  private static void assertPropertyInfos(
+      String url, Properties properties, List<String> requiredNames, List<String> optionalNames)
+      throws DatabricksSQLException {
+    List<String> expected = new ArrayList<>();
+    requiredNames.forEach(name -> expected.add("required:" + name));
+    optionalNames.forEach(name -> expected.add("optional:" + name));
+    List<DriverPropertyInfo> actual =
+        DatabricksDriverPropertyUtil.getMissingProperties(url, properties);
+
+    assertEquals(
+        expected,
+        actual.stream()
+            .map(property -> (property.required ? "required:" : "optional:") + property.name)
+            .collect(Collectors.toList()));
+    actual.forEach(property -> assertNotNull(property.description));
+  }
 
   private static final String test_host =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999;transportMode=http;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;";

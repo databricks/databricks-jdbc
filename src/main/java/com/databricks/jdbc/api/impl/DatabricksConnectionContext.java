@@ -219,6 +219,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return parameters.containsKey(urlParam.getParamName().toLowerCase());
   }
 
+  public boolean hasNonBlankProperty(DatabricksJdbcUrlParams urlParam) {
+    String value = getParameterIgnoreDefault(urlParam);
+    return value != null && !value.isBlank();
+  }
+
   @Override
   public String getHostUrl() throws DatabricksParsingException {
     LOGGER.debug("public String getHostUrl()");
