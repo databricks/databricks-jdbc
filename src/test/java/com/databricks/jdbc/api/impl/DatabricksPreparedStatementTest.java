@@ -25,6 +25,7 @@ import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.primitives.UnsignedLong;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
@@ -677,6 +678,7 @@ public class DatabricksPreparedStatementTest {
             new Object[] {doubleAdder, "123.45", "DECIMAL(5,2)"},
             new Object[] {new DoubleAccumulator(Double::sum, 123.45d), "123.45", "DECIMAL(5,2)"},
             new Object[] {new FractionLikeNumber(), "0.5", "DECIMAL(1,1)"},
+            new Object[] {UnsignedLong.MAX_VALUE, "18446744073709551615", "DECIMAL(20,0)"},
             new Object[] {9007199254740993L, "9007199254740993", "DECIMAL(16,0)"},
             new Object[] {Long.MAX_VALUE, "9223372036854775807", "DECIMAL(19,0)"},
             new Object[] {
@@ -690,7 +692,24 @@ public class DatabricksPreparedStatementTest {
             new Object[] {"0.0000000", "0.0000000", "DECIMAL(7,7)"},
             new Object[] {new BigDecimal("123.4567"), "123.4567", "DECIMAL(7,4)"},
             new Object[] {
-              "1." + String.join("", Collections.nCopies(39, "0")), "1", "DECIMAL(1,0)"
+              "1." + String.join("", Collections.nCopies(39, "0")),
+              "1." + String.join("", Collections.nCopies(37, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "1.1" + String.join("", Collections.nCopies(36, "0")),
+              "1.1" + String.join("", Collections.nCopies(36, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "1.1" + String.join("", Collections.nCopies(37, "0")),
+              "1.1" + String.join("", Collections.nCopies(36, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "5." + String.join("", Collections.nCopies(50, "0")),
+              "5." + String.join("", Collections.nCopies(37, "0")),
+              "DECIMAL(38,37)"
             },
             new Object[] {
               "1e37", "1" + String.join("", Collections.nCopies(37, "0")), "DECIMAL(38,0)"
@@ -794,7 +813,7 @@ public class DatabricksPreparedStatementTest {
         Duration.ofSeconds(2), () -> statement.setObject(1, padded, targetType));
     DatabricksParameterMetaData metadata =
         (DatabricksParameterMetaData) statement.getParameterMetaData();
-    assertEquals(BigDecimal.ONE, metadata.getParameterBindings().get(1).value());
+    assertEquals(BigDecimal.ONE.setScale(37), metadata.getParameterBindings().get(1).value());
     for (String invalid : new String[] {padded + "1", padded.replace(".", "")}) {
       DatabricksSQLException exception =
           assertTimeoutPreemptively(
@@ -805,7 +824,7 @@ public class DatabricksPreparedStatementTest {
                       () -> statement.setObject(1, invalid, targetType)));
       assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
       assertEquals(1015, exception.getErrorCode());
-      assertEquals(BigDecimal.ONE, metadata.getParameterBindings().get(1).value());
+      assertEquals(BigDecimal.ONE.setScale(37), metadata.getParameterBindings().get(1).value());
     }
   }
 
@@ -833,6 +852,33 @@ public class DatabricksPreparedStatementTest {
     @Override
     public String toString() {
       return "1/2";
+    }
+  }
+
+  private static final class ExponentNumber extends Number {
+    @Override
+    public int intValue() {
+      return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public long longValue() {
+      return Long.MAX_VALUE;
+    }
+
+    @Override
+    public float floatValue() {
+      return Float.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public double doubleValue() {
+      return Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public String toString() {
+      return "1e1000000000";
     }
   }
 
@@ -867,6 +913,7 @@ public class DatabricksPreparedStatementTest {
             "1e38",
             "1e-39",
             1e-40d,
+            new ExponentNumber(),
             new BigDecimal("1e-999999999"),
             new BigDecimal(BigInteger.TEN, Integer.MIN_VALUE))
         .flatMap(

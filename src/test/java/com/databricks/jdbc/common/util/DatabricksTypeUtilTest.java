@@ -454,7 +454,7 @@ class DatabricksTypeUtilTest {
           }
         };
     assertEquals(
-        BigDecimal.ONE,
+        BigDecimal.ONE.setScale(37),
         assertTimeoutPreemptively(
             Duration.ofSeconds(2), () -> DatabricksTypeUtil.normalizeDecimal(fractional, true)));
     BigDecimal integral = new BigDecimal("1" + zeros);

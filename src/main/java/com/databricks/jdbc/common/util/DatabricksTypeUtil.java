@@ -634,7 +634,11 @@ public class DatabricksTypeUtil {
       return new BigDecimal(Double.toString(((Number) value).doubleValue()));
     }
     if (value instanceof Number) {
-      return BigDecimal.valueOf(((Number) value).doubleValue());
+      try {
+        return new BigDecimal(value.toString().trim());
+      } catch (NumberFormatException exception) {
+        return BigDecimal.valueOf(((Number) value).doubleValue());
+      }
     }
     return new BigDecimal(value.toString().trim());
   }
@@ -662,7 +666,7 @@ public class DatabricksTypeUtil {
       if ((long) value.scale() - targetScale >= value.precision()) {
         throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
       }
-      value = value.setScale(targetScale, RoundingMode.UNNECESSARY).stripTrailingZeros();
+      value = value.setScale(targetScale, RoundingMode.UNNECESSARY);
     }
     return value.scale() < 0 ? value.setScale(0) : value;
   }
