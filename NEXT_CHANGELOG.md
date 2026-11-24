@@ -8,6 +8,8 @@
 
 ### Updated
 
+- Paginated inline APC `ARROW_BATCH` results now use bounded background prefetching to reduce wait time while limiting batches held in memory.
+
 ### Fixed
 
 ---
