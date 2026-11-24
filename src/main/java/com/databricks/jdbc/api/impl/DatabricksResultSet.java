@@ -2412,7 +2412,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public String getStatementId() {
-    return statementId.toString();
+    return statementId.toPublicString();
   }
 
   @Override

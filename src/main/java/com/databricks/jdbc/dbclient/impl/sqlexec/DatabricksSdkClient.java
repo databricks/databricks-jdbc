@@ -185,8 +185,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (schema != null) {
       request.setSchema(schema);
     }
-    // Bounded SEA inline Arrow: tell server not to use cloud storage for results
-    if (connectionContext.isBoundedSeaApiEnabled() && !connectionContext.isCloudFetchEnabled()) {
+    // APC and bounded SEA must preserve the result-download opt-out at session creation.
+    if (!connectionContext.isCloudFetchEnabled()
+        && (computeResource instanceof AllPurposeCluster
+            || connectionContext.isBoundedSeaApiEnabled())) {
       if (sessionConf == null) {
         sessionConf = new java.util.HashMap<>();
       } else {
@@ -387,7 +389,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         statementId);
     StatementId typedStatementId =
         computeResource instanceof AllPurposeCluster
-            ? new StatementId(statementId)
+            ? StatementId.forAllPurposeCluster(statementId, (AllPurposeCluster) computeResource)
             : StatementId.forCurrentSession(statementId, session.getSessionInfo());
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
@@ -591,7 +593,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     StatementId typedStatementId =
         computeResource instanceof AllPurposeCluster
-            ? new StatementId(statementId)
+            ? StatementId.forAllPurposeCluster(statementId, (AllPurposeCluster) computeResource)
             : StatementId.forCurrentSession(statementId, session.getSessionInfo());
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
