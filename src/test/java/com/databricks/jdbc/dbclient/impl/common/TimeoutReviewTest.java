@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -12,6 +13,8 @@ import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -23,7 +26,7 @@ import org.mockito.MockedStatic;
 class TimeoutReviewTest {
   @Test
   void moreThan64SimultaneousTimeoutsAllAttemptCancellation() throws Exception {
-    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext context = context();
     CountDownLatch started = new CountDownLatch(64);
     CountDownLatch release = new CountDownLatch(1);
     CountDownLatch completed = new CountDownLatch(100);
@@ -63,8 +66,7 @@ class TimeoutReviewTest {
         result.get(10, TimeUnit.SECONDS);
       }
       CountDownLatch otherConnection = new CountDownLatch(1);
-      TimeoutHandler independent =
-          expired(mock(IDatabricksConnectionContext.class), otherConnection::countDown);
+      TimeoutHandler independent = expired(context(), otherConnection::countDown);
       assertThrows(DatabricksTimeoutException.class, independent::checkTimeout);
       assertTrue(otherConnection.await(5, TimeUnit.SECONDS));
       assertEquals(64, maximum.get());
@@ -77,13 +79,13 @@ class TimeoutReviewTest {
 
   @Test
   void saturatedQueueRunsCancellationInlineAndRestoresContext() throws Exception {
-    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext context = context();
     TimeoutCleanupManager manager = new TimeoutCleanupManager(1, 1);
     Field managers = TimeoutCleanupManager.class.getDeclaredField("MANAGERS");
     managers.setAccessible(true);
     synchronized (TimeoutCleanupManager.class) {
-      ((java.util.Map<IDatabricksConnectionContext, TimeoutCleanupManager>) managers.get(null))
-          .put(context, manager);
+      ((java.util.Map<String, TimeoutCleanupManager>) managers.get(null))
+          .put(context.getConnectionUuid(), manager);
     }
     CountDownLatch started = new CountDownLatch(1);
     CountDownLatch release = new CountDownLatch(1);
@@ -125,7 +127,7 @@ class TimeoutReviewTest {
 
   @Test
   void cancellationCarriesAndClearsCallerContext() throws Exception {
-    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext context = context();
     CountDownLatch cancelled = new CountDownLatch(1);
     CountDownLatch checked = new CountDownLatch(1);
     AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -133,8 +135,8 @@ class TimeoutReviewTest {
     Field managers = TimeoutCleanupManager.class.getDeclaredField("MANAGERS");
     managers.setAccessible(true);
     synchronized (TimeoutCleanupManager.class) {
-      ((java.util.Map<IDatabricksConnectionContext, TimeoutCleanupManager>) managers.get(null))
-          .put(context, manager);
+      ((java.util.Map<String, TimeoutCleanupManager>) managers.get(null))
+          .put(context.getConnectionUuid(), manager);
     }
     DatabricksThreadContextHolder.setConnectionContext(context);
     DatabricksThreadContextHolder.setStatementId("statement-async");
@@ -326,6 +328,26 @@ class TimeoutReviewTest {
     ScheduledThreadPoolExecutor executor = (ScheduledThreadPoolExecutor) timer.get(null);
     assertTrue(executor.allowsCoreThreadTimeOut());
     assertTrue(executor.getKeepAliveTime(TimeUnit.SECONDS) <= 1);
+  }
+
+  @Test
+  void identicalConnectionSettingsDoNotShareCleanupCapacity() throws Exception {
+    String url =
+        "jdbc:databricks://localhost:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/test";
+    IDatabricksConnectionContext first = DatabricksConnectionContext.parse(url, new Properties());
+    IDatabricksConnectionContext second = DatabricksConnectionContext.parse(url, new Properties());
+    assertEquals(first, second);
+    assertNotEquals(first.getConnectionUuid(), second.getConnectionUuid());
+    assertSame(
+        TimeoutCleanupManager.forConnection(first), TimeoutCleanupManager.forConnection(first));
+    assertNotSame(
+        TimeoutCleanupManager.forConnection(first), TimeoutCleanupManager.forConnection(second));
+  }
+
+  private IDatabricksConnectionContext context() {
+    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    when(context.getConnectionUuid()).thenReturn(UUID.randomUUID().toString());
+    return context;
   }
 
   private TimeoutHandler expired(IDatabricksConnectionContext context, Runnable cancel)

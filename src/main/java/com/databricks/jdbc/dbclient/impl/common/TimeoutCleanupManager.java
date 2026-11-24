@@ -9,15 +9,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 final class TimeoutCleanupManager {
-  private static final Map<IDatabricksConnectionContext, TimeoutCleanupManager> MANAGERS =
-      new WeakHashMap<>();
+  private static final Map<String, TimeoutCleanupManager> MANAGERS = new WeakHashMap<>();
   private final ThreadPoolExecutor workers;
 
   static synchronized TimeoutCleanupManager forConnection(IDatabricksConnectionContext context) {
-    if (context == null) {
+    String connectionId = context == null ? null : context.getConnectionUuid();
+    if (connectionId == null) {
       return new TimeoutCleanupManager(64, 64);
     }
-    return MANAGERS.computeIfAbsent(context, ignored -> new TimeoutCleanupManager(64, 64));
+    return MANAGERS.computeIfAbsent(connectionId, ignored -> new TimeoutCleanupManager(64, 64));
   }
 
   TimeoutCleanupManager(int concurrency, int queueCapacity) {
