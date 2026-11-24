@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -109,7 +110,8 @@ public class ValidationUtil {
     String statusLine = response.getStatusLine().toString();
     StringBuilder errorBuilder = new StringBuilder();
     errorBuilder.append(
-        String.format(HTTP_ERROR_PREFIX + "%d, status line: %s.", statusCode, statusLine));
+        String.format(
+            Locale.ROOT, HTTP_ERROR_PREFIX + "%d, status line: %s.", statusCode, statusLine));
     if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
       errorBuilder.append(
           String.format(

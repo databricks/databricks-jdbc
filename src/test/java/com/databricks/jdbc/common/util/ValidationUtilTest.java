@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -110,6 +112,25 @@ class ValidationUtilTest {
     assertNull(
         ValidationUtil.getHTTPStatusCode(
             new DatabricksHttpException("A server message mentioning 404", "HY000")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"ar-EG", "fa-IR", "en-US"})
+  void testHTTPStatusCodeIsLocaleIndependent(String languageTag) {
+    Locale previous = Locale.getDefault(Locale.Category.FORMAT);
+    try {
+      Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(languageTag));
+      when(response.getStatusLine()).thenReturn(statusLine);
+      when(statusLine.getStatusCode()).thenReturn(404);
+      when(statusLine.toString()).thenReturn("mockStatusLine");
+
+      DatabricksHttpException failure =
+          assertThrows(
+              DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+      assertEquals(404, ValidationUtil.getHTTPStatusCode(failure));
+    } finally {
+      Locale.setDefault(Locale.Category.FORMAT, previous);
+    }
   }
 
   @ParameterizedTest

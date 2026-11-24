@@ -2230,6 +2230,37 @@ public class DatabricksStatementTest {
     }
   }
 
+  @ParameterizedTest
+  @MethodSource("serverCloseExceptions")
+  public void testConnectionCloseContinuesAfterStatementServerFailures(Exception failure)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .computeResource(WAREHOUSE_COMPUTE)
+            .sessionId(SESSION_ID)
+            .build();
+    when(client.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    DatabricksConnection connection = new DatabricksConnection(context, client);
+    connection.open();
+    DatabricksStatement first = (DatabricksStatement) connection.createStatement();
+    first.setStatementId(STATEMENT_ID);
+    StatementId secondId = new StatementId("second_statement_id");
+    DatabricksStatement second = (DatabricksStatement) connection.createStatement();
+    second.setStatementId(secondId);
+    doThrow(failure).when(client).closeStatement(any(StatementId.class));
+
+    assertDoesNotThrow(connection::close);
+    assertTrue(first.isClosed());
+    assertTrue(second.isClosed());
+    assertTrue(connection.isClosed());
+    verify(client).closeStatement(STATEMENT_ID);
+    verify(client).closeStatement(secondId);
+    verify(client, times(2)).closeStatement(any(StatementId.class));
+    verify(client).deleteSession(sessionInfo);
+  }
+
   private static void assertServerCloseLogs(
       LogCapture capture, int expectedCount, Level expectedLevel) {
     List<LogRecord> closeLogs =
