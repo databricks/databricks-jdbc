@@ -16,6 +16,8 @@ import com.databricks.jdbc.api.ExecutionState;
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
+import com.databricks.jdbc.api.impl.arrow.AbstractArrowResult;
+import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -144,6 +146,48 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.next()).thenReturn(true);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertTrue(resultSet.next());
+  }
+
+  @Test
+  void testUnknownTotalArrowResultCursorAndChunkProvider() throws SQLException {
+    AbstractArrowResult arrowResult = mock(AbstractArrowResult.class);
+    ChunkProvider chunkProvider = mock(ChunkProvider.class);
+    long[] currentRow = {-1};
+    int[] nextCalls = {0};
+    when(arrowResult.getCurrentRow()).thenAnswer(ignored -> currentRow[0]);
+    when(arrowResult.next())
+        .thenAnswer(
+            ignored -> {
+              if (nextCalls[0]++ == 0) {
+                currentRow[0] = 0;
+                return true;
+              }
+              return false;
+            });
+    when(arrowResult.hasNext()).thenReturn(false);
+    when(arrowResult.getChunkProvider()).thenReturn(chunkProvider);
+    when(mockedResultSetMetadata.hasKnownTotalRows()).thenReturn(false);
+    lenient().when(mockedResultSetMetadata.getTotalRows()).thenReturn(-1L);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            null,
+            arrowResult,
+            mockedResultSetMetadata,
+            false);
+
+    assertFalse(resultSet.isAfterLast());
+    assertFalse(resultSet.isLast());
+    assertTrue(resultSet.next());
+    assertFalse(resultSet.isAfterLast());
+    assertTrue(resultSet.isLast());
+    assertTrue(resultSet.hasUpdateCount());
+    assertSame(chunkProvider, resultSet.getChunkProvider().orElseThrow());
+    assertFalse(resultSet.next());
+    assertTrue(resultSet.isAfterLast());
   }
 
   @Test

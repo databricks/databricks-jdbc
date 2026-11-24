@@ -10,7 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 
 /** Shares cursor mechanics without coupling distinct Arrow wire formats. */
-abstract class AbstractArrowResult implements IExecutionResult {
+public abstract class AbstractArrowResult implements IExecutionResult {
   private final ChunkProvider chunkProvider;
   private final List<ColumnInfo> columnInfos;
   private final IDatabricksSession session;
