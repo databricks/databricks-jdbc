@@ -2,6 +2,12 @@
 
 Validation target: JDBC commit `07a50400` on `jay-xiao/factory/apc-sea/apc-release-validation`, checked on 2026-11-15 and 2026-11-18 UTC. This is evidence only; no driver behavior changed in this package.
 
+## Current cumulative-stack live validation, 2026-11-23
+
+The sanitized live matrix for commit `854809f5caee6ff05d20213016dcc2fb6c3f4b8e` is
+[here](apc-release-validation-live-2026-11-23.md), with machine-readable evidence
+[here](apc-release-validation-live-2026-11-23.json).
+
 ## Post-review integration gate, 2026-11-19
 
 The throwaway integration tree merged `origin/main` (`5d2d5c5f`), the v2 validation leaf (`ec310015`), and the pushed spec head (`321fa349`). All seven JDBC package heads were clean, matched their remote tips, and contained `origin/main`; each child contained its parent head. No implementation rebase or conflict resolution was needed.

@@ -8,9 +8,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
-import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 
 // Observes the protocol chosen for each routing mode with the SAFE flag evaluated per connection.
 // Prints results instead of asserting so one run records every mode's outcome.
@@ -33,6 +31,9 @@ public final class ApcFlagOnRoutes {
       case "sea-pattern":
         options = ";TreatMetadataCatalogNameAsPattern=1";
         break;
+      case "sea-explicit-pattern":
+        options = ";UseThriftClient=0;TreatMetadataCatalogNameAsPattern=1";
+        break;
       default:
         throw new IllegalArgumentException("unknown mode " + mode);
     }
@@ -46,18 +47,23 @@ public final class ApcFlagOnRoutes {
     Properties properties = new Properties();
     properties.setProperty("UID", "token");
     properties.setProperty("PWD", System.getenv("DATABRICKS_TOKEN"));
+    String orgId = System.getenv("DATABRICKS_ORG_ID");
+    if (orgId != null) {
+      properties.setProperty("http.header.x-databricks-org-id", orgId);
+    }
     DriverManager.setLoginTimeout(90);
     Class.forName("com.databricks.client.jdbc.Driver");
     try (Connection connection = DriverManager.getConnection(url, properties)) {
       DatabricksConnection dbConnection = (DatabricksConnection) connection;
-      String id = ((IDatabricksConnection) connection).getConnectionId();
-      String protocol =
-          id.startsWith("s|a|") ? "SEA_APC" : id.startsWith("t|") ? "THRIFT" : "OTHER";
       Object proxy = dbConnection.getSession().getDatabricksClient();
       InvocationHandler handler = Proxy.getInvocationHandler(proxy);
       Field target = handler.getClass().getDeclaredField("target");
       target.setAccessible(true);
       String client = target.get(handler).getClass().getSimpleName();
+      String protocol =
+          client.equals("DatabricksSdkClient")
+              ? "SEA_APC"
+              : client.equals("DatabricksThriftServiceClient") ? "THRIFT" : "OTHER";
       String selectOne;
       try (Statement statement = connection.createStatement();
           ResultSet result = statement.executeQuery("SELECT 1 AS validation_value")) {
@@ -66,12 +72,25 @@ public final class ApcFlagOnRoutes {
       } catch (SQLException e) {
         selectOne = "fail sqlstate=" + e.getSQLState() + " vendor=" + e.getErrorCode();
       }
-      String reason =
-          ((DatabricksConnectionContext) dbConnection.getSession().getConnectionContext())
-              .getRoutingReason();
       System.out.printf(
-          "mode=%s protocol=%s client=%s reason=%s select_one=%s%n",
-          mode, protocol, client, reason, selectOne);
+          "mode=%s protocol=%s client=%s select_one=%s%n", mode, protocol, client, selectOne);
+    } catch (SQLException error) {
+      String message = error.getMessage() == null ? "" : error.getMessage();
+      String status =
+          message.contains("401")
+              ? "401"
+              : message.contains("403")
+                  ? "403"
+                  : message.contains("404")
+                      ? "404"
+                      : message.contains("503") ? "503" : "unknown";
+      System.out.printf(
+          "mode=%s connection=fail class=%s sqlstate=%s vendor=%d http_status=%s%n",
+          mode,
+          error.getClass().getSimpleName(),
+          error.getSQLState(),
+          error.getErrorCode(),
+          status);
     }
   }
 }

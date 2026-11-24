@@ -1,19 +1,17 @@
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
-import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.core.http.HttpClient;
-import com.databricks.sdk.core.http.Request;
-import com.databricks.sdk.core.http.Response;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.databricks.internal.fasterxml.jackson.databind.JsonNode;
+import com.databricks.internal.fasterxml.jackson.databind.ObjectMapper;
+import com.databricks.internal.fasterxml.jackson.databind.node.ObjectNode;
+import com.databricks.internal.sdk.core.ApiClient;
+import com.databricks.internal.sdk.core.http.HttpClient;
+import com.databricks.internal.sdk.core.http.Request;
+import com.databricks.internal.sdk.core.http.Response;
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -85,7 +83,6 @@ public final class ApcAc27Wire {
     properties.setProperty("UID", "token");
     properties.setProperty("PWD", System.getenv("DATABRICKS_TOKEN"));
     Class.forName("com.databricks.client.jdbc.Driver");
-    Path rawDir = Files.createTempDirectory("apc-ac27-raw-");
     try (Connection connection = DriverManager.getConnection(url, properties)) {
       Object proxy = ((DatabricksConnection) connection).getSession().getDatabricksClient();
       InvocationHandler handler = Proxy.getInvocationHandler(proxy);
@@ -149,7 +146,6 @@ public final class ApcAc27Wire {
                   terminal++;
                 }
                 POLLS.add(record);
-                Files.write(rawDir.resolve(String.format("poll-%02d.json", POLLS.size())), bytes);
                 return new Response(
                     response.getRequest(),
                     response.getUrl(),
@@ -180,6 +176,9 @@ public final class ApcAc27Wire {
       }
       if (rows != expected || checksum != expected * (expected - 1) / 2)
         throw new AssertionError("Count/checksum mismatch");
+      System.out.printf(
+          "running_polls=%d terminal_polls=%d running_payload_bytes=%d rows=%d checksum=%d%n",
+          running, terminal, runningPayloadBytes, rows, checksum);
       if (running < 3 || runningPayloadBytes != 0 || terminal < 1)
         throw new AssertionError("AC27 release gate failed");
       ObjectNode output = JSON.createObjectNode();
@@ -188,7 +187,6 @@ public final class ApcAc27Wire {
       output.put("running_result_payload_bytes", runningPayloadBytes);
       output.put("rows", rows);
       output.put("checksum", checksum);
-      output.put("raw_capture_directory", rawDir.toString());
       output.set("polls", JSON.valueToTree(POLLS));
       System.out.println(JSON.writerWithDefaultPrettyPrinter().writeValueAsString(output));
     }
