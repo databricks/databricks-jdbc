@@ -1130,30 +1130,22 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
-    if (row < 1 || row < executionResult.getCurrentRow()) {
-      throw new DatabricksSQLFeatureNotSupportedException(
-          "Invalid operation for forward only ResultSets");
-    }
-    while (executionResult.getCurrentRow() < row - 1) {
-      if (!next()) {
-        return false;
-      }
-    }
-    return true;
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "absolute is not supported on a forward-only ResultSet");
   }
 
   @Override
   public boolean relative(int rows) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (relative)");
+        "relative is not supported on a forward-only ResultSet");
   }
 
   @Override
   public boolean previous() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (previous)");
+        "previous is not supported on a forward-only ResultSet");
   }
 
   @Override

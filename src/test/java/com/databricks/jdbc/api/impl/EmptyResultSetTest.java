@@ -3,6 +3,8 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
@@ -12,6 +14,9 @@ import java.util.Calendar;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class EmptyResultSetTest {
   private EmptyResultSet resultSet;
@@ -180,7 +185,41 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetType() throws SQLException {
-    assertEquals(0, resultSet.getType());
+    assertEquals(ResultSet.TYPE_FORWARD_ONLY, resultSet.getType());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {Integer.MIN_VALUE, -1, 0, 1, 5, Integer.MAX_VALUE})
+  void testAbsoluteNotSupported(int row) {
+    assertCursorNotSupported("absolute", () -> resultSet.absolute(row));
+  }
+
+  @Test
+  void testCursorLimitationMessages() throws SQLException {
+    assertCursorNotSupported("previous", resultSet::previous);
+    assertCursorNotSupported("relative", () -> resultSet.relative(3));
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  void testCursorNavigationOnClosedResultSet() throws SQLException {
+    resultSet.close();
+    for (Executable operation :
+        new Executable[] {
+          () -> resultSet.absolute(1), () -> resultSet.relative(1), resultSet::previous
+        }) {
+      DatabricksSQLException exception = assertThrows(DatabricksSQLException.class, operation);
+      assertEquals(DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), exception.getSQLState());
+    }
+  }
+
+  private void assertCursorNotSupported(String method, Executable operation) {
+    DatabricksSQLFeatureNotSupportedException exception =
+        assertThrows(DatabricksSQLFeatureNotSupportedException.class, operation);
+    assertEquals(method + " is not supported on a forward-only ResultSet", exception.getMessage());
+    assertEquals("UNSUPPORTED_OPERATION", exception.getSQLState());
+    assertEquals(1005, DatabricksDriverErrorCode.valueOf(exception.getSQLState()).getCode());
+    assertEquals(0, exception.getErrorCode());
   }
 
   @Test
@@ -391,9 +430,6 @@ public class EmptyResultSetTest {
     assertEquals(0, resultSet.getRow());
     assertFalse(resultSet.first());
     assertFalse(resultSet.last());
-    assertFalse(resultSet.absolute(1));
-    assertFalse(resultSet.relative(1));
-    assertFalse(resultSet.previous());
     assertFalse(resultSet.rowUpdated());
     assertFalse(resultSet.rowInserted());
     assertFalse(resultSet.rowDeleted());

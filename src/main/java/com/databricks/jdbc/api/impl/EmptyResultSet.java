@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
@@ -285,19 +286,22 @@ public class EmptyResultSet
   @Override
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
-    return false;
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "absolute is not supported on a forward-only ResultSet");
   }
 
   @Override
   public boolean relative(int rows) throws SQLException {
     checkIfClosed();
-    return false;
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "relative is not supported on a forward-only ResultSet");
   }
 
   @Override
   public boolean previous() throws SQLException {
     checkIfClosed();
-    return false;
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "previous is not supported on a forward-only ResultSet");
   }
 
   @Override
@@ -325,7 +329,7 @@ public class EmptyResultSet
   @Override
   public int getType() throws SQLException {
     checkIfClosed();
-    return 0;
+    return ResultSet.TYPE_FORWARD_ONLY;
   }
 
   @Override
