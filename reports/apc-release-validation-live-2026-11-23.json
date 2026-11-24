@@ -1,0 +1,288 @@
+{
+  "date": "2026-11-23",
+  "driver_commit": "854809f5caee6ff05d20213016dcc2fb6c3f4b8e",
+  "target": {
+    "profile": "benchmarking-staging-aws-us-west-2",
+    "region": "aws-us-west-2-staging",
+    "runtime": "19.x-photon-scala2.13",
+    "cluster_state": "RUNNING"
+  },
+  "results": {
+    "routing_default": {
+      "protocol": "THRIFT",
+      "select_one": "PASS"
+    },
+    "routing_explicit_sea": {
+      "client": "DatabricksSdkClient",
+      "session_id_present": true,
+      "connection_id": "FAIL_NPE",
+      "select_one": "PASS"
+    },
+    "routing_explicit_thrift": {
+      "client": "DatabricksThriftServiceClient",
+      "session_id_present": true,
+      "connection_id": "THRIFT",
+      "select_one": "PASS"
+    },
+    "basic_sea": {
+      "parameters": "PASS",
+      "values": "PASS",
+      "empty_schema": "PASS",
+      "type_codes": [16, -6, 5, 4, -5, 6, 8, 3, 91, 93],
+      "value_classes": [
+        "Boolean",
+        "Byte",
+        "Short",
+        "Integer",
+        "Long",
+        "Float",
+        "Double",
+        "BigDecimal",
+        "Date",
+        "Timestamp"
+      ]
+    },
+    "basic_thrift": {
+      "parameters": "PASS",
+      "values": "PASS",
+      "empty_schema": "PASS",
+      "type_codes": [16, -6, 5, 4, -5, 6, 8, 3, 91, 93],
+      "value_classes": [
+        "Boolean",
+        "Byte",
+        "Short",
+        "Integer",
+        "Long",
+        "Float",
+        "Double",
+        "BigDecimal",
+        "Date",
+        "Timestamp"
+      ]
+    },
+    "large_result_sea": {
+      "direct_results_enabled": {
+        "rows": 100000,
+        "checksum": 4999950000,
+        "outcome": "PASS"
+      },
+      "direct_results_disabled": {
+        "rows": 100000,
+        "checksum": 4999950000,
+        "outcome": "PASS"
+      }
+    },
+    "large_result_thrift": {
+      "direct_results_enabled": {
+        "rows": 100000,
+        "checksum": 4999950000,
+        "outcome": "PASS"
+      },
+      "direct_results_disabled": {
+        "rows": 100000,
+        "checksum": 4999950000,
+        "outcome": "PASS"
+      }
+    },
+    "timeout_sea": {
+      "exception": "DatabricksTimeoutException",
+      "sql_state": "STATEMENT_EXECUTION_TIMEOUT",
+      "outcome": "PASS"
+    },
+    "timeout_thrift": {
+      "exception": "DatabricksTimeoutException",
+      "sql_state": "OPERATION_TIMEOUT_ERROR",
+      "outcome": "PASS"
+    },
+    "metadata_sea": {
+      "runtime": "19.x-photon-scala2.13",
+      "catalog_rows": 51,
+      "schema_rows": 1,
+      "table_rows": 1,
+      "column_rows": 8,
+      "request_format": "ARROW_STREAM",
+      "manifest_format": "ARROW_STREAM",
+      "metadata_operation_headers": "PASS",
+      "sync_header_enabled": "PRESENT",
+      "sync_header_disabled": "ABSENT",
+      "require_native_header_explicit": "PRESENT",
+      "attachment": true,
+      "columnar_data": false,
+      "native_metadata_result": true,
+      "outcome": "PASS_ARROW_VARIANT"
+    },
+    "metadata_thrift": {
+      "catalog_rows": 51,
+      "schema_rows": 1,
+      "table_rows": 1,
+      "column_rows": 8,
+      "outcome": "PASS"
+    },
+    "metadata_columnar_live": {
+      "runtime": "18.x-photon-scala2.13",
+      "catalog_rows": 51,
+      "schema_rows": 1,
+      "table_rows": 1,
+      "column_rows": 8,
+      "request_format": "ARROW_STREAM",
+      "manifest_format": "COLUMN_BASED_SET",
+      "attachment": false,
+      "columnar_data": true,
+      "native_metadata_result": true,
+      "temporary_cluster_cleanup": "INACTIVE_CONFIRMED",
+      "outcome": "PASS"
+    },
+    "bounded_sea_disabled": {
+      "client": "DatabricksSdkClient",
+      "cloud_fetch": false,
+      "bounded": false,
+      "select_one": "PASS"
+    },
+    "bounded_sea_enabled": {
+      "client": "DatabricksSdkClient",
+      "cloud_fetch": false,
+      "bounded": true,
+      "select_one": "PASS"
+    },
+    "set_sea": {
+      "columns": 2,
+      "has_row": true,
+      "outcome": "PASS"
+    },
+    "set_thrift": {
+      "columns": 2,
+      "has_row": true,
+      "outcome": "PASS"
+    },
+    "warehouse_sea": {
+      "standard": {
+        "observed_realtime_session": false,
+        "rows": 100000,
+        "checksum": 4999950000,
+        "cancel": "PASS",
+        "session_reuse": "PASS"
+      },
+      "realtime": {
+        "observed_realtime_session": true,
+        "rows": 100000,
+        "checksum": 4999950000,
+        "cancel": "PASS",
+        "session_reuse": "PASS"
+      },
+      "wire_fixture_cases": 6,
+      "wire_fixture_failures": 0,
+      "temporary_warehouse_cleanup": "PASS",
+      "outcome": "PASS"
+    },
+    "warehouse_flag_on_dogfood": {
+      "warehouse_state": "RUNNING",
+      "temporary_warehouse_cleanup": "RETAINED_BY_REQUEST",
+      "shared_profile_route": "HTTP_404",
+      "advertised_host_with_shared_token": "INVALID_TOKEN_AUDIENCE",
+      "apc_flag": true,
+      "warehouse_flag": false,
+      "client": "DatabricksThriftServiceClient",
+      "select_one": "PASS",
+      "outcome": "PASS"
+    },
+    "warehouse_flag_control_staging": {
+      "apc_flag": false,
+      "warehouse_flag": true,
+      "client": "DatabricksSdkClient",
+      "protocol": "SEA_WAREHOUSE",
+      "select_one": "PASS",
+      "outcome": "PASS"
+    },
+    "non_metadata_result_format": {
+      "query": "SELECT_1",
+      "request_format": "ARROW_BATCH",
+      "manifest_format": "ARROW_BATCH",
+      "rows": 1,
+      "focused_test_cases": 19,
+      "focused_test_failures": 0,
+      "outcome": "PASS"
+    },
+    "dogfood_compute": {
+      "cluster_state": "RUNNING",
+      "jdbc_readiness": "READY"
+    },
+    "native_batch_sea": {
+      "count_entries": 3,
+      "rows_persisted": 3,
+      "outcome": "PASS"
+    },
+    "statement_batch_sea": {
+      "first_executed": true,
+      "third_executed": false,
+      "outcome": "PASS"
+    },
+    "complex_parameter_sea": {
+      "exception": "DatabricksSQLFeatureNotSupportedException",
+      "sql_state": "UNSUPPORTED_OPERATION",
+      "vendor_code": 0,
+      "expected_vendor_code": 1045,
+      "outcome": "FAIL_WRONG_ERROR_CONTRACT"
+    },
+    "scratch_cleanup": "PASS",
+    "catalog_pattern_only_staging": {
+      "client": "DatabricksThriftServiceClient",
+      "select_one": "PASS"
+    },
+    "catalog_pattern_explicit_sea_staging": {
+      "client": "DatabricksSdkClient",
+      "select_one": "PASS"
+    },
+    "safe_flag": {
+      "default": false,
+      "dogfood_override": true,
+      "driver_dogfood_probe": "PASS"
+    },
+    "dogfood_routes": {
+      "flag_default": {
+        "client": "DatabricksSdkClient",
+        "protocol": "SEA_APC",
+        "select_one": "PASS"
+      },
+      "thrift_override": {
+        "client": "DatabricksThriftServiceClient",
+        "protocol": "THRIFT",
+        "select_one": "PASS"
+      },
+      "sea_override": {
+        "client": "DatabricksSdkClient",
+        "protocol": "SEA_APC",
+        "select_one": "PASS"
+      },
+      "catalog_pattern": {
+        "client": "DatabricksThriftServiceClient",
+        "protocol": "THRIFT",
+        "select_one": "PASS"
+      }
+    },
+    "telemetry_redaction": {
+      "telemetry_output_contains_token_or_raw_ids": false,
+      "connection_string_contains_workspace_id": false,
+      "session_string_contains_workspace_id": true,
+      "context_string_contains_workspace_id": false,
+      "outcome": "FAIL_SESSION_STRING_EXPOSURE"
+    },
+    "connection_close_targeting": {
+      "outcome": "FAIL_CONNECTION_ID_CONSTRUCTION"
+    },
+    "heartbeat": {
+      "enabled": true,
+      "interval_seconds": 10,
+      "idle_seconds": 35,
+      "statement_get_requests": 0,
+      "outcome": "PASS"
+    },
+    "bounded_polling": {
+      "running_polls": 7,
+      "terminal_polls": 1,
+      "running_result_payload_bytes": 0,
+      "rows": 100000,
+      "checksum": 4999950000,
+      "outcome": "PASS"
+    }
+  }
+}

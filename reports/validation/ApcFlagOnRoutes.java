@@ -8,9 +8,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.internal.sdk.core.DatabricksError;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 
 // Observes the protocol chosen for each routing mode with the SAFE flag evaluated per connection.
 // Prints results instead of asserting so one run records every mode's outcome.
@@ -33,6 +34,9 @@ public final class ApcFlagOnRoutes {
       case "sea-pattern":
         options = ";TreatMetadataCatalogNameAsPattern=1";
         break;
+      case "sea-explicit-pattern":
+        options = ";UseThriftClient=0;TreatMetadataCatalogNameAsPattern=1";
+        break;
       default:
         throw new IllegalArgumentException("unknown mode " + mode);
     }
@@ -46,18 +50,33 @@ public final class ApcFlagOnRoutes {
     Properties properties = new Properties();
     properties.setProperty("UID", "token");
     properties.setProperty("PWD", System.getenv("DATABRICKS_TOKEN"));
+    String orgId = System.getenv("DATABRICKS_ORG_ID");
+    if (orgId != null) {
+      properties.setProperty("http.header.x-databricks-org-id", orgId);
+    }
     DriverManager.setLoginTimeout(90);
     Class.forName("com.databricks.client.jdbc.Driver");
     try (Connection connection = DriverManager.getConnection(url, properties)) {
       DatabricksConnection dbConnection = (DatabricksConnection) connection;
-      String id = ((IDatabricksConnection) connection).getConnectionId();
-      String protocol =
-          id.startsWith("s|a|") ? "SEA_APC" : id.startsWith("t|") ? "THRIFT" : "OTHER";
+      DatabricksConnectionContext context =
+          (DatabricksConnectionContext) dbConnection.getConnectionContext();
       Object proxy = dbConnection.getSession().getDatabricksClient();
       InvocationHandler handler = Proxy.getInvocationHandler(proxy);
       Field target = handler.getClass().getDeclaredField("target");
       target.setAccessible(true);
       String client = target.get(handler).getClass().getSimpleName();
+      String protocol =
+          client.equals("DatabricksSdkClient")
+              ? context.isAllPurposeCluster() ? "SEA_APC" : "SEA_WAREHOUSE"
+              : client.equals("DatabricksThriftServiceClient") ? "THRIFT" : "OTHER";
+      boolean apcFlag =
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
+              .getBoolean(
+                  "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc");
+      boolean warehouseFlag =
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
+              .getBoolean(
+                  "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc");
       String selectOne;
       try (Statement statement = connection.createStatement();
           ResultSet result = statement.executeQuery("SELECT 1 AS validation_value")) {
@@ -66,12 +85,79 @@ public final class ApcFlagOnRoutes {
       } catch (SQLException e) {
         selectOne = "fail sqlstate=" + e.getSQLState() + " vendor=" + e.getErrorCode();
       }
-      String reason =
-          ((DatabricksConnectionContext) dbConnection.getSession().getConnectionContext())
-              .getRoutingReason();
       System.out.printf(
-          "mode=%s protocol=%s client=%s reason=%s select_one=%s%n",
-          mode, protocol, client, reason, selectOne);
+          "mode=%s protocol=%s client=%s route_reason=%s apc_flag=%s warehouse_flag=%s"
+              + " select_one=%s%n",
+          mode,
+          protocol,
+          client,
+          readRoutingReason(context),
+          apcFlag,
+          warehouseFlag,
+          selectOne);
+    } catch (SQLException error) {
+      String message = error.getMessage() == null ? "" : error.getMessage();
+      Throwable root = error;
+      while (root.getCause() != null) {
+        root = root.getCause();
+      }
+      int sdkStatus = root instanceof DatabricksError ? ((DatabricksError) root).getStatusCode() : 0;
+      String sdkErrorCode =
+          root instanceof DatabricksError ? ((DatabricksError) root).getErrorCode() : "none";
+      String detail = sanitize(root.getMessage());
+      String status =
+          message.contains("401")
+              ? "401"
+              : message.contains("403")
+                  ? "403"
+                  : message.contains("404")
+                      ? "404"
+                      : message.contains("503") ? "503" : "unknown";
+      String category =
+          message.contains("UnknownHost")
+              ? "unknown_host"
+              : message.contains("SSL")
+                  ? "ssl"
+                  : message.contains("timed out") ? "timeout" : "other";
+      System.out.printf(
+          "mode=%s connection=fail class=%s root_class=%s sqlstate=%s"
+              + " vendor=%d http_status=%s sdk_status=%d sdk_error=%s category=%s detail=%s%n",
+          mode,
+          error.getClass().getSimpleName(),
+          root.getClass().getSimpleName(),
+          error.getSQLState(),
+          error.getErrorCode(),
+          status,
+          sdkStatus,
+          sdkErrorCode,
+          category,
+          detail);
     }
+  }
+
+  private static String readRoutingReason(DatabricksConnectionContext context) {
+    try {
+      Field field = DatabricksConnectionContext.class.getDeclaredField("routingReason");
+      field.setAccessible(true);
+      return (String) field.get(context);
+    } catch (ReflectiveOperationException error) {
+      return "not_exposed";
+    }
+  }
+
+  private static String sanitize(String message) {
+    String sanitized = message == null ? "" : message.replaceAll("[\\r\\n]+", " ");
+    for (String variable :
+        new String[] {"DATABRICKS_TOKEN", "DATABRICKS_ORG_ID", "DATABRICKS_HTTP_PATH"}) {
+      String value = System.getenv(variable);
+      if (value != null && !value.isEmpty()) {
+        sanitized = sanitized.replace(value, "<redacted>");
+      }
+    }
+    return sanitized
+        .replaceAll(
+            "(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b",
+            "<uuid>")
+        .replaceAll("\\b[0-9]{8,}\\b", "<numeric-id>");
   }
 }
