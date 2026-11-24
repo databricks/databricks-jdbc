@@ -294,8 +294,10 @@ class ArrowBatchChunkProviderFactoryTest {
             session(client));
     try {
       assertTrue(provider.next());
-      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, provider::next);
-      assertInstanceOf(DatabricksParsingException.class, error.getCause());
+      DatabricksParsingException error =
+          assertThrows(DatabricksParsingException.class, provider::next);
+      assertEquals(
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), error.getSQLState());
     } finally {
       provider.close();
     }
