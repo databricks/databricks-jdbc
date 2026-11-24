@@ -366,10 +366,9 @@ decision. It terminates the saved APC target even if the flag changed after the 
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
 results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
 APC-specific timeout override is needed.
-- R11: For APC `ARROW_BATCH` results, the driver builds the Arrow schema from
-`manifest.schema` (`type_text`/`type_json`, including nested types) and does not require
-`manifest.arrow_schema`; a populated `manifest.arrow_schema` or `total_byte_count` does not
-change decoding or paging.
+- R11: For APC `ARROW_BATCH` results, the driver uses a non-empty `manifest.arrow_schema` when
+provided. Otherwise it serializes `manifest.schema` into an Arrow schema using the same physical
+type mappings as the APC Thrift fallback. `total_byte_count` does not change decoding or paging.
 - R12: APC result fetching pages by `next_chunk_index` and `row_offset`, never relies on
 `total_chunk_count`, `chunks`, or `total_row_count`, and accepts a `GetStatementResult`
 response with or without inline result data. For inline `arrow_batches`, advance `row_offset`

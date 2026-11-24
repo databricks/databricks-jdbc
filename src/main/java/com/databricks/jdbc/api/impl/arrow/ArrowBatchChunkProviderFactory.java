@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.ArrowUtil.createArrowBatchByteStream;
+import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedResultManifestSchema;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -86,7 +87,8 @@ final class ArrowBatchChunkProviderFactory {
       List<ArrowBatch> arrowBatches, ResultManifest resultManifest) throws DatabricksSQLException {
     List<ArrowBatch> decompressed =
         decompressArrowBatches(arrowBatches, resultManifest.getResultCompression());
-    return createArrowBatchByteStream(resultManifest.getArrowSchema(), decompressed);
+    return createArrowBatchByteStream(
+        getSerializedResultManifestSchema(resultManifest), decompressed);
   }
 
   private static long validateAndCountRows(List<ArrowBatch> arrowBatches, ResultData resultData)

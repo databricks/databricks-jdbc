@@ -18,6 +18,9 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.model.client.thrift.generated.TTableSchema;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -25,6 +28,10 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -37,7 +44,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
  * <p>Provides methods for:
  *
  * <ul>
- *   <li>Converting Thrift/Hive schemas to Arrow schemas and serialization
+ *   <li>Converting Thrift/Hive and SQL Execution API schemas to serialized Arrow schemas
  *   <li>Creating Arrow IPC byte streams from Thrift responses
  *   <li>Processing Arrow batches with decompression
  * </ul>
@@ -91,6 +98,127 @@ public final class ArrowUtil {
           e,
           DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
     }
+  }
+
+  /**
+   * Gets the serialized Arrow schema for a SQL Execution API result manifest.
+   *
+   * <p>A server-provided Arrow schema preserves the exact wire representation and is preferred.
+   * When it is absent, the JSON result schema is converted using the same physical type mappings as
+   * the Thrift fallback.
+   */
+  public static byte[] getSerializedResultManifestSchema(ResultManifest manifest)
+      throws DatabricksParsingException {
+    if (manifest == null) {
+      throw arrowBatchError("missing manifest");
+    }
+    if (manifest.getArrowSchema() != null && manifest.getArrowSchema().length > 0) {
+      return manifest.getArrowSchema();
+    }
+
+    Schema arrowSchema = resultSchemaToArrowSchema(manifest.getSchema());
+    try {
+      return SchemaUtility.serialize(arrowSchema);
+    } catch (IOException e) {
+      throw new DatabricksParsingException(
+          "Failed to serialize Arrow schema: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    }
+  }
+
+  private static Schema resultSchemaToArrowSchema(ResultSchema resultSchema)
+      throws DatabricksParsingException {
+    if (resultSchema == null) {
+      throw arrowBatchError("missing schema");
+    }
+    if (resultSchema.getColumns() == null) {
+      if (Long.valueOf(0L).equals(resultSchema.getColumnCount())) {
+        return new Schema(new ArrayList<>());
+      }
+      throw arrowBatchError("missing schema columns");
+    }
+
+    List<Field> fields = new ArrayList<>();
+    for (ColumnInfo column : resultSchema.getColumns()) {
+      if (column == null) {
+        throw arrowBatchError("schema contains a null column");
+      }
+      fields.add(
+          new Field(
+              column.getName(), new FieldType(true, resultColumnToArrowType(column), null), null));
+    }
+    return new Schema(fields);
+  }
+
+  private static ArrowType resultColumnToArrowType(ColumnInfo column)
+      throws DatabricksParsingException {
+    ColumnInfoTypeName typeName = column.getTypeName();
+    if (typeName == null) {
+      typeName = inferColumnType(column.getTypeText());
+    }
+    if (typeName == null) {
+      throw arrowBatchError(String.format("missing Arrow type for column %s", column.getName()));
+    }
+
+    switch (typeName) {
+      case BOOLEAN:
+        return ArrowType.Bool.INSTANCE;
+      case TINYINT:
+      case BYTE:
+        return new ArrowType.Int(8, true);
+      case SMALLINT:
+      case SHORT:
+        return new ArrowType.Int(16, true);
+      case INT:
+        return new ArrowType.Int(32, true);
+      case BIGINT:
+      case LONG:
+        return new ArrowType.Int(64, true);
+      case FLOAT:
+        return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
+      case DOUBLE:
+        return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+      case TIMESTAMP:
+        return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+      case BINARY:
+        return ArrowType.Binary.INSTANCE;
+      case DATE:
+        return new ArrowType.Date(DateUnit.DAY);
+      case NULL:
+      case VOID:
+        return ArrowType.Null.INSTANCE;
+      case ARRAY:
+      case CHAR:
+      case DECIMAL:
+      case GEOGRAPHY:
+      case GEOMETRY:
+      case INTERVAL:
+      case MAP:
+      case STRING:
+      case STRUCT:
+      case USER_DEFINED_TYPE:
+      case VARIANT:
+        return ArrowType.Utf8.INSTANCE;
+      default:
+        throw arrowBatchError(
+            String.format("unsupported Arrow type %s for column %s", typeName, column.getName()));
+    }
+  }
+
+  private static ColumnInfoTypeName inferColumnType(String typeText) {
+    ColumnInfoTypeName recoveredString = DatabricksTypeUtil.recoverStringType(typeText);
+    if (recoveredString != null) {
+      return recoveredString;
+    }
+    if (typeText == null) {
+      return null;
+    }
+    String upperTypeText = typeText.toUpperCase(Locale.ROOT);
+    if (upperTypeText.startsWith(DatabricksTypeUtil.TIMESTAMP_NTZ)) {
+      return ColumnInfoTypeName.TIMESTAMP;
+    }
+    return null;
   }
 
   /**

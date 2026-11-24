@@ -126,14 +126,37 @@ class ArrowBatchChunkProviderFactoryTest {
   }
 
   @Test
-  void rejectsMissingRawArrowSchema() throws Exception {
-    ResultManifest manifest = manifest().setArrowSchema(null);
+  void derivesArrowSchemaFromManifestSchemaWhenRawSchemaIsAbsent() throws Exception {
+    for (byte[] rawArrowSchema : Arrays.asList(null, new byte[0])) {
+      ChunkProvider provider =
+          ArrowBatchChunkProviderFactory.create(
+              resultData(Collections.singletonList(arrowBatch(1, 2)), 2),
+              manifest().setArrowSchema(rawArrowSchema));
 
-    assertThrows(
-        DatabricksParsingException.class,
-        () ->
-            ArrowBatchChunkProviderFactory.create(
-                resultData(Collections.singletonList(arrowBatch(1)), 1), manifest));
+      assertEquals(Arrays.asList(1, 2), readValues(provider));
+    }
+  }
+
+  @Test
+  void prefersRawArrowSchemaWhenPresent() throws Exception {
+    ResultManifest manifest =
+        manifest()
+            .setSchema(
+                new ResultSchema()
+                    .setColumnCount(1L)
+                    .setColumns(
+                        Collections.singletonList(
+                            new ColumnInfo()
+                                .setName("value")
+                                .setPosition(0L)
+                                .setTypeName(ColumnInfoTypeName.STRING)
+                                .setTypeText("STRING"))));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            resultData(Collections.singletonList(arrowBatch(1, 2)), 2), manifest);
+
+    assertEquals(Arrays.asList(1, 2), readValues(provider));
   }
 
   @Test
