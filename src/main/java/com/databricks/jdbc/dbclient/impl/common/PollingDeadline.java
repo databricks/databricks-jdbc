@@ -89,6 +89,7 @@ public final class PollingDeadline implements AutoCloseable {
       }
       expired = true;
       registration = abortRequest;
+      // Later external interrupts may coalesce with the timer's interrupt.
       externallyInterrupted = owner.isInterrupted();
     }
     try {
