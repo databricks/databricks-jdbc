@@ -406,7 +406,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
             : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT;
     TimeoutHandler timeoutHandler =
-        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this, timeoutErrorCode);
+        TimeoutHandler.forStatement(
+            timeoutInSeconds, typedStatementId, this, timeoutErrorCode, connectionContext);
 
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {

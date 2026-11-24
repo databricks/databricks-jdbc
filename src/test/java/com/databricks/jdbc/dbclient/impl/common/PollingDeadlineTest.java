@@ -69,7 +69,6 @@ class PollingDeadlineTest {
             .setConnectionManager(pool)
             .setDefaultRequestConfig(RequestConfig.custom().setSocketTimeout(30000).build())
             .build()) {
-      TimeoutHandler handler = handler(2, null);
       IDatabricksHttpClient transportClient = mock(IDatabricksHttpClient.class);
       lenient()
           .when(transportClient.execute(any()))
@@ -95,9 +94,11 @@ class PollingDeadlineTest {
             return null;
           };
       long started = System.nanoTime();
+      TimeoutHandler handler = handler(2, null);
       DatabricksTimeoutException failure =
           assertThrows(DatabricksTimeoutException.class, () -> handler.executeWithTimeout(poll));
-      assertTrue((System.nanoTime() - started) / 1e9 < 3.5);
+      assertTrue((System.nanoTime() - started) / 1e9 < 10);
+      assertEquals(1, requests.get(), "The deadline must abort an in-flight request");
       assertNotNull(failure.getCause());
       assertEquals(0, pool.getTotalStats().getLeased());
       assertFalse(Thread.currentThread().isInterrupted());

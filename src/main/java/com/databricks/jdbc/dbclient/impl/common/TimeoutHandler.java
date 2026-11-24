@@ -1,36 +1,30 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Utility class to handle statement execution timeouts. */
 public class TimeoutHandler {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TimeoutHandler.class);
-  private static final ThreadPoolExecutor CANCELLATIONS =
-      new ThreadPoolExecutor(
-          0,
-          64,
-          30,
-          TimeUnit.SECONDS,
-          new SynchronousQueue<>(),
-          task -> {
-            Thread thread = new Thread(task, "databricks-jdbc-timeout-cancel");
-            thread.setDaemon(true);
-            return thread;
-          });
+  private static final long STATUS_GRACE_MILLIS = TimeUnit.SECONDS.toMillis(5);
 
   private final long startTimeMillis;
   private final int timeoutSeconds;
   private final String operationDescription;
+  private final IDatabricksConnectionContext connectionContext;
+  private final AtomicBoolean cancellationDispatched = new AtomicBoolean();
+  private DatabricksTimeoutException timeoutFailure;
   private final Runnable onTimeoutAction; // do something on timeout
   private final DatabricksDriverErrorCode
       internalErrorCode; // internal error code to be used for timeout error (if any)
@@ -48,11 +42,26 @@ public class TimeoutHandler {
       String operationDescription,
       Runnable onTimeoutAction,
       DatabricksDriverErrorCode internalErrorCode) {
+    this(
+        timeoutSeconds,
+        operationDescription,
+        onTimeoutAction,
+        internalErrorCode,
+        DatabricksThreadContextHolder.getConnectionContext());
+  }
+
+  public TimeoutHandler(
+      int timeoutSeconds,
+      String operationDescription,
+      Runnable onTimeoutAction,
+      DatabricksDriverErrorCode internalErrorCode,
+      IDatabricksConnectionContext connectionContext) {
     this.startTimeMillis = System.currentTimeMillis();
     this.timeoutSeconds = timeoutSeconds;
     this.operationDescription = operationDescription;
     this.onTimeoutAction = onTimeoutAction;
     this.internalErrorCode = internalErrorCode;
+    this.connectionContext = connectionContext;
   }
 
   /**
@@ -78,11 +87,17 @@ public class TimeoutHandler {
 
   public <T, E extends Exception> T executeWithTimeout(Poll<T, E> poll)
       throws E, DatabricksTimeoutException {
+    return executeWithTimeout(poll, STATUS_GRACE_MILLIS);
+  }
+
+  private <T, E extends Exception> T executeWithTimeout(Poll<T, E> poll, long graceMillis)
+      throws E, DatabricksTimeoutException {
     checkTimeout();
     if (timeoutSeconds <= 0) {
       return poll.execute();
     }
-    try (PollingDeadline deadline = new PollingDeadline(Math.max(0, remainingMillis()))) {
+    try (PollingDeadline deadline =
+        new PollingDeadline(Math.max(0, remainingMillis() + graceMillis))) {
       T result;
       try {
         result = poll.execute();
@@ -94,7 +109,7 @@ public class TimeoutHandler {
         E originalFailure = (E) failure;
         throw originalFailure;
       }
-      if (deadline.isExpired() || remainingMillis() <= 0) {
+      if (deadline.isExpired() || remainingMillis() + graceMillis <= 0) {
         throw timeoutException(new TimeoutException("Status poll exceeded its deadline"));
       }
       return result;
@@ -106,7 +121,8 @@ public class TimeoutHandler {
         () -> {
           TimeUnit.MILLISECONDS.sleep(millis);
           return null;
-        });
+        },
+        0);
   }
 
   private long remainingMillis() {
@@ -115,26 +131,66 @@ public class TimeoutHandler {
   }
 
   private DatabricksTimeoutException timeoutException(Throwable cause) {
-    if (onTimeoutAction != null) {
-      try {
-        CANCELLATIONS.execute(
-            () -> {
-              try (PollingDeadline ignored = new PollingDeadline(TimeUnit.SECONDS.toMillis(30))) {
-                onTimeoutAction.run();
-              } catch (Exception failure) {
-                LOGGER.warn("Failed to execute timeout action");
-              }
-            });
-      } catch (RejectedExecutionException failure) {
-        LOGGER.warn("Timeout cancellation workers are busy");
+    DatabricksTimeoutException failure;
+    synchronized (this) {
+      if (timeoutFailure == null) {
+        String message =
+            String.format(
+                "Statement execution timed-out after %d seconds. Operation: %s",
+                timeoutSeconds, operationDescription);
+        LOGGER.error(message);
+        timeoutFailure = new DatabricksTimeoutException(message, cause, internalErrorCode);
       }
+      failure = timeoutFailure;
     }
-    String message =
-        String.format(
-            "Statement execution timed-out after %d seconds. Operation: %s",
-            timeoutSeconds, operationDescription);
-    LOGGER.error(message);
-    return new DatabricksTimeoutException(message, cause, internalErrorCode);
+    if (onTimeoutAction != null && cancellationDispatched.compareAndSet(false, true)) {
+      dispatchCancellation();
+    }
+    return failure;
+  }
+
+  private void dispatchCancellation() {
+    String statementId = DatabricksThreadContextHolder.getStatementId();
+    String sessionId = DatabricksThreadContextHolder.getSessionId();
+    StatementType statementType = DatabricksThreadContextHolder.getStatementType();
+    Runnable cancel =
+        () -> {
+          IDatabricksConnectionContext previousContext =
+              DatabricksThreadContextHolder.getConnectionContext();
+          String previousStatement = DatabricksThreadContextHolder.getStatementId();
+          String previousSession = DatabricksThreadContextHolder.getSessionId();
+          StatementType previousType = DatabricksThreadContextHolder.getStatementType();
+          Integer previousRetry = DatabricksThreadContextHolder.getRetryCount();
+          try {
+            DatabricksThreadContextHolder.setConnectionContext(connectionContext);
+            DatabricksThreadContextHolder.setStatementId(statementId);
+            DatabricksThreadContextHolder.setSessionId(sessionId);
+            DatabricksThreadContextHolder.setStatementType(statementType);
+            try (PollingDeadline deadline = new PollingDeadline(TimeUnit.SECONDS.toMillis(30))) {
+              onTimeoutAction.run();
+              if (deadline.isExpired()) {
+                LOGGER.warn("Timeout action exceeded 30 seconds for {}", operationDescription);
+              }
+            }
+          } catch (Exception failure) {
+            LOGGER.warn(
+                "Failed to execute timeout action for {}: {}",
+                operationDescription,
+                failure.toString());
+          } finally {
+            DatabricksThreadContextHolder.clearAllContext();
+            DatabricksThreadContextHolder.setSessionId(previousSession);
+            DatabricksThreadContextHolder.setConnectionContext(previousContext);
+            DatabricksThreadContextHolder.setStatementId(previousStatement);
+            DatabricksThreadContextHolder.setStatementType(previousType);
+            DatabricksThreadContextHolder.setRetryCount(previousRetry);
+          }
+        };
+    if (DriverUtil.isRunningAgainstFake()) {
+      cancel.run();
+    } else {
+      TimeoutCleanupManager.forConnection(connectionContext).dispatch(cancel);
+    }
   }
 
   /**
@@ -152,6 +208,20 @@ public class TimeoutHandler {
       StatementId statementId,
       IDatabricksClient client,
       DatabricksDriverErrorCode internalErrorCode) {
+    return forStatement(
+        timeoutSeconds,
+        statementId,
+        client,
+        internalErrorCode,
+        DatabricksThreadContextHolder.getConnectionContext());
+  }
+
+  public static TimeoutHandler forStatement(
+      int timeoutSeconds,
+      StatementId statementId,
+      IDatabricksClient client,
+      DatabricksDriverErrorCode internalErrorCode,
+      IDatabricksConnectionContext connectionContext) {
 
     return new TimeoutHandler(
         timeoutSeconds,
@@ -160,9 +230,13 @@ public class TimeoutHandler {
           try {
             client.cancelStatement(statementId);
           } catch (Exception e) {
-            LOGGER.warn("Cancel statement on timeout failed: " + e.getMessage());
+            LOGGER.warn(
+                "Cancel statement on timeout failed for {}: {}",
+                StatementId.loggableStatementId(statementId),
+                e.getMessage());
           }
         },
-        internalErrorCode);
+        internalErrorCode,
+        connectionContext);
   }
 }

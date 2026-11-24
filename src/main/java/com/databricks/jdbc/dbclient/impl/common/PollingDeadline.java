@@ -1,18 +1,21 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /** Request-local cancellation for a status poll, including its retry waits. */
-final class PollingDeadline implements AutoCloseable {
+public final class PollingDeadline implements AutoCloseable {
   private static final ThreadLocal<PollingDeadline> CURRENT = new ThreadLocal<>();
   private static final ScheduledThreadPoolExecutor TIMER = createTimer();
 
   private final Thread owner = Thread.currentThread();
   private final boolean previouslyInterrupted = owner.isInterrupted();
+  private final PollingDeadline previous = CURRENT.get();
+  private final CountDownLatch interruptSent = new CountDownLatch(1);
   private final ScheduledFuture<?> timer;
-  private Runnable abortRequest;
+  private AbortRegistration abortRequest;
   private boolean expired;
   private boolean closed;
 
@@ -23,9 +26,12 @@ final class PollingDeadline implements AutoCloseable {
             task -> {
               Thread thread = new Thread(task, "databricks-jdbc-poll-deadline");
               thread.setDaemon(true);
+              thread.setContextClassLoader(null);
               return thread;
             });
     executor.setRemoveOnCancelPolicy(true);
+    executor.setKeepAliveTime(1, TimeUnit.SECONDS);
+    executor.allowCoreThreadTimeOut(true);
     return executor;
   }
 
@@ -34,40 +40,58 @@ final class PollingDeadline implements AutoCloseable {
     timer = TIMER.schedule(this::expire, remainingMillis, TimeUnit.MILLISECONDS);
   }
 
-  static boolean registerAbort(Runnable abort) {
+  public static boolean isCurrentExpired() {
+    PollingDeadline deadline = CURRENT.get();
+    return deadline != null && deadline.isExpired();
+  }
+
+  static boolean registerAbort(Object resource, Runnable abort) {
     PollingDeadline deadline = CURRENT.get();
     if (deadline != null) {
       synchronized (deadline) {
-        if (deadline.expired) {
-          abort.run();
-          return false;
-        } else {
-          deadline.abortRequest = abort;
+        if (!deadline.expired) {
+          deadline.abortRequest = new AbortRegistration(resource, abort);
+          return true;
         }
       }
+      abort.run();
+      return false;
     }
     return true;
   }
 
-  static void clearAbort() {
+  static void clearAbort(Object resource) {
     PollingDeadline deadline = CURRENT.get();
+    AbortRegistration registration = null;
     if (deadline != null) {
       synchronized (deadline) {
-        deadline.abortRequest = null;
+        if (deadline.abortRequest != null && deadline.abortRequest.resource == resource) {
+          registration = deadline.abortRequest;
+          deadline.abortRequest = null;
+        }
       }
+    }
+    if (registration != null) {
+      registration.disarm();
     }
   }
 
-  private synchronized void expire() {
-    if (!closed) {
-      expired = true;
-      try {
-        if (abortRequest != null) {
-          abortRequest.run();
-        }
-      } finally {
-        owner.interrupt();
+  private void expire() {
+    AbortRegistration registration;
+    synchronized (this) {
+      if (closed) {
+        return;
       }
+      expired = true;
+      registration = abortRequest;
+    }
+    try {
+      owner.interrupt();
+    } finally {
+      interruptSent.countDown();
+    }
+    if (registration != null) {
+      registration.abort();
     }
   }
 
@@ -76,13 +100,58 @@ final class PollingDeadline implements AutoCloseable {
   }
 
   @Override
-  public synchronized void close() {
-    closed = true;
-    timer.cancel(false);
-    abortRequest = null;
-    CURRENT.remove();
-    if (expired && !previouslyInterrupted) {
+  public void close() {
+    AbortRegistration registration;
+    boolean wasExpired;
+    synchronized (this) {
+      closed = true;
+      timer.cancel(false);
+      registration = abortRequest;
+      abortRequest = null;
+      wasExpired = expired;
+    }
+    if (registration != null) {
+      registration.disarm();
+    }
+    if (previous == null) {
+      CURRENT.remove();
+    } else {
+      CURRENT.set(previous);
+    }
+    if (wasExpired) {
+      boolean waiting = true;
+      while (waiting) {
+        try {
+          interruptSent.await();
+          waiting = false;
+        } catch (InterruptedException ignored) {
+        }
+      }
       Thread.interrupted();
+    }
+    if (previouslyInterrupted) {
+      owner.interrupt();
+    }
+  }
+
+  private static final class AbortRegistration {
+    private final Object resource;
+    private final Runnable action;
+    private boolean active = true;
+
+    private AbortRegistration(Object resource, Runnable action) {
+      this.resource = resource;
+      this.action = action;
+    }
+
+    private synchronized void abort() {
+      if (active) {
+        action.run();
+      }
+    }
+
+    private synchronized void disarm() {
+      active = false;
     }
   }
 }

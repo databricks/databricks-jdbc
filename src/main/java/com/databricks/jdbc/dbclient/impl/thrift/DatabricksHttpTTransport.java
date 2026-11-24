@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.PollingDeadline;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -126,7 +127,9 @@ public class DatabricksHttpTTransport extends TTransport {
     // Execute the request and handle the response
     long httpRequestStartTime = System.currentTimeMillis();
     try (CloseableHttpResponse response = httpClient.execute(request)) {
-
+      if (PollingDeadline.isCurrentExpired()) {
+        throw new IOException("Status poll deadline expired");
+      }
       ValidationUtil.checkHTTPError(response);
 
       // Read the response
@@ -146,7 +149,9 @@ public class DatabricksHttpTTransport extends TTransport {
               + "ms");
 
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
-      LOGGER.error(e, errorMessage);
+      if (!PollingDeadline.isCurrentExpired()) {
+        LOGGER.error(e, errorMessage);
+      }
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage, e);
     }
   }

@@ -796,10 +796,14 @@ final class DatabricksThriftAccessor {
                   cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
                 }
               } catch (Exception e) {
-                LOGGER.warn("Failed to cancel metadata operation on timeout: {}", e.getMessage());
+                LOGGER.warn(
+                    "Failed to cancel metadata operation {} on timeout: {}",
+                    statementId,
+                    e.getMessage());
               }
             },
-            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
+            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+            connectionContext);
     while (shouldContinuePolling(statusResp)) {
       metadataTimeoutHandler.checkTimeout();
       try {
@@ -1028,10 +1032,12 @@ final class DatabricksThriftAccessor {
             LOGGER.debug("Canceling operation due to timeout: {}", statementId);
             cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
           } catch (Exception e) {
-            LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
+            LOGGER.warn(
+                "Failed to cancel operation {} on timeout: {}", statementId, e.getMessage());
           }
         },
-        internalErrorCode);
+        internalErrorCode,
+        connectionContext);
   }
 
   /**

@@ -31,12 +31,13 @@ final class PollingConnectionManager extends PoolingHttpClientConnectionManager 
       @Override
       public HttpClientConnection get(long timeout, TimeUnit unit)
           throws InterruptedException, ExecutionException, ConnectionPoolTimeoutException {
-        if (!PollingDeadline.registerAbort(request::cancel)) {
+        if (!PollingDeadline.registerAbort(request, request::cancel)) {
           throw new InterruptedException("Status poll deadline expired");
         }
         HttpClientConnection connection = request.get(timeout, unit);
         boolean active =
             PollingDeadline.registerAbort(
+                connection,
                 () -> {
                   try {
                     connection.shutdown();
@@ -55,7 +56,7 @@ final class PollingConnectionManager extends PoolingHttpClientConnectionManager 
   @Override
   public void releaseConnection(
       HttpClientConnection connection, Object state, long keepAlive, TimeUnit unit) {
-    PollingDeadline.clearAbort();
+    PollingDeadline.clearAbort(connection);
     super.releaseConnection(connection, state, keepAlive, unit);
   }
 }
