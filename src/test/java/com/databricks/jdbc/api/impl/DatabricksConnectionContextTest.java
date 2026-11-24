@@ -27,6 +27,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -59,6 +67,105 @@ class DatabricksConnectionContextTest {
       IDatabricksConnectionContext context, Map<String, String> flags) {
     featureFlagContextsToCleanUp.add(context);
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(context, flags);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"not-a-number", "0", "-1", "", "2147483648"})
+  public void testInvalidCloudFetchThreadPoolSizeFallsBackAndWarnsOnce(String value)
+      throws DatabricksSQLException {
+    Properties connectionProperties = new Properties();
+    connectionProperties.setProperty("cloudFetchThreadPoolSize", value);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, connectionProperties);
+    Logger logger = Logger.getLogger(DatabricksConnectionContext.class.getName());
+    Handler handler = mock(Handler.class);
+    Level previousLevel = logger.getLevel();
+    logger.setLevel(Level.WARNING);
+    logger.addHandler(handler);
+    try {
+      for (int attempt = 0; attempt < 4; attempt++) {
+        assertEquals(16, assertDoesNotThrow(context::getCloudFetchThreadPoolSize));
+      }
+      verify(handler)
+          .publish(
+              argThat(
+                  record ->
+                      record.getLevel() == Level.WARNING
+                          && record.getMessage().contains("cloudFetchThreadPoolSize")
+                          && record.getMessage().contains("'" + value + "'")
+                          && record.getMessage().contains("16")));
+      verifyNoMoreInteractions(handler);
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(previousLevel);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"8", "+8", "100000", "2147483647"})
+  public void testValidCloudFetchThreadPoolSizeDoesNotWarn(String value)
+      throws DatabricksSQLException {
+    Properties connectionProperties = new Properties();
+    connectionProperties.setProperty("cloudFetchThreadPoolSize", value);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, connectionProperties);
+    Logger logger = Logger.getLogger(DatabricksConnectionContext.class.getName());
+    Handler handler = mock(Handler.class);
+    logger.addHandler(handler);
+    try {
+      for (int attempt = 0; attempt < 4; attempt++) {
+        assertEquals(Integer.parseInt(value), context.getCloudFetchThreadPoolSize());
+      }
+      verifyNoInteractions(handler);
+    } finally {
+      logger.removeHandler(handler);
+    }
+  }
+
+  @Test
+  public void testCloudFetchThreadPoolSizeDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, new Properties());
+    assertEquals(16, context.getCloudFetchThreadPoolSize());
+  }
+
+  @Test
+  public void testCloudFetchThreadPoolSizeWarnsOncePerContextUnderConcurrentAccess()
+      throws Exception {
+    Logger logger = Logger.getLogger(DatabricksConnectionContext.class.getName());
+    Handler handler = mock(Handler.class);
+    Level previousLevel = logger.getLevel();
+    logger.setLevel(Level.WARNING);
+    logger.addHandler(handler);
+    ExecutorService executor = Executors.newFixedThreadPool(8);
+    try {
+      for (int contextIndex = 0; contextIndex < 2; contextIndex++) {
+        Properties connectionProperties = new Properties();
+        connectionProperties.setProperty("cloudFetchThreadPoolSize", "0");
+        IDatabricksConnectionContext context =
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, connectionProperties);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Integer>> results = new ArrayList<>();
+        for (int caller = 0; caller < 32; caller++) {
+          results.add(
+              executor.submit(
+                  () -> {
+                    start.await();
+                    return context.getCloudFetchThreadPoolSize();
+                  }));
+        }
+        start.countDown();
+        for (Future<Integer> result : results) {
+          assertEquals(16, result.get(10, TimeUnit.SECONDS));
+        }
+      }
+      verify(handler, times(2)).publish(argThat(record -> record.getLevel() == Level.WARNING));
+      verifyNoMoreInteractions(handler);
+    } finally {
+      executor.shutdownNow();
+      logger.removeHandler(handler);
+      logger.setLevel(previousLevel);
+    }
   }
 
   @Test

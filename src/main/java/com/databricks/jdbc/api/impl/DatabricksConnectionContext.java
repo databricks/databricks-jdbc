@@ -26,6 +26,7 @@ import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -57,6 +58,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   // Read once: result sets check these for every value they return.
   private final boolean complexDatatypeSupportEnabled;
   private final boolean geoSpatialSupportEnabled;
+  private final Supplier<Integer> cloudFetchThreadPoolSize =
+      Suppliers.memoize(this::resolveCloudFetchThreadPoolSize);
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -569,9 +572,22 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getCloudFetchThreadPoolSize() throws DatabricksValidationException {
-    return ValidationUtil.validateAndParsePositiveInteger(
-        getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE),
-        DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE.getParamName());
+    return cloudFetchThreadPoolSize.get();
+  }
+
+  private int resolveCloudFetchThreadPoolSize() {
+    DatabricksJdbcUrlParams parameter = DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE;
+    String value = getParameter(parameter);
+    try {
+      return ValidationUtil.validateAndParsePositiveInteger(value, parameter.getParamName());
+    } catch (DatabricksValidationException exception) {
+      LOGGER.warn(
+          "Invalid value for {}: '{}'. Using the default {}.",
+          parameter.getParamName(),
+          value,
+          parameter.getDefaultValue());
+      return Integer.parseInt(parameter.getDefaultValue());
+    }
   }
 
   @Override
