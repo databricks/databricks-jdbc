@@ -8,7 +8,7 @@
 
 ### Fixed
 
-- Server-side close failures no longer escape `Statement.close()`, `ResultSet.close()` with `closeOnCompletion`, or `Connection.close()`; failures other than already-closed operations are logged at WARN, while local cleanup errors can still throw `SQLException`. Each statement close makes at most one server-close attempt; after the first non-404 failure, `Connection.close()` closes remaining statements locally before closing the session, bounding teardown waits during outages.
+- Server cleanup failures are recorded without escaping `Statement.close()`, `ResultSet.close()` with `closeOnCompletion`, or `Connection.close()`, allowing remaining local resources and the session to be released. Local cleanup errors can still throw `SQLException`.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

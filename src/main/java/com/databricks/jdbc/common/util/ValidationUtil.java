@@ -12,9 +12,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
@@ -22,9 +20,6 @@ import org.apache.http.util.EntityUtils;
 public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
-  private static final String HTTP_ERROR_PREFIX = "HTTP request failed by code: ";
-  private static final Pattern HTTP_ERROR_STATUS_PATTERN =
-      Pattern.compile("^" + Pattern.quote(HTTP_ERROR_PREFIX) + "(\\d{3}),");
 
   public static <T extends Number> void checkIfNonNegative(T number, String fieldName)
       throws DatabricksValidationException {
@@ -110,8 +105,7 @@ public class ValidationUtil {
     String statusLine = response.getStatusLine().toString();
     StringBuilder errorBuilder = new StringBuilder();
     errorBuilder.append(
-        String.format(
-            Locale.ROOT, HTTP_ERROR_PREFIX + "%d, status line: %s.", statusCode, statusLine));
+        String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine));
     if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
       errorBuilder.append(
           String.format(
@@ -145,14 +139,6 @@ public class ValidationUtil {
     }
     LOGGER.error(errorReason);
     throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
-  }
-
-  public static Integer getHTTPStatusCode(DatabricksHttpException error) {
-    if (error.getMessage() == null) {
-      return null;
-    }
-    Matcher matcher = HTTP_ERROR_STATUS_PATTERN.matcher(error.getMessage());
-    return matcher.find() ? Integer.valueOf(matcher.group(1)) : null;
   }
 
   /**
