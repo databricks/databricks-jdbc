@@ -16,6 +16,7 @@ import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -169,7 +170,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         // - directResultsReceived: server closed it (inline results)
         // - serverOperationClosed: client proactively closed it (results consumed or RS closed)
         if (!directResultsReceived && !serverOperationClosed) {
-          this.connection.getSession().getDatabricksClient().closeStatement(statementId);
+          closeServerOperation();
         } else {
           LOGGER.debug(
               "Statement {} closed locally (server operation already closed — "
@@ -1135,14 +1136,33 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           "Proactively closed server operation for statement {} (results consumed)",
           StatementId.loggableStatementId(statementId));
     } catch (SQLException | RuntimeException e) {
-      // Best-effort — don't fail the user's close for a server cleanup failure.
-      // serverOperationClosed stays false so Statement.close() will retry the RPC.
-      LOGGER.warn(
-          "Failed to proactively close server operation for statement {}: {}",
-          StatementId.loggableStatementId(statementId),
-          e.getMessage(),
-          e);
+      if (isOperationNotFound(e)) {
+        this.serverOperationClosed = true;
+        LOGGER.debug(
+            "Server operation for statement {} is already closed",
+            StatementId.loggableStatementId(statementId));
+      } else {
+        LOGGER.warn(
+            "Failed to close server operation for statement {} ({})",
+            StatementId.loggableStatementId(statementId),
+            e.getClass().getSimpleName());
+      }
     }
+  }
+
+  private static boolean isOperationNotFound(Throwable error) {
+    while (error != null) {
+      if (error instanceof DatabricksError && ((DatabricksError) error).getStatusCode() == 404) {
+        return true;
+      }
+      if (error instanceof DatabricksHttpException
+          && error.getMessage() != null
+          && error.getMessage().startsWith("HTTP request failed by code: 404,")) {
+        return true;
+      }
+      error = error.getCause();
+    }
+    return false;
   }
 
   /**
