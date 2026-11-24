@@ -276,7 +276,7 @@ OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}
 | `first()` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Random access not supported |
 | `last()` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Random access not supported |
 | `getRow()` | YES | - | No | OCCASIONAL | Returns current row number |
-| `absolute(int)` | PARTIAL | - | No | RARE | Limited forward-only support |
+| `absolute(int)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Random access not supported |
 | `relative(int)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Random access not supported |
 | `previous()` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Backward navigation not supported |
 | `setFetchDirection(int)` | PARTIAL | DatabricksSQLFeatureNotSupportedException | No | RARE | Only FETCH_FORWARD supported |

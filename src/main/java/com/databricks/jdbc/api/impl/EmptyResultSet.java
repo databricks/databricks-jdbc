@@ -258,23 +258,29 @@ public class EmptyResultSet
   @Override
   public void beforeFirst() throws SQLException {
     checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "beforeFirst is not supported on a forward-only ResultSet");
   }
 
   @Override
   public void afterLast() throws SQLException {
     checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "afterLast is not supported on a forward-only ResultSet");
   }
 
   @Override
   public boolean first() throws SQLException {
     checkIfClosed();
-    return false;
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "first is not supported on a forward-only ResultSet");
   }
 
   @Override
   public boolean last() throws SQLException {
     checkIfClosed();
-    return false;
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "last is not supported on a forward-only ResultSet");
   }
 
   @Override
@@ -312,7 +318,7 @@ public class EmptyResultSet
   @Override
   public int getFetchDirection() throws SQLException {
     checkIfClosed();
-    return 0;
+    return ResultSet.FETCH_FORWARD;
   }
 
   @Override
@@ -335,7 +341,7 @@ public class EmptyResultSet
   @Override
   public int getConcurrency() throws SQLException {
     checkIfClosed();
-    return 0;
+    return ResultSet.CONCUR_READ_ONLY;
   }
 
   @Override
@@ -809,7 +815,7 @@ public class EmptyResultSet
   @Override
   public int getHoldability() throws SQLException {
     checkIfClosed();
-    return 0;
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override

@@ -6,7 +6,7 @@
 
 ### Updated
 
-- Forward-only result sets now reject `absolute()`, `relative()`, and `previous()` with consistent unsupported-operation messages; applications relying on `absolute()` to skip forward should call `next()` instead. Empty result sets now report `TYPE_FORWARD_ONLY` and reject these operations rather than returning `false`.
+- `absolute()` on forward-only result sets now throws `SQLFeatureNotSupportedException` instead of skipping forward (or returning `false` for empty results); call `next()` instead. The `relative()` and `previous()` messages now say "<method> is not supported on a forward-only ResultSet"; the empty result returned by `Statement.getGeneratedKeys()` now rejects cursor moves and reports `TYPE_FORWARD_ONLY`, `CONCUR_READ_ONLY`, `FETCH_FORWARD`, and `CLOSE_CURSORS_AT_COMMIT`.
 
 ### Fixed
 

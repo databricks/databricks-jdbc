@@ -164,7 +164,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetHoldability() throws SQLException {
-    assertEquals(0, resultSet.getHoldability());
+    assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, resultSet.getHoldability());
   }
 
   @Test
@@ -180,7 +180,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetConcurrency() throws SQLException {
-    assertEquals(0, resultSet.getConcurrency());
+    assertEquals(ResultSet.CONCUR_READ_ONLY, resultSet.getConcurrency());
   }
 
   @Test
@@ -202,11 +202,40 @@ public class EmptyResultSetTest {
   }
 
   @Test
+  void testFirstNotSupported() {
+    assertCursorNotSupported("first", resultSet::first);
+  }
+
+  @Test
+  void testLastNotSupported() {
+    assertCursorNotSupported("last", resultSet::last);
+  }
+
+  @Test
+  void testBeforeFirstNotSupported() {
+    assertCursorNotSupported("beforeFirst", resultSet::beforeFirst);
+  }
+
+  @Test
+  void testAfterLastNotSupported() {
+    assertCursorNotSupported("afterLast", resultSet::afterLast);
+  }
+
+  @Test
   void testCursorNavigationOnClosedResultSet() throws SQLException {
     resultSet.close();
     for (Executable operation :
         new Executable[] {
-          () -> resultSet.absolute(1), () -> resultSet.relative(1), resultSet::previous
+          () -> resultSet.absolute(1),
+          () -> resultSet.relative(1),
+          resultSet::previous,
+          resultSet::first,
+          resultSet::last,
+          resultSet::beforeFirst,
+          resultSet::afterLast,
+          resultSet::getConcurrency,
+          resultSet::getFetchDirection,
+          resultSet::getHoldability
         }) {
       DatabricksSQLException exception = assertThrows(DatabricksSQLException.class, operation);
       assertEquals(DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), exception.getSQLState());
@@ -229,7 +258,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetFetchDirection() throws SQLException {
-    assertEquals(0, resultSet.getFetchDirection());
+    assertEquals(ResultSet.FETCH_FORWARD, resultSet.getFetchDirection());
   }
 
   @Test
@@ -428,8 +457,6 @@ public class EmptyResultSetTest {
     assertFalse(resultSet.getBoolean("anyString"));
 
     assertEquals(0, resultSet.getRow());
-    assertFalse(resultSet.first());
-    assertFalse(resultSet.last());
     assertFalse(resultSet.rowUpdated());
     assertFalse(resultSet.rowInserted());
     assertFalse(resultSet.rowDeleted());
@@ -483,8 +510,6 @@ public class EmptyResultSetTest {
     assertDoesNotThrow(() -> resultSet.updateString("columnIndex", ""));
     assertDoesNotThrow(() -> resultSet.updateBytes("columnIndex", new byte[0]));
 
-    assertDoesNotThrow(resultSet::beforeFirst);
-    assertDoesNotThrow(resultSet::afterLast);
     assertDoesNotThrow(() -> resultSet.setFetchDirection(ResultSet.FETCH_FORWARD));
     assertDoesNotThrow(() -> resultSet.setFetchSize(0));
     assertDoesNotThrow(resultSet::clearWarnings);
