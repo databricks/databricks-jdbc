@@ -1543,7 +1543,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isBoundedSeaApiEnabled() {
-    return resolveFeatureFlag(DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API, SQL_EXEC_FLAG_NAME);
+    return getParameter(DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API).equals("1");
   }
 
   @Override

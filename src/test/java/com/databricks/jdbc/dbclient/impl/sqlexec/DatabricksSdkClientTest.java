@@ -2230,10 +2230,15 @@ public class DatabricksSdkClientTest {
   // getResultChunks — row_offset bounded-SEA contract
   // =========================================================================
 
-  @Test
-  public void testGetResultChunks_boundedSeaEnabled_appendsRowOffset() throws Exception {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"1"})
+  public void testGetResultChunks_boundedSeaEnabled_appendsRowOffset(String boundedSea)
+      throws Exception {
     Properties props = new Properties();
-    props.setProperty("UseBoundedSeaApi", "1");
+    if (boundedSea != null) {
+      props.setProperty("UseBoundedSeaApi", boundedSea);
+    }
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, props);
     DatabricksSdkClient databricksSdkClient =
@@ -2253,8 +2258,10 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testGetResultChunks_boundedSeaDisabled_noRowOffset() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL, props);
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
