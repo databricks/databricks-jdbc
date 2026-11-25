@@ -2301,6 +2301,31 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testUnknownTotalColumnarDataResultCursorState() throws Exception {
+    ColumnarDataResult columnarResult = mock(ColumnarDataResult.class);
+    DatabricksResultSetMetaData metadata = mock(DatabricksResultSetMetaData.class);
+    when(columnarResult.next()).thenReturn(true, false);
+    when(columnarResult.getCurrentRow()).thenReturn(0L);
+    when(columnarResult.hasNext()).thenReturn(false);
+    assertFalse(metadata.hasKnownTotalRows());
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            null,
+            columnarResult,
+            metadata,
+            false);
+
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.isLast());
+    assertFalse(resultSet.isAfterLast());
+    assertFalse(resultSet.next());
+    assertTrue(resultSet.isAfterLast());
+  }
+
+  @Test
   void testGetUpdateCountBypassesMaxRows() throws Exception {
     // Mock an UPDATE result set with maxRows=2 but 5 affected rows across 5 result rows.
     // getUpdateCount() should sum all 5 rows (returning 5), proving the

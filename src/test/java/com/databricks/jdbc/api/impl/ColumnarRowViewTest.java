@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
@@ -157,7 +158,10 @@ public class ColumnarRowViewTest {
     ColumnarRowView view = new ColumnarRowView(rowSet);
 
     // Row out of bounds
-    assertThrows(DatabricksSQLException.class, () -> view.getValue(-1, 0));
+    DatabricksSQLException invalidRow =
+        assertThrows(DatabricksSQLException.class, () -> view.getValue(-1, 0));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), invalidRow.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), invalidRow.getErrorCode());
     assertThrows(DatabricksSQLException.class, () -> view.getValue(1, 0));
 
     // Column out of bounds

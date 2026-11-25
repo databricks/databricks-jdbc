@@ -95,9 +95,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private ZoneId timestampZone = null;
   private boolean geoSpatialSupport = false;
   private boolean usesBoundedResultContract = false;
-  // Set when next() exhausts an Arrow result whose manifest row count cannot be relied on.
+  // Set when next() exhausts a streaming SEA result whose cursor remains on its final row.
   // This lets isAfterLast() distinguish being ON the last row from moving PAST it.
-  private boolean arrowResultExhausted = false;
+  private boolean streamingSeaResultExhausted = false;
   private boolean thriftNativeMetadataResult = false;
 
   // Cached telemetry collector resolved once at construction time to avoid
@@ -443,9 +443,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     if (!hasNext) {
       stopHeartbeat();
-      if (executionResult instanceof ArrowResult
-          && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
-        arrowResultExhausted = true;
+      if (usesExhaustionForCursorState()) {
+        streamingSeaResultExhausted = true;
       }
     }
     return hasNext;
@@ -1055,11 +1054,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (truncatedByMaxRows) {
       return true;
     }
-    // SEA Arrow manifests may omit total_row_count. Use provider exhaustion so isAfterLast()
-    // is true only AFTER the last row, not while the cursor is still positioned ON it.
-    if (executionResult instanceof ArrowResult
-        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
-      return arrowResultExhausted;
+    // Streaming SEA cursors remain on their final row after exhaustion, and their manifests may
+    // omit total_row_count. Track the failed next() call to distinguish ON last from AFTER last.
+    if (usesExhaustionForCursorState()) {
+      return streamingSeaResultExhausted;
     }
     return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
   }
@@ -1097,6 +1095,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     if (executionResult instanceof LazyThriftResult
         || executionResult instanceof StreamingColumnarResult
+        || executionResult instanceof ColumnarDataResult
         || executionResult instanceof LazyThriftInlineArrowResult
         || executionResult instanceof StreamingInlineArrowResult) {
       return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
@@ -1107,6 +1106,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
     }
     return executionResult.getCurrentRow() == resultSetMetaData.getTotalRows() - 1;
+  }
+
+  private boolean usesExhaustionForCursorState() {
+    return executionResult instanceof ColumnarDataResult
+        || (executionResult instanceof ArrowResult
+            && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows()));
   }
 
   @Override

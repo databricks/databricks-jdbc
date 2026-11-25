@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,7 @@ import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -43,6 +45,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -102,6 +105,35 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
+  public void testGetResultSet_arrowStreamColumnarPayloadUsesArrowHandlerAndTelemetry()
+      throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    lenient().when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_STREAM)
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setSchema(new ResultSchema().setColumnCount(0L));
+    ResultData data = new ResultData().setColumnarData(new ColumnarData());
+
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      IExecutionResult result =
+          ExecutionResultFactory.getResultSet(
+              data, manifest, STATEMENT_ID, session, parentStatement);
+
+      assertInstanceOf(ArrowResult.class, result);
+      assertFalse(result instanceof ColumnarDataResult);
+      telemetry.verify(
+          () ->
+              TelemetryHelper.setResultFormat(
+                  connectionContext, STATEMENT_ID, Format.ARROW_STREAM));
+    }
+  }
+
+  @Test
   public void testGetResultSet_columnBasedSetInlineData() throws SQLException {
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(2);
@@ -155,11 +187,15 @@ public class ExecutionResultFactoryTest {
         ExecutionResultFactory.getResultSet(
             firstPage, manifest, STATEMENT_ID, session, parentStatement);
 
+    assertTrue(result.hasNext());
     assertTrue(result.next());
     assertEquals("first", result.getObject(0));
+    assertTrue(result.hasNext());
     assertTrue(result.next());
     assertEquals("last", result.getObject(0));
+    assertFalse(result.hasNext());
     assertFalse(result.next());
+    assertFalse(result.hasNext());
     assertEquals(2, ((ColumnarDataResult) result).getTotalRowsFetched());
     result.close();
     verify(databricksClient).getResultChunksData(STATEMENT_ID, 3, 1);
