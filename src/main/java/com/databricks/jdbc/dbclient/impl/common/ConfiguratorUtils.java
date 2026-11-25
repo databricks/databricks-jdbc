@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_EN
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.SocketFactoryUtil;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -87,6 +88,7 @@ public class ConfiguratorUtils {
     if (connectionContext.getSSLTrustStore() == null
         && connectionContext.checkCertificateRevocation()
         && !connectionContext.acceptUndeterminedCertificateRevocation()
+        && !isRevocationSettingProvided(connectionContext)
         && !connectionContext.useSystemTrustStore()
         && !connectionContext.allowSelfSignedCerts()) {
       return new PoolingHttpClientConnectionManager();
@@ -114,6 +116,16 @@ public class ConfiguratorUtils {
   }
 
   /**
+   * Returns true when CheckCertRevocation or AcceptUndeterminedRevocation is explicitly set. An
+   * explicit setting must use the PKIX trust path, so it takes effect on the default trust store.
+   */
+  static boolean isRevocationSettingProvided(IDatabricksConnectionContext connectionContext) {
+    return connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION)
+        || connectionContext.isPropertyPresent(
+            DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION);
+  }
+
+  /**
    * Identifies the settings {@link #getBaseConnectionManager} feeds into the TLS context: which
    * servers to trust and which client certificate to present. Keep it in sync with that method.
    */
@@ -134,7 +146,8 @@ public class ConfiguratorUtils {
             connectionContext.getSSLKeyStoreProvider(),
             connectionContext.allowSelfSignedCerts(),
             connectionContext.checkCertificateRevocation(),
-            connectionContext.acceptUndeterminedCertificateRevocation()));
+            connectionContext.acceptUndeterminedCertificateRevocation(),
+            isRevocationSettingProvided(connectionContext)));
   }
 
   /**
@@ -661,6 +674,8 @@ public class ConfiguratorUtils {
             (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
 
         if (acceptUndeterminedCertificateRevocation) {
+          // CRL-only soft mode, as on main. OCSP is not consulted, so networks that drop OCSP
+          // traffic do not wait for the OCSP timeout on every new connection.
           revocationChecker.setOptions(
               Set.of(
                   PKIXRevocationChecker.Option.SOFT_FAIL,

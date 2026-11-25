@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -15,6 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
 import java.security.cert.CertificateException;
+import java.security.cert.PKIXBuilderParameters;
+import java.security.cert.PKIXCertPathChecker;
+import java.security.cert.PKIXRevocationChecker;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
@@ -664,5 +668,39 @@ public class ConfiguratorUtilsTest {
       keyStoreStatic.verify(() -> KeyStore.getInstance(TRUST_STORE_TYPE, providerName));
       verify(mockKeyStore).load(any(), eq(TRUST_STORE_PASSWORD.toCharArray()));
     }
+  }
+
+  @Test
+  void trustSettingsKeyChangesWhenRevocationSettingIsProvided() {
+    IDatabricksConnectionContext omitted = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext explicit = mock(IDatabricksConnectionContext.class);
+    when(explicit.isPropertyPresent(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION))
+        .thenReturn(true);
+    assertNotEquals(
+        ConfiguratorUtils.trustSettingsKey(omitted), ConfiguratorUtils.trustSettingsKey(explicit));
+  }
+
+  @Test
+  void softModeUsesCrlOnlyOptionsAsOnMain() throws Exception {
+    KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+    keyPairGen.initialize(2048);
+    Set<TrustAnchor> anchors =
+        Set.of(new TrustAnchor(generateBarebonesCertificate(keyPairGen.generateKeyPair()), null));
+
+    PKIXBuilderParameters pkix =
+        (PKIXBuilderParameters)
+            ConfiguratorUtils.buildTrustManagerParameters(anchors, true, true).getParameters();
+    for (PKIXCertPathChecker checker : pkix.getCertPathCheckers()) {
+      if (checker instanceof PKIXRevocationChecker) {
+        assertEquals(
+            Set.of(
+                PKIXRevocationChecker.Option.SOFT_FAIL,
+                PKIXRevocationChecker.Option.NO_FALLBACK,
+                PKIXRevocationChecker.Option.PREFER_CRLS),
+            ((PKIXRevocationChecker) checker).getOptions());
+        return;
+      }
+    }
+    fail("no revocation checker was registered");
   }
 }
