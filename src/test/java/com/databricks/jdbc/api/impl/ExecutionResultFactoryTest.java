@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.impl.arrow.ArrowBatchResult;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
@@ -98,22 +97,16 @@ public class ExecutionResultFactoryTest {
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
-    assertInstanceOf(ArrowBatchResult.class, result);
-    assertFalse(result instanceof ArrowStreamResult);
+    assertInstanceOf(ArrowStreamResult.class, result);
     assertFalse(result.next());
     result.close();
   }
 
   @Test
-  public void testGetResultSet_nativeArrowBatchRequiresManifestAndSchema() {
+  public void testGetResultSet_nativeArrowBatchRequiresSchema() {
     ResultData data =
         new ResultData().setArrowBatches(Collections.<ArrowBatch>emptyList()).setRowCount(0L);
 
-    assertThrows(
-        DatabricksParsingException.class,
-        () ->
-            ExecutionResultFactory.getResultSet(
-                data, null, STATEMENT_ID, session, parentStatement));
     assertThrows(
         DatabricksParsingException.class,
         () ->

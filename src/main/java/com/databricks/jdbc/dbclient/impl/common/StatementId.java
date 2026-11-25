@@ -125,22 +125,29 @@ public class StatementId {
 
   /** Deserializes a StatementId from a serialized string */
   public static StatementId deserialize(String serializedStatementId) {
-    String[] idParts = serializedStatementId.split("\\|", -1);
-    if (idParts.length == 4 && "a".equals(idParts[0])) {
-      if (idParts[1].isEmpty() || idParts[2].isEmpty() || idParts[3].isEmpty()) {
+    if (serializedStatementId.startsWith("a|")) {
+      String[] idParts = serializedStatementId.split("\\|", -1);
+      if (idParts.length != 4
+          || idParts[1].isEmpty()
+          || idParts[2].isEmpty()
+          || idParts[3].isEmpty()) {
         LOGGER.error("Invalid APC statement-Id structure");
         throw new DatabricksDriverException(
             "Invalid APC statement-Id structure", INPUT_VALIDATION_ERROR);
       }
       return new StatementId(
           DatabricksClientType.SEA, idParts[3], null, null, null, idParts[1], idParts[2]);
-    } else if (idParts.length == 1) {
+    }
+
+    String[] idParts = serializedStatementId.split("\\|");
+    if (idParts.length == 1) {
       return new StatementId(DatabricksClientType.SEA, serializedStatementId, null);
     } else if (idParts.length == 2) {
       return new StatementId(DatabricksClientType.THRIFT, idParts[0], idParts[1]);
     } else {
-      LOGGER.error("Invalid statement-Id structure");
-      throw new DatabricksDriverException("Invalid statement-Id structure", INPUT_VALIDATION_ERROR);
+      LOGGER.error("Invalid statement-Id {}", serializedStatementId);
+      throw new DatabricksDriverException(
+          "Invalid statement-Id " + serializedStatementId, INPUT_VALIDATION_ERROR);
     }
   }
 
@@ -201,15 +208,11 @@ public class StatementId {
       return false;
     }
     return Objects.equals(this.guid, ((StatementId) otherStatement).guid)
-        && Objects.equals(this.secret, ((StatementId) otherStatement).secret)
-        && Objects.equals(this.sessionId, ((StatementId) otherStatement).sessionId)
-        && Objects.equals(this.warehouseId, ((StatementId) otherStatement).warehouseId)
-        && Objects.equals(this.orgId, ((StatementId) otherStatement).orgId)
-        && Objects.equals(this.clusterId, ((StatementId) otherStatement).clusterId);
+        && Objects.equals(this.secret, ((StatementId) otherStatement).secret);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(clientType, guid, secret, sessionId, warehouseId, orgId, clusterId);
+    return Objects.hash(clientType, guid, secret);
   }
 }

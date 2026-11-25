@@ -6,7 +6,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
-import com.databricks.jdbc.api.impl.arrow.AbstractArrowResult;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
@@ -93,7 +93,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // which java.time results are reported; null otherwise.
   private ZoneId timestampZone = null;
   private boolean geoSpatialSupport = false;
-  private boolean boundedSeaApiEnabled = false;
+  private boolean usesBoundedResultContract = false;
   // Set when next() exhausts an Arrow result whose manifest row count cannot be relied on.
   // This lets isAfterLast() distinguish being ON the last row from moving PAST it.
   private boolean arrowResultExhausted = false;
@@ -156,7 +156,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
-    this.boundedSeaApiEnabled = session.getConnectionContext().isBoundedSeaApiEnabled();
+    this.usesBoundedResultContract =
+        session.getConnectionContext().isBoundedSeaApiEnabled()
+            || session.getConnectionContext().isAllPurposeCluster();
     this.strictGetObjectConversion =
         session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
@@ -432,8 +434,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     if (!hasNext) {
       stopHeartbeat();
-      if (executionResult instanceof AbstractArrowResult
-          && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
+      if (executionResult instanceof ArrowStreamResult
+          && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
         arrowResultExhausted = true;
       }
     }
@@ -1041,8 +1043,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     // SEA Arrow manifests may omit total_row_count. Use provider exhaustion so isAfterLast()
     // is true only AFTER the last row, not while the cursor is still positioned ON it.
-    if (executionResult instanceof AbstractArrowResult
-        && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
+    if (executionResult instanceof ArrowStreamResult
+        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
       return arrowResultExhausted;
     }
     return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
@@ -1086,8 +1088,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
     }
     // SEA Arrow manifests may omit total_row_count, so use provider state.
-    if (executionResult instanceof AbstractArrowResult
-        && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
+    if (executionResult instanceof ArrowStreamResult
+        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
       return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
     }
     return executionResult.getCurrentRow() == resultSetMetaData.getTotalRows() - 1;
@@ -2496,8 +2498,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     boolean hasAffectedRowsColumn =
         this.resultSetMetaData.getColumnNameIndex(AFFECTED_ROWS_COUNT) > -1;
-    if (executionResult instanceof AbstractArrowResult
-        && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
+    if (executionResult instanceof ArrowStreamResult
+        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
       return hasAffectedRowsColumn;
     }
     return hasAffectedRowsColumn && this.resultSetMetaData.getTotalRows() == 1;
@@ -2697,8 +2699,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @VisibleForTesting
   public Optional<ChunkProvider> getChunkProvider() {
-    if (executionResult instanceof AbstractArrowResult) {
-      return Optional.ofNullable(((AbstractArrowResult) executionResult).getChunkProvider());
+    if (executionResult instanceof ArrowStreamResult) {
+      return Optional.ofNullable(((ArrowStreamResult) executionResult).getChunkProvider());
     }
     return Optional.empty();
   }

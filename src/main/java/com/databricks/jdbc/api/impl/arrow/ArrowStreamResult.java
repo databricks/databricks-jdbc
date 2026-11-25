@@ -3,6 +3,9 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 
+import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
+import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -17,9 +20,12 @@ import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -27,8 +33,14 @@ import java.util.Collection;
 import java.util.List;
 
 /** Result container for Arrow-based query results. */
-public class ArrowStreamResult extends AbstractArrowResult {
+public class ArrowStreamResult implements IExecutionResult {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowStreamResult.class);
+  private final ChunkProvider chunkProvider;
+  private long currentRowIndex = -1;
+  private boolean isClosed;
+  private ArrowResultChunkIterator chunkIterator;
+  private List<ColumnInfo> columnInfos;
+  private final IDatabricksSession session;
 
   public ArrowStreamResult(
       ResultManifest resultManifest,
@@ -52,55 +64,66 @@ public class ArrowStreamResult extends AbstractArrowResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
-    this(
-        createSqlExecChunkProvider(resultManifest, resultData, statementId, session, httpClient),
-        resultManifest,
-        session);
-  }
+    this.session = session;
 
-  private ArrowStreamResult(
-      ChunkProvider chunkProvider, ResultManifest resultManifest, IDatabricksSession session) {
-    super(
-        chunkProvider,
-        resultManifest.getSchema().getColumnCount() == 0
-            ? new ArrayList<>()
-            : new ArrayList<>(resultManifest.getSchema().getColumns()),
-        session);
-  }
-
-  private static ChunkProvider createSqlExecChunkProvider(
-      ResultManifest resultManifest,
-      ResultData resultData,
-      StatementId statementId,
-      IDatabricksSession session,
-      IDatabricksHttpClient httpClient)
-      throws DatabricksSQLException {
     Long totalChunkCount = resultManifest.getTotalChunkCount();
     if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
-      return new EmptyChunkProvider();
+      this.chunkProvider = new EmptyChunkProvider();
+    } else {
+      IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+      if (resultManifest.getFormat() == Format.ARROW_BATCH) {
+        if (hasExternalLinks(resultData)) {
+          LOGGER.debug(
+              "Creating ArrowStreamResult with remote links for statementId: {}",
+              statementId.toSQLExecStatementId());
+          this.chunkProvider =
+              createRemoteChunkProvider(
+                  statementId, resultManifest, resultData, session, httpClient);
+        } else {
+          this.chunkProvider =
+              isEmptyArrowBatchResult(resultData)
+                  ? new EmptyChunkProvider()
+                  : new SeaInlineArrowChunkProvider(
+                      resultData, statementId, session, new ArrowBatchPageDecoder(resultManifest));
+        }
+      } else if (resultData.getAttachment() != null
+          && (connectionContext.isBoundedSeaApiEnabled()
+              || connectionContext.isAllPurposeCluster())) {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider =
+            new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
+      } else if (resultData.getAttachment() != null) {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with inline attachment for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
+      } else {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with remote links for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider =
+            createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
+      }
     }
+    this.columnInfos =
+        resultManifest.getSchema().getColumnCount() == 0
+            ? new ArrayList<>()
+            : new ArrayList<>(resultManifest.getSchema().getColumns());
+  }
 
-    boolean isInlineArrow = resultData.getAttachment() != null;
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
-      LOGGER.debug(
-          "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
-          statementId.toSQLExecStatementId());
-      return new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
-    }
-    if (isInlineArrow) {
-      LOGGER.debug(
-          "Creating ArrowStreamResult with inline attachment for statementId: {}",
-          statementId.toSQLExecStatementId());
-      return new InlineChunkProvider(resultData, resultManifest);
-    }
-    LOGGER.debug(
-        "Creating ArrowStreamResult with remote links for statementId: {}",
-        statementId.toSQLExecStatementId());
-    return createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
+  private static boolean hasExternalLinks(ResultData resultData) {
+    return resultData.getExternalLinks() != null && !resultData.getExternalLinks().isEmpty();
+  }
+
+  private static boolean isEmptyArrowBatchResult(ResultData resultData) {
+    return resultData.getNextChunkIndex() == null
+        && (resultData.getRowCount() == null || Long.valueOf(0L).equals(resultData.getRowCount()))
+        && (resultData.getArrowBatches() == null || resultData.getArrowBatches().isEmpty());
   }
 
   /**
@@ -122,10 +145,11 @@ public class ArrowStreamResult extends AbstractArrowResult {
       throws DatabricksSQLException {
 
     IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    boolean usesBoundedResultContract =
+        connectionContext.isBoundedSeaApiEnabled() || connectionContext.isAllPurposeCluster();
 
-    // Bounded SEA API forces StreamingChunkProvider — it doesn't rely on total_chunk_count
-    if (connectionContext.isStreamingChunkProviderEnabled()
-        || connectionContext.isBoundedSeaApiEnabled()) {
+    // Bounded SEA and APC results may omit manifest totals, so both require the streaming provider.
+    if (connectionContext.isStreamingChunkProviderEnabled() || usesBoundedResultContract) {
       LOGGER.info(
           "Using StreamingChunkProvider for statementId: {}", statementId.toSQLExecStatementId());
 
@@ -137,10 +161,9 @@ public class ArrowStreamResult extends AbstractArrowResult {
       double cloudFetchSpeedThreshold = connectionContext.getCloudFetchSpeedThreshold();
 
       // Convert ExternalLinks to ChunkLinkFetchResult for the provider.
-      // Bounded SEA API: pass null for totalChunkCount — we must not depend on
+      // Bounded SEA and APC: pass null for totalChunkCount — we must not depend on
       // manifest.{chunks, total_chunk_count, total_row_count} per the bounded API contract.
-      Long totalChunkCount =
-          connectionContext.isBoundedSeaApiEnabled() ? null : resultManifest.getTotalChunkCount();
+      Long totalChunkCount = usesBoundedResultContract ? null : resultManifest.getTotalChunkCount();
       ChunkLinkFetchResult initialLinks =
           convertToChunkLinkFetchResult(resultData.getExternalLinks(), totalChunkCount);
 
@@ -186,34 +209,10 @@ public class ArrowStreamResult extends AbstractArrowResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws SQLException {
-    this(createThriftRemoteResult(resultsResp, parentStatement, session, httpClient), session);
-  }
-
-  private ArrowStreamResult(ThriftRemoteResult result, IDatabricksSession session)
-      throws DatabricksSQLException {
-    super(result.chunkProvider, result.columnInfoList, session);
-  }
-
-  private static ThriftRemoteResult createThriftRemoteResult(
-      TFetchResultsResp resultsResp,
-      IDatabricksStatementInternal parentStatement,
-      IDatabricksSession session,
-      IDatabricksHttpClient httpClient)
-      throws SQLException {
-    List<ColumnInfo> columnInfoList = getColumnInfoList(resultsResp.getResultSetMetadata());
-    ChunkProvider chunkProvider =
+    this.session = session;
+    this.columnInfos = getColumnInfoList(resultsResp.getResultSetMetadata());
+    this.chunkProvider =
         createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
-    return new ThriftRemoteResult(chunkProvider, columnInfoList);
-  }
-
-  private static final class ThriftRemoteResult {
-    private final ChunkProvider chunkProvider;
-    private final List<ColumnInfo> columnInfoList;
-
-    private ThriftRemoteResult(ChunkProvider chunkProvider, List<ColumnInfo> columnInfoList) {
-      this.chunkProvider = chunkProvider;
-      this.columnInfoList = columnInfoList;
-    }
   }
 
   /**
@@ -272,6 +271,177 @@ public class ArrowStreamResult extends AbstractArrowResult {
           connectionContext.getCloudFetchThreadPoolSize(),
           compressionCodec);
     }
+  }
+
+  public List<String> getArrowMetadata() throws DatabricksSQLException {
+    if (chunkProvider == null || chunkProvider.getChunk() == null) {
+      return null;
+    }
+    return chunkProvider.getChunk().getArrowMetadata();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public Object getObject(int columnIndex) throws DatabricksSQLException {
+    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
+      throw new DatabricksSQLException(
+          "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    ColumnInfo columnInfo = columnInfos.get(columnIndex);
+    ColumnInfoTypeName requiredType = columnInfo.getTypeName();
+    String arrowMetadata = chunkIterator.getType(columnIndex);
+    if (arrowMetadata == null) {
+      arrowMetadata = columnInfo.getTypeText();
+    }
+
+    return getObjectWithComplexTypeHandling(
+        session, chunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
+    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
+      return getObject(columnIndex); // reports the invalid index
+    }
+    if (chunkIterator == null) {
+      throw new DatabricksSQLException(
+          "Cursor is before first row",
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    if (chunkIterator.hasJavaTimeVector(columnIndex)) {
+      return chunkIterator.getJavaTimeObjectAtCurrentRow(columnIndex);
+    }
+    return getObject(columnIndex);
+  }
+
+  @VisibleForTesting
+  public static boolean isComplexType(ColumnInfoTypeName type) {
+    return type == ColumnInfoTypeName.ARRAY
+        || type == ColumnInfoTypeName.MAP
+        || type == ColumnInfoTypeName.STRUCT;
+  }
+
+  @VisibleForTesting
+  public static boolean isGeospatialType(ColumnInfoTypeName type) {
+    return type == ColumnInfoTypeName.GEOMETRY || type == ColumnInfoTypeName.GEOGRAPHY;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public long getCurrentRow() {
+    return currentRowIndex;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public boolean next() throws DatabricksSQLException {
+    if (isClosed) {
+      return false;
+    }
+
+    if (chunkIterator != null && chunkIterator.nextRow()) {
+      currentRowIndex++;
+      return true;
+    }
+
+    // The current chunk is exhausted (or none is open yet): move to the next one.
+    if (!chunkProvider.hasNextChunk() || !chunkProvider.next()) {
+      return false;
+    }
+    chunkIterator = chunkProvider.getChunk().getChunkIterator();
+
+    currentRowIndex++;
+    return chunkIterator.nextRow();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public boolean hasNext() {
+    if (isClosed) {
+      return false;
+    }
+
+    // Check if there are any more rows available in the current chunk
+    if (chunkIterator != null && chunkIterator.hasNextRow()) {
+      return true;
+    }
+
+    // For inline arrow, check if the chunk extractor has more chunks
+    // Otherwise, check the chunk downloader
+    return chunkProvider.hasNextChunk();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void close() {
+    isClosed = true;
+    chunkProvider.close();
+  }
+
+  @Override
+  public long getRowCount() {
+    return chunkProvider.getRowCount();
+  }
+
+  @Override
+  public long getChunkCount() {
+    return chunkProvider.getChunkCount();
+  }
+
+  /**
+   * Returns the chunk provider for testing purposes.
+   *
+   * @return the chunk provider
+   */
+  @VisibleForTesting
+  public ChunkProvider getChunkProvider() {
+    return chunkProvider;
+  }
+
+  protected static Object getObjectWithComplexTypeHandling(
+      IDatabricksSession session,
+      ArrowResultChunkIterator chunkIterator,
+      int columnIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo)
+      throws DatabricksSQLException {
+    boolean isComplexDatatypeSupportEnabled =
+        session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    boolean isGeoSpatialSupportEnabled =
+        session.getConnectionContext().isGeoSpatialSupportEnabled();
+
+    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
+      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+    }
+
+    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
+      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      ComplexDataTypeParser parser = new ComplexDataTypeParser();
+      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
+        return parser.formatGeospatialComplexTypeString(
+            result.toString(), requiredType.name(), arrowMetadata);
+      }
+      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+    }
+
+    if (isComplexType(requiredType)) {
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, requiredType, arrowMetadata, columnInfo, isGeoSpatialSupportEnabled);
+    }
+
+    return chunkIterator.getColumnObjectAtCurrentRow(
+        columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
   /**

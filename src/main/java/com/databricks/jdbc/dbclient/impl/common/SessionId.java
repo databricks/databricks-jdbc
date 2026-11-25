@@ -86,19 +86,10 @@ public class SessionId {
     // For thrift: t|session-guid-id|session-secret
     // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
     // For SQL Execution API on APC: a|orgId|clusterId|sessionId
-    String[] parts = serializedSessionId.split("\\|", -1);
-    if ("a".equals(parts[0])) {
-      return deserializeApcSeaSession(parts);
+    if (serializedSessionId.startsWith("a|")) {
+      return deserializeApcSeaSession(serializedSessionId.split("\\|", -1));
     }
-    for (String part : parts) {
-      if (part.isEmpty()) {
-        String errorMessage =
-            String.format("Session ID has invalid number of parts %s", serializedSessionId);
-        LOGGER.error(errorMessage);
-        throw new DatabricksParsingException(
-            errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
-      }
-    }
+    String[] parts = serializedSessionId.split("\\|");
     boolean realtimeSession = parts.length == 4 && "s".equals(parts[0]) && "r".equals(parts[3]);
     if (parts.length != 3 && !realtimeSession) {
       String errorMessage =

@@ -4,9 +4,7 @@ import static com.databricks.jdbc.common.util.ArrowUtil.createArrowBatchByteStre
 import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedResultManifestSchema;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
-import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ArrowBatch;
@@ -18,77 +16,36 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Builds chunk providers for APC native Arrow record batches. */
-final class ArrowBatchChunkProviderFactory {
-  private ArrowBatchChunkProviderFactory() {}
+/** Decodes native Arrow record batches from one APC result page. */
+final class ArrowBatchPageDecoder implements PageDecoder {
+  private final ResultManifest resultManifest;
 
-  static ChunkProvider create(ResultData resultData, ResultManifest resultManifest)
-      throws DatabricksSQLException {
-    return create(resultData, resultManifest, null, null);
+  ArrowBatchPageDecoder(ResultManifest resultManifest) {
+    this.resultManifest = resultManifest;
   }
 
-  /**
-   * Creates a provider for an inline ARROW_BATCH result. Results that span several pages are read
-   * lazily through {@code session}, one page per chunk.
-   */
-  static ChunkProvider create(
-      ResultData resultData,
-      ResultManifest resultManifest,
-      StatementId statementId,
-      IDatabricksSession session)
-      throws DatabricksSQLException {
-    if (resultData == null) {
-      throw parsingError("ARROW_BATCH response is missing result data");
-    }
-    if (resultManifest == null) {
-      throw parsingError("ARROW_BATCH response is missing its manifest");
-    }
-    validatePageShape(resultData);
-    if (!hasMorePages(resultData)
-        && (resultData.getRowCount() == null || Long.valueOf(0L).equals(resultData.getRowCount()))
-        && (resultData.getArrowBatches() == null || resultData.getArrowBatches().isEmpty())) {
-      return new EmptyChunkProvider();
-    }
-    if (hasMorePages(resultData) && (statementId == null || session == null)) {
-      throw parsingError("Paginated ARROW_BATCH responses require a session to fetch pages");
-    }
-
-    return new ArrowBatchChunkProvider(resultData, resultManifest, statementId, session);
-  }
-
-  /** Decodes one inline page into a chunk holding exactly that page's rows. */
-  static ArrowResultChunk decodePage(ResultData page, ResultManifest resultManifest)
-      throws DatabricksSQLException {
-    validatePageShape(page);
+  @Override
+  public ArrowResultChunk decode(ResultData page) throws DatabricksSQLException {
     List<ArrowBatch> arrowBatches = normalizeArrowBatches(page);
     long pageRows = validateAndCountRows(arrowBatches, page);
     try {
-      ByteArrayInputStream stream = toArrowStream(arrowBatches, resultManifest);
+      List<ArrowBatch> decompressed =
+          decompressArrowBatches(arrowBatches, resultManifest.getResultCompression());
+      ByteArrayInputStream stream =
+          createArrowBatchByteStream(
+              getSerializedResultManifestSchema(resultManifest), decompressed);
       return ArrowResultChunk.builder().withInputStream(stream, pageRows).build();
     } catch (DatabricksSQLException | RuntimeException e) {
-      throw nativeArrowParsingError(e);
+      throw new DatabricksParsingException(
+          "Failed to parse native Arrow batches: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
     }
   }
 
-  static boolean hasMorePages(ResultData resultData) {
-    return resultData.getNextChunkIndex() != null;
-  }
-
-  private static void validatePageShape(ResultData resultData) throws DatabricksParsingException {
-    if (resultData.getExternalLinks() != null && !resultData.getExternalLinks().isEmpty()) {
-      throw parsingError("External-link ARROW_BATCH responses are not supported");
-    }
-    if (resultData.getNextChunkInternalLink() != null && resultData.getNextChunkIndex() == null) {
-      throw parsingError("ARROW_BATCH pagination requires next_chunk_index");
-    }
-  }
-
-  private static ByteArrayInputStream toArrowStream(
-      List<ArrowBatch> arrowBatches, ResultManifest resultManifest) throws DatabricksSQLException {
-    List<ArrowBatch> decompressed =
-        decompressArrowBatches(arrowBatches, resultManifest.getResultCompression());
-    return createArrowBatchByteStream(
-        getSerializedResultManifestSchema(resultManifest), decompressed);
+  @Override
+  public long getRowCount(ResultData page, ArrowResultChunk chunk) {
+    return chunk.getNumRows();
   }
 
   private static long validateAndCountRows(List<ArrowBatch> arrowBatches, ResultData resultData)
@@ -140,7 +97,6 @@ final class ArrowBatchChunkProviderFactory {
     return decompressedBatches;
   }
 
-  /** Returns the page's batches, treating a terminal page with no rows as an empty result. */
   private static List<ArrowBatch> normalizeArrowBatches(ResultData resultData)
       throws DatabricksParsingException {
     List<ArrowBatch> arrowBatches = resultData.getArrowBatches();
@@ -156,14 +112,7 @@ final class ArrowBatchChunkProviderFactory {
     throw parsingError("ARROW_BATCH response is missing arrow_batches");
   }
 
-  private static DatabricksParsingException nativeArrowParsingError(Exception e) {
-    return new DatabricksParsingException(
-        "Failed to parse native Arrow batches: " + e.getMessage(),
-        e,
-        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
-  }
-
-  static DatabricksParsingException parsingError(String message) {
+  private static DatabricksParsingException parsingError(String message) {
     return new DatabricksParsingException(
         message, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
   }

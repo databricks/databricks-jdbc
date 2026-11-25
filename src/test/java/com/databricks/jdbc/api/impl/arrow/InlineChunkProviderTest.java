@@ -116,6 +116,7 @@ public class InlineChunkProviderTest {
 
   @Test
   void testConstructorNullAttachment() {
+    when(mockResultManifest.getTotalRowCount()).thenReturn(TOTAL_ROWS);
     when(mockResultManifest.getResultCompression()).thenReturn(CompressionCodec.LZ4_FRAME);
     when(mockResultData.getAttachment()).thenReturn(null);
 

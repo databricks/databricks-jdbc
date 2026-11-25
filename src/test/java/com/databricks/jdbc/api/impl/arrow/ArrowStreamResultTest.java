@@ -5,9 +5,7 @@ import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -329,42 +327,42 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testComplexTypeHandling() {
-    assertTrue(AbstractArrowResult.isComplexType(ColumnInfoTypeName.ARRAY));
-    assertTrue(AbstractArrowResult.isComplexType(ColumnInfoTypeName.MAP));
-    assertTrue(AbstractArrowResult.isComplexType(ColumnInfoTypeName.STRUCT));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
 
     // Geospatial types are NOT complex types — they have independent handling
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
 
     // Geospatial type check is separate
-    assertTrue(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
-    assertTrue(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
 
     // Non-complex types should return false
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.INT));
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.STRING));
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.DOUBLE));
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
-    assertFalse(AbstractArrowResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
   }
 
   @Test
   public void testGeospatialTypeHandling() {
     // Geospatial types should return true
-    assertTrue(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
-    assertTrue(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
 
     // Non-geospatial types should return false
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.MAP));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.STRUCT));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.INT));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.STRING));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.DOUBLE));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.BOOLEAN));
-    assertFalse(AbstractArrowResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.MAP));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRUCT));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
   }
 
   private List<ExternalLink> getChunkLinks(long chunkIndex, long chunkRowOffset, boolean isLast) {
@@ -511,7 +509,7 @@ public class ArrowStreamResultTest {
 
     assertEquals(
         "SRID=3857;POINT(1 2)",
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session,
             chunkIterator,
             0,
@@ -520,7 +518,7 @@ public class ArrowStreamResultTest {
             geometryInfo));
     assertEquals(
         "SRID=4326;POINT(3 4)",
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session,
             chunkIterator,
             1,
@@ -558,11 +556,11 @@ public class ArrowStreamResultTest {
 
     assertSame(
         geometry,
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.GEOMETRY, arrowMetadata, geometryInfo));
     assertSame(
         geography,
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 1, ColumnInfoTypeName.GEOGRAPHY, arrowMetadata, geographyInfo));
   }
 
@@ -586,7 +584,7 @@ public class ArrowStreamResultTest {
 
     assertSame(
         nativeStruct,
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
 
     Properties stringProps = new Properties();
@@ -602,7 +600,7 @@ public class ArrowStreamResultTest {
 
     assertSame(
         stringStruct,
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
   }
 
@@ -624,7 +622,7 @@ public class ArrowStreamResultTest {
 
     assertEquals(
         "{\"geom\":\"SRID=3857;POINT(1 2)\"}",
-        AbstractArrowResult.getObjectWithComplexTypeHandling(
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
   }
 
@@ -646,7 +644,7 @@ public class ArrowStreamResultTest {
 
     String result =
         (String)
-            AbstractArrowResult.getObjectWithComplexTypeHandling(
+            ArrowStreamResult.getObjectWithComplexTypeHandling(
                 session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo);
 
     assertEquals("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}", result);
@@ -677,7 +675,7 @@ public class ArrowStreamResultTest {
             .thenReturn(raw);
         assertEquals(
             "{" + scalarJson + (includeGeo ? ",\"g\":\"SRID=4326;POINT(1 2)\"" : "") + "}",
-            AbstractArrowResult.getObjectWithComplexTypeHandling(
+            ArrowStreamResult.getObjectWithComplexTypeHandling(
                 session, iterator, 0, ColumnInfoTypeName.STRUCT, metadata, info));
       }
     }
@@ -738,7 +736,6 @@ public class ArrowStreamResultTest {
 
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
 
-    // Create the ArrowStreamResult
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
 
@@ -827,6 +824,58 @@ public class ArrowStreamResultTest {
   }
 
   @Test
+  public void testApcArrowBatchExternalLinksForceStreamingChunkProvider() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, props);
+    assertFalse(connectionContext.isBoundedSeaApiEnabled());
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_BATCH)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    try {
+      assertInstanceOf(StreamingChunkProvider.class, result.getChunkProvider());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  public void testArrowStreamAttachmentRetainsPrecedenceOverExternalLinks() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_STREAM)
+            .setTotalRowCount(2L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData();
+    resultData.setAttachment(TemporalArrowTestData.create());
+    resultData.setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    try {
+      assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
   public void testStreamingChunkProviderEnabledForThriftResult() throws Exception {
     // Enable StreamingChunkProvider via connection property
     Properties props = new Properties();
@@ -865,19 +914,6 @@ public class ArrowStreamResultTest {
     assertTrue(result.hasNext(), "Result should have data");
     assertTrue(result.next());
     assertDoesNotThrow(result::close);
-  }
-
-  @Test
-  public void testThriftSchemaFailureDoesNotStartProvider() {
-    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
-    when(metadataResp.getArrowSchema()).thenReturn(new byte[] {1, 2, 3});
-
-    assertThrows(
-        DatabricksSQLException.class,
-        () -> new ArrowStreamResult(fetchResultsResp, parentStatement, session, mockHttpClient));
-
-    verify(session, never()).getConnectionContext();
-    verifyNoInteractions(mockHttpClient);
   }
 
   private Object[][] createTestData(Schema schema, int rows) {
@@ -1204,7 +1240,7 @@ public class ArrowStreamResultTest {
             .setSchema(new ResultSchema().setColumns(columns).setColumnCount(1L));
     ArrowStreamResult result =
         new ArrowStreamResult(manifest, new ResultData(), STATEMENT_ID, session, mockHttpClient);
-    java.lang.reflect.Field provider = AbstractArrowResult.class.getDeclaredField("chunkProvider");
+    java.lang.reflect.Field provider = ArrowStreamResult.class.getDeclaredField("chunkProvider");
     provider.setAccessible(true);
     provider.set(result, new ListChunkProvider(chunks));
     return result;

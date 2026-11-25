@@ -580,11 +580,15 @@ public class DatabricksSdkClientTest {
     assertEquals("UTC", sessionConfigs.path("timezone").asText());
   }
 
-  @Test
-  public void testApcExecuteStatementUsesNativeArrowBatchRequest() throws Exception {
+  @ParameterizedTest(name = "cloudFetch={0}, disposition={1}")
+  @CsvSource({"true, INLINE_OR_EXTERNAL_LINKS", "false, INLINE"})
+  public void testApcExecuteStatementUsesNativeArrowBatchRequest(
+      boolean cloudFetchEnabled, String expectedDisposition) throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(
+            APC_JDBC_URL + "EnableQueryResultDownload=" + (cloudFetchEnabled ? "1" : "0") + ";",
+            new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     IDatabricksSession session = mock(IDatabricksSession.class);
@@ -616,7 +620,7 @@ public class DatabricksSdkClientTest {
     assertEquals(SESSION_ID, body.path("session_id").asText());
     assertEquals("SELECT 1", body.path("statement").asText());
     assertEquals("ARROW_BATCH", body.path("format").asText());
-    assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
+    assertEquals(expectedDisposition, body.path("disposition").asText());
     assertEquals("NONE", body.path("result_compression").asText());
     assertEquals("CONTINUE", body.path("on_wait_timeout").asText());
     JsonNode waitTimeout = body.get("wait_timeout");
@@ -704,7 +708,7 @@ public class DatabricksSdkClientTest {
   public void testApcLifecycleUsesOneBackendComputeWithoutStatusEndpoint() throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     IDatabricksSession session = mock(IDatabricksSession.class);
@@ -753,6 +757,7 @@ public class DatabricksSdkClientTest {
     assertEquals(
         String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
         requests.get(2).getUrl());
+    assertEquals(Collections.singletonList("0"), requests.get(2).getQuery().get("row_offset"));
     assertBackendComputeQuery(requests.get(2));
     assertEquals(Request.DELETE, requests.get(3).getMethod());
     assertEquals(
@@ -769,7 +774,7 @@ public class DatabricksSdkClientTest {
   public void testApcResultDataAndCancelCarryBackendCompute() throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
@@ -784,6 +789,7 @@ public class DatabricksSdkClientTest {
     assertEquals(
         String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
         resultRequest.getUrl());
+    assertEquals(Collections.singletonList("0"), resultRequest.getQuery().get("row_offset"));
     assertBackendComputeQuery(resultRequest);
 
     ArgumentCaptor<Request> cancelCaptor = ArgumentCaptor.forClass(Request.class);
@@ -802,7 +808,7 @@ public class DatabricksSdkClientTest {
   @Test
   public void testApcResultDataWithRowOffsetCarriesOffsetAndBackendCompute() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
@@ -821,9 +827,29 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcCloudResultLinksCarryRowOffsetWithoutBoundedSeaOptIn() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
+
+    databricksSdkClient.getResultChunks(STATEMENT_ID, 3L, 450L);
+
+    ArgumentCaptor<Request> resultCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultCaptor.capture(), eq(ResultData.class));
+    Request resultRequest = resultCaptor.getValue();
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 3),
+        resultRequest.getUrl());
+    assertEquals(Collections.singletonList("450"), resultRequest.getQuery().get("row_offset"));
+    assertBackendComputeQuery(resultRequest);
+  }
+
+  @Test
   public void testApcGetStatementResultFetchesMissingInitialResult() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     IDatabricksSession session = mock(IDatabricksSession.class);
@@ -848,6 +874,8 @@ public class DatabricksSdkClientTest {
     assertEquals(
         String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
         resultRequest.getValue().getUrl());
+    assertEquals(
+        Collections.singletonList("0"), resultRequest.getValue().getQuery().get("row_offset"));
     assertBackendComputeQuery(resultRequest.getValue());
   }
 

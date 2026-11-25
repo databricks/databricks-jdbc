@@ -648,7 +648,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
       } else {
         GetStatementResultQuery getRequest =
-            new GetStatementResultQuery().setBackendCompute(backendCompute);
+            new GetStatementResultQuery().setBackendCompute(backendCompute).setRowOffset(0L);
         req = new Request(Request.GET, getStatusPath, (String) null);
         ApiClient.setQuery(req, getRequest);
       }
@@ -768,10 +768,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         }
         req = new Request(Request.GET, path, serializeStatementRequest(typedStatementId, request));
       } else {
-        GetResultDataQuery request = new GetResultDataQuery().setBackendCompute(backendCompute);
-        if (connectionContext.isBoundedSeaApiEnabled()) {
-          request.setRowOffset(chunkStartRowOffset);
-        }
+        GetResultDataQuery request =
+            new GetResultDataQuery()
+                .setBackendCompute(backendCompute)
+                .setRowOffset(chunkStartRowOffset);
         req = new Request(Request.GET, path, (String) null);
         ApiClient.setQuery(req, request);
       }
@@ -861,10 +861,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         }
         req = new Request(Request.GET, path, serializeStatementRequest(typedStatementId, request));
       } else {
-        GetResultDataQuery request = new GetResultDataQuery().setBackendCompute(backendCompute);
-        if (chunkStartRowOffset != null) {
-          request.setRowOffset(chunkStartRowOffset);
-        }
+        GetResultDataQuery request =
+            new GetResultDataQuery()
+                .setBackendCompute(backendCompute)
+                .setRowOffset(chunkStartRowOffset == null ? 0L : chunkStartRowOffset);
         req = new Request(Request.GET, path, (String) null);
         ApiClient.setQuery(req, request);
       }
@@ -990,7 +990,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     Disposition disposition;
     if (isApc) {
       format = Format.ARROW_BATCH;
-      disposition = Disposition.INLINE_OR_EXTERNAL_LINKS;
+      disposition = cloudFetch ? Disposition.INLINE_OR_EXTERNAL_LINKS : Disposition.INLINE;
     } else if (cloudFetch) {
       format = Format.ARROW_STREAM;
       disposition =
