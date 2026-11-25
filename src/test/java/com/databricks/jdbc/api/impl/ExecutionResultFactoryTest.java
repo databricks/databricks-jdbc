@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
+import com.databricks.jdbc.api.impl.arrow.ArrowResult;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
 import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
@@ -76,7 +76,7 @@ public class ExecutionResultFactoryTest {
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
-    assertInstanceOf(ArrowStreamResult.class, result);
+    assertInstanceOf(ArrowResult.class, result);
   }
 
   @Test
@@ -97,7 +97,7 @@ public class ExecutionResultFactoryTest {
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
-    assertInstanceOf(ArrowStreamResult.class, result);
+    assertInstanceOf(ArrowResult.class, result);
     assertFalse(result.next());
     result.close();
   }
@@ -189,7 +189,7 @@ public class ExecutionResultFactoryTest {
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);
-    assertInstanceOf(ArrowStreamResult.class, result);
+    assertInstanceOf(ArrowResult.class, result);
   }
 
   @Test

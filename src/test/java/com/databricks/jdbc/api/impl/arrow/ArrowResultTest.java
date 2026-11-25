@@ -64,7 +64,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class ArrowStreamResultTest {
+public class ArrowResultTest {
   private final List<BaseChunkInfo> chunkInfos = new ArrayList<>();
   @Mock TGetResultSetMetadataResp metadataResp;
   @Mock TRowSet resultData;
@@ -90,7 +90,7 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testInitEmptyArrowStreamResult() throws Exception {
+  public void testInitEmptyArrowResult() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     when(session.getConnectionContext()).thenReturn(connectionContext);
@@ -100,8 +100,7 @@ public class ArrowStreamResultTest {
             .setTotalRowCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+    ArrowResult result = new ArrowResult(resultManifest, resultData, STATEMENT_ID, session);
     assertDoesNotThrow(result::close);
     assertFalse(result.hasNext());
   }
@@ -137,8 +136,7 @@ public class ArrowStreamResultTest {
             .setTotalRowCount(0L)
             .setSchema(new ResultSchema().setColumns(columns).setColumnCount(2L));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+    ArrowResult result = new ArrowResult(resultManifest, resultData, STATEMENT_ID, session);
 
     assertFalse(result.hasNext());
     assertFalse(result.next());
@@ -159,8 +157,7 @@ public class ArrowStreamResultTest {
             .setTotalRowCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData();
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+    ArrowResult result = new ArrowResult(resultManifest, resultData, STATEMENT_ID, session);
 
     assertFalse(result.hasNext());
     assertFalse(result.next());
@@ -180,8 +177,7 @@ public class ArrowStreamResultTest {
             .setTotalRowCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+    ArrowResult result = new ArrowResult(resultManifest, resultData, STATEMENT_ID, session);
 
     for (int i = 0; i < 5; i++) {
       assertFalse(result.hasNext());
@@ -211,8 +207,8 @@ public class ArrowStreamResultTest {
     setupResultChunkMocks();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
 
     // Act & Assert
     for (int i = 0; i < this.numberOfChunks; ++i) {
@@ -237,8 +233,8 @@ public class ArrowStreamResultTest {
     when(fetchResultsResp.getResults()).thenReturn(resultData);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
     when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
-    ArrowStreamResult result =
-        new ArrowStreamResult(fetchResultsResp, parentStatement, session, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(fetchResultsResp, parentStatement, session, mockHttpClient);
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertDoesNotThrow(result::close);
@@ -272,8 +268,8 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
 
     result.next();
     Object objectInFirstColumn = result.getObject(0);
@@ -309,8 +305,8 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
     result.next();
 
     // An out-of-range column index must throw a spec-compliant DatabricksSQLException, not a raw
@@ -327,42 +323,42 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testComplexTypeHandling() {
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
+    assertTrue(ArrowResult.isComplexType(ColumnInfoTypeName.ARRAY));
+    assertTrue(ArrowResult.isComplexType(ColumnInfoTypeName.MAP));
+    assertTrue(ArrowResult.isComplexType(ColumnInfoTypeName.STRUCT));
 
     // Geospatial types are NOT complex types — they have independent handling
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
 
     // Geospatial type check is separate
-    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
-    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
+    assertTrue(ArrowResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
 
     // Non-complex types should return false
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRING));
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.DOUBLE));
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
-    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
   }
 
   @Test
   public void testGeospatialTypeHandling() {
     // Geospatial types should return true
-    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
-    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+    assertTrue(ArrowResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
 
     // Non-geospatial types should return false
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.MAP));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRUCT));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.INT));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRING));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.DOUBLE));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.BOOLEAN));
-    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.MAP));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.STRUCT));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
   }
 
   private List<ExternalLink> getChunkLinks(long chunkIndex, long chunkRowOffset, boolean isLast) {
@@ -509,7 +505,7 @@ public class ArrowStreamResultTest {
 
     assertEquals(
         "SRID=3857;POINT(1 2)",
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session,
             chunkIterator,
             0,
@@ -518,7 +514,7 @@ public class ArrowStreamResultTest {
             geometryInfo));
     assertEquals(
         "SRID=4326;POINT(3 4)",
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session,
             chunkIterator,
             1,
@@ -556,11 +552,11 @@ public class ArrowStreamResultTest {
 
     assertSame(
         geometry,
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.GEOMETRY, arrowMetadata, geometryInfo));
     assertSame(
         geography,
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 1, ColumnInfoTypeName.GEOGRAPHY, arrowMetadata, geographyInfo));
   }
 
@@ -584,7 +580,7 @@ public class ArrowStreamResultTest {
 
     assertSame(
         nativeStruct,
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
 
     Properties stringProps = new Properties();
@@ -600,7 +596,7 @@ public class ArrowStreamResultTest {
 
     assertSame(
         stringStruct,
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
   }
 
@@ -622,7 +618,7 @@ public class ArrowStreamResultTest {
 
     assertEquals(
         "{\"geom\":\"SRID=3857;POINT(1 2)\"}",
-        ArrowStreamResult.getObjectWithComplexTypeHandling(
+        ArrowResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
   }
 
@@ -644,7 +640,7 @@ public class ArrowStreamResultTest {
 
     String result =
         (String)
-            ArrowStreamResult.getObjectWithComplexTypeHandling(
+            ArrowResult.getObjectWithComplexTypeHandling(
                 session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo);
 
     assertEquals("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}", result);
@@ -675,7 +671,7 @@ public class ArrowStreamResultTest {
             .thenReturn(raw);
         assertEquals(
             "{" + scalarJson + (includeGeo ? ",\"g\":\"SRID=4326;POINT(1 2)\"" : "") + "}",
-            ArrowStreamResult.getObjectWithComplexTypeHandling(
+            ArrowResult.getObjectWithComplexTypeHandling(
                 session, iterator, 0, ColumnInfoTypeName.STRUCT, metadata, info));
       }
     }
@@ -736,8 +732,7 @@ public class ArrowStreamResultTest {
 
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+    ArrowResult result = new ArrowResult(resultManifest, resultData, STATEMENT_ID, session);
 
     // Verify no exception is thrown when closing
     assertDoesNotThrow(result::close);
@@ -774,8 +769,8 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(
+    ArrowResult result =
+        new ArrowResult(
             resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
 
     // Verify result was created successfully with StreamingChunkProvider
@@ -812,8 +807,8 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(
+    ArrowResult result =
+        new ArrowResult(
             resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
 
     // Verify result was created successfully with RemoteChunkProvider
@@ -838,9 +833,8 @@ public class ArrowStreamResultTest {
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(
-            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
     try {
       assertInstanceOf(StreamingChunkProvider.class, result.getChunkProvider());
     } finally {
@@ -865,9 +859,8 @@ public class ArrowStreamResultTest {
     resultData.setAttachment(TemporalArrowTestData.create());
     resultData.setExternalLinks(getChunkLinks(0L, 0L, false));
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(
-            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
     try {
       assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
     } finally {
@@ -906,8 +899,8 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(fetchResultsResp, parentStatement, session, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(fetchResultsResp, parentStatement, session, mockHttpClient);
 
     // Verify result was created successfully with StreamingChunkProvider for Thrift
     assertNotNull(result);
@@ -959,8 +952,8 @@ public class ArrowStreamResultTest {
     ResultData localResultData = new ResultData().setExternalLinks(new ArrayList<>());
 
     // Should create result successfully with end-of-stream signal
-    ArrowStreamResult result =
-        new ArrowStreamResult(
+    ArrowResult result =
+        new ArrowResult(
             resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
 
     assertNotNull(result);
@@ -991,8 +984,8 @@ public class ArrowStreamResultTest {
     ResultData localResultData = new ResultData().setExternalLinks(null);
 
     // Should create result successfully with end-of-stream signal
-    ArrowStreamResult result =
-        new ArrowStreamResult(
+    ArrowResult result =
+        new ArrowResult(
             resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
 
     assertNotNull(result);
@@ -1036,8 +1029,8 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(
+    ArrowResult result =
+        new ArrowResult(
             resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
 
     // StreamingChunkProvider is selected (not RemoteChunkProvider) — iteration completes
@@ -1083,11 +1076,11 @@ public class ArrowStreamResultTest {
     when(mockedSdkClient.getResultChunksData(STATEMENT_ID, 7L, rowsInChunk))
         .thenReturn(nextResultData);
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(
+    ArrowResult result =
+        new ArrowResult(
             resultManifest, initialResultData, STATEMENT_ID, localSession, mockHttpClient);
 
-    assertInstanceOf(SeaInlineArrowChunkProvider.class, result.getChunkProvider());
+    assertInstanceOf(PagedArrowChunkProvider.class, result.getChunkProvider());
     long rowCount = 0;
     while (result.next()) {
       rowCount++;
@@ -1131,8 +1124,8 @@ public class ArrowStreamResultTest {
     ResultData resultData = new ResultData();
     resultData.setAttachment(TemporalArrowTestData.create());
 
-    ArrowStreamResult result =
-        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    ArrowResult result =
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
     try {
       assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
       DatabricksSQLException beforeFirstRow =
@@ -1152,7 +1145,7 @@ public class ArrowStreamResultTest {
       // Chunk rows are b * 1000 + r for row r of batch b; the middle chunk is empty.
       List<AbstractArrowResultChunk> chunks =
           List.of(intChunk(allocator, 3, 2, 1), intChunk(allocator, 0), intChunk(allocator, 2, 2));
-      ArrowStreamResult result = resultOverChunks(chunks);
+      ArrowResult result = resultOverChunks(chunks);
 
       assertEquals(-1, result.getCurrentRow());
       assertNextRow(result, 0, 0);
@@ -1178,7 +1171,7 @@ public class ArrowStreamResultTest {
   public void testNextReturnsFalseAfterCloseMidChunk() throws Exception {
     try (RootAllocator allocator = new RootAllocator()) {
       AbstractArrowResultChunk chunk = intChunk(allocator, 4, 4);
-      ArrowStreamResult result = resultOverChunks(List.of(chunk));
+      ArrowResult result = resultOverChunks(List.of(chunk));
       assertNextRow(result, 0, 0);
       result.close();
       assertFalse(result.hasNext());
@@ -1188,8 +1181,7 @@ public class ArrowStreamResultTest {
     }
   }
 
-  private static void assertNextRow(ArrowStreamResult result, long row, int value)
-      throws Exception {
+  private static void assertNextRow(ArrowResult result, long row, int value) throws Exception {
     assertTrue(result.next());
     assertEquals(row, result.getCurrentRow());
     assertEquals(value, result.getObject(0));
@@ -1221,8 +1213,7 @@ public class ArrowStreamResultTest {
   }
 
   /** An INT result whose chunk provider serves {@code chunks} in order. */
-  private ArrowStreamResult resultOverChunks(List<AbstractArrowResultChunk> chunks)
-      throws Exception {
+  private ArrowResult resultOverChunks(List<AbstractArrowResultChunk> chunks) throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     when(session.getConnectionContext()).thenReturn(connectionContext);
@@ -1238,9 +1229,9 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount(0L)
             .setTotalRowCount(0L)
             .setSchema(new ResultSchema().setColumns(columns).setColumnCount(1L));
-    ArrowStreamResult result =
-        new ArrowStreamResult(manifest, new ResultData(), STATEMENT_ID, session, mockHttpClient);
-    java.lang.reflect.Field provider = ArrowStreamResult.class.getDeclaredField("chunkProvider");
+    ArrowResult result =
+        new ArrowResult(manifest, new ResultData(), STATEMENT_ID, session, mockHttpClient);
+    java.lang.reflect.Field provider = ArrowResult.class.getDeclaredField("chunkProvider");
     provider.setAccessible(true);
     provider.set(result, new ListChunkProvider(chunks));
     return result;

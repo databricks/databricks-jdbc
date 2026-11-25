@@ -29,10 +29,10 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <p>Used when UseBoundedSeaApi=1 AND EnableQueryResultDownload=0.
  */
-class SeaInlineArrowChunkProvider implements ChunkProvider {
+class PagedArrowChunkProvider implements ChunkProvider {
 
   private static final JdbcLogger LOGGER =
-      JdbcLoggerFactory.getLogger(SeaInlineArrowChunkProvider.class);
+      JdbcLoggerFactory.getLogger(PagedArrowChunkProvider.class);
   private static final String PREFETCH_THREAD_NAME = "sea-inline-prefetcher";
 
   // Configuration
@@ -73,7 +73,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   // Prefetch thread
   private final Thread prefetchThread;
 
-  SeaInlineArrowChunkProvider(
+  PagedArrowChunkProvider(
       ResultData initialResultData,
       ResultManifest resultManifest,
       StatementId statementId,
@@ -86,7 +86,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
         new ArrowStreamPageDecoder(resultManifest.getResultCompression()));
   }
 
-  SeaInlineArrowChunkProvider(
+  PagedArrowChunkProvider(
       ResultData initialResultData,
       StatementId statementId,
       IDatabricksSession session,
