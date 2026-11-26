@@ -2,12 +2,16 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,10 +21,20 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
+import org.apache.arrow.vector.complex.writer.VarCharWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class ComplexDataTypeParserTest {
 
@@ -624,6 +638,127 @@ public class ComplexDataTypeParserTest {
 
     String result = parser.formatMapString(jsonString, "MAP<STRING,STRING>");
     assertEquals(expected, result);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\"", "\\", "\t", "\n", "\r", "\b", "\f", "", "plain", "é/中文"})
+  void testFormatMapString_escapesStringKeys(String characters) throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    String key = "key" + characters;
+    String jsonString =
+        mapper
+            .createArrayNode()
+            .add(mapper.createObjectNode().put("key", key).put("value", "value"))
+            .toString();
+
+    String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>");
+
+    assertEquals(mapper.createObjectNode().put(key, "value").toString(), result);
+    assertEquals("value", mapper.readTree(result).get(key).asText());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\"", "\\", "\t", "\n", "\r", "\b", "\f", "", "plain", "é/中文"})
+  void testFormatMapString_escapesStringValues(String characters) throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    String value = "value" + characters;
+    String jsonString =
+        mapper
+            .createArrayNode()
+            .add(mapper.createObjectNode().put("key", "key").put("value", value))
+            .toString();
+
+    String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>");
+
+    assertEquals(mapper.createObjectNode().put("key", value).toString(), result);
+    assertEquals(value, mapper.readTree(result).get("key").asText());
+  }
+
+  @Test
+  void testFormatMapString_matchesJacksonForEveryAsciiCharacter() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    List<Integer> codePoints = new ArrayList<>(Arrays.asList(0xE9, 0x2028, 0x1F600));
+    for (int c = 0; c < 0x80; c++) {
+      codePoints.add(c);
+    }
+    for (int codePoint : codePoints) {
+      String text = "a" + new String(Character.toChars(codePoint)) + "b";
+      String jsonString =
+          mapper
+              .createArrayNode()
+              .add(mapper.createObjectNode().put("key", text).put("value", text))
+              .toString();
+
+      String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>");
+
+      assertEquals(mapper.createObjectNode().put(text, text).toString(), result);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"[{\"key\":\"a\tb\",\"value\":\"v\"}]", "[{'key':'a\"b','value':'v'}]"})
+  void testFormatMapString_nonStrictJsonInputIsReturnedUnchanged(String jsonString) {
+    // The no-backslash fast path relies on strict parsing: no raw control characters and no
+    // single-quoted strings that could hold an unescaped '"'.
+    assertEquals(
+        jsonString, parser.formatComplexTypeString(jsonString, "MAP", "MAP<STRING,STRING>"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "MAP<STRING COLLATE UTF8_LCASE,STRING COLLATE UTF8_LCASE>",
+        "MAP<string collate utf8_lcase, string collate unicode_ci>",
+        "MAP<STRING, STRING COLLATE UTF8_LCASE>"
+      })
+  void testFormatMapString_quotesAndEscapesCollatedStrings(String metadata) {
+    String escaped = "[{\"key\":\"k\\\"1\",\"value\":\"v\\\\1\"}]";
+    String plain = "[{\"key\":\"a\",\"value\":\"b\"}]";
+
+    assertEquals(
+        "{\"k\\\"1\":\"v\\\\1\"}", parser.formatComplexTypeString(escaped, "MAP", metadata));
+    assertEquals("{\"a\":\"b\"}", parser.formatComplexTypeString(plain, "MAP", metadata));
+  }
+
+  @Test
+  void testFormatMapString_escapesArrowMapVectorCell() throws Exception {
+    // Builds the input the default path really receives: an Arrow MAP cell read as STRING.
+    String[][] entries = {{"k\"1", "v\\1"}, {"a\tb", "c\nd"}, {"plain", "text"}};
+    try (BufferAllocator allocator = new RootAllocator();
+        MapVector vector = MapVector.empty("m", allocator, false)) {
+      UnionMapWriter writer = vector.getWriter();
+      writer.setPosition(0);
+      writer.startMap();
+      for (String[] entry : entries) {
+        writer.startEntry();
+        writeVarChar(allocator, writer.key().varChar(), entry[0]);
+        writeVarChar(allocator, writer.value().varChar(), entry[1]);
+        writer.endEntry();
+      }
+      writer.endMap();
+      vector.setValueCount(1);
+
+      String cell =
+          (String)
+              ArrowToJavaObjectConverter.convert(
+                  vector, 0, ColumnInfoTypeName.STRING, "STRING", new ColumnInfo());
+      String result = parser.formatComplexTypeString(cell, "MAP", "MAP<STRING,STRING>");
+
+      JsonNode parsed = new ObjectMapper().readTree(result);
+      assertEquals(entries.length, parsed.size());
+      for (String[] entry : entries) {
+        assertEquals(entry[1], parsed.get(entry[0]).asText());
+      }
+    }
+  }
+
+  // writeVarChar(String) needs Arrow 14+; the jdk-8 branch uses Arrow 13.
+  private static void writeVarChar(BufferAllocator allocator, VarCharWriter writer, String text) {
+    byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    try (ArrowBuf buffer = allocator.buffer(bytes.length)) {
+      buffer.setBytes(0, bytes);
+      writer.writeVarChar(0, bytes.length, buffer);
+    }
   }
 
   @Test

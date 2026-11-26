@@ -14,6 +14,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
@@ -842,14 +843,18 @@ public class ComplexDataTypeParser {
 
         String keyType = kv[0].trim();
         String valueType = kv[1].trim();
+        // recoverStringType also accepts collated strings such as "STRING COLLATE UTF8_LCASE".
         boolean isStringKey =
-            keyType.equalsIgnoreCase(DatabricksTypeUtil.STRING)
+            DatabricksTypeUtil.recoverStringType(keyType) != null
                 || DatabricksTypeUtil.isGeospatialType(keyType.toUpperCase(Locale.ROOT));
         boolean isStringValue =
-            valueType.equalsIgnoreCase(DatabricksTypeUtil.STRING)
+            DatabricksTypeUtil.recoverStringType(valueType) != null
                 || DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT));
 
         StringBuilder result = new StringBuilder("{");
+        // Strict JSON carries '"', '\' and control characters in strings only as backslash
+        // escapes, so without a backslash in the input no string needs escaping.
+        boolean escapeStrings = jsonString.indexOf('\\') >= 0;
 
         for (int i = 0; i < node.size(); i++) {
           JsonNode entry = node.get(i);
@@ -868,7 +873,7 @@ public class ComplexDataTypeParser {
           }
 
           if (isStringKey) {
-            result.append("\"").append(keyNode.asText()).append("\"");
+            appendJsonString(result, keyNode.asText(), escapeStrings);
           } else {
             result.append(keyNode.asText());
           }
@@ -883,7 +888,7 @@ public class ComplexDataTypeParser {
             // container nodes, so emit the JSON directly (e.g. {0:[34277,0]}).
             result.append(valueNode.toString());
           } else if (isStringValue) {
-            result.append("\"").append(valueNode.asText()).append("\"");
+            appendJsonString(result, valueNode.asText(), escapeStrings);
           } else {
             result.append(valueNode.asText());
           }
@@ -897,5 +902,15 @@ public class ComplexDataTypeParser {
     }
 
     return jsonString;
+  }
+
+  private static void appendJsonString(StringBuilder out, String text, boolean escape) {
+    out.append('"');
+    if (escape) {
+      JsonStringEncoder.getInstance().quoteAsString(text, out);
+    } else {
+      out.append(text);
+    }
+    out.append('"');
   }
 }
