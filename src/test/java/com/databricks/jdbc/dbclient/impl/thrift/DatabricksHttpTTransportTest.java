@@ -4,6 +4,7 @@ import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
@@ -11,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Properties;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -92,6 +94,29 @@ public class DatabricksHttpTTransportTest {
     assertEquals(testUrl, capturedRequest.getURI().toString());
     assertTrue(capturedRequest.containsHeader("Content-Type"));
     assertFalse(capturedRequest.containsHeader(TracingUtil.TRACE_HEADER));
+  }
+
+  @Test
+  public void flush_SendsClusterPathOrgId() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;AuthMech=3;"
+                + "httpPath=/sql/protocolv1/o/6051921418418893/0528-cluster",
+            new Properties());
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(200);
+    when(mockResponse.getEntity()).thenReturn(new ByteArrayEntity(new byte[0]));
+    when(mockedHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    try (DatabricksHttpTTransport transport =
+        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig, context)) {
+      transport.flush();
+      ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
+      verify(mockedHttpClient).execute(requestCaptor.capture());
+      assertEquals(
+          "6051921418418893",
+          requestCaptor.getValue().getFirstHeader("x-databricks-org-id").getValue());
+    }
   }
 
   @Test
