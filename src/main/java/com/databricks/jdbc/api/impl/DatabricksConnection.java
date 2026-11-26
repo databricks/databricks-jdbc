@@ -447,8 +447,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         }
       } finally {
         try {
+          boolean closeOnServer = true;
           for (IDatabricksStatementInternal statement : statementSet) {
-            statement.close(false);
+            boolean serverCloseFailed = statement.close(false, closeOnServer);
+            if (serverCloseFailed) {
+              closeOnServer = false;
+            }
             statementSet.remove(statement);
           }
         } finally {

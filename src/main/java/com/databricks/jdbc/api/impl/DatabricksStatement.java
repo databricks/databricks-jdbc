@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
@@ -52,6 +53,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
   private boolean isClosed;
   private boolean closeOnCompletion;
+  private boolean closing;
+  private boolean skipServerClose;
   private SQLWarning warnings = null;
   private long maxRows = DEFAULT_RESULT_ROW_LIMIT;
   private int maxFieldSize = 0;
@@ -65,9 +68,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   // closed the operation — no further RPCs for this statement ID are possible. The JDBC Statement
   // itself remains open for re-execution. Reset on each new execution. Volatile because cancel()
   // can be called from a different thread (JDBC spec requirement).
-  private volatile boolean serverOperationClosed = false; // Client proactively closed the server
-  // operation after all results were consumed or ResultSet was closed. Prevents duplicate
-  // closeStatement RPC when Statement.close() is called later. Reset on each new execution.
+  private volatile boolean serverOperationClosed = false; // Successful server cleanup.
+  // Prevents duplicate closeStatement RPCs. Reset on each new execution.
   protected Boolean shouldReturnResultSet =
       null; // Cached result of shouldReturnResultSetWithConfig()
 
@@ -146,6 +148,19 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public void close(boolean removeFromSession) throws DatabricksSQLException {
+    close(removeFromSession, true);
+  }
+
+  @Override
+  public boolean close(boolean removeFromSession, boolean closeOnServer)
+      throws DatabricksSQLException {
+    closing = true;
+    skipServerClose |= !closeOnServer;
+    closeInternal(removeFromSession);
+    return closeOnServer && statementId != null && !directResultsReceived && !serverOperationClosed;
+  }
+
+  private void closeInternal(boolean removeFromSession) throws DatabricksSQLException {
     LOGGER.debug("public void close(boolean removeFromSession)");
     try {
       if (isClosed) {
@@ -158,18 +173,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         LOGGER.warn(warningMsg);
         warnings = WarningUtil.addWarning(warnings, warningMsg);
       } else {
-        // Close ResultSet first — this triggers proactive server close via
-        // closeServerOperation() and sets serverOperationClosed=true, preventing
-        // a duplicate closeStatement RPC below.
+        // ResultSet cleanup shares this close call's single server-close attempt.
         if (resultSet != null) {
           this.resultSet.close();
           this.resultSet = null;
         }
         // Skip server-side close if operation was already closed:
         // - directResultsReceived: server closed it (inline results)
-        // - serverOperationClosed: client proactively closed it (results consumed or RS closed)
+        // - serverOperationClosed: client successfully closed it
         if (!directResultsReceived && !serverOperationClosed) {
-          this.connection.getSession().getDatabricksClient().closeStatement(statementId);
+          closeServerOperation();
         } else {
           LOGGER.debug(
               "Statement {} closed locally (server operation already closed — "
@@ -1113,35 +1126,35 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   /**
-   * Proactively closes the server-side operation to release server resources while keeping the
-   * client-side Statement open for reuse. Called when all results have been consumed (next()
-   * returns false) or when ResultSet.close() is called.
+   * Best-effort server cleanup after ResultSet.close() or Statement.close().
    *
-   * <p>After this call, {@link #close(boolean)} will skip the closeStatement RPC since the server
-   * operation is already closed. The Statement can still be re-executed.
+   * <p>Failures are recorded without interrupting local cleanup. An earlier proactive failure may
+   * be retried by a later Statement.close(), which makes at most one attempt.
    */
   @Override
   public void closeServerOperation() {
-    if (serverOperationClosed || directResultsReceived || statementId == null || isClosed) {
+    if (skipServerClose
+        || serverOperationClosed
+        || directResultsReceived
+        || statementId == null
+        || isClosed) {
       return;
     }
+    skipServerClose = closing;
     try {
       this.connection.getSession().getDatabricksClient().closeStatement(statementId);
-      // Only mark closed on success — if the RPC fails (transient network error),
-      // Statement.close() should retry the closeStatement RPC rather than skip it,
-      // to avoid leaving the server operation alive until session timeout.
       this.serverOperationClosed = true;
       LOGGER.debug(
-          "Proactively closed server operation for statement {} (results consumed)",
-          StatementId.loggableStatementId(statementId));
+          "Closed server operation for statement {}", StatementId.loggableStatementId(statementId));
     } catch (SQLException | RuntimeException e) {
-      // Best-effort — don't fail the user's close for a server cleanup failure.
-      // serverOperationClosed stays false so Statement.close() will retry the RPC.
       LOGGER.warn(
-          "Failed to proactively close server operation for statement {}: {}",
+          "Failed to close server operation for statement {} ({})",
           StatementId.loggableStatementId(statementId),
-          e.getMessage(),
-          e);
+          e.getClass().getSimpleName());
+      LOGGER.debug(
+          "Server close failure for statement {}: {}",
+          StatementId.loggableStatementId(statementId),
+          ExceptionUtils.getStackTrace(e));
     }
   }
 

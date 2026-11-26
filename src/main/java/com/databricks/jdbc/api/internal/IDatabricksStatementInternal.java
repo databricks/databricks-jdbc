@@ -11,6 +11,12 @@ public interface IDatabricksStatementInternal {
 
   void close(boolean removeFromSession) throws DatabricksSQLException;
 
+  default boolean close(boolean removeFromSession, boolean closeOnServer)
+      throws DatabricksSQLException {
+    close(removeFromSession);
+    return false;
+  }
+
   void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;
 
   int getMaxRows() throws DatabricksSQLException;

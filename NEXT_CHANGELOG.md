@@ -10,6 +10,7 @@
 
 - Derive the workspace routing header from numeric all-purpose cluster HTTP paths when no explicit header or `?o=` value is present. Respect caller org-ID headers regardless of casing.
 - String keys and values in MAP values returned by `getString()`/`getObject()` when complex datatype support is disabled (the default) are now JSON-escaped (for example `\"` and `\n`), and collated strings (`STRING COLLATE ...`) are quoted like `STRING`.
+- Server cleanup failures are recorded without escaping `Statement.close()`, `ResultSet.close()` with `closeOnCompletion`, or `Connection.close()`, allowing remaining local resources and the session to be released. Local cleanup errors can still throw `SQLException`.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
