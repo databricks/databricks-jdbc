@@ -1,6 +1,6 @@
 # Lessons
 
-<!-- distilled-through: none -->
+<!-- distilled-through: 2026-11-26 -->
 
 ## JDBC contracts and configuration
 - L-0001 (1×, log:2026-08-14): Types.FLOAT maps to DOUBLE and 8-byte wire values; only Types.REAL is single precision. The declared SQL target type drives wire typing.
@@ -22,13 +22,14 @@
 - L-0017 (1×, #1739): Strip type parameters before enum lookup, derive DECIMAL precision/scale from its declaration, and map TIMESTAMP_NTZ to JDBC TIMESTAMP.
 - L-0018 (1×, #1797): ResultSet configuration must reach session-less metadata, Array and in-memory results, or its documented scope must explicitly cover query results only.
 - L-0019 (1×, #1797): Call checkIfClosed before argument validation or early return in JDBC getters; closed objects must consistently report RESULT_SET_CLOSED.
+- L-0085 (1×, #1842): Before injecting a derived or default HTTP header, check caller-supplied headers case-insensitively; test mixed-case property/header names so the caller's value wins and only one header is sent.
 
 ## Results and complex types
 - L-0020 (2×, #1659 #1700): Handle null ARRAY/MAP/STRUCT elements before type-specific dispatch, for every element type.
 - L-0021 (1×, #1700): Split complex-type metadata with depth- and quote-aware parsing; consumers must use structured parts instead of splitting flattened text again.
 - L-0022 (1×, #1700): Defensively copy mutable arrays and collections on both input and output.
 - L-0023 (1×, #1700): Share formatting across top-level, nested and feature-flag paths, including special cases such as omitted zero components.
-- L-0024 (1×, #1700): When transforming one nested value type, preserve every other field's serialization and JSON-escape string leaves; domain toString is not container serialization.
+- L-0024 (2×, #1838 #1700): When rebuilding nested JSON text (e.g. MAP), preserve other fields' serialization and escape string leaves with JsonStringEncoder; test every ASCII control/special char against independent Jackson output.
 - L-0025 (1×, #1731): SEA manifests may omit total_row_count. Continue via next_chunk_index and provider exhaustion; use an explicit unknown-count sentinel before row-count arithmetic.
 - L-0026 (1×, #1731): Enumerate CloudFetch/SEA/Arrow flag combinations when changing provider routing; an unrelated false flag can accidentally select a downstream branch.
 - L-0027 (1×, log:2026-10-22): Reproduce response-format bugs on the cluster/protocol that emits that format; a warehouse test cannot establish behavior of an APC-only response.
@@ -45,6 +46,7 @@
 - L-0038 (1×, #1784): After Arrow reads, check the interrupt flag before success. SocketTimeoutException remains retryable; purge partial buffers on IO/runtime failure and assert zero allocated memory.
 - L-0039 (1×, #1632): SEA polling should send a lightweight statement-id request; reusing a large execute request can resend its payload on every poll.
 - L-0040 (1×, #1813): SQL classification must handle WITH-prefixed DML and Spark lexical rules, including backslash escapes, raw strings and continued line comments.
+- L-0086 (1×, #1838): Detect string types with DatabricksTypeUtil.recoverStringType, not exact STRING comparison, so STRING COLLATE types dispatch as strings; test collated metadata in mixed case.
 
 ## Errors and telemetry
 - L-0041 (4×, #1629 #1739 #1752): Use registered DatabricksDriverErrorCode values and the SQLException constructor that preserves numeric vendor code. Assert SQLSTATE/name/code with a distinguishable cause and record telemetry classification.
@@ -62,7 +64,7 @@
 - L-0051 (2×, #1683 #1783): Best-effort caches must fall back safely on runtime failures and preserve uncached freshness guarantees. Clear shared caches around tests; warn when recovery overrides explicit user configuration.
 - L-0052 (1×, #1678): Choose one synchronization protocol per field; avoid redundant atomics inside monitor-protected mutation paths.
 - L-0053 (2×, #1709 #1726): SDK UserAgent registration is process-global and append-only. Register each distinct entry once, bound growth, and restore global state in tests.
-- L-0054 (1×, #1726): SEA and Thrift obtain User-Agent through different paths; verify both transports after changing shared registration.
+- L-0054 (2×, #1842 #1726): Connection-level headers (User-Agent, org-id) reach Thrift, SEA, volume, telemetry and feature-flag clients via different paths; assert them in captured outbound requests on each, including scheduled refreshes.
 - L-0055 (1×, #1758): Apply connection-pool settings to both SEA and Thrift HTTP clients; test enabled and disabled/zero behavior through observed connection reuse.
 - L-0056 (1×, #1769): Leak tests must inspect their own resource handles and clean only their singleton entries, avoiding global thread counts and global resets.
 - L-0057 (1×, #1772 #1776): Keep network, auth, close and shutdown work outside ConcurrentHashMap compute lambdas; test unrelated colliding keys to expose lock contention.
@@ -80,6 +82,7 @@
 - L-0067 (1×, #1753): Before offline Maven tests, warm Surefire providers and matching junit-platform-launcher, normalize repository IDs, and keep bot warm-up checks best-effort.
 - L-0068 (2×, #1790 #1808 #1811): Performance regressions must fail on revert. Use warmed hot-path call assertions and differential tests against the old iterator/state machine, including random inputs and call orders.
 - L-0069 (1×, #1633): Ordering tests need ignoreArrayOrder=false and distinguishable per-element values; identical elements or update counts cannot detect reordering.
+- L-0087 (1×, #1838): Shared code and tests must compile with Arrow 13 for the jdk-8 branch; avoid Arrow 14+ APIs such as writeVarChar(String) and write via ArrowBuf instead.
 
 ## Bot workflow
 - L-0070 (1×, log:2026-08-14): Keep diagnosis/plan phases read-only; defer file creation and edits to the author_tests/fix phases.
