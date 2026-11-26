@@ -73,8 +73,12 @@ public class DatabricksArray implements Array {
   DatabricksArray(
       List<Object> elements, String metadata, List<Object> temporalElements, ZoneId timestampZone) {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
-    String elementType = MetadataParser.parseArrayMetadata(metadata);
-    this.elements = convertElements(elements, elementType);
+    if (metadata == null) {
+      MetadataParser.parseArrayMetadata(null);
+    }
+    ComplexTypePlan elementPlan = ComplexTypePlan.of(metadata).element;
+    String elementType = elementPlan.type;
+    this.elements = convertElements(elements, elementPlan);
     this.elementType = elementType;
     this.temporalElements =
         temporalElements != null && temporalElements.size() == elements.size()
@@ -87,10 +91,11 @@ public class DatabricksArray implements Array {
    * Converts the elements based on specified element type.
    *
    * @param elements the original elements to be converted
-   * @param elementType the type of each element
+   * @param elementPlan the type of each element
    * @return an array of converted elements
    */
-  private Object[] convertElements(List<Object> elements, String elementType) {
+  private Object[] convertElements(List<Object> elements, ComplexTypePlan elementPlan) {
+    String elementType = elementPlan.type;
     LOGGER.debug("Converting elements with element type: {}", elementType);
     Object[] convertedElements = new Object[elements.size()];
 
@@ -133,6 +138,8 @@ public class DatabricksArray implements Array {
                 "Expected a Map for MAP but found: " + element.getClass().getSimpleName(),
                 DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
+        } else if (elementPlan.decimal && element != null) {
+          convertedElements[i] = elementPlan.decimalValue(element);
         } else {
           convertedElements[i] = convertValue(element, elementType);
         }

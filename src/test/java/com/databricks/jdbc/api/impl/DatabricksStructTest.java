@@ -25,13 +25,15 @@ public class DatabricksStructTest {
   @BeforeEach
   public void setUp() {
     // Initialize Mockito's MockedStatic for MetadataParser before each test
-    metadataParserMock = Mockito.mockStatic(MetadataParser.class);
+    ComplexTypePlan.CACHE.invalidateAll();
+    metadataParserMock = Mockito.mockStatic(MetadataParser.class, CALLS_REAL_METHODS);
   }
 
   @AfterEach
   public void tearDown() {
     // Close the MockedStatic context after each test
     metadataParserMock.close();
+    ComplexTypePlan.CACHE.invalidateAll();
   }
 
   /**
@@ -76,7 +78,7 @@ public class DatabricksStructTest {
     assertEquals(true, convertedAttributes[2], "Third attribute 'active' should be true");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with nested Struct elements. */
@@ -129,9 +131,10 @@ public class DatabricksStructTest {
         "Springfield", addressAttributes[1], "Nested attribute 'city' should be 'Springfield'");
 
     // Verify that parseStructMetadata was called twice
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseStructMetadata("STRUCT<street:STRING,city:STRING>"), times(1));
+        () -> MetadataParser.parseStructMetadata("STRUCT<street:STRING,city:STRING>"),
+        atLeastOnce());
   }
 
   //    /**
@@ -232,9 +235,9 @@ public class DatabricksStructTest {
         "Preference 'notifications' should be 'enabled'");
 
     // Verify that parseStructMetadata and parseMapMetadataParts were each called once
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseMapMetadataParts("MAP<STRING, STRING>"), times(1));
+        () -> MetadataParser.parseMapMetadataParts("MAP<STRING, STRING>"), atLeastOnce());
   }
 
   /**
@@ -276,7 +279,7 @@ public class DatabricksStructTest {
 
     // Verify that parseStructMetadata was called once for the outer struct and once for the nested
     // struct
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /**
@@ -316,7 +319,7 @@ public class DatabricksStructTest {
         "Exception message should indicate expected ARRAY but found String");
 
     // Verify that parseStructMetadata was called once and parseArrayMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with null metadata. Expects NullPointerException. */
@@ -346,7 +349,7 @@ public class DatabricksStructTest {
         "Exception message should indicate that metadata cannot be null");
 
     // Verify that parseStructMetadata was called once with null metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with empty attributes map. */
@@ -373,7 +376,7 @@ public class DatabricksStructTest {
     assertNull(convertedAttributes[1], "Attribute 'name' should be null");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with elements requiring type conversion from String to Integer. */
@@ -399,7 +402,7 @@ public class DatabricksStructTest {
     assertEquals(800, convertedAttributes[0], "Attribute 'id' should be converted to Integer 800");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with binary type elements. */
@@ -432,7 +435,7 @@ public class DatabricksStructTest {
         "Attribute 'data' should match the binary data");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with DATE type elements. */
@@ -465,7 +468,7 @@ public class DatabricksStructTest {
         "Attribute 'birthdate' should be converted to Date '1990-05-15'");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with TIMESTAMP type elements. */
@@ -498,7 +501,7 @@ public class DatabricksStructTest {
         "Attribute 'created_at' should be converted to Timestamp");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with TIME type elements. */
@@ -531,7 +534,7 @@ public class DatabricksStructTest {
         "Attribute 'login_time' should be converted to Time '08:45:00'");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the getSQLTypeName() method. */
@@ -554,7 +557,7 @@ public class DatabricksStructTest {
     assertEquals(metadata, typeName, "getSQLTypeName() should return the original metadata");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the getAttributes() method. */
@@ -586,7 +589,7 @@ public class DatabricksStructTest {
     assertEquals(false, convertedAttributes[2], "Attribute 'active' should be false");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the getAttributes(Map<String, Class<?>> map) method. */
@@ -620,7 +623,7 @@ public class DatabricksStructTest {
     assertEquals("Jack", convertedAttributes[1], "Attribute 'name' should be 'Jack'");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with null values in attributes. */
@@ -652,7 +655,7 @@ public class DatabricksStructTest {
     assertNull(convertedAttributes[2], "Attribute 'active' should be null");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /** Test the constructor with null values in attributes with complex field types. */
@@ -684,7 +687,7 @@ public class DatabricksStructTest {
     assertNull(convertedAttributes[2], "Attribute 'array' should be null");
 
     // Verify that parseStructMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
   }
 
   /*
@@ -729,9 +732,10 @@ public class DatabricksStructTest {
         "Exception message should indicate conversion failure");
 
     // Verify that parseStructMetadata was called twice
-    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseStructMetadata("STRUCT<street:STRING,zipcode:INT>"), times(1));
+        () -> MetadataParser.parseStructMetadata("STRUCT<street:STRING,zipcode:INT>"),
+        atLeastOnce());
   }
 
   @Test

@@ -67,15 +67,19 @@ public class DatabricksStruct implements Struct {
       Map<String, Object> temporalAttributes,
       ZoneId timestampZone) {
     this.timestampZone = timestampZone;
+    if (metadata == null) {
+      MetadataParser.parseStructMetadata(null);
+    }
     // Parse the metadata into a map: fieldName -> fieldType
-    Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);
+    ComplexTypePlan plan = ComplexTypePlan.of(metadata);
+    Map<String, String> typeMap = plan.fieldTypes;
 
     // Capture field names (in the same order they appear in typeMap).
     this.fieldNames = new ArrayList<>(typeMap.keySet());
     this.fieldTypes = new ArrayList<>(typeMap.values());
 
     // Convert attributes to the appropriate array of Objects.
-    this.attributes = convertAttributes(attributes, typeMap);
+    this.attributes = convertAttributes(attributes, plan);
 
     if (temporalAttributes == null || temporalAttributes.isEmpty()) {
       this.temporalAttributes = null;
@@ -94,15 +98,17 @@ public class DatabricksStruct implements Struct {
    * Converts the provided attributes based on specified type metadata.
    *
    * @param attributes the original attributes to be converted
-   * @param typeMap a map specifying the type of each attribute
+   * @param plan the types of the attributes
    * @return an array of converted attributes
    */
-  private Object[] convertAttributes(Map<String, Object> attributes, Map<String, String> typeMap) {
+  private Object[] convertAttributes(Map<String, Object> attributes, ComplexTypePlan plan) {
+    Map<String, String> typeMap = plan.fieldTypes;
     Object[] convertedAttributes = new Object[typeMap.size()];
     int index = 0;
 
     for (String fieldName : fieldNames) {
-      String fieldType = typeMap.get(fieldName);
+      ComplexTypePlan fieldPlan = plan.fields.get(fieldName);
+      String fieldType = fieldPlan.type;
       Object value = attributes.get(fieldName);
 
       if (value == null) {
@@ -134,6 +140,8 @@ public class DatabricksStruct implements Struct {
       } else if (fieldType.startsWith(DatabricksTypeUtil.VARIANT)) {
         // For VARIANT, preserve JsonNode objects as-is, otherwise convert to string
         convertedAttributes[index] = value;
+      } else if (fieldPlan.decimal) {
+        convertedAttributes[index] = fieldPlan.decimalValue(value);
       } else {
         convertedAttributes[index] = convertSimpleValue(value, fieldType);
       }

@@ -3,6 +3,7 @@ package com.databricks.jdbc.common.util;
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 
 public class JsonUtil {
   // Thread-safe singleton instance
@@ -19,6 +20,9 @@ public class JsonUtil {
   public static String formatComplexValue(Object value) {
     if (value == null) {
       return "null";
+    }
+    if (value instanceof BigDecimal) {
+      return ((BigDecimal) value).toPlainString();
     }
     if (value instanceof String
         || value instanceof Character

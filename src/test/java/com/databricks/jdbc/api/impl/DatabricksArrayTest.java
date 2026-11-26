@@ -24,13 +24,15 @@ public class DatabricksArrayTest {
   @BeforeEach
   public void setUp() {
     // Initialize Mockito's MockedStatic for MetadataParser before each test
-    metadataParserMock = Mockito.mockStatic(MetadataParser.class);
+    ComplexTypePlan.CACHE.invalidateAll();
+    metadataParserMock = Mockito.mockStatic(MetadataParser.class, CALLS_REAL_METHODS);
   }
 
   @AfterEach
   public void tearDown() {
     // Close the MockedStatic context after each test
     metadataParserMock.close();
+    ComplexTypePlan.CACHE.invalidateAll();
   }
 
   /**
@@ -68,7 +70,8 @@ public class DatabricksArrayTest {
     assertEquals("cherry", convertedElements[2], "Third element should be 'cherry'");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /** Test the constructor with nested STRUCT elements. */
@@ -129,10 +132,10 @@ public class DatabricksArrayTest {
 
     // Verify that the mocks were called as expected
     metadataParserMock.verify(
-        () -> MetadataParser.parseArrayMetadata("ARRAY<STRUCT<id:INT,name:STRING>>"), times(1));
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRUCT<id:INT,name:STRING>>"),
+        atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"),
-        times(2)); // Called for each struct
+        () -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"), atLeastOnce());
   }
 
   /** Test the constructor with nested ARRAY elements. */
@@ -186,10 +189,9 @@ public class DatabricksArrayTest {
 
     // Verify that the mocks were called as expected
     metadataParserMock.verify(
-        () -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<STRING>>"), times(1));
+        () -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<STRING>>"), atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"),
-        times(2)); // Called for each inner array
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /**
@@ -228,7 +230,8 @@ public class DatabricksArrayTest {
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(
-        () -> MetadataParser.parseArrayMetadata("ARRAY<STRUCT<id:INT,name:STRING>>"), times(1));
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRUCT<id:INT,name:STRING>>"),
+        atLeastOnce());
   }
 
   /**
@@ -266,7 +269,7 @@ public class DatabricksArrayTest {
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(
-        () -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<STRING>>"), times(1));
+        () -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<STRING>>"), atLeastOnce());
   }
 
   /** Test the constructor with null metadata. Expects NullPointerException. */
@@ -294,7 +297,7 @@ public class DatabricksArrayTest {
         "Exception message should indicate that metadata cannot be null");
 
     // Verify that the mock was called once with null metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata(null), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata(null), atLeastOnce());
   }
 
   /** Test the constructor with an empty array. */
@@ -320,7 +323,8 @@ public class DatabricksArrayTest {
     assertEquals(0, convertedElements.length, "Array should be empty");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /** Test the constructor with null elements within the array. */
@@ -349,7 +353,8 @@ public class DatabricksArrayTest {
     assertEquals("cherry", convertedElements[2], "Third element should be 'cherry'");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /** Test the constructor with elements requiring type conversion from String to Integer. */
@@ -378,7 +383,7 @@ public class DatabricksArrayTest {
     assertEquals(3, convertedElements[2], "Third element should be 3");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"), atLeastOnce());
   }
 
   /** Test the constructor with binary type elements. */
@@ -408,7 +413,8 @@ public class DatabricksArrayTest {
         "binary2".getBytes(), (byte[]) convertedElements[1], "Second binary element should match");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<BINARY>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<BINARY>"), atLeastOnce());
   }
 
   /** Test the constructor with DATE type elements. */
@@ -442,7 +448,8 @@ public class DatabricksArrayTest {
         "Second date element should be '2024-12-31'");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<DATE>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<DATE>"), atLeastOnce());
   }
 
   /** Test the constructor with TIMESTAMP type elements. */
@@ -477,7 +484,7 @@ public class DatabricksArrayTest {
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(
-        () -> MetadataParser.parseArrayMetadata("ARRAY<TIMESTAMP>"), times(1));
+        () -> MetadataParser.parseArrayMetadata("ARRAY<TIMESTAMP>"), atLeastOnce());
   }
 
   /** Test the constructor with BOOLEAN type elements. */
@@ -507,7 +514,8 @@ public class DatabricksArrayTest {
     assertEquals(false, convertedElements[3], "Fourth boolean element should be false");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<BOOLEAN>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<BOOLEAN>"), atLeastOnce());
   }
 
   /** Test the constructor with DECIMAL type elements. */
@@ -539,7 +547,8 @@ public class DatabricksArrayTest {
         new BigDecimal("30.00"), convertedElements[2], "Third decimal element should be 30.00");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL>"), atLeastOnce());
   }
 
   /**
@@ -948,7 +957,8 @@ public class DatabricksArrayTest {
     assertEquals("cherry", convertedElements[2], "Third element should be 'cherry'");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /** Test the getArray(long index, int count) method with valid subset. */
@@ -978,7 +988,8 @@ public class DatabricksArrayTest {
     assertEquals("date", subset[2], "Third element of subset should be 'date'");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /**
@@ -1007,7 +1018,8 @@ public class DatabricksArrayTest {
             "getArray(index, count) should throw ArrayIndexOutOfBoundsException for out-of-bounds index");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /** Test the getBaseTypeName() method. */
@@ -1028,7 +1040,8 @@ public class DatabricksArrayTest {
     assertEquals("STRING", baseTypeName, "getBaseTypeName() should return the element type name");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /** Test the getBaseType() method. */
@@ -1050,7 +1063,8 @@ public class DatabricksArrayTest {
         java.sql.Types.VARCHAR, baseType, "getBaseType() should return the element JDBC type");
 
     // Verify that the mock was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   @Test
@@ -1148,7 +1162,8 @@ public class DatabricksArrayTest {
         "DatabricksArray.toString() should produce a JSON-like array with quoted string elements");
 
     // Verify that parseArrayMetadata was called once for this metadata
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   @Test

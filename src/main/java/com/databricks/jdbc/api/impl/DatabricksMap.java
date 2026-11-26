@@ -20,6 +20,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private final Map<K, V> map;
   private final String keyType;
   private final String valueType;
+  private final ComplexTypePlan valuePlan;
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMap.class);
 
   /**
@@ -31,9 +32,10 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   public DatabricksMap(Map<K, V> map, String metadata) {
     LOGGER.debug("Initializing DatabricksMap with metadata: {}", metadata);
     try {
-      String[] mapMetadata = MetadataParser.parseMapMetadataParts(metadata);
-      this.keyType = mapMetadata[0].trim();
-      this.valueType = mapMetadata[1].trim();
+      ComplexTypePlan plan = ComplexTypePlan.of(metadata);
+      this.keyType = plan.key.type;
+      this.valueType = plan.value.type;
+      this.valuePlan = plan.value;
       this.map = convertMap(map);
     } catch (Exception e) {
       LOGGER.error(e, "Error during map conversion: {}", e.getMessage());
@@ -109,6 +111,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
               DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else {
+        if (valuePlan.decimal) {
+          return (V) valuePlan.decimalValue(value);
+        }
         return convertSimpleValue(value, valueType);
       }
     } catch (Exception e) {
