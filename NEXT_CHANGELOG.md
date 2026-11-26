@@ -12,6 +12,8 @@
 
 ### Fixed
 
+- `getConnectionId()` for Thrift sessions on SQL warehouses now returns a Thrift (`t|...`) connection ID instead of a SQL Execution API (`s|...`) ID, so `Driver.closeConnection` closes the session through the Thrift client that created it.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*
