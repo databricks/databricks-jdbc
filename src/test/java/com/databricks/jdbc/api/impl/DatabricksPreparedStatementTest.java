@@ -24,25 +24,37 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.primitives.UnsignedLong;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
+import java.time.Duration;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.DoubleAccumulator;
+import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -640,6 +652,438 @@ public class DatabricksPreparedStatementTest {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setBigDecimal(1, BigDecimal.ONE));
+  }
+
+  public static Stream<Arguments> decimalBindings() {
+    LongAdder longAdder = new LongAdder();
+    longAdder.add(9007199254740993L);
+    DoubleAdder doubleAdder = new DoubleAdder();
+    doubleAdder.add(123.45d);
+    return Stream.of(
+            new Object[] {"123.45", "123.45", "DECIMAL(5,2)"},
+            new Object[] {123.45d, "123.45", "DECIMAL(5,2)"},
+            new Object[] {0.5f, "0.5", "DECIMAL(1,1)"},
+            new Object[] {0.1f, "0.1", "DECIMAL(1,1)"},
+            new Object[] {123.45f, "123.45", "DECIMAL(5,2)"},
+            new Object[] {123L, "123", "DECIMAL(3,0)"},
+            new Object[] {(byte) 123, "123", "DECIMAL(3,0)"},
+            new Object[] {(short) 123, "123", "DECIMAL(3,0)"},
+            new Object[] {123, "123", "DECIMAL(3,0)"},
+            new Object[] {new AtomicInteger(123), "123", "DECIMAL(3,0)"},
+            new Object[] {new AtomicLong(9007199254740993L), "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {longAdder, "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {
+              new LongAccumulator(Long::sum, 9007199254740993L), "9007199254740993", "DECIMAL(16,0)"
+            },
+            new Object[] {doubleAdder, "123.45", "DECIMAL(5,2)"},
+            new Object[] {new DoubleAccumulator(Double::sum, 123.45d), "123.45", "DECIMAL(5,2)"},
+            new Object[] {new FractionLikeNumber(), "0.5", "DECIMAL(1,1)"},
+            new Object[] {UnsignedLong.MAX_VALUE, "18446744073709551615", "DECIMAL(20,0)"},
+            new Object[] {9007199254740993L, "9007199254740993", "DECIMAL(16,0)"},
+            new Object[] {Long.MAX_VALUE, "9223372036854775807", "DECIMAL(19,0)"},
+            new Object[] {
+              new BigInteger("12345678901234567890"), "12345678901234567890", "DECIMAL(20,0)"
+            },
+            new Object[] {"-0.0000001", "-0.0000001", "DECIMAL(7,7)"},
+            new Object[] {new BigDecimal("-0.0000001"), "-0.0000001", "DECIMAL(7,7)"},
+            new Object[] {" 123.4500 ", "123.4500", "DECIMAL(7,4)"},
+            new Object[] {"1e-7", "0.0000001", "DECIMAL(7,7)"},
+            new Object[] {"1E+3", "1000", "DECIMAL(4,0)"},
+            new Object[] {"0.0000000", "0.0000000", "DECIMAL(7,7)"},
+            new Object[] {new BigDecimal("123.4567"), "123.4567", "DECIMAL(7,4)"},
+            new Object[] {
+              "1." + String.join("", Collections.nCopies(39, "0")),
+              "1." + String.join("", Collections.nCopies(37, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "1.1" + String.join("", Collections.nCopies(36, "0")),
+              "1.1" + String.join("", Collections.nCopies(36, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "1.1" + String.join("", Collections.nCopies(37, "0")),
+              "1.1" + String.join("", Collections.nCopies(36, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "5." + String.join("", Collections.nCopies(50, "0")),
+              "5." + String.join("", Collections.nCopies(37, "0")),
+              "DECIMAL(38,37)"
+            },
+            new Object[] {
+              "1e37", "1" + String.join("", Collections.nCopies(37, "0")), "DECIMAL(38,0)"
+            },
+            new Object[] {
+              "1e-38", "0." + String.join("", Collections.nCopies(37, "0")) + "1", "DECIMAL(38,38)"
+            },
+            new Object[] {"0e-999999999", "0", "DECIMAL(1,0)"},
+            new Object[] {"0E+38", "0", "DECIMAL(1,0)"},
+            new Object[] {"-0E+38", "0", "DECIMAL(1,0)"},
+            new Object[] {"0E+2147483647", "0", "DECIMAL(1,0)"},
+            new Object[] {new BigDecimal(BigInteger.ZERO, Integer.MIN_VALUE), "0", "DECIMAL(1,0)"},
+            new Object[] {new BigDecimal("1E+3"), "1000", "DECIMAL(4,0)"})
+        .flatMap(
+            binding ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC)
+                    .map(type -> Arguments.of(binding[0], type, binding[1], binding[2])));
+  }
+
+  @ParameterizedTest
+  @MethodSource("decimalBindings")
+  void testSetObjectDecimalPreservesValue(
+      Object value, int targetType, String expectedValue, String expectedType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, value, targetType);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    Object boundValue = metadata.getParameterBindings().get(1).value();
+    assertInstanceOf(BigDecimal.class, boundValue);
+    assertEquals(expectedValue, ((BigDecimal) boundValue).toPlainString());
+    assertEquals(expectedType, DatabricksTypeUtil.getDecimalTypeString((BigDecimal) boundValue));
+    statement.setObject(1, value, JDBCType.valueOf(targetType));
+    assertEquals(boundValue, metadata.getParameterBindings().get(1).value());
+    assertEquals(
+        boundValue,
+        BatchParameterSet.from(metadata.getParameterBindings()).getParameters().get(0).value());
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidDecimalBindings")
+  void testSetObjectDecimalRejectsInvalidNumber(Object value, int targetType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, new BigDecimal("123.45"), targetType);
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> statement.setObject(1, value, targetType));
+    assertEquals(DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), exception.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+    assertEquals(1015, exception.getErrorCode());
+    assertInstanceOf(NumberFormatException.class, exception.getCause());
+    assertEquals(
+        "Invalid DECIMAL/NUMERIC value for parameter 1; expected a finite decimal with precision and scale at most 38",
+        exception.getMessage());
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(new BigDecimal("123.45"), metadata.getParameterBindings().get(1).value());
+  }
+
+  static Stream<Arguments> invalidDecimalBindings() {
+    return Stream.of("abc", "", " ", Double.NaN, Double.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)
+        .flatMap(
+            value ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC).map(type -> Arguments.of(value, type)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("decimalNumberBindings")
+  void testSetObjectDecimalWithExplicitScalePreservesNumber(
+      Object value, int targetType, String expectedValue, String expectedType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    BigDecimal expected = new BigDecimal(expectedValue);
+    statement.setObject(1, value, targetType, expected.scale());
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(expected, metadata.getParameterBindings().get(1).value());
+    assertEquals(expectedType, DatabricksTypeUtil.getDecimalTypeString(expected));
+    statement.setObject(1, value, JDBCType.valueOf(targetType), expected.scale());
+    assertEquals(expected, metadata.getParameterBindings().get(1).value());
+  }
+
+  static Stream<Arguments> decimalNumberBindings() {
+    return Stream.concat(
+        decimalBindings().filter(binding -> binding.get()[0] instanceof Number),
+        Stream.of(
+            Arguments.of(new FractionLikeNumber(), Types.DECIMAL, "0.50", "DECIMAL(2,2)"),
+            Arguments.of(2.565d, Types.DECIMAL, "2.57", "DECIMAL(3,2)"),
+            Arguments.of(-2.565d, Types.NUMERIC, "-2.57", "DECIMAL(3,2)")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {Types.DECIMAL, Types.NUMERIC})
+  void testLongZeroPaddedDecimalBindsQuickly(int targetType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, "1", targetType);
+    String padded = "1." + String.join("", Collections.nCopies(25000, "0"));
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2), () -> statement.setObject(1, padded, targetType));
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(BigDecimal.ONE.setScale(37), metadata.getParameterBindings().get(1).value());
+    for (String invalid : new String[] {padded + "1", padded.replace(".", "")}) {
+      DatabricksSQLException exception =
+          assertTimeoutPreemptively(
+              Duration.ofSeconds(2),
+              () ->
+                  assertThrows(
+                      DatabricksSQLException.class,
+                      () -> statement.setObject(1, invalid, targetType)));
+      assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+      assertEquals(1015, exception.getErrorCode());
+      assertEquals(BigDecimal.ONE.setScale(37), metadata.getParameterBindings().get(1).value());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("outOfRangeExplicitDecimalScales")
+  void testExplicitDecimalRejectsOutOfRangeScale(int targetType, int scale) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    DatabricksSQLException exception =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(2),
+            () ->
+                assertThrows(
+                    DatabricksSQLException.class,
+                    () -> statement.setObject(1, 123.4d, targetType, scale)));
+    assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+    assertEquals(1015, exception.getErrorCode());
+  }
+
+  static Stream<Arguments> outOfRangeExplicitDecimalScales() {
+    return Stream.of(Types.DECIMAL, Types.NUMERIC)
+        .flatMap(type -> Stream.of(-39, 39).map(scale -> Arguments.of(type, scale)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("explicitDecimalBoundsCases")
+  void testExplicitDecimalBoundsPreserveRounding(
+      Object value, int targetType, int scale, String expectedValue) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, new BigDecimal("123.45"), targetType);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    Object previousBinding = metadata.getParameterBindings().get(1);
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () -> {
+          if (expectedValue == null) {
+            DatabricksSQLException exception =
+                assertThrows(
+                    DatabricksSQLException.class,
+                    () -> statement.setObject(1, value, targetType, scale));
+            assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+            assertEquals(1015, exception.getErrorCode());
+            assertTrue(exception.getMessage().contains("parameter 1"));
+            assertSame(previousBinding, metadata.getParameterBindings().get(1));
+            DatabricksSQLException jdbcTypeException =
+                assertThrows(
+                    DatabricksSQLException.class,
+                    () -> statement.setObject(1, value, JDBCType.valueOf(targetType), scale));
+            assertEquals("INPUT_VALIDATION_ERROR", jdbcTypeException.getSQLState());
+            assertEquals(1015, jdbcTypeException.getErrorCode());
+            assertTrue(jdbcTypeException.getMessage().contains("parameter 1"));
+            assertSame(previousBinding, metadata.getParameterBindings().get(1));
+          } else {
+            statement.setObject(1, value, targetType, scale);
+            assertEquals(
+                new BigDecimal(expectedValue), metadata.getParameterBindings().get(1).value());
+            statement.setObject(1, value, JDBCType.valueOf(targetType), scale);
+            assertEquals(
+                new BigDecimal(expectedValue), metadata.getParameterBindings().get(1).value());
+          }
+        });
+  }
+
+  static Stream<Arguments> explicitDecimalBoundsCases() {
+    String nines36 = String.join("", Collections.nCopies(36, "9"));
+    return Stream.of(
+            new Object[] {new BigDecimal(nines36 + "99.9"), 0, null},
+            new Object[] {new BigDecimal("-" + nines36 + "99.9"), 0, null},
+            new Object[] {new BigDecimal(nines36 + "9.999"), 2, null},
+            new Object[] {new BigDecimal("1" + nines36 + ".25"), 2, null},
+            new Object[] {new BigDecimal(nines36 + "99.4"), 0, nines36 + "99"},
+            new Object[] {new BigDecimal(nines36 + ".994"), 2, nines36 + ".99"},
+            new Object[] {new ExponentNumber(), 2, null},
+            new Object[] {new BigDecimal("1E+1000000000"), 2, null},
+            new Object[] {new BigDecimal("1E-1000000000"), 2, "0.00"},
+            new Object[] {
+              new BigDecimal("1.235" + String.join("", Collections.nCopies(97, "0"))), 2, "1.24"
+            },
+            new Object[] {123.4d, -1, "1.2E+2"},
+            new Object[] {new BigDecimal("0.005"), 2, "0.01"},
+            new Object[] {new BigDecimal("-0.005"), 2, "-0.01"},
+            new Object[] {new BigDecimal(BigInteger.ZERO, Integer.MIN_VALUE), 2, "0.00"},
+            new Object[] {new BigDecimal("1E+38"), 0, null})
+        .flatMap(
+            input ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC)
+                    .map(type -> Arguments.of(input[0], type, input[1], input[2])));
+  }
+
+  private static final class FractionLikeNumber extends Number {
+    @Override
+    public int intValue() {
+      return 0;
+    }
+
+    @Override
+    public long longValue() {
+      return 0;
+    }
+
+    @Override
+    public float floatValue() {
+      return 0.5f;
+    }
+
+    @Override
+    public double doubleValue() {
+      return 0.5d;
+    }
+
+    @Override
+    public String toString() {
+      return "1/2";
+    }
+  }
+
+  private static final class ExponentNumber extends Number {
+    @Override
+    public int intValue() {
+      return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public long longValue() {
+      return Long.MAX_VALUE;
+    }
+
+    @Override
+    public float floatValue() {
+      return Float.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public double doubleValue() {
+      return Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public String toString() {
+      return "1e1000000000";
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("unrepresentableDecimalBindings")
+  void testSetObjectDecimalRejectsUnrepresentableValue(Object value, int targetType)
+      throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, "123.45", targetType);
+    DatabricksSQLException exception =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(2),
+            () ->
+                assertThrows(
+                    DatabricksSQLException.class, () -> statement.setObject(1, value, targetType)));
+    assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+    assertEquals(1015, exception.getErrorCode());
+    assertInstanceOf(ArithmeticException.class, exception.getCause());
+    assertTrue(exception.getMessage().contains("parameter 1"));
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(new BigDecimal("123.45"), metadata.getParameterBindings().get(1).value());
+  }
+
+  static Stream<Arguments> unrepresentableDecimalBindings() {
+    return Stream.of(
+            "1e2000000000",
+            "1e2147483647",
+            "1e100000000",
+            "1e-999999999",
+            "1e38",
+            "1e-39",
+            1e-40d,
+            new ExponentNumber(),
+            new BigDecimal("1e-999999999"),
+            new BigDecimal(BigInteger.TEN, Integer.MIN_VALUE))
+        .flatMap(
+            value ->
+                Stream.of(Types.DECIMAL, Types.NUMERIC).map(type -> Arguments.of(value, type)));
+  }
+
+  public static Stream<Arguments> decimalWireBindings() {
+    Stream<Arguments> inferred =
+        decimalBindings()
+            .map(
+                binding -> {
+                  Object[] values = binding.get();
+                  return Arguments.of(values[0], values[1], values[2], values[3], false);
+                });
+    Stream<Arguments> explicit =
+        Stream.of(
+                new Object[] {new BigDecimal("1E+3"), "1000", "DECIMAL(4,0)"},
+                new Object[] {new BigDecimal("100.00").stripTrailingZeros(), "100", "DECIMAL(3,0)"},
+                new Object[] {
+                  unexpandableDecimal("1e2000000000"), "1E+2000000000", "DECIMAL(1,-2000000000)"
+                },
+                new Object[] {
+                  unexpandableDecimal("1e100000000"), "1E+100000000", "DECIMAL(1,-100000000)"
+                },
+                new Object[] {
+                  unexpandableDecimal("1e2147483647"), "1E+2147483647", "DECIMAL(1,-2147483647)"
+                },
+                new Object[] {
+                  unexpandableDecimal("1e-999999999"),
+                  "1E-999999999",
+                  "DECIMAL(999999999,999999999)"
+                },
+                new Object[] {
+                  unexpandableDecimal("1." + String.join("", Collections.nCopies(39, "0"))),
+                  "1." + String.join("", Collections.nCopies(39, "0")),
+                  "DECIMAL(40,39)"
+                })
+            .map(binding -> Arguments.of(binding[0], Types.DECIMAL, binding[1], binding[2], true));
+    return Stream.concat(inferred, explicit);
+  }
+
+  private static BigDecimal unexpandableDecimal(String value) {
+    return new BigDecimal(value) {
+      @Override
+      public BigDecimal setScale(int scale) {
+        throw new AssertionError("Out-of-range decimal must not be expanded");
+      }
+
+      @Override
+      public String toPlainString() {
+        throw new AssertionError("Out-of-range decimal must not be expanded");
+      }
+    };
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {Types.DECIMAL, Types.NUMERIC})
+  void testExplicitScaleDecimalStringRejectionIsUnchanged(int targetType) throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class, () -> statement.setObject(1, "123.45", targetType, 2));
+    assertEquals("Invalid object type for DECIMAL/NUMERIC", exception.getMessage());
+    assertEquals("INVALID_STATE", exception.getSQLState());
+    assertEquals(0, exception.getErrorCode());
+  }
+
+  @Test
+  void testInterpolatedDecimalStringIsUnchanged() throws SQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    when(connection.getConnectionContext()).thenReturn(context);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
+    statement.setObject(1, "123.45", Types.DECIMAL);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(
+        "SELECT '123.45'",
+        com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL(
+            "SELECT ?", metadata.getParameterBindings()));
   }
 
   @Test

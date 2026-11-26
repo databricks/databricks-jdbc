@@ -11,12 +11,20 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.DoubleAccumulator;
+import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -598,6 +606,73 @@ public class DatabricksTypeUtil {
         throw new DatabricksSQLFeatureNotSupportedException(
             "Unsupported mapping of Thrift to ArrowType: " + typeId);
     }
+  }
+
+  /**
+   * Custom Numbers with non-decimal text fall back to {@code doubleValue()}, which can lose
+   * precision beyond about 15-17 significant digits.
+   */
+  public static BigDecimal toBigDecimal(Object value) {
+    if (value instanceof BigDecimal) {
+      return (BigDecimal) value;
+    }
+    if (value instanceof BigInteger) {
+      return new BigDecimal((BigInteger) value);
+    }
+    if (value instanceof Byte
+        || value instanceof Short
+        || value instanceof Integer
+        || value instanceof Long
+        || value instanceof AtomicInteger
+        || value instanceof AtomicLong
+        || value instanceof LongAccumulator
+        || value instanceof LongAdder) {
+      return BigDecimal.valueOf(((Number) value).longValue());
+    }
+    if (value instanceof Float) {
+      return new BigDecimal(Float.toString((Float) value));
+    }
+    if (value instanceof Double
+        || value instanceof DoubleAdder
+        || value instanceof DoubleAccumulator) {
+      return new BigDecimal(Double.toString(((Number) value).doubleValue()));
+    }
+    if (value instanceof Number) {
+      try {
+        return new BigDecimal(value.toString().trim());
+      } catch (NumberFormatException exception) {
+        return BigDecimal.valueOf(((Number) value).doubleValue());
+      }
+    }
+    return new BigDecimal(value.toString().trim());
+  }
+
+  public static boolean isDecimalWithinBounds(BigDecimal value) {
+    long scale = value.scale();
+    long normalizedScale = Math.max(0, scale);
+    long normalizedPrecision = Math.max(value.precision() - Math.min(0, scale), normalizedScale);
+    return normalizedPrecision <= 38 && normalizedScale <= 38;
+  }
+
+  public static BigDecimal normalizeDecimal(BigDecimal value, boolean validatePrecision) {
+    if (!isDecimalWithinBounds(value)) {
+      if (!validatePrecision) {
+        return value;
+      }
+      if (value.signum() == 0) {
+        return BigDecimal.ZERO;
+      }
+      long integerDigits = (long) value.precision() - value.scale();
+      if (integerDigits > 38) {
+        throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
+      }
+      int targetScale = (int) Math.max(0, Math.min(value.scale(), 38 - Math.max(integerDigits, 0)));
+      if ((long) value.scale() - targetScale >= value.precision()) {
+        throw new ArithmeticException("DECIMAL precision and scale must not exceed 38");
+      }
+      value = value.setScale(targetScale, RoundingMode.UNNECESSARY);
+    }
+    return value.scale() < 0 ? value.setScale(0) : value;
   }
 
   /*

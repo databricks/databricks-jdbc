@@ -12,6 +12,8 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.arrow.vector.types.DateUnit;
@@ -439,6 +441,29 @@ class DatabricksTypeUtilTest {
     // Very small value with trailing zeros (ensures scale is preserved)
     assertEquals(
         "DECIMAL(8,8)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00000123")));
+  }
+
+  @Test
+  void testNormalizeDecimalLongTrailingZeros() {
+    String zeros = String.join("", Collections.nCopies(100000, "0"));
+    BigDecimal fractional =
+        new BigDecimal("1." + zeros) {
+          @Override
+          public BigDecimal stripTrailingZeros() {
+            throw new AssertionError("Do not strip an unbounded coefficient");
+          }
+        };
+    assertEquals(
+        BigDecimal.ONE.setScale(37),
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(2), () -> DatabricksTypeUtil.normalizeDecimal(fractional, true)));
+    BigDecimal integral = new BigDecimal("1" + zeros);
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () ->
+            assertThrows(
+                ArithmeticException.class,
+                () -> DatabricksTypeUtil.normalizeDecimal(integral, true)));
   }
 
   @Test

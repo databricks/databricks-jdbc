@@ -7,6 +7,8 @@ import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfi
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.isDecimalWithinBounds;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.normalizeDecimal;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.CommandName.LIST_FUNCTIONS;
 
 import com.databricks.jdbc.api.impl.*;
@@ -229,7 +231,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
-      typeString = getDecimalTypeString((BigDecimal) value);
+      BigDecimal decimalValue = normalizeDecimal((BigDecimal) value, false);
+      typeString = getDecimalTypeString(decimalValue);
+      value =
+          isDecimalWithinBounds(decimalValue)
+              ? decimalValue.toPlainString()
+              : decimalValue.toString();
     }
     return new TSparkParameter()
         .setOrdinal(ordinal)

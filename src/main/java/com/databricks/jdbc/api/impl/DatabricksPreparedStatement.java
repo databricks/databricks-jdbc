@@ -3,6 +3,9 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.isDecimalWithinBounds;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.normalizeDecimal;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.toBigDecimal;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 import static com.databricks.jdbc.common.util.SQLInterpolator.surroundPlaceholdersWithQuotes;
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
@@ -361,6 +364,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     checkIfClosed();
     String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
     if (!Objects.equals(databricksType, NULL)) {
+      if (!interpolateParameters
+          && (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC)
+          && (x instanceof String || x instanceof Number)) {
+        try {
+          x = normalizeDecimal(toBigDecimal(x), true);
+        } catch (NumberFormatException | ArithmeticException exception) {
+          throw new DatabricksSQLException(
+              "Invalid DECIMAL/NUMERIC value for parameter "
+                  + parameterIndex
+                  + "; expected a finite decimal with precision and scale at most 38",
+              DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+              DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(),
+              exception);
+        }
+      }
       setObject(parameterIndex, x, databricksType);
       return;
     }
@@ -611,16 +629,36 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
     if (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC) {
       BigDecimal bd;
-      if (x instanceof BigDecimal) {
-        bd = (BigDecimal) x;
-      } else if (x instanceof Number) {
-        // Convert Number to BigDecimal. Using valueOf preserves the value for double inputs.
-        bd = BigDecimal.valueOf(((Number) x).doubleValue());
+      if (x instanceof Number) {
+        bd = toBigDecimal(x);
       } else {
         throw new DatabricksSQLException(
             "Invalid object type for DECIMAL/NUMERIC", DatabricksDriverErrorCode.INVALID_STATE);
       }
-      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP); // Round up to nearest value.
+      if (bd.signum() == 0) {
+        bd = BigDecimal.ZERO;
+      }
+      long integerDigits = (long) bd.precision() - bd.scale();
+      if (scaleOrLength < -38 || scaleOrLength > 38 || integerDigits > 38) {
+        throw new DatabricksSQLException(
+            "Invalid DECIMAL/NUMERIC precision or scale for parameter "
+                + parameterIndex
+                + "; scale must be between -38 and 38 and integer digits must not exceed 38",
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+      }
+      bd =
+          integerDigits < -(long) scaleOrLength
+              ? BigDecimal.ZERO.setScale(scaleOrLength)
+              : bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
+      if (!isDecimalWithinBounds(bd)) {
+        throw new DatabricksSQLException(
+            "Invalid DECIMAL/NUMERIC precision or scale for parameter "
+                + parameterIndex
+                + "; precision and scale must not exceed 38",
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+      }
       setObject(parameterIndex, bd, databricksType);
     } else {
       setObject(parameterIndex, x, databricksType);

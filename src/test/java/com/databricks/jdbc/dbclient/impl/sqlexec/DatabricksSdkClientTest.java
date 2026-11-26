@@ -1453,6 +1453,56 @@ public class DatabricksSdkClientTest {
     assertEquals("123.45", result.getValue());
   }
 
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest#decimalWireBindings")
+  void testDecimalBindingPreservesValue(
+      Object value,
+      int targetType,
+      String expectedValue,
+      String expectedType,
+      boolean useSetBigDecimal)
+      throws Exception {
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    DatabricksConnection connection = new DatabricksConnection(context, client);
+    connection.open();
+    DatabricksPreparedStatement prepared = new DatabricksPreparedStatement(connection, "SELECT ?");
+    if (useSetBigDecimal) {
+      prepared.setBigDecimal(1, (BigDecimal) value);
+    } else {
+      prepared.setObject(1, value, targetType);
+    }
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) prepared.getParameterMetaData();
+    StatementParameterListItem parameter =
+        client.mapToParameterListItem(metadata.getParameterBindings().get(1));
+    assertEquals(expectedType, parameter.getType());
+    assertEquals(expectedValue, parameter.getValue());
+    assertEquals(1, ((PositionalStatementParameterListItem) parameter).getOrdinal());
+    BatchParameterSet parameterSet = BatchParameterSet.from(metadata.getParameterBindings());
+    prepared.setObject(1, null, targetType);
+    client.executeStatementBatch(
+        "INSERT INTO target VALUES (?)",
+        warehouse,
+        List.of(parameterSet, BatchParameterSet.from(metadata.getParameterBindings())),
+        StatementType.UPDATE,
+        connection.getSession(),
+        prepared);
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    List<StatementParameterSet> parameterSets =
+        new ArrayList<>(captor.getValue().getParameterSets());
+    StatementParameterListItem batched = parameterSets.get(0).getParameters().iterator().next();
+    assertEquals(expectedType, batched.getType());
+    assertEquals(expectedValue, batched.getValue());
+    assertEquals(0, ((PositionalStatementParameterListItem) batched).getOrdinal());
+    assertNull(parameterSets.get(1).getParameters().iterator().next().getValue());
+  }
+
   @Test
   public void testDecimalTypeWithScaleGreaterThanPrecision() throws DatabricksSQLException {
     BigDecimal decimalValue = new BigDecimal("0.000123"); // scale: 6, precision: 3
