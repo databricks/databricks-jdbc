@@ -499,8 +499,8 @@ public class ComplexDataTypeParser {
     if (type == null || type.isEmpty()) {
       return null;
     }
-    char first = type.charAt(0);
-    if (first != 'D' && first != 'd' && first != 'N' && first != 'n') {
+    if (!type.regionMatches(true, 0, "DEC", 0, 3)
+        && !type.regionMatches(true, 0, "NUMERIC", 0, 7)) {
       return null;
     }
     Matcher matcher = DECIMAL_TYPE.matcher(type);
@@ -684,7 +684,7 @@ public class ComplexDataTypeParser {
    */
   public String formatMapString(String jsonString, String mapMetadata) {
     try {
-      boolean hasDecimal = mapMetadata != null && DECIMAL_TYPE.matcher(mapMetadata).find();
+      boolean hasDecimal = hasDecimalType(mapMetadata);
       JsonNode node =
           hasDecimal
               ? readDecimalJson(jsonString, mapMetadata)
@@ -769,13 +769,21 @@ public class ComplexDataTypeParser {
   }
 
   private static JsonNode readDecimalJson(String json, String metadata) throws IOException {
-    if (metadata == null || !DECIMAL_TYPE.matcher(metadata).find()) {
+    if (!hasDecimalType(metadata)) {
       return JsonUtil.getMapper().readTree(json);
     }
     try (JsonParser parser = JsonUtil.getMapper().createParser(json)) {
       parser.nextToken();
       return readDecimalNode(parser, metadata);
     }
+  }
+
+  private static boolean hasDecimalType(String metadata) {
+    if (metadata == null) {
+      return false;
+    }
+    String upper = metadata.toUpperCase(Locale.ROOT);
+    return upper.contains("DEC") || upper.contains("NUMERIC");
   }
 
   private static JsonNode readDecimalNode(JsonParser parser, String metadata) throws IOException {
