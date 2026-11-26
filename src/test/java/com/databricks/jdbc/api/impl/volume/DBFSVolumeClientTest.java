@@ -3,6 +3,11 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -10,11 +15,13 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.error.details.ErrorDetails;
 import com.databricks.sdk.core.error.platform.NotFound;
+import com.databricks.sdk.core.http.Request;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,6 +45,35 @@ class DBFSVolumeClientTest {
     // DBFS Client Spy
     when(mockWorkSpaceClient.apiClient()).thenReturn(mockAPIClient);
     client = spy(new DBFSVolumeClient(mockWorkSpaceClient));
+  }
+
+  @Test
+  void testClusterPathOrgIdReachesVolumeRequest() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;AuthMech=3;"
+                + "httpPath=/sql/protocolv1/o/6051921418418893/0528-cluster",
+            new Properties());
+    DatabricksClientConfiguratorManager manager = mock(DatabricksClientConfiguratorManager.class);
+    ClientConfigurator configurator = mock(ClientConfigurator.class);
+    when(manager.getConfigurator(context)).thenReturn(configurator);
+    when(configurator.getWorkspaceClient()).thenReturn(mockWorkSpaceClient);
+    try (MockedStatic<DatabricksClientConfiguratorManager> managerStatic =
+            mockStatic(DatabricksClientConfiguratorManager.class);
+        MockedStatic<DatabricksHttpClientFactory> factoryStatic =
+            mockStatic(DatabricksHttpClientFactory.class)) {
+      managerStatic.when(DatabricksClientConfiguratorManager::getInstance).thenReturn(manager);
+      factoryStatic
+          .when(DatabricksHttpClientFactory::getInstance)
+          .thenReturn(mock(DatabricksHttpClientFactory.class));
+      DBFSVolumeClient volumeClient = new DBFSVolumeClient(context);
+
+      volumeClient.getCreateUploadUrlResponse("/Volumes/catalog/schema/volume/file");
+
+      ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
+      verify(mockAPIClient).execute(request.capture(), eq(CreateUploadUrlResponse.class));
+      assertEquals("6051921418418893", request.getValue().getHeaders().get("x-databricks-org-id"));
+    }
   }
 
   @Test
