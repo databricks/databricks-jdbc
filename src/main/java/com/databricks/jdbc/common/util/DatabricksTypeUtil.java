@@ -46,7 +46,7 @@ public class DatabricksTypeUtil {
       Instant.parse("9999-12-01T00:00:00Z").toEpochMilli();
   private static final DateTimeFormatter ISO_YEAR =
       new DateTimeFormatterBuilder()
-          .appendValue(ChronoField.YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
+          .appendValue(ChronoField.YEAR, 4, 10, SignStyle.NORMAL)
           .toFormatter(Locale.ROOT);
   public static final String BIGINT = "BIGINT";
   public static final String LONG = "LONG";

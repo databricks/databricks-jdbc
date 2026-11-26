@@ -68,14 +68,8 @@ public final class BatchParameterSet {
   }
 
   private static Object snapshotValue(Object value) {
-    if (value instanceof Timestamp) {
-      Timestamp timestamp = (Timestamp) value;
-      Timestamp copy = new Timestamp(timestamp.getTime());
-      copy.setNanos(timestamp.getNanos());
-      return copy;
-    }
-    if (value instanceof Date) {
-      return new Date(((Date) value).getTime());
+    if (value instanceof Timestamp || value instanceof Date) {
+      return ((java.util.Date) value).clone();
     }
     if (value instanceof Time) {
       return new Time(((Time) value).getTime());

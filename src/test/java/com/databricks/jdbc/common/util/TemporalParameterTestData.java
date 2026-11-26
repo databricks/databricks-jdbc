@@ -84,10 +84,10 @@ public final class TemporalParameterTestData {
             OffsetDateTime.parse("+10000-01-02T03:04:05.123456Z"), "+10000-01-02T03:04:05.123456Z"),
         timestamp(legacyTimestamp(-100), "-0100-01-02 03:04:05.123456789"),
         timestamp(legacyTimestamp(0), "0000-01-02 03:04:05.123456789"),
-        timestamp(legacyTimestamp(10000), "+10000-01-02 03:04:05.123456789"),
+        timestamp(legacyTimestamp(10000), "10000-01-02 03:04:05.123456789"),
         date(new Date(legacyTimestamp(-100).getTime()), "-0100-01-02"),
         date(new Date(legacyTimestamp(0).getTime()), "0000-01-02"),
-        date(new Date(legacyTimestamp(10000).getTime()), "+10000-01-02"),
+        date(new Date(legacyTimestamp(10000).getTime()), "10000-01-02"),
         date(LocalDate.of(-100, 1, 2), "-0100-01-02"),
         date(LocalDate.of(10000, 1, 2), "+10000-01-02"),
         timestamp(
@@ -257,13 +257,13 @@ public final class TemporalParameterTestData {
         new TemporalValue(
             legacyTimestamp(-100), ColumnInfoTypeName.TIMESTAMP, "-0100-01-02 03:04:05.123456789"),
         new TemporalValue(
+            new Date(legacyTimestamp(-100).getTime()), ColumnInfoTypeName.DATE, "-0100-01-02"),
+        new TemporalValue(
             new Date(legacyTimestamp(0).getTime()), ColumnInfoTypeName.DATE, "0000-01-02"),
         new TemporalValue(
-            legacyTimestamp(10000),
-            ColumnInfoTypeName.TIMESTAMP,
-            "+10000-01-02 03:04:05.123456789"),
+            legacyTimestamp(10000), ColumnInfoTypeName.TIMESTAMP, "10000-01-02 03:04:05.123456789"),
         new TemporalValue(
-            new Date(legacyTimestamp(10000).getTime()), ColumnInfoTypeName.DATE, "+10000-01-02"));
+            new Date(legacyTimestamp(10000).getTime()), ColumnInfoTypeName.DATE, "10000-01-02"));
   }
 
   private static Arguments timestamp(Object value, String expected) {

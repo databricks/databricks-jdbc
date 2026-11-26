@@ -59,7 +59,16 @@ class DatabricksTypeUtilTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"-1,-0001", "0,0000", "1,0001", "2,0002", "9998,9998", "9999,9999", "10000,+10000"})
+  @CsvSource({
+    "-100,-0100",
+    "-1,-0001",
+    "0,0000",
+    "1,0001",
+    "2,0002",
+    "9998,9998",
+    "9999,9999",
+    "10000,10000"
+  })
   void testLegacyParameterYearBoundaries(int year, String expectedYear) {
     TimeZone original = TimeZone.getDefault();
     try {
@@ -76,6 +85,12 @@ class DatabricksTypeUtilTest {
         assertEquals(
             expectedYear + "-01-02 00:00:00.0",
             DatabricksTypeUtil.getParameterValueString(ColumnInfoTypeName.TIMESTAMP, timestamp));
+        assertEquals(
+            expectedYear + "-01-02 00:00:00.0",
+            DatabricksTypeUtil.getParameterValueString(ColumnInfoTypeName.STRING, timestamp));
+        if (year == 10000) {
+          assertEquals("10000-01-02 00:00:00.0", timestamp.toString());
+        }
         assertEquals(
             expectedYear + "-01-02",
             DatabricksTypeUtil.getParameterValueString(
