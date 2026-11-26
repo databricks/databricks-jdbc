@@ -23,8 +23,12 @@ import java.sql.Struct;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -34,31 +38,57 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class NestedDecimalResultSetTest {
-  private static final BigDecimal WIDE = new BigDecimal("12345678901234567890.0123456789");
-  private static final FieldType DECIMAL = FieldType.nullable(new ArrowType.Decimal(38, 10, 128));
+  static Stream<Arguments> decimalCases() {
+    return Stream.of(
+            new String[] {"12345678901234567890.0123456789", "38", "10"},
+            new String[] {"0.0000000000", "20", "10"},
+            new String[] {"0.00000012", "10", "8"},
+            new String[] {"0.00000000000000000000000000000000000001", "38", "38"})
+        .flatMap(
+            sample ->
+                Stream.of(false, true)
+                    .map(
+                        complex ->
+                            Arguments.of(
+                                complex,
+                                new BigDecimal(sample[0]),
+                                Integer.parseInt(sample[1]),
+                                Integer.parseInt(sample[2]))));
+  }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void realArrowArrayKeepsDecimals(boolean complex) throws Exception {
+  @MethodSource("decimalCases")
+  void realArrowArrayKeepsDecimals(boolean complex, BigDecimal decimal, int precision, int scale)
+      throws Exception {
     try (RootAllocator allocator = new RootAllocator();
         ListVector vector = ListVector.empty("arr", allocator)) {
-      DecimalVector decimals = (DecimalVector) vector.addOrGetVector(DECIMAL).getVector();
+      DecimalVector decimals =
+          (DecimalVector)
+              vector
+                  .addOrGetVector(FieldType.nullable(new ArrowType.Decimal(precision, scale, 128)))
+                  .getVector();
       vector.allocateNew();
       vector.startNewValue(0);
-      decimals.setSafe(0, WIDE);
+      decimals.setSafe(0, decimal);
       decimals.setNull(1);
       vector.endValue(0, 2);
       vector.setValueCount(1);
       try (ResultSet result =
-          resultSet(vector, "ARRAY<DECIMAL(38,10)>", ColumnInfoTypeName.ARRAY, complex)) {
-        assertEquals("[" + WIDE.toPlainString() + ",null]", result.getString(1));
+          resultSet(
+              vector,
+              "ARRAY<DECIMAL(" + precision + "," + scale + ")>",
+              ColumnInfoTypeName.ARRAY,
+              complex)) {
+        assertEquals("[" + decimal.toPlainString() + ",null]", result.getString(1));
         if (complex) {
-          assertArrayEquals(new Object[] {WIDE, null}, (Object[]) result.getArray(1).getArray());
+          assertArrayEquals(new Object[] {decimal, null}, (Object[]) result.getArray(1).getArray());
           assertArrayEquals(
-              new Object[] {WIDE, null},
+              new Object[] {decimal, null},
               (Object[]) ((java.sql.Array) result.getObject(1)).getArray());
         } else {
           assertEquals(result.getString(1), result.getObject(1));
@@ -69,20 +99,29 @@ class NestedDecimalResultSetTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void realArrowStructKeepsDecimals(boolean complex) throws Exception {
+  @MethodSource("decimalCases")
+  void realArrowStructKeepsDecimals(boolean complex, BigDecimal decimal, int precision, int scale)
+      throws Exception {
     try (RootAllocator allocator = new RootAllocator();
         StructVector vector = StructVector.empty("st", allocator)) {
-      DecimalVector decimals = vector.addOrGet("d", DECIMAL, DecimalVector.class);
+      DecimalVector decimals =
+          vector.addOrGet(
+              "d",
+              FieldType.nullable(new ArrowType.Decimal(precision, scale, 128)),
+              DecimalVector.class);
       vector.allocateNew();
       vector.setIndexDefined(0);
-      decimals.setSafe(0, WIDE);
+      decimals.setSafe(0, decimal);
       vector.setValueCount(1);
       try (ResultSet result =
-          resultSet(vector, "STRUCT<d:DECIMAL(38,10)>", ColumnInfoTypeName.STRUCT, complex)) {
-        assertEquals("{\"d\":" + WIDE.toPlainString() + "}", result.getString(1));
+          resultSet(
+              vector,
+              "STRUCT<d:DECIMAL(" + precision + "," + scale + ")>",
+              ColumnInfoTypeName.STRUCT,
+              complex)) {
+        assertEquals("{\"d\":" + decimal.toPlainString() + "}", result.getString(1));
         if (complex) {
-          assertArrayEquals(new Object[] {WIDE}, ((Struct) result.getObject(1)).getAttributes());
+          assertArrayEquals(new Object[] {decimal}, ((Struct) result.getObject(1)).getAttributes());
         } else {
           assertEquals(result.getString(1), result.getObject(1));
         }
@@ -91,15 +130,19 @@ class NestedDecimalResultSetTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void realArrowMapKeepsDecimals(boolean complex) throws Exception {
+  @MethodSource("decimalCases")
+  void realArrowMapKeepsDecimals(boolean complex, BigDecimal decimal, int precision, int scale)
+      throws Exception {
     Field entries =
         new Field(
             "entries",
             FieldType.notNullable(new ArrowType.Struct()),
             Arrays.asList(
                 new Field("key", FieldType.notNullable(new ArrowType.Utf8()), null),
-                new Field("value", DECIMAL, null)));
+                new Field(
+                    "value",
+                    FieldType.nullable(new ArrowType.Decimal(precision, scale, 128)),
+                    null)));
     Field field =
         new Field(
             "mp", FieldType.nullable(new ArrowType.Map(false)), Collections.singletonList(entries));
@@ -110,17 +153,96 @@ class NestedDecimalResultSetTest {
       vector.startNewValue(0);
       data.setIndexDefined(0);
       data.getChild("key", VarCharVector.class).setSafe(0, new byte[] {'d'});
-      data.getChild("value", DecimalVector.class).setSafe(0, WIDE);
+      data.getChild("value", DecimalVector.class).setSafe(0, decimal);
       vector.endValue(0, 1);
       vector.setValueCount(1);
       try (ResultSet result =
-          resultSet(vector, "MAP<STRING,DECIMAL(38,10)>", ColumnInfoTypeName.MAP, complex)) {
-        assertEquals("{\"d\":" + WIDE.toPlainString() + "}", result.getString(1));
+          resultSet(
+              vector,
+              "MAP<STRING,DECIMAL(" + precision + "," + scale + ")>",
+              ColumnInfoTypeName.MAP,
+              complex)) {
+        assertEquals("{\"d\":" + decimal.toPlainString() + "}", result.getString(1));
         if (complex) {
-          assertEquals(WIDE, ((Map<?, ?>) result.getObject(1)).get("d"));
+          assertEquals(decimal, ((Map<?, ?>) result.getObject(1)).get("d"));
         } else {
           assertEquals(result.getString(1), result.getObject(1));
         }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void realArrowDecimalMapKeyUsesPlainScale(boolean complex) throws Exception {
+    Field entries =
+        new Field(
+            "entries",
+            FieldType.notNullable(new ArrowType.Struct()),
+            Arrays.asList(
+                new Field("key", FieldType.notNullable(new ArrowType.Decimal(38, 18, 128)), null),
+                new Field("value", FieldType.nullable(new ArrowType.Int(32, true)), null)));
+    Field field =
+        new Field(
+            "mp", FieldType.nullable(new ArrowType.Map(false)), Collections.singletonList(entries));
+    try (RootAllocator allocator = new RootAllocator();
+        MapVector vector = (MapVector) field.createVector(allocator)) {
+      vector.allocateNew();
+      StructVector data = (StructVector) vector.getDataVector();
+      vector.startNewValue(0);
+      data.setIndexDefined(0);
+      data.getChild("key", DecimalVector.class).setSafe(0, new BigDecimal("0.000000000000000000"));
+      data.getChild("value", IntVector.class).setSafe(0, 1);
+      vector.endValue(0, 1);
+      vector.setValueCount(1);
+      try (ResultSet result =
+          resultSet(vector, "MAP<DECIMAL(38,18),INT>", ColumnInfoTypeName.MAP, complex)) {
+        assertEquals(
+            complex ? "{\"0.000000000000000000\":1}" : "{0.000000000000000000:1}",
+            result.getString(1));
+        if (complex) {
+          assertEquals(1, ((Map<?, ?>) result.getObject(1)).get("0.000000000000000000"));
+        } else {
+          assertEquals(result.getString(1), result.getObject(1));
+        }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void realArrowFieldNamesDoNotChangeNondecimalLeaves(boolean complex) throws Exception {
+    try (RootAllocator allocator = new RootAllocator();
+        StructVector vector = StructVector.empty("st", allocator)) {
+      BigIntVector decision =
+          vector.addOrGet(
+              "decision", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+      VarCharVector description =
+          vector.addOrGet(
+              "description", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
+      Float8Vector floating =
+          vector.addOrGet(
+              "f",
+              FieldType.nullable(
+                  new ArrowType.FloatingPoint(
+                      org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE)),
+              Float8Vector.class);
+      vector.allocateNew();
+      vector.setIndexDefined(0);
+      decision.setSafe(0, 9007199254740993L);
+      description.setSafe(0, new byte[] {'x'});
+      floating.setSafe(0, 1.0E7);
+      vector.setValueCount(1);
+      try (ResultSet result =
+          resultSet(
+              vector,
+              "STRUCT<decision:BIGINT,description:STRING,f:DOUBLE>",
+              ColumnInfoTypeName.STRUCT,
+              complex)) {
+        assertEquals(
+            "{\"decision\":9007199254740993,\"description\":\"x\",\"f\":"
+                + (complex ? "1.0E7}" : "1.0E+7}"),
+            result.getString(1));
       }
     }
   }

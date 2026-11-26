@@ -2,6 +2,8 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.Struct;
@@ -14,6 +16,85 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class NestedDecimalTest {
   private final ComplexDataTypeParser parser = new ComplexDataTypeParser();
+
+  @Test
+  void defaultDecimalsUsePlainNotationWithoutChangingOtherLeaves() {
+    assertEquals(
+        "[0.0000000000,0.0000001200]",
+        parser.formatComplexTypeString("[0E-10,1.200E-7]", "ARRAY", "ARRAY<DECIMAL(20,10)>"));
+    assertEquals(
+        "{\"d\":0.00000012,\"f\":1.0E+7}",
+        parser.formatComplexTypeString(
+            "{\"d\":1.2E-7,\"f\":1.0E7}", "STRUCT", "STRUCT<d:DECIMAL(10,8),f:DOUBLE>"));
+    String json = "[1.0E+7, -0.0, 1e-7]";
+    assertEquals(json, parser.formatComplexTypeString(json, "ARRAY", "ARRAY<DOUBLE>"));
+  }
+
+  @Test
+  void decimalMapKeysUsePlainDeclaredScale() throws Exception {
+    String type = "MAP<DECIMAL(38,18),INT>";
+    for (String json : new String[] {"{\"0E-18\":1}", "[{\"key\":0E-18,\"value\":1}]"}) {
+      Map<String, Object> map = parser.parseJsonStringToDbMap(json, type);
+      assertEquals(1, map.get("0.000000000000000000"));
+      assertEquals("{\"0.000000000000000000\":1}", map.toString());
+    }
+  }
+
+  @Test
+  void decimalRoundingMatchesTopLevel() throws Exception {
+    assertEquals(
+        new BigDecimal("1.24"),
+        ((Object[]) parser.parseJsonStringToDbArray("[1.235]", "ARRAY<DECIMAL(10,2)>").getArray())
+            [0]);
+    assertEquals(
+        "{\"d\":1.24}",
+        parser.formatMapString("[{\"key\":\"d\",\"value\":1.235}]", "MAP<STRING,DECIMAL(10,2)>"));
+  }
+
+  @Test
+  void malformedDecimalsHaveDriverParsingErrors() {
+    for (String json : new String[] {"[\"abc\"]", "", "null", "[1]", "[\"1E+2147483647\"]"}) {
+      String type = json.equals("[1]") ? "ARRAY<DECIMAL(10,2147483648)>" : "ARRAY<DECIMAL(10,2)>";
+      DatabricksParsingException error =
+          assertThrows(
+              DatabricksParsingException.class, () -> parser.parseJsonStringToDbArray(json, type));
+      assertEquals(DatabricksDriverErrorCode.JSON_PARSING_ERROR.getCode(), error.getErrorCode());
+      assertEquals(DatabricksDriverErrorCode.JSON_PARSING_ERROR.name(), error.getSQLState());
+    }
+  }
+
+  @Test
+  void cachedPlansIgnoreFieldNames() {
+    String type = "STRUCT<decision:BIGINT,description:STRING,`DECIMAL`:DOUBLE>";
+    ComplexTypePlan plan = ComplexTypePlan.of(type);
+    assertFalse(plan.containsDecimal);
+    assertSame(plan, ComplexTypePlan.of(type));
+    assertTrue(ComplexTypePlan.of("ARRAY<STRUCT<d:decimal(20,10)>>").containsDecimal);
+    String json = "{\"decision\":9007199254740993,\"description\":\"x\",\"DECIMAL\":1.0E7}";
+    assertEquals(
+        "{\"decision\":9007199254740993,\"description\":\"x\",\"DECIMAL\":1.0E+7}",
+        parser.formatComplexTypeString(json, "STRUCT", type));
+  }
+
+  @Test
+  void parsesEachTypeOnceAcrossRows() throws Exception {
+    String type = "ARRAY<STRUCT<cached_decimal:DECIMAL(25,10)>>";
+    ComplexTypePlan.CACHE.invalidateAll();
+    try (org.mockito.MockedStatic<MetadataParser> metadata =
+        org.mockito.Mockito.mockStatic(
+            MetadataParser.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+      for (int row = 0; row < 3; row++) {
+        parser.parseJsonStringToDbArray(
+            "[{\"cached_decimal\":1.00},{\"cached_decimal\":2.00}]", type);
+      }
+      metadata.verify(() -> MetadataParser.parseArrayMetadata(type), org.mockito.Mockito.times(1));
+      metadata.verify(
+          () -> MetadataParser.parseStructMetadata("STRUCT<cached_decimal:DECIMAL(25,10)>"),
+          org.mockito.Mockito.times(1));
+    } finally {
+      ComplexTypePlan.CACHE.invalidateAll();
+    }
+  }
 
   @ParameterizedTest
   @CsvSource({

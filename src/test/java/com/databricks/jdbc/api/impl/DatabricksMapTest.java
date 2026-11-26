@@ -23,13 +23,15 @@ public class DatabricksMapTest {
   @BeforeEach
   public void setUp() {
     // Initialize Mockito's MockedStatic for MetadataParser before each test
-    metadataParserMock = Mockito.mockStatic(MetadataParser.class);
+    ComplexTypePlan.CACHE.invalidateAll();
+    metadataParserMock = Mockito.mockStatic(MetadataParser.class, CALLS_REAL_METHODS);
   }
 
   @AfterEach
   public void tearDown() {
     // Close the MockedStatic context after each test
     metadataParserMock.close();
+    ComplexTypePlan.CACHE.invalidateAll();
   }
 
   /**
@@ -65,7 +67,7 @@ public class DatabricksMapTest {
     assertEquals("value2", databricksMap.get("key2"), "Value for 'key2' should be 'value2'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with different key and value types. */
@@ -88,7 +90,7 @@ public class DatabricksMapTest {
     assertEquals(false, databricksMap.get(2), "Value for key 2 should be false");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with nested Struct values. */
@@ -144,9 +146,9 @@ public class DatabricksMapTest {
     assertEquals("Bob", user2Attributes[1], "User2 name should be Bob");
 
     // Verify that parseMapMetadataParts and parseStructMetadata were called appropriately
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"), times(2));
+        () -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"), atLeastOnce());
   }
 
   /** Test the constructor with nested Array values. */
@@ -195,8 +197,9 @@ public class DatabricksMapTest {
     assertEquals("date", fruits2Elements[1], "Second element should be 'date'");
 
     // Verify that parseMapMetadataParts and parseArrayMetadata were called appropriately
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
-    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(2));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
+    metadataParserMock.verify(
+        () -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), atLeastOnce());
   }
 
   /**
@@ -231,7 +234,7 @@ public class DatabricksMapTest {
         "Exception message should indicate conversion failure for key");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   @Test
@@ -263,7 +266,7 @@ public class DatabricksMapTest {
     assertTrue(databricksMap.isEmpty(), "DatabricksMap should be empty");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with null values in the original map. */
@@ -287,7 +290,7 @@ public class DatabricksMapTest {
     assertEquals("value2", databricksMap.get("key2"), "Value for 'key2' should be 'value2'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the size() method. */
@@ -308,7 +311,7 @@ public class DatabricksMapTest {
     assertEquals(3, databricksMap.size(), "Map size should be 3");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the isEmpty() method. */
@@ -330,7 +333,7 @@ public class DatabricksMapTest {
     assertFalse(databricksMap.isEmpty(), "Map should not be empty after adding an entry");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the containsKey() method. */
@@ -350,7 +353,7 @@ public class DatabricksMapTest {
     assertFalse(databricksMap.containsKey("key2"), "Map should not contain key 'key2'");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the containsValue() method. */
@@ -371,7 +374,7 @@ public class DatabricksMapTest {
     assertFalse(databricksMap.containsValue("value2"), "Map should not contain value 'value2'");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the get() method. */
@@ -392,7 +395,7 @@ public class DatabricksMapTest {
     assertNull(databricksMap.get("key3"), "Value for non-existent key 'key3' should be null");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the put() method. */
@@ -428,7 +431,7 @@ public class DatabricksMapTest {
     assertEquals(2, databricksMap.size(), "Map size should remain 2 after updating an entry");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the remove() method. */
@@ -461,7 +464,7 @@ public class DatabricksMapTest {
         "Map size should remain 1 after attempting to remove non-existent key");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the putAll() method. */
@@ -493,7 +496,7 @@ public class DatabricksMapTest {
     assertEquals("value3", databricksMap.get("key3"), "Value for 'key3' should be 'value3'");
 
     // Verify that parseMapMetadataParts was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the clear() method. */
@@ -521,7 +524,7 @@ public class DatabricksMapTest {
     assertEquals(0, databricksMap.size(), "Map size should be 0 after clear");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the keySet() method. */
@@ -544,7 +547,7 @@ public class DatabricksMapTest {
     assertTrue(keys.contains("key2"), "Key set should contain 'key2'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the values() method. */
@@ -567,7 +570,7 @@ public class DatabricksMapTest {
     assertTrue(values.contains("value2"), "Values collection should contain 'value2'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the entrySet() method. */
@@ -598,7 +601,7 @@ public class DatabricksMapTest {
     }
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with binary type values. */
@@ -627,7 +630,7 @@ public class DatabricksMapTest {
         "Value for 'data2' should match the binary data");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with DATE type values. */
@@ -656,7 +659,7 @@ public class DatabricksMapTest {
         "Value for 'birthday2' should be Date '1985-12-31'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with TIMESTAMP type values. */
@@ -685,7 +688,7 @@ public class DatabricksMapTest {
         "Value for 'event2' should be Timestamp '2024-06-15 18:30:45'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with TIME type values. */
@@ -714,7 +717,7 @@ public class DatabricksMapTest {
         "Value for 'login2' should be Time '17:45:30'");
 
     // Verify that parseMapMetadataParts was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
   }
 
   /** Test the constructor with nested Map values. */
@@ -767,10 +770,9 @@ public class DatabricksMapTest {
     assertEquals("medium", device2.get("brightness"), "Device2 brightness should be 'medium'");
 
     // Verify that parseMapMetadataParts was called appropriately
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), atLeastOnce());
     metadataParserMock.verify(
-        () -> MetadataParser.parseMapMetadataParts("MAP<STRING,STRING>"),
-        times(4)); // Called for each nested map
+        () -> MetadataParser.parseMapMetadataParts("MAP<STRING,STRING>"), atLeastOnce());
   }
 
   /**
