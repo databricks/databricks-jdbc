@@ -572,7 +572,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testFormatComplexTypeString_withMapType() {
+  void testFormatComplexTypeString_withMapType() throws Exception {
     String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
     String expected = "{1:2,3:4}";
 
@@ -615,7 +615,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testFormatComplexTypeString_withNonMapType() {
+  void testFormatComplexTypeString_withNonMapType() throws Exception {
     String jsonString = "[1,2,3]";
 
     String result = parser.formatComplexTypeString(jsonString, "ARRAY", "ARRAY<INT>");

@@ -25,6 +25,9 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeSecVector;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.ValueVector;
@@ -80,11 +83,70 @@ public class ArrowToJavaObjectConverter {
       ColumnInfo columnInfo,
       boolean geoSpatialSupportEnabled)
       throws DatabricksSQLException {
+    return convert(
+        columnVector,
+        vectorIndex,
+        requiredType,
+        arrowMetadata,
+        columnInfo,
+        geoSpatialSupportEnabled,
+        null);
+  }
+
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled,
+      ComplexDataTypeParser complexParser)
+      throws DatabricksSQLException {
+    if (arrowMetadata == null && requiredType == null && !columnVector.isNull(vectorIndex)) {
+      arrowMetadata = getArrowTypeText(columnVector.getField());
+    }
+    if ((requiredType == null || requiredType == ColumnInfoTypeName.STRING)
+        && isTimeType(arrowMetadata)) {
+      requiredType = ColumnInfoTypeName.TIME;
+    }
+    return convertWithResolvedType(
+        columnVector,
+        vectorIndex,
+        requiredType,
+        arrowMetadata,
+        columnInfo,
+        geoSpatialSupportEnabled,
+        complexParser);
+  }
+
+  /** Converts a value after TIME has been identified from its column metadata. */
+  public static Object convertWithResolvedType(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled,
+      ComplexDataTypeParser complexParser)
+      throws DatabricksSQLException {
     // check isNull before getting the object from the vector
     if (columnVector.isNull(vectorIndex)) {
       return null;
     }
-    Object object = columnVector.getObject(vectorIndex);
+    Object object;
+    try {
+      object = columnVector.getObject(vectorIndex);
+    } catch (DateTimeException | IllegalArgumentException exception) {
+      if (requiredType == ColumnInfoTypeName.TIME
+          || columnVector.getField().getType() instanceof ArrowType.Time
+          || isTimeType(arrowMetadata)) {
+        throw TimeConverter.invalidValue(exception);
+      }
+      throw exception;
+    }
+    if (arrowMetadata == null && requiredType == null) {
+      arrowMetadata = getArrowTypeText(columnVector.getField());
+    }
     ColumnInfoTypeName logicalGeospatialType = getLogicalGeospatialType(requiredType, columnInfo);
     boolean geospatialAsString =
         logicalGeospatialType != null && requiredType == ColumnInfoTypeName.STRING;
@@ -155,13 +217,19 @@ public class ArrowToJavaObjectConverter {
       case CHAR:
         return convertToChar(object);
       case STRUCT:
-        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+        return (complexParser != null
+                ? complexParser
+                : parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled))
             .parseJsonStringToDbStruct(object.toString(), arrowMetadata);
       case ARRAY:
-        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+        return (complexParser != null
+                ? complexParser
+                : parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled))
             .parseJsonStringToDbArray(object.toString(), arrowMetadata);
       case MAP:
-        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+        return (complexParser != null
+                ? complexParser
+                : parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled))
             .parseJsonStringToDbMap(object.toString(), arrowMetadata);
       case STRING:
         if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
@@ -177,6 +245,23 @@ public class ArrowToJavaObjectConverter {
           timeZone = Optional.of(((TimeStampMicroTZVector) columnVector).getTimeZone());
         }
         return convertToTimestamp(object, timeZone);
+      case TIME:
+        try {
+          if (columnVector instanceof TimeSecVector) {
+            return LocalTime.ofSecondOfDay(((TimeSecVector) columnVector).get(vectorIndex));
+          }
+          if (columnVector instanceof TimeMilliVector) {
+            return LocalTime.ofNanoOfDay(
+                Math.multiplyExact(((TimeMilliVector) columnVector).get(vectorIndex), 1_000_000L));
+          }
+          if (columnVector instanceof TimeMicroVector) {
+            return LocalTime.ofNanoOfDay(
+                Math.multiplyExact(((TimeMicroVector) columnVector).get(vectorIndex), 1_000L));
+          }
+          return TimeConverter.toLocalTime(object);
+        } catch (DateTimeException | IllegalArgumentException | ArithmeticException exception) {
+          throw TimeConverter.invalidValue(exception);
+        }
       case INTERVAL:
         if (arrowMetadata == null) {
           String errorMessage =
@@ -230,10 +315,10 @@ public class ArrowToJavaObjectConverter {
    * to JSON as epoch microseconds, which drops the time zone of their field, so the zone is passed
    * to the parser for the {@code java.time} values.
    */
-  private static ComplexDataTypeParser parserFor(
+  public static ComplexDataTypeParser parserFor(
       ValueVector columnVector, String arrowMetadata, boolean geoSpatialSupportEnabled) {
-    return new ComplexDataTypeParser(
-        geoSpatialSupportEnabled, nestedTimestampZone(columnVector, arrowMetadata));
+    return ComplexDataTypeParser.forArrow(
+        geoSpatialSupportEnabled, nestedTimestampZone(columnVector, arrowMetadata), columnVector);
   }
 
   /**

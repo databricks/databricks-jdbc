@@ -139,6 +139,13 @@ public final class JavaTimeConverter {
     if (value == null) {
       return null;
     }
+    if (columnSqlType == Types.TIME && type == java.time.LocalTime.class) {
+      try {
+        return TimeConverter.toLocalTime(value);
+      } catch (java.time.DateTimeException | IllegalArgumentException exception) {
+        throw TimeConverter.invalidValue(exception);
+      }
+    }
     boolean isText = isCharacterType(columnSqlType);
     if (!isSupportedColumnType(columnSqlType)) {
       throw unsupported(
@@ -186,6 +193,7 @@ public final class JavaTimeConverter {
    */
   public static boolean isSupportedColumnType(int columnSqlType) {
     return columnSqlType == Types.DATE
+        || columnSqlType == Types.TIME
         || columnSqlType == Types.TIMESTAMP
         || isCharacterType(columnSqlType);
   }
@@ -226,10 +234,10 @@ public final class JavaTimeConverter {
   }
 
   /**
-   * Returns the {@code java.time} class that a JDBC type map assigns to a DATE, TIMESTAMP or
-   * TIMESTAMP_NTZ type name, for example {@code Map.of("DATE", LocalDate.class)}. Keys are matched
-   * case-insensitively. Other type names and classes are ignored and return null, keeping the
-   * driver's existing behavior for them.
+   * Returns the {@code java.time} class that a JDBC type map assigns to DATE, TIMESTAMP,
+   * TIMESTAMP_NTZ or TIME (LocalTime only), for example {@code Map.of("DATE", LocalDate.class)}.
+   * Keys are matched case-insensitively. Other type names and classes are ignored and return null,
+   * keeping the driver's existing behavior for them.
    *
    * @param typeMap the type map passed to {@code getArray(Map)} or {@code getAttributes(Map)}
    * @param typeName the type name of the values being read
@@ -245,6 +253,7 @@ public final class JavaTimeConverter {
   /**
    * Returns the {@code java.time} class that a JDBC type map assigns to {@code typeName}, for any
    * column type. Keys are matched case-insensitively; non-{@code java.time} classes are ignored.
+   * TIME accepts only {@code LocalTime}.
    *
    * @param typeMap a JDBC type map, may be null
    * @param typeName the column type name, may be null
@@ -254,10 +263,14 @@ public final class JavaTimeConverter {
     if (typeMap == null || typeName == null) {
       return null;
     }
+    boolean isTime = com.databricks.jdbc.common.util.DatabricksTypeUtil.isTimeType(typeName);
     for (Map.Entry<String, Class<?>> entry : typeMap.entrySet()) {
       if (entry.getKey() != null
-          && entry.getKey().trim().equalsIgnoreCase(typeName.trim())
-          && isJavaTimeType(entry.getValue())) {
+          && (entry.getKey().trim().equalsIgnoreCase(typeName.trim())
+              || (isTime && entry.getKey().trim().equalsIgnoreCase("TIME")))
+          && (isTime
+              ? entry.getValue() == java.time.LocalTime.class
+              : isJavaTimeType(entry.getValue()))) {
         return entry.getValue();
       }
     }
@@ -266,6 +279,9 @@ public final class JavaTimeConverter {
 
   private static int temporalSqlType(String typeName) {
     String baseType = typeName.trim().toUpperCase(Locale.ROOT);
+    if (com.databricks.jdbc.common.util.DatabricksTypeUtil.isTimeType(baseType)) {
+      return Types.TIME;
+    }
     if (baseType.equals(DATE)) {
       return Types.DATE;
     }
@@ -376,7 +392,8 @@ public final class JavaTimeConverter {
    * OffsetDateTime}, the same as {@code getTimestamp()}. Reading the instant back into fields with
    * {@code java.time} would move pre-1582 values by days and use different historical offsets.
    */
-  private static Object fromLegacyTimestamp(Class<?> type, Timestamp timestamp) {
+  private static Object fromLegacyTimestamp(Class<?> type, Timestamp timestamp)
+      throws DatabricksSQLException {
     if (type == LocalDate.class) {
       return timestamp.toLocalDateTime().toLocalDate();
     }
@@ -386,10 +403,14 @@ public final class JavaTimeConverter {
     if (type == Instant.class) {
       return timestamp.toInstant();
     }
-    return timestamp.toInstant().atOffset(ZoneOffset.UTC);
+    if (type == OffsetDateTime.class) {
+      return timestamp.toInstant().atOffset(ZoneOffset.UTC);
+    }
+    throw unsupported("Cannot convert a TIMESTAMP value to " + type.getName());
   }
 
-  private static Object fromTimestamp(Class<?> type, OffsetDateTime dateTime) {
+  private static Object fromTimestamp(Class<?> type, OffsetDateTime dateTime)
+      throws DatabricksSQLException {
     if (type == LocalDate.class) {
       return dateTime.toLocalDate();
     }
@@ -399,7 +420,10 @@ public final class JavaTimeConverter {
     if (type == Instant.class) {
       return dateTime.toInstant();
     }
-    return dateTime.withOffsetSameInstant(ZoneOffset.UTC);
+    if (type == OffsetDateTime.class) {
+      return dateTime.withOffsetSameInstant(ZoneOffset.UTC);
+    }
+    throw unsupported("Cannot convert a TIMESTAMP value to " + type.getName());
   }
 
   /**

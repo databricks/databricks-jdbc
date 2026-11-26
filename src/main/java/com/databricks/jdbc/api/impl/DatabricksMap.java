@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -8,8 +9,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +21,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private final Map<K, V> map;
   private final String keyType;
   private final String valueType;
+  private final Map<V, java.time.LocalTime> timeValues = new IdentityHashMap<>();
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMap.class);
 
   /**
@@ -54,9 +56,15 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     Map<K, V> convertedMap = new LinkedHashMap<>();
     LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
     for (Map.Entry<K, V> entry : originalMap.entrySet()) {
-      K key = convertSimpleValue(entry.getKey(), keyType);
+      K key =
+          DatabricksTypeUtil.isTimeType(keyType)
+              ? (K) TimeConverter.format(entry.getKey())
+              : convertSimpleValue(entry.getKey(), keyType);
       V value = convertValue(entry.getValue(), valueType);
       convertedMap.put(key, value);
+      if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
+        timeValues.put(value, TimeConverter.toLocalTime(entry.getValue()));
+      }
       LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
     }
     return convertedMap;
@@ -98,11 +106,11 @@ public class DatabricksMap<K, V> implements Map<K, V> {
               DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else if (valueType.startsWith(DatabricksTypeUtil.MAP)) {
-        if (value instanceof Map) {
+        if (value instanceof DatabricksMap) {
+          return (V) value;
+        } else if (value instanceof Map) {
           LOGGER.trace("Converting value as MAP");
           return (V) new DatabricksMap<>((Map<String, Object>) value, valueType);
-        } else if (value instanceof DatabricksMap) {
-          return (V) value;
         } else {
           throw new DatabricksDriverException(
               "Expected a Map for MAP but found: " + value.getClass().getSimpleName(),
@@ -137,6 +145,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     }
 
     try {
+      if (DatabricksTypeUtil.isTimeType(valueType)) {
+        return (T) TimeConverter.toSqlTime(value);
+      }
       switch (valueType.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return (T) Integer.valueOf(value.toString());
@@ -156,8 +167,6 @@ public class DatabricksMap<K, V> implements Map<K, V> {
           return (T) Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
           return (T) Timestamp.valueOf(value.toString());
-        case DatabricksTypeUtil.TIME:
-          return (T) Time.valueOf(value.toString());
         case DatabricksTypeUtil.BINARY:
           return (T) (value instanceof byte[] ? value : value.toString().getBytes());
         case DatabricksTypeUtil.STRING:
@@ -244,9 +253,20 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       } else {
         first = false;
       }
-      sb.append(JsonUtil.formatComplexValue(entry.getKey()))
+      Object value = entry.getValue();
+      if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
+        java.time.LocalTime exact = timeValues.get(value);
+        value =
+            TimeConverter.formatOrString(
+                exact != null && TimeConverter.toSqlTime(exact).equals(value) ? exact : value);
+      }
+      Object key =
+          DatabricksTypeUtil.isTimeType(keyType)
+              ? TimeConverter.formatOrString(entry.getKey())
+              : entry.getKey();
+      sb.append(JsonUtil.formatComplexValue(key))
           .append(":")
-          .append(JsonUtil.formatComplexValue(entry.getValue()));
+          .append(JsonUtil.formatComplexValue(value));
     }
     sb.append("}");
     return sb.toString();

@@ -29,6 +29,7 @@ public enum ColumnInfoTypeName {
   SHORT,
   STRING,
   STRUCT,
+  TIME,
   TIMESTAMP,
   USER_DEFINED_TYPE,
   VARIANT;

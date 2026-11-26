@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
@@ -615,6 +616,7 @@ public class ArrowStreamResultTest {
     ColumnInfo columnInfo =
         new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
     ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    when(chunkIterator.getComplexParser(0, true)).thenReturn(new ComplexDataTypeParser());
     when(chunkIterator.getColumnObjectAtCurrentRow(
             0, ColumnInfoTypeName.STRING, "STRING", columnInfo))
         .thenReturn("{\"geom\":\"SRID=3857;POINT(1 2)\"}");
@@ -637,6 +639,7 @@ public class ArrowStreamResultTest {
     ColumnInfo columnInfo =
         new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
     ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    when(chunkIterator.getComplexParser(0, true)).thenReturn(new ComplexDataTypeParser());
     when(chunkIterator.getColumnObjectAtCurrentRow(
             0, ColumnInfoTypeName.STRING, "STRING", columnInfo))
         .thenReturn("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}");
@@ -670,6 +673,7 @@ public class ArrowStreamResultTest {
         ColumnInfo info =
             new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
         ArrowResultChunkIterator iterator = mock(ArrowResultChunkIterator.class);
+        when(iterator.getComplexParser(0, true)).thenReturn(new ComplexDataTypeParser());
         when(iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.STRING, "STRING", info))
             .thenReturn(raw);
         assertEquals(

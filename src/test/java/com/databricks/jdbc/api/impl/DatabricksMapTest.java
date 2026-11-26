@@ -755,12 +755,14 @@ public class DatabricksMapTest {
     assertEquals(2, databricksMap.size(), "DatabricksMap should have two entries");
 
     DatabricksMap<String, String> device1 = databricksMap.get("device1");
+    assertSame(innerMap1, device1);
     assertNotNull(device1, "Device1 map should not be null");
     assertEquals(2, device1.size(), "Device1 map should have two entries");
     assertEquals("on", device1.get("setting1"), "Device1 setting1 should be 'on'");
     assertEquals("off", device1.get("setting2"), "Device1 setting2 should be 'off'");
 
     DatabricksMap<String, String> device2 = databricksMap.get("device2");
+    assertSame(innerMap2, device2);
     assertNotNull(device2, "Device2 map should not be null");
     assertEquals(2, device2.size(), "Device2 map should have two entries");
     assertEquals("high", device2.get("volume"), "Device2 volume should be 'high'");
@@ -769,8 +771,7 @@ public class DatabricksMapTest {
     // Verify that parseMapMetadataParts was called appropriately
     metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
     metadataParserMock.verify(
-        () -> MetadataParser.parseMapMetadataParts("MAP<STRING,STRING>"),
-        times(4)); // Called for each nested map
+        () -> MetadataParser.parseMapMetadataParts("MAP<STRING,STRING>"), times(2));
   }
 
   /**

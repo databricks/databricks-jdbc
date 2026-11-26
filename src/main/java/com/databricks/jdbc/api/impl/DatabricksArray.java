@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -18,7 +19,6 @@ import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.ZoneId;
@@ -122,10 +122,10 @@ public class DatabricksArray implements Array {
                 DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
         } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
-          if (element instanceof Map) {
-            convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
-          } else if (element instanceof DatabricksMap) {
+          if (element instanceof DatabricksMap) {
             convertedElements[i] = element;
+          } else if (element instanceof Map) {
+            convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
           } else if (element == null) {
             convertedElements[i] = null;
           } else {
@@ -166,6 +166,9 @@ public class DatabricksArray implements Array {
     }
 
     try {
+      if (DatabricksTypeUtil.isTimeType(type)) {
+        return TimeConverter.toSqlTime(value);
+      }
       switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
@@ -187,8 +190,6 @@ public class DatabricksArray implements Array {
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
-        case DatabricksTypeUtil.TIME:
-          return Time.valueOf(value.toString());
         case DatabricksTypeUtil.BINARY:
           return value instanceof byte[] ? value : value.toString().getBytes();
         case DatabricksTypeUtil.STRING:
@@ -208,7 +209,7 @@ public class DatabricksArray implements Array {
   @Override
   public String getBaseTypeName() throws SQLException {
     LOGGER.debug("Getting base type name");
-    return this.elementType;
+    return DatabricksTypeUtil.isTimeType(elementType) ? DatabricksTypeUtil.TIME : this.elementType;
   }
 
   /**
@@ -230,7 +231,7 @@ public class DatabricksArray implements Array {
    * Returns the elements. If {@code map} maps the element type (DATE, TIMESTAMP or TIMESTAMP_NTZ)
    * to a {@code java.time} class, for example {@code Map.of("DATE", LocalDate.class)}, the elements
    * are returned as that class, built from the exact values instead of the {@code java.sql} ones.
-   * Other mappings are ignored.
+   * Other mappings are ignored. TIME elements also support an exact {@code LocalTime} mapping.
    */
   @Override
   public Object getArray(Map<String, Class<?>> map) throws SQLException {
@@ -256,6 +257,11 @@ public class DatabricksArray implements Array {
     }
     Object source = this.temporalElements[i];
     Object exact = ComplexDataTypeParser.toExactTemporal(source, this.elementType);
+    if (exact != null
+        && DatabricksTypeUtil.isTimeType(elementType)
+        && !TimeConverter.toSqlTime(exact).equals(elements[i])) {
+      return null;
+    }
     if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
       if (exact == null && !this.warnedInexact) {
         this.warnedInexact = true;
@@ -352,6 +358,11 @@ public class DatabricksArray implements Array {
     int valueType = elementSqlType();
     int valuePrecision = DatabricksTypeUtil.getPrecision(valueType);
     int valueScale = DatabricksTypeUtil.getScale(valueType);
+    if (valueType == Types.TIME) {
+      int[] timePrecision = DatabricksTypeUtil.getTimePrecisionAndScale(this.elementType);
+      valuePrecision = timePrecision[0];
+      valueScale = timePrecision[1];
+    }
     // DECIMAL values are read at the column scale, so use the declared one.
     Matcher decimal = DECIMAL_TYPE.matcher(this.elementType.trim());
     if (decimal.matches()) {
@@ -438,7 +449,12 @@ public class DatabricksArray implements Array {
         sb.append(",");
       }
 
-      sb.append(JsonUtil.formatComplexValue(elements[i]));
+      Object value = elements[i];
+      if (value != null && DatabricksTypeUtil.isTimeType(elementType)) {
+        Object exact = exactElement(i);
+        value = TimeConverter.formatOrString(exact == null ? value : exact);
+      }
+      sb.append(JsonUtil.formatComplexValue(value));
     }
     sb.append("]");
     return sb.toString();

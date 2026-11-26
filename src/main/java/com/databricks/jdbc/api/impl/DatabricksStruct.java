@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
+import com.databricks.jdbc.api.impl.converters.TimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -124,10 +125,10 @@ public class DatabricksStruct implements Struct {
           throwConversionException("List for ARRAY", value);
         }
       } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
-        if (value instanceof Map) {
-          convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
-        } else if (value instanceof DatabricksMap) {
+        if (value instanceof DatabricksMap) {
           convertedAttributes[index] = value;
+        } else if (value instanceof Map) {
+          convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
         } else {
           throwConversionException("Map for MAP", value);
         }
@@ -159,6 +160,9 @@ public class DatabricksStruct implements Struct {
     }
 
     try {
+      if (DatabricksTypeUtil.isTimeType(type)) {
+        return TimeConverter.toSqlTime(value);
+      }
       switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
@@ -180,8 +184,6 @@ public class DatabricksStruct implements Struct {
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
-        case DatabricksTypeUtil.TIME:
-          return Time.valueOf(value.toString());
         case DatabricksTypeUtil.BINARY:
           return value instanceof byte[] ? value : value.toString().getBytes();
         case DatabricksTypeUtil.STRING:
@@ -224,7 +226,7 @@ public class DatabricksStruct implements Struct {
    * <p>If {@code map} maps a field's type (DATE, TIMESTAMP or TIMESTAMP_NTZ) to a {@code java.time}
    * class, for example {@code Map.of("TIMESTAMP", Instant.class)}, that field is returned as the
    * class, built from the exact value instead of the {@code java.sql} one. Other mappings are
-   * ignored.
+   * ignored. TIME fields also support an exact {@code java.time.LocalTime} mapping.
    *
    * @param map a Map object that contains the mapping of SQL types to Java classes
    * @return an array containing the attributes of the Struct
@@ -267,6 +269,11 @@ public class DatabricksStruct implements Struct {
     }
     Object source = temporalAttributes[i];
     Object exact = ComplexDataTypeParser.toExactTemporal(source, fieldType);
+    if (exact != null
+        && DatabricksTypeUtil.isTimeType(fieldType)
+        && !TimeConverter.toSqlTime(exact).equals(attributes[i])) {
+      return null;
+    }
     if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
       if (exact == null && !warnedInexact) {
         warnedInexact = true;
@@ -286,7 +293,13 @@ public class DatabricksStruct implements Struct {
         sb.append(",");
       }
       sb.append(JsonUtil.formatComplexValue(fieldNames.get(i))).append(":");
-      sb.append(JsonUtil.formatComplexValue(attributes[i]));
+      Object value = attributes[i];
+      String fieldType = fieldTypes.get(i);
+      if (value != null && DatabricksTypeUtil.isTimeType(fieldType)) {
+        Object exact = exactAttribute(i, fieldType);
+        value = TimeConverter.formatOrString(exact == null ? value : exact);
+      }
+      sb.append(JsonUtil.formatComplexValue(value));
     }
     sb.append("}");
     return sb.toString();

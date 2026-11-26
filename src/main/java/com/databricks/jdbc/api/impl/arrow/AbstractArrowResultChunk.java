@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
-
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -396,7 +394,10 @@ public abstract class AbstractArrowResultChunk {
 
   private List<String> getMetadataInformationFromSchemaRoot(VectorSchemaRoot vectorSchemaRoot) {
     return vectorSchemaRoot.getFieldVectors().stream()
-        .map(fieldVector -> fieldVector.getField().getMetadata().get(ARROW_METADATA_KEY))
+        .map(
+            fieldVector ->
+                com.databricks.jdbc.common.util.DatabricksTypeUtil.getArrowTypeText(
+                    fieldVector.getField()))
         .collect(Collectors.toList());
   }
 

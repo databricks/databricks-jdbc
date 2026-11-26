@@ -435,12 +435,13 @@ public class ArrowStreamResult implements IExecutionResult {
       if (result == null) {
         return null;
       }
-      ComplexDataTypeParser parser = new ComplexDataTypeParser();
+      ComplexDataTypeParser parser = chunkIterator.getComplexParser(columnIndex, true);
       if (MetadataParser.containsGeospatialType(arrowMetadata)) {
         return parser.formatGeospatialComplexTypeString(
             result.toString(), requiredType.name(), arrowMetadata);
       }
-      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+      return parser.formatComplexTypeStringForResult(
+          result.toString(), requiredType.name(), arrowMetadata);
     }
 
     if (isComplexType(requiredType)) {
