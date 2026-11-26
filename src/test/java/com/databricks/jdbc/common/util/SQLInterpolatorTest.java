@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -18,6 +19,39 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class SQLInterpolatorTest {
+
+  @ParameterizedTest
+  @MethodSource({
+    "com.databricks.jdbc.common.util.TemporalParameterTestData#values",
+    "com.databricks.jdbc.common.util.TemporalParameterTestData#interpolatedTargetValues"
+  })
+  void testTemporalParameters(
+      Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+      throws Exception {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(type).value(value).build();
+    String literal = expected == null ? "NULL" : "'" + expected + "'";
+    assertEquals(
+        "SELECT " + literal, SQLInterpolator.interpolateSQL("SELECT ?", Map.of(1, parameter)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("temporalLiteralTypes")
+  void testTemporalParametersEscapeNonStringValues(ColumnInfoTypeName type) throws Exception {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder()
+            .cardinal(1)
+            .type(type)
+            .value(new StringBuilder("x' OR '1'='1"))
+            .build();
+    assertEquals(
+        "SELECT * FROM t WHERE c = 'x'' OR ''1''=''1'",
+        SQLInterpolator.interpolateSQL("SELECT * FROM t WHERE c = ?", Map.of(1, parameter)));
+  }
+
+  static Stream<ColumnInfoTypeName> temporalLiteralTypes() {
+    return Stream.of(ColumnInfoTypeName.TIMESTAMP, ColumnInfoTypeName.DATE);
+  }
 
   @Test
   public void testInterpolateSQLWithStrings() throws DatabricksValidationException {

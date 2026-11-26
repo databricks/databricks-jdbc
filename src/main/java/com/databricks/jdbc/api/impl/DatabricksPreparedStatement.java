@@ -495,6 +495,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       defaultCalendar.setTimeInMillis(x.getTime());
 
       Calendar targetCalendar = (Calendar) cal.clone();
+      targetCalendar.set(Calendar.ERA, defaultCalendar.get(Calendar.ERA));
       targetCalendar.set(Calendar.YEAR, defaultCalendar.get(Calendar.YEAR));
       targetCalendar.set(Calendar.MONTH, defaultCalendar.get(Calendar.MONTH));
       targetCalendar.set(Calendar.DAY_OF_MONTH, defaultCalendar.get(Calendar.DAY_OF_MONTH));

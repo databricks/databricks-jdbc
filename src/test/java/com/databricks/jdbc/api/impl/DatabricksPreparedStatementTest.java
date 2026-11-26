@@ -19,11 +19,13 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.SQLInterpolator;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
@@ -32,6 +34,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +45,97 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksPreparedStatementTest {
+
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#values")
+  void testTemporalSetObject(
+      Object value, com.databricks.jdbc.model.core.ColumnInfoTypeName type, String expected)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(new DatabricksConnection(context, client), "SELECT ?");
+    statement.setObject(1, value);
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) statement.getParameterMetaData();
+    assertEquals(
+        value == null ? com.databricks.jdbc.model.core.ColumnInfoTypeName.NULL : type,
+        metadata.getParameterBindings().get(1).type());
+    if (type == com.databricks.jdbc.model.core.ColumnInfoTypeName.TIMESTAMP) {
+      for (int sqlType : new int[] {Types.TIMESTAMP, Types.TIMESTAMP_WITH_TIMEZONE}) {
+        statement.setObject(1, value, sqlType);
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        statement.setObject(1, value, sqlType, 6);
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        statement.setObject(1, value, JDBCType.valueOf(sqlType));
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+        statement.setObject(1, value, JDBCType.valueOf(sqlType), 6);
+        assertEquals(type, metadata.getParameterBindings().get(1).type());
+      }
+    }
+    assertSame(value, metadata.getParameterBindings().get(1).value());
+    assertEquals(
+        expected,
+        DatabricksTypeUtil.getParameterValueString(
+            metadata.getParameterBindings().get(1).type(),
+            metadata.getParameterBindings().get(1).value()));
+  }
+
+  @ParameterizedTest
+  @MethodSource("com.databricks.jdbc.common.util.TemporalParameterTestData#bindingMatrix")
+  void testTemporalBindingMatrix(
+      Object value,
+      Integer sqlType,
+      com.databricks.jdbc.model.core.ColumnInfoTypeName type,
+      String expected)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(new DatabricksConnection(context, client), "SELECT ?");
+    for (int overload = 0; overload < (sqlType == null ? 1 : 4); overload++) {
+      if (sqlType == null) {
+        statement.setObject(1, value);
+      } else {
+        switch (overload) {
+          case 0:
+            statement.setObject(1, value, sqlType);
+            break;
+          case 1:
+            statement.setObject(1, value, sqlType, 6);
+            break;
+          case 2:
+            statement.setObject(1, value, JDBCType.valueOf(sqlType));
+            break;
+          default:
+            statement.setObject(1, value, JDBCType.valueOf(sqlType), 6);
+        }
+      }
+      DatabricksParameterMetaData metadata =
+          (DatabricksParameterMetaData) statement.getParameterMetaData();
+      assertEquals(type, metadata.getParameterBindings().get(1).type());
+      assertSame(value, metadata.getParameterBindings().get(1).value());
+      assertEquals(
+          expected,
+          DatabricksTypeUtil.getParameterValueString(
+              metadata.getParameterBindings().get(1).type(),
+              metadata.getParameterBindings().get(1).value()));
+      if (type != com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING) {
+        assertEquals(
+            "SELECT '" + expected + "'",
+            SQLInterpolator.interpolateSQL("SELECT ?", metadata.getParameterBindings()));
+      }
+    }
+  }
 
   private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT =
@@ -529,6 +616,118 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement));
     assertEquals(2, parameterSetsCaptor.getValue().size());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testBatchPreservesTemporalSubclassesAndSnapshotIsolation(boolean nativeBatch)
+      throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "EnableNativeBatching=" + (nativeBatch ? "1" : "0") + ";", new Properties());
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(
+            new DatabricksConnection(context, thriftClient),
+            "INSERT INTO events (created_at, created_on) VALUES (?, ?)");
+    Timestamp timestamp =
+        new Timestamp(123456789L) {
+          @Override
+          public String toString() {
+            return "custom timestamp " + getTime() + " " + getNanos();
+          }
+        };
+    timestamp.setNanos(123456789);
+    Date date =
+        new Date(123456789L) {
+          @Override
+          public String toString() {
+            return "custom date " + getTime();
+          }
+        };
+    String timestampText = timestamp.toString();
+    String dateText = date.toString();
+    statement.setTimestamp(1, timestamp);
+    statement.setDate(2, date);
+    statement.addBatch();
+    timestamp.setTime(0);
+    timestamp.setNanos(987654321);
+    date.setTime(0);
+
+    Map<Integer, ImmutableSqlParameter> bindings;
+    if (nativeBatch) {
+      when(thriftClient.supportsNativeParameterBatching(any())).thenReturn(true);
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<List<BatchParameterSet>> captor = ArgumentCaptor.forClass(List.class);
+      when(thriftClient.executeStatementBatch(
+              anyString(), any(), captor.capture(), eq(StatementType.UPDATE), any(), eq(statement)))
+          .thenReturn(resultSet);
+      when(resultSet.getBatchUpdateCounts(1)).thenReturn(new long[] {1});
+      assertArrayEquals(new int[] {1}, statement.executeBatch());
+      bindings = captor.getValue().get(0).getParameterBindings();
+    } else {
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<Map<Integer, ImmutableSqlParameter>> captor =
+          ArgumentCaptor.forClass(Map.class);
+      when(thriftClient.executeStatement(
+              anyString(),
+              any(),
+              captor.capture(),
+              eq(StatementType.UPDATE),
+              any(),
+              eq(statement),
+              any()))
+          .thenReturn(resultSet);
+      when(resultSet.getUpdateCount()).thenReturn(1L);
+      assertArrayEquals(new int[] {1}, statement.executeBatch());
+      bindings = captor.getValue();
+    }
+    Object snapshotTimestamp = bindings.get(1).value();
+    Object snapshotDate = bindings.get(2).value();
+    assertNotSame(timestamp, snapshotTimestamp);
+    assertNotSame(date, snapshotDate);
+    assertEquals(timestamp.getClass(), snapshotTimestamp.getClass());
+    assertEquals(date.getClass(), snapshotDate.getClass());
+    assertEquals(123456789, ((Timestamp) snapshotTimestamp).getNanos());
+    assertEquals(123456789L, ((Date) snapshotDate).getTime());
+    for (ColumnInfoTypeName type : ColumnInfoTypeName.values()) {
+      assertEquals(
+          timestampText, DatabricksTypeUtil.getParameterValueString(type, snapshotTimestamp));
+      assertEquals(dateText, DatabricksTypeUtil.getParameterValueString(type, snapshotDate));
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"UTC,-0100-01-02 03:04:05.123456", "GMT+05:45,-0100-01-01 21:19:05.123456"})
+  void testSetTimestampWithCalendarPreservesEra(String zone, String expected) throws Exception {
+    TimeZone original = TimeZone.getDefault();
+    try {
+      TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+      Calendar source = new GregorianCalendar();
+      source.clear();
+      source.set(Calendar.ERA, GregorianCalendar.BC);
+      source.set(101, Calendar.JANUARY, 2, 3, 4, 5);
+      Timestamp timestamp = new Timestamp(source.getTimeInMillis());
+      timestamp.setNanos(123456000);
+      Calendar calendar = new GregorianCalendar(TimeZone.getTimeZone(zone));
+      Calendar unchanged = (Calendar) calendar.clone();
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+      DatabricksPreparedStatement statement =
+          new DatabricksPreparedStatement(new DatabricksConnection(context, client), "SELECT ?");
+
+      statement.setTimestamp(1, timestamp, calendar);
+
+      DatabricksParameterMetaData metadata =
+          (DatabricksParameterMetaData) statement.getParameterMetaData();
+      assertEquals(
+          expected,
+          DatabricksTypeUtil.getParameterValueString(
+              ColumnInfoTypeName.TIMESTAMP, metadata.getParameterBindings().get(1).value()));
+      assertEquals(unchanged, calendar);
+      assertEquals(123456000, timestamp.getNanos());
+    } finally {
+      TimeZone.setDefault(original);
+    }
   }
 
   @Test

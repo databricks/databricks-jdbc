@@ -13,8 +13,18 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.Year;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.Optional;
 import org.apache.arrow.vector.types.DateUnit;
@@ -30,6 +40,14 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 public class DatabricksTypeUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
+  private static final long MIN_SAFE_AD_MILLIS =
+      Instant.parse("0001-02-01T00:00:00Z").toEpochMilli();
+  private static final long MAX_SAFE_AD_MILLIS =
+      Instant.parse("9999-12-01T00:00:00Z").toEpochMilli();
+  private static final DateTimeFormatter ISO_YEAR =
+      new DateTimeFormatterBuilder()
+          .appendValue(ChronoField.YEAR, 4, 10, SignStyle.NORMAL)
+          .toFormatter(Locale.ROOT);
   public static final String BIGINT = "BIGINT";
   public static final String LONG = "LONG";
   public static final String BINARY = "BINARY";
@@ -538,7 +556,42 @@ public class DatabricksTypeUtil {
     return obj instanceof java.sql.Timestamp
         || obj instanceof java.time.LocalDateTime
         || obj instanceof java.time.Instant
+        || obj instanceof java.time.OffsetDateTime
         || obj instanceof java.time.ZonedDateTime;
+  }
+
+  public static String getParameterValueString(ColumnInfoTypeName type, Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value.getClass() == java.sql.Timestamp.class || value.getClass() == java.sql.Date.class) {
+      long millis = ((java.util.Date) value).getTime();
+      if (millis >= MIN_SAFE_AD_MILLIS && millis <= MAX_SAFE_AD_MILLIS) {
+        return value.toString();
+      }
+      Calendar calendar = new GregorianCalendar();
+      calendar.setTime((java.util.Date) value);
+      int year = calendar.get(Calendar.YEAR);
+      if (calendar.get(Calendar.ERA) == GregorianCalendar.BC) {
+        year = 1 - year;
+      }
+      String text = value.toString();
+      return year > 0 && year <= 9999
+          ? text
+          : ISO_YEAR.format(Year.of(year)) + text.substring(text.indexOf('-'));
+    }
+    if (type == ColumnInfoTypeName.TIMESTAMP) {
+      OffsetDateTime timestamp =
+          value instanceof ZonedDateTime
+              ? ((ZonedDateTime) value).toOffsetDateTime()
+              : value instanceof OffsetDateTime ? (OffsetDateTime) value : null;
+      if (timestamp != null) {
+        return timestamp.getSecond() == 0 && timestamp.getNano() == 0
+            ? timestamp.toLocalDateTime() + ":00" + timestamp.getOffset()
+            : timestamp.toString();
+      }
+    }
+    return value.toString();
   }
 
   public static boolean isDate(Object obj) {
