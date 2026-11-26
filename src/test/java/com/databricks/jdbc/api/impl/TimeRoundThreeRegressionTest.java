@@ -6,10 +6,13 @@ import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.Time;
 import java.time.*;
 import java.util.*;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class TimeRoundThreeRegressionTest {
@@ -37,25 +40,39 @@ class TimeRoundThreeRegressionTest {
     }
   }
 
-  @Test
-  void unsupportedTimeTypeMapsAreIgnored() throws Exception {
+  static Stream<Class<?>> unsupportedTimeTypes() {
+    return Stream.of(LocalDate.class, LocalDateTime.class, Instant.class, OffsetDateTime.class);
+  }
+
+  @ParameterizedTest
+  @MethodSource("unsupportedTimeTypes")
+  void unsupportedTimeTypeMapsAreIgnored(Class<?> target) throws Exception {
     String json = "[\"01:02:03.123456\"]";
     DatabricksArray array =
         new ComplexDataTypeParser().parseJsonStringToDbArray(json, "ARRAY<TIME(6)>");
     DatabricksStruct struct =
         new ComplexDataTypeParser()
             .parseJsonStringToDbStruct("{\"t\":\"01:02:03.123456\"}", "STRUCT<t:TIME(6)>");
-    for (Class<?> target :
-        Arrays.asList(LocalDate.class, LocalDateTime.class, Instant.class, OffsetDateTime.class)) {
-      Map<String, Class<?>> mapping = Collections.singletonMap("TIME", target);
-      assertNull(JavaTimeConverter.findJavaTimeMapping(mapping, "TIME"));
-      assertNull(JavaTimeConverter.getJavaTimeMapping(mapping, "TIME(6)"));
-      assertSame(array.getArray(), array.getArray(mapping));
-      assertArrayEquals(struct.getAttributes(), struct.getAttributes(mapping));
+    Map<String, Class<?>> mapping = Collections.singletonMap("TIME", target);
+    assertNull(JavaTimeConverter.findJavaTimeMapping(mapping, "TIME"));
+    assertNull(JavaTimeConverter.getJavaTimeMapping(mapping, "TIME(6)"));
+    assertSame(array.getArray(), array.getArray(mapping));
+    assertArrayEquals(struct.getAttributes(), struct.getAttributes(mapping));
+    for (boolean complex : new boolean[] {false, true}) {
       try (DatabricksResultSet result =
-          TimeRoundTwoRegressionTest.inlineResult("TIME(6)", "01:02:03.123456", false, false)) {
+          TimeRoundTwoRegressionTest.inlineResult("TIME(6)", "01:02:03.123456", false, complex)) {
         assertTrue(result.next());
-        assertNull(result.getObject(1, mapping), target.getName());
+        Time mapped = assertInstanceOf(Time.class, result.getObject(1, mapping));
+        assertEquals(result.getTime(1), mapped);
+        assertEquals(123, Math.floorMod(mapped.getTime(), 1000L));
+        assertEquals(mapped, result.getObject("clock", mapping));
+        assertFalse(result.wasNull());
+      }
+      try (DatabricksResultSet result =
+          TimeRoundTwoRegressionTest.inlineResult("TIME(6)", null, false, complex)) {
+        assertTrue(result.next());
+        assertNull(result.getObject(1, mapping));
+        assertTrue(result.wasNull());
       }
     }
     assertEquals(

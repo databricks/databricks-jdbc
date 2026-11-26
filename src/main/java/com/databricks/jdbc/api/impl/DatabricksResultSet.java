@@ -1660,7 +1660,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     String columnTypeText = resultSetMetaData.getColumnTypeName(columnIndex);
     Class<?> returnObjectType = map.get(columnTypeText);
     if (columnSqlType == Types.TIME && JavaTimeConverter.isJavaTimeType(returnObjectType)) {
-      return null;
+      return ConverterHelper.convertSqlTypeToJavaType(columnSqlType, obj);
     }
     if (returnObjectType != null) {
       try {

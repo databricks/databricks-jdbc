@@ -10,6 +10,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -20,7 +21,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private final Map<K, V> map;
   private final String keyType;
   private final String valueType;
-  private final Map<K, java.time.LocalTime> timeValues = new LinkedHashMap<>();
+  private final Map<V, java.time.LocalTime> timeValues = new IdentityHashMap<>();
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMap.class);
 
   /**
@@ -62,7 +63,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       V value = convertValue(entry.getValue(), valueType);
       convertedMap.put(key, value);
       if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
-        timeValues.put(key, TimeConverter.toLocalTime(entry.getValue()));
+        timeValues.put(value, TimeConverter.toLocalTime(entry.getValue()));
       }
       LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
     }
@@ -254,7 +255,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       }
       Object value = entry.getValue();
       if (value != null && DatabricksTypeUtil.isTimeType(valueType)) {
-        java.time.LocalTime exact = timeValues.get(entry.getKey());
+        java.time.LocalTime exact = timeValues.get(value);
         value =
             TimeConverter.formatOrString(
                 exact != null && TimeConverter.toSqlTime(exact).equals(value) ? exact : value);

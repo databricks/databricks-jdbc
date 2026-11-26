@@ -8,8 +8,43 @@ import java.time.LocalTime;
 import java.util.Collections;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class TimeBotReviewRegressionTest {
+  @ParameterizedTest
+  @ValueSource(strings = {"put", "putAll", "entrySet", "replace", "compute"})
+  void replacingTimeMapValuesWithEqualMillisecondsDropsExactSidecar(String operation)
+      throws Exception {
+    DatabricksMap<String, Object> map =
+        new ComplexDataTypeParser()
+            .parseJsonStringToDbMap(
+                "{\"a\":\"09:15:00.123456\",\"b\":\"09:15:00.123789\"}", "MAP<STRING,TIME(6)>");
+    assertEquals("{\"a\":\"09:15:00.123456\",\"b\":\"09:15:00.123789\"}", map.toString());
+    Time replacement = new Time(((Time) map.get("a")).getTime());
+    switch (operation) {
+      case "put":
+        map.put("a", replacement);
+        break;
+      case "putAll":
+        map.putAll(Collections.singletonMap("a", replacement));
+        break;
+      case "entrySet":
+        map.entrySet().iterator().next().setValue(replacement);
+        break;
+      case "replace":
+        map.replace("a", replacement);
+        break;
+      case "compute":
+        map.compute("a", (key, value) -> replacement);
+        break;
+      default:
+        fail("Unexpected operation: " + operation);
+    }
+    assertSame(replacement, map.get("a"));
+    assertEquals("{\"a\":\"09:15:00.123\",\"b\":\"09:15:00.123789\"}", map.toString());
+  }
+
   @Test
   void arrayResultSetStringsKeepExactTimeAndFollowMutation() throws Exception {
     DatabricksArray array =
