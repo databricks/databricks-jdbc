@@ -622,6 +622,26 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testClusterPathOrgIdReachesSeaRequest() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;AuthMech=3;UseThriftClient=0;"
+                + "httpPath=/sql/protocolv1/o/6051921418418893/0528-cluster",
+            new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(context, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class)))
+        .thenReturn(new StatementStatus().setState(StatementState.RUNNING));
+
+    assertTrue(client.checkStatementAlive(STATEMENT_ID));
+
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(requestCaptor.capture(), eq(StatementStatus.class));
+    assertEquals(
+        "6051921418418893", requestCaptor.getValue().getHeaders().get("x-databricks-org-id"));
+  }
+
+  @Test
   public void testDeleteSessionFromSerializedRealtimeConnectionId() throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
