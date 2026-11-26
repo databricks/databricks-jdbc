@@ -44,6 +44,9 @@ public class ResultData {
   @JsonProperty("arrow_batches")
   private List<ArrowBatch> arrowBatches;
 
+  @JsonProperty("columnar_data")
+  private ColumnarData columnarData;
+
   public ResultData setByteCount(Long byteCount) {
     this.byteCount = byteCount;
     return this;
@@ -133,6 +136,15 @@ public class ResultData {
     return this;
   }
 
+  public ColumnarData getColumnarData() {
+    return columnarData;
+  }
+
+  public ResultData setColumnarData(ColumnarData columnarData) {
+    this.columnarData = columnarData;
+    return this;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -147,7 +159,8 @@ public class ResultData {
         && Objects.equals(rowCount, that.rowCount)
         && Objects.equals(rowOffset, that.rowOffset)
         && Arrays.equals(attachment, that.attachment)
-        && Objects.equals(arrowBatches, that.arrowBatches);
+        && Objects.equals(arrowBatches, that.arrowBatches)
+        && Objects.equals(columnarData, that.columnarData);
   }
 
   @Override
@@ -162,7 +175,8 @@ public class ResultData {
         rowCount,
         rowOffset,
         Arrays.hashCode(attachment),
-        arrowBatches);
+        arrowBatches,
+        columnarData);
   }
 
   @Override
@@ -177,6 +191,7 @@ public class ResultData {
         .add("rowCount", rowCount)
         .add("rowOffset", rowOffset)
         .add("arrowBatches", arrowBatches)
+        .add("columnarData", columnarData)
         .toString();
   }
 }

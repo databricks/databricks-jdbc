@@ -65,22 +65,31 @@ class ExecutionResultFactory {
             DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
       }
     }
-    TelemetryHelper.setResultFormat(
-        session.getConnectionContext(), statementId, manifest.getFormat());
-    LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
-    // JSON_ARRAY serves metadata and updates; Arrow formats serve query results.
+    IExecutionResult resultHandler;
     switch (manifest.getFormat()) {
       case ARROW_BATCH:
       case ARROW_STREAM:
-        return new ArrowResult(manifest, data, statementId, session);
+        resultHandler = new ArrowResult(manifest, data, statementId, session);
+        break;
+      case COLUMN_BASED_SET:
+        resultHandler = new ColumnarDataResult(manifest, data, statementId, session);
+        break;
       case JSON_ARRAY:
         // This is used for metadata and update commands
-        return new InlineJsonResult(manifest, data, statementId, session);
+        resultHandler = new InlineJsonResult(manifest, data, statementId, session);
+        break;
       default:
         String errorMessage = String.format("Invalid response format %s", manifest.getFormat());
         LOGGER.error(errorMessage);
         throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
+    Format selectedFormat =
+        resultHandler instanceof ColumnarDataResult
+            ? Format.COLUMN_BASED_SET
+            : manifest.getFormat();
+    TelemetryHelper.setResultFormat(session.getConnectionContext(), statementId, selectedFormat);
+    LOGGER.info("Processing result of format {} from SQL Execution API", selectedFormat);
+    return resultHandler;
   }
 
   static IExecutionResult getResultSet(

@@ -1101,8 +1101,7 @@ public class ArrowResultTest {
     resultData.setNextChunkIndex(1L);
 
     ArrowResult result =
-        new ArrowResult(
-            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+        new ArrowResult(resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
 
     assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
     assertDoesNotThrow(result::close);

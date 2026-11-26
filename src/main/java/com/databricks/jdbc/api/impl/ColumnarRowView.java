@@ -13,18 +13,20 @@ import java.util.List;
  * data on a per-row, per-column basis, significantly reducing memory allocations.
  */
 public class ColumnarRowView {
-  private final List<TColumn> columns;
+  private final int columnCount;
   private final int rowCount;
   private final ColumnAccessor[] columnAccessors;
 
   public ColumnarRowView(TRowSet rowSet) throws DatabricksSQLException {
-    this.columns = rowSet != null ? rowSet.getColumns() : null;
+    List<TColumn> columns = rowSet != null ? rowSet.getColumns() : null;
 
     if (columns == null || columns.isEmpty()) {
+      this.columnCount = 0;
       this.rowCount = 0;
       this.columnAccessors = new ColumnAccessor[0];
     } else {
-      this.rowCount = getRowCountFromFirstColumn();
+      this.columnCount = columns.size();
+      this.rowCount = getColumnSize(columns.get(0));
       this.columnAccessors = new ColumnAccessor[columns.size()];
       for (int i = 0; i < columns.size(); i++) {
         this.columnAccessors[i] = createColumnAccessor(columns.get(i));
@@ -39,18 +41,22 @@ public class ColumnarRowView {
 
   /** Gets the number of columns in this view. */
   public int getColumnCount() {
-    return columns != null ? columns.size() : 0;
+    return columnCount;
   }
 
   /** Gets the value at the specified row and column without materializing the entire row. */
   public Object getValue(int rowIndex, int columnIndex) throws DatabricksSQLException {
     if (rowIndex < 0 || rowIndex >= rowCount) {
       throw new DatabricksSQLException(
-          "Row index out of bounds: " + rowIndex, DatabricksDriverErrorCode.INVALID_STATE);
+          "Row index out of bounds: " + rowIndex,
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (columnIndex < 0 || columnIndex >= columnAccessors.length) {
       throw new DatabricksSQLException(
-          "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
+          "Column index out of bounds: " + columnIndex,
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
 
     return columnAccessors[columnIndex].getValue(rowIndex);
@@ -63,7 +69,9 @@ public class ColumnarRowView {
   public Object[] materializeRow(int rowIndex) throws DatabricksSQLException {
     if (rowIndex < 0 || rowIndex >= rowCount) {
       throw new DatabricksSQLException(
-          "Row index out of bounds: " + rowIndex, DatabricksDriverErrorCode.INVALID_STATE);
+          "Row index out of bounds: " + rowIndex,
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
 
     Object[] row = new Object[columnAccessors.length];
@@ -71,14 +79,6 @@ public class ColumnarRowView {
       row[col] = columnAccessors[col].getValue(rowIndex);
     }
     return row;
-  }
-
-  private int getRowCountFromFirstColumn() throws DatabricksSQLException {
-    if (columns.isEmpty()) {
-      return 0;
-    }
-    TColumn firstColumn = columns.get(0);
-    return getColumnSize(firstColumn);
   }
 
   private static int getColumnSize(TColumn column) throws DatabricksSQLException {
