@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
@@ -31,12 +32,67 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 
 class DatabricksSdkClientRetryTest {
   private static final String JDBC_URL =
       "jdbc:databricks://workspace.example.com/default;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse;UseThriftClient=0";
+
+  @ParameterizedTest
+  @EmptySource
+  @ValueSource(strings = {"2m"})
+  void malformedTimeoutsFailBeforeAnyRequest(String value) throws Exception {
+    for (String option : List.of("RateLimitRetryTimeout", "TemporarilyUnavailableRetryTimeout")) {
+      AtomicInteger attempts = new AtomicInteger();
+      DatabricksConfig config = config(200, attempts, 0);
+      Properties properties = new Properties();
+      properties.setProperty(option, value);
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(JDBC_URL, properties);
+      try (MockedConstruction<ClientConfigurator> ignored =
+          mockConstruction(
+              ClientConfigurator.class,
+              (configurator, construction) ->
+                  when(configurator.getDatabricksConfig()).thenReturn(config))) {
+        DatabricksSdkClient client = new DatabricksSdkClient(context);
+        DatabricksValidationException error =
+            assertThrows(
+                DatabricksValidationException.class,
+                () -> client.createSession(new Warehouse("warehouse"), null, null, null));
+        assertEquals("INPUT_VALIDATION_ERROR", error.getSQLState());
+        assertEquals(0, error.getErrorCode());
+        assertInstanceOf(NumberFormatException.class, error.getCause());
+        assertEquals(0, attempts.get());
+      } finally {
+        DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"429, RateLimitRetryTimeout", "503, TemporarilyUnavailableRetryTimeout"})
+  void negativeTimeoutPreservesThriftNoRetrySemantics(int status, String option) throws Exception {
+    AtomicInteger attempts = new AtomicInteger();
+    DatabricksConfig config = config(status, attempts, Integer.MAX_VALUE);
+    Properties properties = new Properties();
+    properties.setProperty(option, "-1");
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    try (MockedConstruction<ClientConfigurator> ignored =
+        mockConstruction(
+            ClientConfigurator.class,
+            (configurator, construction) ->
+                when(configurator.getDatabricksConfig()).thenReturn(config))) {
+      DatabricksSdkClient client = new DatabricksSdkClient(context);
+      assertThrows(
+          DatabricksSQLException.class,
+          () -> client.createSession(new Warehouse("warehouse"), null, null, null));
+      assertEquals(1, attempts.get());
+    } finally {
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+    }
+  }
 
   @ParameterizedTest
   @ValueSource(ints = {429, 503})

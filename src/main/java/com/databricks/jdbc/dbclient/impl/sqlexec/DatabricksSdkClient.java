@@ -87,7 +87,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String path,
         String body,
         IDatabricksConnectionContext connectionContext,
-        String warehouseId) {
+        String warehouseId)
+        throws DatabricksValidationException {
       super(Request.POST, path, body);
       retryHandler = new CreateSessionRetryHandler(connectionContext, warehouseId);
     }

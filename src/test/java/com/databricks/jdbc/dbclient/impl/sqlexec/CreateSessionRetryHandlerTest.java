@@ -14,6 +14,7 @@ import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.core.utils.Timer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +34,21 @@ class CreateSessionRetryHandlerTest {
       new Request(Request.POST, "https://workspace.example.com/api/2.0/sql/warehouses/wh/sessions");
   private final FakeTimer timer = new FakeTimer();
   private final DatabricksConfig config = mock(DatabricksConfig.class);
+
+  @Test
+  void timeoutsAreReadOnceBeforeTransportRuns() throws Exception {
+    IDatabricksConnectionContext context = spy(context(5, 5, null));
+    CreateSessionRetryHandler handler =
+        new CreateSessionRetryHandler(context, timer, () -> 1.0, "wh");
+    verify(context).getRateLimitRetryTimeout();
+    verify(context).getTemporarilyUnavailableRetryTimeout();
+    Queue<Response> responses =
+        new ArrayDeque<>(
+            Arrays.asList(response(429, "1"), response(503, "1"), response(200, null)));
+    handler.execute(ignored -> responses.remove(), request, config);
+    verify(context).getRateLimitRetryTimeout();
+    verify(context).getTemporarilyUnavailableRetryTimeout();
+  }
 
   @ParameterizedTest
   @ValueSource(ints = {429, 503})
@@ -198,22 +214,35 @@ class CreateSessionRetryHandlerTest {
     }
   }
 
-  @Test
-  void retryDiagnosticsContainOnlySafeRequestDetails() throws Exception {
+  @ParameterizedTest
+  @ValueSource(ints = {429, 503})
+  void retryDiagnosticsContainOnlySafeRequestDetails(int status) throws Exception {
     AtomicInteger attempts = new AtomicInteger();
     request.withHeader("Authorization", "Bearer sensitive-token");
     CreateSessionRetryHandler handler = handler(5, 5, null);
     try (LogCapture logs = new LogCapture()) {
       handler.execute(
-          ignored -> response(attempts.incrementAndGet() == 1 ? 503 : 200, "1"), request, config);
+          ignored ->
+              new Response(
+                  request,
+                  attempts.incrementAndGet() <= 2 ? status : 200,
+                  "test",
+                  Map.of("Retry-After", List.of("1"), "x-ReQuEsT-iD", List.of("retry-request")),
+                  "{\"error_code\":\"TEMPORARILY_UNAVAILABLE\",\"message\":\"sensitive-message\"}"),
+          request,
+          config);
       String output = logs.getOutput();
-      assertTrue(output.contains("status=503"));
+      assertTrue(output.contains("status=" + status));
+      assertTrue(output.contains("error_code=TEMPORARILY_UNAVAILABLE"));
+      assertTrue(output.contains("requestId=retry-request"));
       assertTrue(output.contains("delayMs=1000"));
       assertTrue(output.contains("attempt=2"));
+      assertTrue(output.contains("attempt=1"));
       assertTrue(output.contains("remainingMs=5000"));
       assertTrue(output.contains("warehouseId=wh"));
       assertFalse(output.contains("workspace.example.com"));
       assertFalse(output.contains("sensitive-token"));
+      assertFalse(output.contains("sensitive-message"));
     }
   }
 
@@ -233,6 +262,63 @@ class CreateSessionRetryHandlerTest {
     verify(retained, never()).close();
     verify(config).authenticate();
     assertEquals("Bearer refreshed", request.getHeaders().get("Authorization"));
+  }
+
+  @Test
+  void retryDiagnosticsUseStructuredRequestIdWithoutHeaders() throws Exception {
+    Response failure =
+        new Response(
+            request,
+            503,
+            "test",
+            Map.of(),
+            "{\"error_code\":\"TEMPORARILY_UNAVAILABLE\",\"details\":[{"
+                + "\"@type\":\"type.googleapis.com/google.rpc.RequestInfo\","
+                + "\"request_id\":\"body-request\",\"serving_data\":\"sensitive-data\"}]}");
+    Queue<Response> responses = new ArrayDeque<>(Arrays.asList(failure, response(200, null)));
+    try (LogCapture logs = new LogCapture()) {
+      handler(5, 5, null).execute(ignored -> responses.remove(), request, config);
+      assertTrue(logs.getOutput().contains("error_code=TEMPORARILY_UNAVAILABLE"));
+      assertTrue(logs.getOutput().contains("requestId=body-request"));
+      assertFalse(logs.getOutput().contains("sensitive-data"));
+    }
+  }
+
+  @Test
+  void retryDiagnosticsBoundBodyReads() throws Exception {
+    ByteArrayInputStream body = new ByteArrayInputStream(new byte[16384]);
+    Response failure = new Response(request, request.getUri().toURL(), 503, "test", Map.of(), body);
+    Queue<Response> responses = new ArrayDeque<>(Arrays.asList(failure, response(200, null)));
+    assertEquals(
+        200,
+        handler(5, 5, null)
+            .execute(ignored -> responses.remove(), request, config)
+            .getStatusCode());
+    assertEquals(8192, body.available());
+  }
+
+  @Test
+  void diagnosticReadFailureDoesNotPreventRetryOrLoseHeaderRequestId() throws Exception {
+    InputStream body = mock(InputStream.class);
+    when(body.read(any(byte[].class), anyInt(), anyInt())).thenThrow(new IOException("test"));
+    Response failure =
+        new Response(
+            request,
+            request.getUri().toURL(),
+            429,
+            "test",
+            Map.of("X-Request-Id", List.of("header-request")),
+            body);
+    Queue<Response> responses = new ArrayDeque<>(Arrays.asList(failure, response(200, null)));
+    try (LogCapture logs = new LogCapture()) {
+      assertEquals(
+          200,
+          handler(5, 5, null)
+              .execute(ignored -> responses.remove(), request, config)
+              .getStatusCode());
+      assertTrue(logs.getOutput().contains("requestId=header-request"));
+    }
+    verify(body).close();
   }
 
   @ParameterizedTest
