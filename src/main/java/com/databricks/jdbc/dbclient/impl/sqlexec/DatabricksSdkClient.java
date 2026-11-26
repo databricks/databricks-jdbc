@@ -46,6 +46,8 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import com.databricks.sdk.core.retry.RequestBasedRetryStrategyPicker;
+import com.databricks.sdk.core.retry.RetryStrategy;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
@@ -79,9 +81,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private static final class CreateSessionHttpRequest extends Request {
     boolean realtimeSession;
+    final CreateSessionRetryHandler retryHandler;
 
-    CreateSessionHttpRequest(String path, String body) {
+    CreateSessionHttpRequest(String path, String body, CreateSessionRetryHandler retryHandler) {
       super(Request.POST, path, body);
+      this.retryHandler = retryHandler;
     }
   }
 
@@ -137,7 +141,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
           if (!responseCompressionEnabled) {
             request.withHeader("Accept-Encoding", "identity");
           }
-          Response response = delegate.execute(request);
+          Response response =
+              request instanceof CreateSessionHttpRequest
+                      && ((CreateSessionHttpRequest) request).retryHandler != null
+                      && !config.getDisableRetries()
+                  ? ((CreateSessionHttpRequest) request)
+                      .retryHandler.execute(delegate, request, config)
+                  : delegate.execute(request);
           if (request instanceof CreateSessionHttpRequest) {
             String header = response.getFirstHeader(REALTIME_SESSION_HEADER);
             ((CreateSessionHttpRequest) request).realtimeSession =
@@ -145,7 +155,24 @@ public class DatabricksSdkClient implements IDatabricksClient {
           }
           return response;
         };
-    return new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport).build();
+    ApiClient.Builder builder =
+        new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport);
+    if (!config.getDisableRetries()) {
+      RequestBasedRetryStrategyPicker sdkPicker =
+          new RequestBasedRetryStrategyPicker(config.getHost());
+      builder.withRetryStrategyPicker(
+          request -> {
+            RetryStrategy sdkStrategy = sdkPicker.getRetryStrategy(request);
+            if (!(request instanceof CreateSessionHttpRequest)) {
+              return sdkStrategy;
+            }
+            return error ->
+                error.getStatusCode() != HttpStatus.SC_TOO_MANY_REQUESTS
+                    && error.getStatusCode() != HttpStatus.SC_SERVICE_UNAVAILABLE
+                    && sdkStrategy.isRetriable(error);
+          });
+    }
+    return builder.build();
   }
 
   @Override
@@ -191,9 +218,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String createPath =
         String.format(WAREHOUSE_SESSION_PATH, ((Warehouse) warehouse).getWarehouseId());
     boolean realtimeSession;
+    CreateSessionHttpRequest req = null;
     try {
-      CreateSessionHttpRequest req =
-          new CreateSessionHttpRequest(createPath, apiClient.serialize(request));
+      req =
+          new CreateSessionHttpRequest(
+              createPath,
+              apiClient.serialize(request),
+              clientConfigurator.getDatabricksConfig().getDisableRetries()
+                  ? null
+                  : new CreateSessionRetryHandler(
+                      connectionContext, ((Warehouse) warehouse).getWarehouseId()));
       req.withHeaders(getHeaders("createSession"));
       createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;
@@ -206,7 +240,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 HttpStatus.SC_TOO_MANY_REQUESTS,
                 ((Warehouse) warehouse).getWarehouseId(),
                 e.getMessage());
-        LOGGER.warn(errorMessage, e);
+        if (req != null && req.retryHandler != null && req.retryHandler.hasLoggedExhaustion()) {
+          LOGGER.debug(errorMessage, e);
+        } else {
+          LOGGER.warn(errorMessage, e);
+        }
         throw new DatabricksRateLimitException(errorMessage, e, HttpStatus.SC_TOO_MANY_REQUESTS);
       }
       String errorReason = buildErrorMessage(e);
