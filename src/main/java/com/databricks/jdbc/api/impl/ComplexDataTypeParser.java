@@ -18,12 +18,14 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.util.RawValue;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -55,6 +57,11 @@ public class ComplexDataTypeParser {
   private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
   private static final ObjectWriter PLAIN_DECIMAL_WRITER =
       JsonUtil.getMapper().writer().with(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN);
+  private static final ObjectReader COMPLEX_JSON_READER =
+      JsonUtil.getMapper()
+          .reader()
+          .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+          .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);
   private final boolean geoSpatialSupportEnabled;
   private final ZoneId timestampZone;
 
@@ -552,17 +559,18 @@ public class ComplexDataTypeParser {
 
     try {
       ComplexTypePlan plan = ComplexTypePlan.of(typeMetadata);
+      boolean isMap = complexType.equals(DatabricksTypeUtil.MAP);
       if (plan.containsStruct) {
         // Arrow StructVector.getObject omits null children. Restore their field
         // presence from the schema without coercing any non-null scalar values.
         JsonNode node = readComplexJson(jsonString);
-        restoreStructNullFields(node, plan);
+        node = restoreStructNullFields(node, plan, !isMap && plan.containsDecimal);
         jsonString = node.toString();
       }
-      if (complexType.equals(DatabricksTypeUtil.MAP)) {
+      if (isMap) {
         return formatMapString(jsonString, typeMetadata);
       }
-      if (plan.containsDecimal) {
+      if (plan.containsDecimal && !plan.containsStruct) {
         return formatDecimalText(jsonString, plan);
       }
     } catch (Exception e) {
@@ -573,40 +581,67 @@ public class ComplexDataTypeParser {
   }
 
   private static JsonNode readComplexJson(String json) throws IOException {
-    return JsonUtil.getMapper()
-        .reader()
-        .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-        .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
-        .readTree(json);
+    return COMPLEX_JSON_READER.readTree(json);
   }
 
-  private static void restoreStructNullFields(JsonNode node, ComplexTypePlan plan) {
+  private static JsonNode restoreStructNullFields(
+      JsonNode node, ComplexTypePlan plan, boolean plainDecimals) {
     if (node == null || node.isNull()) {
-      return;
+      return node;
+    }
+    if (!plan.containsStruct && (!plainDecimals || !plan.containsDecimal)) {
+      return node;
+    }
+    if (plainDecimals && plan.decimal) {
+      return JsonUtil.getMapper()
+          .getNodeFactory()
+          .rawValueNode(
+              new RawValue(
+                  plan.decimalValue(node.isNumber() ? node.decimalValue() : node.asText())
+                      .toPlainString()));
     }
     if (plan.type.startsWith(DatabricksTypeUtil.STRUCT) && node.isObject()) {
       for (Map.Entry<String, ComplexTypePlan> field : plan.fields.entrySet()) {
         if (!node.has(field.getKey())) {
           ((ObjectNode) node).putNull(field.getKey());
         } else {
-          restoreStructNullFields(node.get(field.getKey()), field.getValue());
+          replaceRestoredField((ObjectNode) node, field.getKey(), field.getValue(), plainDecimals);
         }
       }
     } else if (plan.element != null && node.isArray()) {
-      for (JsonNode element : node) {
-        restoreStructNullFields(element, plan.element);
+      for (int index = 0; index < node.size(); index++) {
+        JsonNode original = node.get(index);
+        JsonNode restored = restoreStructNullFields(original, plan.element, plainDecimals);
+        if (original != restored) {
+          ((ArrayNode) node).set(index, restored);
+        }
       }
     } else if (plan.key != null) {
       if (node.isArray()) {
         for (JsonNode entry : node) {
-          restoreStructNullFields(entry.get("key"), plan.key);
-          restoreStructNullFields(entry.get("value"), plan.value);
+          replaceRestoredField((ObjectNode) entry, "key", plan.key, plainDecimals);
+          replaceRestoredField((ObjectNode) entry, "value", plan.value, plainDecimals);
         }
       } else if (node.isObject()) {
-        for (JsonNode value : node) {
-          restoreStructNullFields(value, plan.value);
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+          Map.Entry<String, JsonNode> field = fields.next();
+          JsonNode restored = restoreStructNullFields(field.getValue(), plan.value, plainDecimals);
+          if (restored != field.getValue()) {
+            field.setValue(restored);
+          }
         }
       }
+    }
+    return node;
+  }
+
+  private static void replaceRestoredField(
+      ObjectNode node, String name, ComplexTypePlan plan, boolean plainDecimals) {
+    JsonNode original = node.get(name);
+    JsonNode restored = restoreStructNullFields(original, plan, plainDecimals);
+    if (original != restored) {
+      node.set(name, restored);
     }
   }
 

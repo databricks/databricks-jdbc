@@ -28,6 +28,12 @@ class NestedDecimalTest {
             "{\"d\":1.2E-7,\"f\":1.0E7}", "STRUCT", "STRUCT<d:DECIMAL(10,8),f:DOUBLE>"));
     String json = "[1.0E+7, -0.0, 1e-7]";
     assertEquals(json, parser.formatComplexTypeString(json, "ARRAY", "ARRAY<DOUBLE>"));
+    assertEquals(
+        "{\"m\":[{\"key\":\"d\"}],\"d\":0.00}",
+        parser.formatComplexTypeString(
+            "{\"m\":[{\"key\":\"d\"}],\"d\":0E-2}",
+            "STRUCT",
+            "STRUCT<m:MAP<STRING,INT>,d:DECIMAL(10,2)>"));
   }
 
   @Test
