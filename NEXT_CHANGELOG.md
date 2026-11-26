@@ -12,6 +12,7 @@
 
 ### Fixed
 
+- Derive the workspace routing header from numeric all-purpose cluster HTTP paths when no explicit header or `?o=` value is present. Respect caller org-ID headers regardless of casing.
 - `getConnectionId()` for Thrift sessions on SQL warehouses now returns a Thrift (`t|...`) connection ID instead of a SQL Execution API (`s|...`) ID, so `Driver.closeConnection` closes the session through the Thrift client that created it.
 
 ---

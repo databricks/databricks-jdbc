@@ -31,6 +31,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.http.NameValuePair;
@@ -1446,6 +1447,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final String ORG_ID_HEADER = "x-databricks-org-id";
   private static final String ORG_ID_QUERY_PARAM = "o";
+  private static final Pattern ORG_ID_CLUSTER_PATH_PATTERN =
+      Pattern.compile("^/?sql/protocolv1/o/([0-9]+)/[^/?]+");
 
   private Map<String, String> parseCustomHeaders(ImmutableMap<String, String> parameters) {
     String filterPrefix = DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName();
@@ -1459,8 +1462,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                         entry -> entry.getKey().substring(filterPrefix.length()),
                         Map.Entry::getValue)));
 
-    // Extract org ID from ?o= in httpPath for SPOG routing
-    if (!headers.containsKey(ORG_ID_HEADER)) {
+    if (headers.keySet().stream().noneMatch(ORG_ID_HEADER::equalsIgnoreCase)) {
       String httpPath =
           parameters.getOrDefault(
               DatabricksJdbcUrlParams.HTTP_PATH.getParamName().toLowerCase(), "");
@@ -1482,6 +1484,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         LOGGER.debug(
             "SPOG header extraction: malformed httpPath, skipping org-id extraction: "
                 + e.getMessage());
+        int queryStart = httpPath.indexOf('?');
+        if (queryStart >= 0) {
+          String rawQuery = httpPath.substring(queryStart + 1);
+          if (rawQuery.startsWith(ORG_ID_QUERY_PARAM + "=")
+              || rawQuery.contains("&" + ORG_ID_QUERY_PARAM + "=")) {
+            return headers;
+          }
+        }
+      }
+      if (headers.keySet().stream().noneMatch(ORG_ID_HEADER::equalsIgnoreCase)) {
+        Matcher clusterPathMatcher = ORG_ID_CLUSTER_PATH_PATTERN.matcher(httpPath);
+        if (clusterPathMatcher.find()) {
+          headers.put(ORG_ID_HEADER, clusterPathMatcher.group(1));
+          LOGGER.debug(
+              "SPOG header extraction: injecting {}={} (extracted from cluster path segment)",
+              ORG_ID_HEADER,
+              clusterPathMatcher.group(1));
+        }
       }
     } else {
       LOGGER.debug(

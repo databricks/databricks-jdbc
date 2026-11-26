@@ -1720,7 +1720,72 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
 
     Map<String, String> headers = ctx.getCustomHeaders();
-    assertFalse(headers.containsKey("x-databricks-org-id"));
+    assertTrue(headers.keySet().stream().noneMatch("x-databricks-org-id"::equalsIgnoreCase));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "sql/protocolv1/o/6051921418418893/0528-cluster, 6051921418418893",
+    "/sql/protocolv1/o/6051921418418893/0528-cluster, 6051921418418893",
+    "/sql/protocolv1/o/9007199254740993/0528-cluster, 9007199254740993",
+    "/sql/protocolv1/o/000123/0528-cluster, 000123",
+    "/sql/protocolv1/o/123/0528-cluster?o=456, 456",
+    "sql/protocolv1/o/123/0528-cluster?o=456, 456",
+    "/sql/protocolv1/o/123/0528-cluster?o=fromquery, fromquery",
+    "/sql/protocolv1/o/456/0528-cluster?o=123&x=a|b,",
+    "/sql/protocolv1/o/123/0528-cluster?o=, 123",
+    "/sql/protocolv1/o/123/0528-cluster?other=456, 123",
+    "/sql/protocolv1/o/123/0528-cluster/extra, 123",
+    "/sql/protocolv1/o/not-numeric/0528-cluster,",
+    "/sql/protocolv1/o/123abc/0528-cluster,",
+    "/sql/protocolv1/o/-123/0528-cluster,",
+    "/sql/protocolv1/o/123/?other=456,",
+    "/sql/1.0/warehouses/abc123,",
+    "/sql/1.0/warehouses/abc123?path=/sql/protocolv1/o/123/0528-cluster,",
+    "/other/sql/protocolv1/o/123/0528-cluster,"
+  })
+  void testSpogContext_clusterPathOrgId(String httpPath, String expectedOrgId)
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;ssl=1;AuthMech=3;httpPath=" + httpPath, properties);
+
+    if (expectedOrgId == null) {
+      assertTrue(
+          ctx.getCustomHeaders().keySet().stream()
+              .noneMatch("x-databricks-org-id"::equalsIgnoreCase));
+    } else {
+      assertEquals(expectedOrgId, ctx.getCustomHeaders().get("x-databricks-org-id"));
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "http.header.x-databricks-org-id, /sql/protocolv1/o/123/0528-cluster",
+    "http.header.x-databricks-org-id, /sql/protocolv1/o/123/0528-cluster?o=456",
+    "http.header.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster",
+    "http.header.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster?o=456",
+    "HTTP.HEADER.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster",
+    "HTTP.HEADER.X-Databricks-Org-Id, /sql/protocolv1/o/123/0528-cluster?o=456"
+  })
+  void testSpogContext_explicitHeaderBeatsClusterPath(String headerProperty, String httpPath)
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;ssl=1;AuthMech=3;"
+                + "httpPath="
+                + httpPath
+                + ";"
+                + headerProperty
+                + "=fromheader",
+            properties);
+
+    Map<String, String> headers = ctx.getCustomHeaders();
+    assertEquals(
+        1L, headers.keySet().stream().filter("x-databricks-org-id"::equalsIgnoreCase).count());
+    headers.entrySet().stream()
+        .filter(entry -> "x-databricks-org-id".equalsIgnoreCase(entry.getKey()))
+        .forEach(entry -> assertEquals("fromheader", entry.getValue()));
   }
 
   @Test
