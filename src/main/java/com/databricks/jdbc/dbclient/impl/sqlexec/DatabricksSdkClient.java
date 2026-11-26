@@ -344,12 +344,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementRequest suppliedRequest)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, session ID = {}, parentStatement = {}, metadataOperationType = {})",
         sql,
         computeLogLabel(computeResource),
         parameters,
         statementType,
-        session,
+        session.getSessionId(),
         parentStatement,
         metadataOperationType);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
@@ -585,10 +585,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
+        "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, session ID = {}, IDatabricksStatementInternal parentStatement = {})",
         sql,
         computeLogLabel(computeResource),
-        session,
+        session.getSessionId(),
         parentStatement);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     StatementType statementType = StatementType.SQL;

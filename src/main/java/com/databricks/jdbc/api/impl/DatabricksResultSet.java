@@ -94,6 +94,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private ZoneId timestampZone = null;
   private boolean geoSpatialSupport = false;
   private boolean usesBoundedResultContract = false;
+  // True when the owning SEA connection targets an all-purpose cluster. Statement IDs recovered via
+  // getStatement(rawId) carry no APC target, so the connection compute is also consulted.
+  private boolean allPurposeClusterConnection = false;
   // Set when next() exhausts an Arrow result whose manifest row count cannot be relied on.
   // This lets isAfterLast() distinguish being ON the last row from moving PAST it.
   private boolean arrowResultExhausted = false;
@@ -159,6 +162,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.usesBoundedResultContract =
         session.getConnectionContext().isBoundedSeaApiEnabled()
             || session.getConnectionContext().isAllPurposeCluster();
+    this.allPurposeClusterConnection = session.getConnectionContext().isAllPurposeCluster();
     this.strictGetObjectConversion =
         session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
@@ -629,7 +633,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult == null) {
       return false;
     }
-    if (statementId != null && statementId.isAllPurposeCluster()) {
+    if (statementId != null
+        && (statementId.isAllPurposeCluster()
+            || (allPurposeClusterConnection && !statementId.isRealtimeSession()))) {
       LOGGER.debug("Heartbeat is not supported for APC statements");
       return false;
     }
