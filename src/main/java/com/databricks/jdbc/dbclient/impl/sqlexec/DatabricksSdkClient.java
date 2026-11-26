@@ -346,7 +346,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
         sql,
-        computeResource.toString(),
+        computeLogLabel(computeResource),
         parameters,
         statementType,
         session,
@@ -395,14 +395,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
           "Empty Statement ID for sql {}, statementType {}, compute {}",
           sql,
           statementType,
-          computeResource);
+          computeLogLabel(computeResource));
       handleFailedExecution(response, "", sql);
     }
     LOGGER.debug(
         "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
         sql,
         statementType,
-        computeResource,
+        computeLogLabel(computeResource),
         statementId);
     StatementId typedStatementId =
         isApc
@@ -557,7 +557,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     LOGGER.debug(
         "Executing native parameter batch with {} parameter sets on {}",
         parameterSets.size(),
-        computeResource);
+        computeLogLabel(computeResource));
     if (!supportsNativeParameterBatching(computeResource)) {
       throw new DatabricksValidationException(
           "Native parameter batching is only supported on SQL warehouses");
@@ -587,7 +587,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     LOGGER.debug(
         "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
         sql,
-        computeResource.toString(),
+        computeLogLabel(computeResource),
         session,
         parentStatement);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
@@ -614,7 +614,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     String statementId = response.getStatementId();
     if (statementId == null) {
-      LOGGER.error("Empty Statement ID for sql {}, compute {}", sql, computeResource.toString());
+      LOGGER.error(
+          "Empty Statement ID for sql {}, compute {}", sql, computeLogLabel(computeResource));
       handleFailedExecution(response, "", sql);
     }
     StatementId typedStatementId =
@@ -1128,6 +1129,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     throw new DatabricksValidationException(
         "Unsupported SQL Execution API compute resource: "
             + (computeResource == null ? "null" : computeResource.getClass().getName()));
+  }
+
+  /** Returns a log-safe compute label that never exposes APC cluster or org IDs. */
+  private static String computeLogLabel(IDatabricksComputeResource computeResource) {
+    return computeResource instanceof AllPurposeCluster
+        ? APC_LOG_LABEL
+        : String.valueOf(computeResource);
   }
 
   private static String warehouseId(IDatabricksComputeResource computeResource)

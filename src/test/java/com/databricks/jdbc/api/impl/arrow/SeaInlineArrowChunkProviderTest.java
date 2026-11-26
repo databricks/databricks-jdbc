@@ -10,12 +10,20 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.channels.Channels;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,7 +32,16 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.ipc.WriteChannel;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -372,6 +389,89 @@ class SeaInlineArrowChunkProviderTest {
       verify(mockSdkClient).getResultChunksData(STATEMENT_ID, 1L, 3L);
       verify(mockSdkClient).getResultChunksData(STATEMENT_ID, 2L, 5L);
       verifyNoMoreInteractions(mockSdkClient);
+    }
+
+    @Test
+    @DisplayName("Should page ARROW_BATCH results through offsets and an empty final page")
+    void testArrowBatchMultiPagePaging() throws Exception {
+      ResultManifest manifest = arrowBatchManifest();
+      ResultData initial =
+          arrowBatchPage(Arrays.asList(arrowBatch(1, 2), arrowBatch(3)), 3L, 0L, 1L);
+      ResultData page1 = arrowBatchPage(Collections.singletonList(arrowBatch(4, 5)), 2L, 3L, 2L);
+      ResultData emptyFinalPage = arrowBatchPage(Collections.emptyList(), 0L, 5L, null);
+
+      setupSessionMocks();
+      when(mockSdkClient.getResultChunksData(eq(STATEMENT_ID), eq(1L), eq(3L))).thenReturn(page1);
+      when(mockSdkClient.getResultChunksData(eq(STATEMENT_ID), eq(2L), eq(5L)))
+          .thenReturn(emptyFinalPage);
+
+      provider =
+          new SeaInlineArrowChunkProvider(
+              initial, STATEMENT_ID, mockSession, new ArrowBatchPageDecoder(manifest));
+
+      ColumnInfo colInfo = new ColumnInfo();
+      List<Integer> values = new ArrayList<>();
+      int pages = 0;
+      while (provider.next()) {
+        pages++;
+        ArrowResultChunkIterator it = provider.getChunk().getChunkIterator();
+        while (it.nextRow()) {
+          values.add(
+              (Integer) it.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", colInfo));
+        }
+      }
+
+      assertEquals(Arrays.asList(1, 2, 3, 4, 5), values);
+      assertEquals(3, pages);
+      assertFalse(provider.hasNextChunk());
+      assertFalse(provider.next());
+      assertEquals(5L, provider.getRowCount());
+      verify(mockSdkClient).getResultChunksData(STATEMENT_ID, 1L, 3L);
+      verify(mockSdkClient).getResultChunksData(STATEMENT_ID, 2L, 5L);
+      verifyNoMoreInteractions(mockSdkClient);
+    }
+  }
+
+  private static ResultManifest arrowBatchManifest() throws IOException {
+    ColumnInfo column =
+        new ColumnInfo()
+            .setName("value")
+            .setPosition(0L)
+            .setTypeName(ColumnInfoTypeName.INT)
+            .setTypeText("INT");
+    Field field = new Field("value", new FieldType(true, new ArrowType.Int(32, true), null), null);
+    return new ResultManifest()
+        .setFormat(Format.ARROW_BATCH)
+        .setSchema(
+            new ResultSchema().setColumnCount(1L).setColumns(Collections.singletonList(column)))
+        .setArrowSchema(SchemaUtility.serialize(new Schema(Collections.singletonList(field))));
+  }
+
+  private static ResultData arrowBatchPage(
+      List<ArrowBatch> batches, Long rowCount, Long rowOffset, Long nextChunkIndex) {
+    return new ResultData()
+        .setArrowBatches(batches)
+        .setRowCount(rowCount)
+        .setRowOffset(rowOffset)
+        .setNextChunkIndex(nextChunkIndex);
+  }
+
+  private static ArrowBatch arrowBatch(int... values) throws IOException {
+    try (BufferAllocator allocator = new RootAllocator();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        IntVector vector = new IntVector("value", allocator)) {
+      vector.allocateNew(values.length);
+      for (int i = 0; i < values.length; i++) {
+        vector.set(i, values[i]);
+      }
+      vector.setValueCount(values.length);
+      try (VectorSchemaRoot root = VectorSchemaRoot.of(vector)) {
+        root.setRowCount(values.length);
+        try (ArrowRecordBatch recordBatch = new VectorUnloader(root).getRecordBatch()) {
+          MessageSerializer.serialize(new WriteChannel(Channels.newChannel(output)), recordBatch);
+        }
+      }
+      return new ArrowBatch().setBatch(output.toByteArray()).setRowCount((long) values.length);
     }
   }
 
