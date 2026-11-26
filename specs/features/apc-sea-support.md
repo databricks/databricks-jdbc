@@ -817,9 +817,8 @@ propagate without fallback.
    `AllPurposeClusterCompute { cluster_id }`. Add optional `backend_compute` to the driver-owned
    JSON body models, including `DeleteSessionRequest`; encode APC targeting for SDK-owned GET
    models and the bodiless CloseStatement and TerminateSession DELETE bindings in the URL.
-3. Add a small `SeaComputeTarget` helper in `dbclient/impl/sqlexec` that, given an
-   `IDatabricksComputeResource`, produces both the request target (`warehouse_id` or
-   `backend_compute`) and the URL family. Warehouses keep today's behavior
+3. Add explicit local compute-routing helpers in `DatabricksSdkClient` for request targeting
+   (`warehouse_id` or `backend_compute`) and URL selection. Warehouses keep today's behavior
    (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC uses
    the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
    JSON body for CreateSession, ExecuteStatement, and CancelStatement. For GetStatementResult,
@@ -829,10 +828,10 @@ propagate without fallback.
    use the same URL targeting for TerminateSession because the SDK transport drops DELETE bodies.
    Assert the outgoing DELETE query in a fake-service request test. Use a query builder to merge the
    compute field with `row_offset` and any other existing parameters rather than concatenating
-   query strings. APC never sets `realtimeSession`. Route every `(Warehouse)` cast in
-   `DatabricksSdkClient`, `SessionId`, and `StatementId` through the helper. Do not pass
-   `SeaComputeTarget` through to CloudFetch: use presigned external-link URLs and headers exactly
-   as returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
+   query strings. APC never sets `realtimeSession`. Keep identifier routing directly in
+   `SessionId` and `StatementId`; do not introduce a compute-target hierarchy. Do not pass compute
+   targeting through to CloudFetch: use presigned external-link URLs and headers exactly as
+   returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
    dispatch on it. Preserve legacy warehouse identifier parsing, and add APC SEA session and
    statement forms carrying the compute discriminator, org/cluster ids, and raw id so
    reconstruction cannot turn APC into warehouse compute. Do not serialize the negotiated protocol
@@ -980,7 +979,8 @@ paths for APC (no new constants expected).
   SEA target when reconstructing a statement from a public raw id; expose the APC connection id.
 - `src/main/java/com/databricks/client/jdbc/Driver.java` — choose the close client from the
   deserialized public connection id, including after a flag change.
-- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/` — new `SeaComputeTarget` helper.
+- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksSdkClient.java` — explicit
+  local compute-routing helpers for request targets and URL families.
 - `src/main/java/com/databricks/jdbc/model/client/sqlexec/` — `BackendCompute`,
   `AllPurposeClusterCompute`; `backend_compute` on the driver-owned
   CreateSession/ExecuteStatement/Cancel/TerminateSession request bodies. `DeleteSessionRequest`
@@ -1074,8 +1074,8 @@ decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_met
   fail to terminate the SEA session; AC3 covers saved-session client selection through the public
   close API.
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
-mitigated by centralizing in `SeaComputeTarget`, explicit per-binding body/query encoding in R2,
-and AC3 serialized-request coverage of every call.
+mitigated by explicit local routing helpers, per-binding body/query encoding in R2, and AC3
+serialized-request coverage of every call.
 - Standard statement URLs currently trigger request-body serialization for GET and
   CloseStatement, despite their bodiless REST bindings. APC must pass a null body at every such
   call site; AC3 asserts the captured body and AC11 guards warehouse serialization.
@@ -1128,9 +1128,9 @@ implementation review; its completion includes external dogfood gates.
    serialization. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
   SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to APC GET and
   CloseStatement DELETE bindings (R2).
-- [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
-  cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
-  Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
+- [ ] T3: Add explicit local request-target and URL-family helpers in `DatabricksSdkClient`, with
+  direct identifier routing in `SessionId` and `StatementId`; keep warehouse and Real-time routing
+  byte-identical. Add serialized-request tests for the JSON-body and dotted-query
    encodings in R2, including TerminateSession's dotted query and merging the compute field with
   `row_offset` (R2, R9; AC2, AC3, AC11, AC14). Pass a null body for APC execution polls, explicit
   result GETs, both GetResultData chunk-fetch paths, and CloseStatement DELETE even though the
