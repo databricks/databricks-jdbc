@@ -38,16 +38,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private static final Pattern DML_PATTERN =
       Pattern.compile("INSERT|UPDATE|DELETE|MERGE", Pattern.CASE_INSENSITIVE);
 
-  private static final class CloseContext {
-    private final boolean closeOnServer;
-    private boolean serverCloseAttempted;
-    private boolean serverCloseFailed;
-
-    private CloseContext(boolean closeOnServer) {
-      this.closeOnServer = closeOnServer;
-    }
-  }
-
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
    * avoid iterating through result rows until getUpdateCount() is explicitly called.
@@ -63,7 +53,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
   private boolean isClosed;
   private boolean closeOnCompletion;
-  private CloseContext closeContext;
+  private boolean closing;
+  private boolean skipServerClose;
   private SQLWarning warnings = null;
   private long maxRows = DEFAULT_RESULT_ROW_LIMIT;
   private int maxFieldSize = 0;
@@ -163,17 +154,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public boolean close(boolean removeFromSession, boolean closeOnServer)
       throws DatabricksSQLException {
-    CloseContext previousContext = closeContext;
-    if (closeContext == null) {
-      closeContext = new CloseContext(closeOnServer);
-    }
-    CloseContext currentContext = closeContext;
-    try {
-      closeInternal(removeFromSession);
-      return currentContext.serverCloseFailed;
-    } finally {
-      closeContext = previousContext;
-    }
+    closing = true;
+    skipServerClose |= !closeOnServer;
+    closeInternal(removeFromSession);
+    return closeOnServer && statementId != null && !directResultsReceived && !serverOperationClosed;
   }
 
   private void closeInternal(boolean removeFromSession) throws DatabricksSQLException {
@@ -1142,36 +1126,26 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   /**
-   * Best-effort server cleanup after result consumption, ResultSet.close(), or Statement.close().
+   * Best-effort server cleanup after ResultSet.close() or Statement.close().
    *
    * <p>Failures are recorded without interrupting local cleanup. An earlier proactive failure may
    * be retried by a later Statement.close(), which makes at most one attempt.
    */
   @Override
   public void closeServerOperation() {
-    CloseContext context = closeContext;
-    if (context != null && (!context.closeOnServer || context.serverCloseAttempted)) {
+    if (skipServerClose
+        || serverOperationClosed
+        || directResultsReceived
+        || statementId == null
+        || isClosed) {
       return;
     }
-    if (context != null) {
-      context.serverCloseAttempted = true;
-    }
-    boolean serverCloseFailed = closeServerOperationInternal();
-    if (context != null) {
-      context.serverCloseFailed = serverCloseFailed;
-    }
-  }
-
-  private boolean closeServerOperationInternal() {
-    if (serverOperationClosed || directResultsReceived || statementId == null || isClosed) {
-      return false;
-    }
+    skipServerClose = closing;
     try {
       this.connection.getSession().getDatabricksClient().closeStatement(statementId);
       this.serverOperationClosed = true;
       LOGGER.debug(
           "Closed server operation for statement {}", StatementId.loggableStatementId(statementId));
-      return false;
     } catch (SQLException | RuntimeException e) {
       LOGGER.warn(
           "Failed to close server operation for statement {} ({})",
@@ -1181,7 +1155,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           "Server close failure for statement {}: {}",
           StatementId.loggableStatementId(statementId),
           ExceptionUtils.getStackTrace(e));
-      return true;
     }
   }
 

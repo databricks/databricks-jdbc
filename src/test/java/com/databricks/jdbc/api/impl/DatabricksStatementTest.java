@@ -22,6 +22,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -2241,6 +2242,35 @@ public class DatabricksStatementTest {
     order.verify(client).closeStatement(any(StatementId.class));
     order.verify(client).deleteSession(any());
     order.verifyNoMoreInteractions();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void testConnectionCloseAttemptsServerUntilFirstFailure(boolean failAfterFirstClose)
+      throws Exception {
+    DatabricksConnection connection = openConnectionForCloseTest();
+    List<DatabricksStatement> statements = new ArrayList<>();
+    for (int index = 0; index < 3; index++) {
+      DatabricksStatement statement = (DatabricksStatement) connection.createStatement();
+      StatementId statementId = new StatementId("statement_" + index);
+      statement.setStatementId(statementId);
+      attachOpenResultSet(statement, statementId, mock(IExecutionResult.class));
+      statements.add(statement);
+    }
+    if (failAfterFirstClose) {
+      doNothing()
+          .doThrow(new IllegalStateException("Server cleanup failed"))
+          .when(client)
+          .closeStatement(any(StatementId.class));
+    }
+
+    assertDoesNotThrow(connection::close);
+    for (DatabricksStatement statement : statements) {
+      assertTrue(statement.isClosed());
+    }
+    assertTrue(connection.isClosed());
+    verify(client, times(failAfterFirstClose ? 2 : 3)).closeStatement(any(StatementId.class));
+    verify(client).deleteSession(any());
   }
 
   @ParameterizedTest
