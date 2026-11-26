@@ -13,6 +13,7 @@
 ### Fixed
 
 - Derive the workspace routing header from numeric all-purpose cluster HTTP paths when no explicit header or `?o=` value is present. Respect caller org-ID headers regardless of casing.
+- String keys and values in MAP values returned by `getString()`/`getObject()` when complex datatype support is disabled (the default) are now JSON-escaped (for example `\"` and `\n`), and collated strings (`STRING COLLATE ...`) are quoted like `STRING`.
 - `getConnectionId()` for Thrift sessions on SQL warehouses now returns a Thrift (`t|...`) connection ID instead of a SQL Execution API (`s|...`) ID, so `Driver.closeConnection` closes the session through the Thrift client that created it.
 
 ---
