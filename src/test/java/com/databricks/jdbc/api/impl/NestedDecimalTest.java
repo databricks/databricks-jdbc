@@ -118,6 +118,18 @@ class NestedDecimalTest {
 
   @Test
   void leavesFloatingPointTypesUnchanged() throws Exception {
+    assertEquals("[-0.0]", parser.parseJsonStringToDbArray("[-0.0]", "ARRAY<DOUBLE>").toString());
+    assertEquals(
+        "{\"d\":1.00,\"f\":-0.0}",
+        parser
+            .parseJsonStringToDbStruct(
+                "{\"d\":1.00,\"f\":-0.0}", "STRUCT<d:DECIMAL(10,2),f:DOUBLE>")
+            .toString());
+    assertEquals(
+        "{\"m\":{\"d\":1.00,\"f\":-0.0}}",
+        parser.formatMapString(
+            "[{\"key\":\"m\",\"value\":{\"d\":1.00,\"f\":-0.0}}]",
+            "MAP<STRING,STRUCT<d:DECIMAL(10,2),f:DOUBLE>>"));
     assertArrayEquals(
         new Object[] {1.1d, 1.23456789012345E9, null},
         (Object[])

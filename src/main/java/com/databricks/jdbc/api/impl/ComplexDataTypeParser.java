@@ -13,13 +13,14 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -38,6 +39,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -83,7 +85,7 @@ public class ComplexDataTypeParser {
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
       throws DatabricksParsingException {
     try {
-      JsonNode node = readComplexJson(json);
+      JsonNode node = readDecimalJson(json, arrayMetadata);
       return parseToArray(node, arrayMetadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
@@ -94,7 +96,7 @@ public class ComplexDataTypeParser {
   public DatabricksMap<String, Object> parseJsonStringToDbMap(String json, String mapMetadata)
       throws DatabricksParsingException {
     try {
-      JsonNode node = readComplexJson(json);
+      JsonNode node = readDecimalJson(json, mapMetadata);
       return parseToMap(node, mapMetadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
@@ -105,7 +107,7 @@ public class ComplexDataTypeParser {
   public DatabricksStruct parseJsonStringToDbStruct(String json, String structMetadata)
       throws DatabricksParsingException {
     try {
-      JsonNode node = readComplexJson(json);
+      JsonNode node = readDecimalJson(json, structMetadata);
       return parseToStruct(node, structMetadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
@@ -685,7 +687,7 @@ public class ComplexDataTypeParser {
       boolean hasDecimal = mapMetadata != null && DECIMAL_TYPE.matcher(mapMetadata).find();
       JsonNode node =
           hasDecimal
-              ? mapDecimalNodes(readComplexJson(jsonString), mapMetadata)
+              ? readDecimalJson(jsonString, mapMetadata)
               : JsonUtil.getMapper().readTree(jsonString);
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
         String[] kv = new String[] {"STRING", "STRING"};
@@ -766,46 +768,56 @@ public class ComplexDataTypeParser {
     return node.isBigDecimal() ? node.decimalValue().toPlainString() : node.asText();
   }
 
-  private static JsonNode mapDecimalNodes(JsonNode node, String metadata) {
-    if (node == null || node.isNull()) {
-      return node;
+  private static JsonNode readDecimalJson(String json, String metadata) throws IOException {
+    if (metadata == null || !DECIMAL_TYPE.matcher(metadata).find()) {
+      return JsonUtil.getMapper().readTree(json);
     }
-    if (node.isValueNode()) {
-      BigDecimal decimal = convertDecimal(node.asText(), metadata);
+    try (JsonParser parser = JsonUtil.getMapper().createParser(json)) {
+      parser.nextToken();
+      return readDecimalNode(parser, metadata);
+    }
+  }
+
+  private static JsonNode readDecimalNode(JsonParser parser, String metadata) throws IOException {
+    if (parser.currentToken() == JsonToken.START_ARRAY) {
+      String elementType = "";
+      if (metadata.startsWith(DatabricksTypeUtil.ARRAY)) {
+        elementType = MetadataParser.parseArrayMetadata(metadata);
+      } else if (metadata.startsWith(DatabricksTypeUtil.MAP)) {
+        String[] types = MetadataParser.parseMapMetadataParts(metadata);
+        elementType = "STRUCT<key:" + types[0] + ",value:" + types[1] + ">";
+      }
+      ArrayNode array = JsonUtil.getMapper().createArrayNode();
+      while (parser.nextToken() != JsonToken.END_ARRAY) {
+        array.add(readDecimalNode(parser, elementType));
+      }
+      return array;
+    }
+    if (parser.currentToken() == JsonToken.START_OBJECT) {
+      Map<String, String> fieldTypes =
+          metadata.startsWith(DatabricksTypeUtil.STRUCT)
+              ? MetadataParser.parseStructMetadata(metadata)
+              : Collections.emptyMap();
+      String valueType =
+          metadata.startsWith(DatabricksTypeUtil.MAP)
+              ? MetadataParser.parseMapMetadataParts(metadata)[1]
+              : "";
+      ObjectNode object = JsonUtil.getMapper().createObjectNode();
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        String name = parser.currentName();
+        parser.nextToken();
+        object.set(name, readDecimalNode(parser, fieldTypes.getOrDefault(name, valueType)));
+      }
+      return object;
+    }
+    if (parser.currentToken() == JsonToken.VALUE_NUMBER_FLOAT
+        || parser.currentToken() == JsonToken.VALUE_NUMBER_INT) {
+      BigDecimal decimal = convertDecimal(parser.getText(), metadata);
       if (decimal != null) {
         return DecimalNode.valueOf(decimal);
       }
-      return node.isFloatingPointNumber() ? DoubleNode.valueOf(node.doubleValue()) : node;
     }
-    if (metadata.startsWith(DatabricksTypeUtil.ARRAY) && node.isArray()) {
-      String elementType = MetadataParser.parseArrayMetadata(metadata);
-      for (int index = 0; index < node.size(); index++) {
-        ((ArrayNode) node).set(index, mapDecimalNodes(node.get(index), elementType));
-      }
-    } else if (metadata.startsWith(DatabricksTypeUtil.STRUCT) && node.isObject()) {
-      for (Map.Entry<String, String> field :
-          MetadataParser.parseStructMetadata(metadata).entrySet()) {
-        if (node.has(field.getKey())) {
-          ((ObjectNode) node)
-              .set(field.getKey(), mapDecimalNodes(node.get(field.getKey()), field.getValue()));
-        }
-      }
-    } else if (metadata.startsWith(DatabricksTypeUtil.MAP)) {
-      String[] types = MetadataParser.parseMapMetadataParts(metadata);
-      if (node.isArray()) {
-        for (JsonNode entry : node) {
-          ((ObjectNode) entry).set("key", mapDecimalNodes(entry.get("key"), types[0]));
-          ((ObjectNode) entry).set("value", mapDecimalNodes(entry.get("value"), types[1]));
-        }
-      } else if (node.isObject()) {
-        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-        while (fields.hasNext()) {
-          Map.Entry<String, JsonNode> field = fields.next();
-          field.setValue(mapDecimalNodes(field.getValue(), types[1]));
-        }
-      }
-    }
-    return node;
+    return JsonUtil.getMapper().readTree(parser);
   }
 
   private static void appendJsonString(StringBuilder out, String text, boolean escape) {
