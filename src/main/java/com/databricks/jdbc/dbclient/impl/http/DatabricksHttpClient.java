@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
+import com.databricks.jdbc.dbclient.impl.common.PollingDeadline;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
@@ -23,6 +24,7 @@ import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
@@ -183,8 +185,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return builder.build();
   }
 
-  private static void throwHttpException(Exception e, HttpUriRequest request)
+  private static void throwHttpException(IOException e, HttpUriRequest request)
       throws DatabricksHttpException {
+    if (PollingDeadline.isCurrentExpired()) {
+      throw new UncheckedIOException("Status poll deadline expired", e);
+    }
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {

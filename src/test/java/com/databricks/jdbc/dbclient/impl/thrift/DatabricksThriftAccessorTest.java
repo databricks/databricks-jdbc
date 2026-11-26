@@ -13,7 +13,9 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.PollingDeadline;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -23,12 +25,15 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
+import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -1051,7 +1056,91 @@ public class DatabricksThriftAccessorTest {
     assertEquals(0, exception.getErrorCode());
 
     // Verify that cancel was called
-    verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+    verify(thriftClient, timeout(1000)).CancelOperation(any(TCancelOperationReq.class));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testHeldPollHonorsTimeout(boolean metadata) throws Exception {
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+    AtomicBoolean pollEntered = new AtomicBoolean();
+    when(thriftClient.GetOperationStatus(any()))
+        .thenAnswer(
+            invocation -> {
+              pollEntered.set(true);
+              Thread.sleep(12000);
+              return operationStatusFinishedResp;
+            });
+    lenient().when(thriftClient.FetchResults(any())).thenReturn(fetchResultsResponse);
+    when(thriftClient.CancelOperation(any()))
+        .thenReturn(new TCancelOperationResp().setStatus(new TStatus(TStatusCode.SUCCESS_STATUS)));
+    if (metadata) {
+      when(connectionContext.getMetadataOperationTimeout()).thenReturn(2);
+      when(thriftClient.GetTables(any()))
+          .thenAnswer(
+              invocation -> {
+                assertNoPollingDeadline();
+                return new TGetTablesResp()
+                    .setStatus(new TStatus(TStatusCode.SUCCESS_STATUS))
+                    .setOperationHandle(tOperationHandle);
+              });
+    } else {
+      Statement statement = mock(Statement.class);
+      when(parentStatement.getStatement()).thenReturn(statement);
+      when(statement.getQueryTimeout()).thenReturn(2);
+      when(thriftClient.ExecuteStatement(any()))
+          .thenAnswer(
+              invocation -> {
+                assertNoPollingDeadline();
+                return new TExecuteStatementResp()
+                    .setStatus(new TStatus(TStatusCode.SUCCESS_STATUS))
+                    .setOperationHandle(tOperationHandle);
+              });
+    }
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      long started = System.nanoTime();
+      SQLException exception =
+          assertThrows(
+              SQLException.class,
+              () -> {
+                if (metadata) {
+                  accessor.getThriftResponse(new TGetTablesReq());
+                } else {
+                  accessor.execute(
+                      new TExecuteStatementReq(), parentStatement, session, StatementType.SQL);
+                }
+              });
+      double elapsedSeconds = (System.nanoTime() - started) / 1e9;
+      assertTrue(pollEntered.get(), "Held poll was not entered");
+      assertTrue(elapsedSeconds >= 6.8, "Held poll did not receive timeout grace");
+      assertTrue(elapsedSeconds < 9.5, "Held poll exceeded deadline and grace");
+      Throwable timeout = metadata ? exception.getCause() : exception;
+      assertInstanceOf(DatabricksTimeoutException.class, timeout);
+      String errorName = metadata ? "OPERATION_TIMEOUT_ERROR" : "STATEMENT_EXECUTION_TIMEOUT";
+      assertEquals(errorName, ((SQLException) timeout).getSQLState());
+      assertNotNull(timeout.getCause());
+      assertEquals(0, ((SQLException) timeout).getErrorCode());
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  any(), eq(errorName), eq(timeout.getMessage()), eq(TelemetryLogLevel.ERROR)));
+      telemetry.verifyNoMoreInteractions();
+    }
+    verify(thriftClient, timeout(1000)).CancelOperation(any());
+    if (metadata) {
+      verify(thriftClient, times(1)).GetTables(any());
+    } else {
+      verify(thriftClient, times(1)).ExecuteStatement(any());
+    }
+    verify(thriftClient, times(1)).GetOperationStatus(any());
+    assertFalse(Thread.currentThread().isInterrupted());
+  }
+
+  private static void assertNoPollingDeadline() throws ReflectiveOperationException {
+    Field current = PollingDeadline.class.getDeclaredField("CURRENT");
+    current.setAccessible(true);
+    assertNull(((ThreadLocal<?>) current.get(null)).get());
   }
 
   @Test
@@ -1289,7 +1378,7 @@ public class DatabricksThriftAccessorTest {
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
 
     // Verify cancel was called
-    verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+    verify(thriftClient, timeout(1000)).CancelOperation(any(TCancelOperationReq.class));
   }
 
   @Test

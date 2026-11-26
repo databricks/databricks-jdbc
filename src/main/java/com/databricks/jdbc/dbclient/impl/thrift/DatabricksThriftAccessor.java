@@ -31,7 +31,6 @@ import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -115,7 +114,7 @@ final class DatabricksThriftAccessor {
       LOGGER.error(errorMessage);
       throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
     } catch (TException | SQLException e) {
-      Throwable cause = e;
+      Throwable cause = e instanceof DatabricksTimeoutException ? null : e;
       while (cause != null) {
         if (cause instanceof HttpException) {
           throw new DatabricksHttpException(
@@ -127,11 +126,18 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               requestType, e.getMessage());
-      LOGGER.error(e, errorMessage);
+      boolean reportTelemetry = !(e instanceof DatabricksTimeoutException);
+      if (reportTelemetry) {
+        LOGGER.error(e, errorMessage);
+      }
       if (e instanceof SQLException) {
         SQLException sqlException = (SQLException) e;
         throw new DatabricksSQLException(
-            errorMessage, sqlException.getSQLState(), sqlException.getErrorCode(), sqlException);
+            errorMessage,
+            sqlException.getSQLState(),
+            sqlException.getErrorCode(),
+            sqlException,
+            reportTelemetry);
       } else {
         throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
       }
@@ -350,7 +356,8 @@ final class DatabricksThriftAccessor {
       // TTransportException means a transport-level failure (e.g. HTTP 502 Bad Gateway)
       // after retries were exhausted. Other TException subtypes propagate unchanged.
       try {
-        statusResp = getOperationStatus(statusReq, statementId);
+        statusResp =
+            timeoutHandler.executeWithTimeout(() -> getOperationStatus(statusReq, statementId));
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId.toSQLExecStatementId(), e);
       }
@@ -360,7 +367,7 @@ final class DatabricksThriftAccessor {
         break;
       }
       try {
-        TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
+        timeoutHandler.sleep(asyncPollIntervalMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt(); // Restore interrupt flag
         cancelOperation(
@@ -796,14 +803,20 @@ final class DatabricksThriftAccessor {
                   cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
                 }
               } catch (Exception e) {
-                LOGGER.warn("Failed to cancel metadata operation on timeout: {}", e.getMessage());
+                LOGGER.warn(
+                    "Failed to cancel metadata operation {} on timeout: {}",
+                    statementId,
+                    e.getMessage());
               }
             },
-            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
+            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR,
+            connectionContext);
     while (shouldContinuePolling(statusResp)) {
       metadataTimeoutHandler.checkTimeout();
       try {
-        statusResp = getThriftClient().GetOperationStatus(statusReq);
+        statusResp =
+            metadataTimeoutHandler.executeWithTimeout(
+                () -> getThriftClient().GetOperationStatus(statusReq));
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId, e);
       }
@@ -812,7 +825,7 @@ final class DatabricksThriftAccessor {
         break;
       }
       try {
-        TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
+        metadataTimeoutHandler.sleep(asyncPollIntervalMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         LOGGER.error(
@@ -1026,10 +1039,12 @@ final class DatabricksThriftAccessor {
             LOGGER.debug("Canceling operation due to timeout: {}", statementId);
             cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
           } catch (Exception e) {
-            LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
+            LOGGER.warn(
+                "Failed to cancel operation {} on timeout: {}", statementId, e.getMessage());
           }
         },
-        internalErrorCode);
+        internalErrorCode,
+        connectionContext);
   }
 
   /**

@@ -74,8 +74,15 @@ public class DatabricksSQLException extends SQLException {
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode, Throwable cause) {
+    this(reason, sqlState, vendorCode, cause, true);
+  }
+
+  public DatabricksSQLException(
+      String reason, String sqlState, int vendorCode, Throwable cause, boolean reportTelemetry) {
     super(reason, sqlState, vendorCode, cause);
-    logTelemetryEvent(sqlState, reason, false);
+    if (reportTelemetry) {
+      logTelemetryEvent(sqlState, reason, false);
+    }
   }
 
   private void logTelemetryEvent(String sqlState, String reason, boolean silentExceptions) {

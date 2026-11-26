@@ -20,11 +20,13 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
+import com.databricks.jdbc.dbclient.impl.common.PollingDeadline;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
@@ -41,6 +43,7 @@ import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
@@ -52,8 +55,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
@@ -68,6 +73,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -1273,7 +1279,7 @@ public class DatabricksSdkClientTest {
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
 
     // Verify cancel was called
-    verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+    verify(databricksSdkClient, timeout(1000)).cancelStatement(eq(STATEMENT_ID));
   }
 
   @Test
@@ -1334,7 +1340,79 @@ public class DatabricksSdkClientTest {
                     null));
 
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
-    verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+    verify(databricksSdkClient, timeout(1000)).cancelStatement(eq(STATEMENT_ID));
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+  void testHeldPollHonorsTimeout(boolean metadata) throws Exception {
+    Properties properties = new Properties();
+    properties.setProperty("MetadataOperationTimeout", "2");
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    DatabricksSdkClient client =
+        spy(new DatabricksSdkClient(context, statementExecutionService, apiClient));
+    DatabricksConnection connection = new DatabricksConnection(context, client);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(new CreateSessionResponse().setSessionId(SESSION_ID));
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setQueryTimeout(2);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              assertNoPollingDeadline();
+              return new ExecuteStatementResponse()
+                  .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                  .setStatus(new StatementStatus().setState(StatementState.RUNNING));
+            });
+    AtomicBoolean pollEntered = new AtomicBoolean();
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenAnswer(
+            invocation -> {
+              pollEntered.set(true);
+              Thread.sleep(12000);
+              return new GetStatementResponse()
+                  .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+            });
+    doNothing().when(client).cancelStatement(any());
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      long started = System.nanoTime();
+      DatabricksTimeoutException exception =
+          assertThrows(
+              DatabricksTimeoutException.class,
+              () ->
+                  client.executeStatement(
+                      "SELECT 1",
+                      warehouse,
+                      new HashMap<>(),
+                      metadata ? StatementType.METADATA : StatementType.QUERY,
+                      connection.getSession(),
+                      metadata ? null : statement,
+                      null));
+      double elapsedSeconds = (System.nanoTime() - started) / 1e9;
+      assertTrue(pollEntered.get(), "Held poll was not entered");
+      assertTrue(elapsedSeconds >= 6.8, "Held poll did not receive timeout grace");
+      assertTrue(elapsedSeconds < 9.5, "Held poll exceeded deadline and grace");
+      String errorName = metadata ? "OPERATION_TIMEOUT_ERROR" : "STATEMENT_EXECUTION_TIMEOUT";
+      assertEquals(errorName, exception.getSQLState());
+      assertNotNull(exception.getCause());
+      assertEquals(0, exception.getErrorCode());
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  any(), eq(errorName), eq(exception.getMessage()), eq(TelemetryLogLevel.ERROR)));
+      telemetry.verifyNoMoreInteractions();
+    }
+    verify(client, timeout(1000)).cancelStatement(STATEMENT_ID);
+    verify(apiClient, times(1)).execute(any(Request.class), eq(ExecuteStatementResponse.class));
+    verify(apiClient, times(1)).execute(any(Request.class), eq(GetStatementResponse.class));
+    assertFalse(Thread.currentThread().isInterrupted());
+  }
+
+  private static void assertNoPollingDeadline() throws ReflectiveOperationException {
+    Field current = PollingDeadline.class.getDeclaredField("CURRENT");
+    current.setAccessible(true);
+    assertNull(((ThreadLocal<?>) current.get(null)).get());
   }
 
   @Test

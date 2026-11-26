@@ -89,28 +89,26 @@ public class ConfiguratorUtils {
         && !connectionContext.acceptUndeterminedCertificateRevocation()
         && !connectionContext.useSystemTrustStore()
         && !connectionContext.allowSelfSignedCerts()) {
-      return new PoolingHttpClientConnectionManager();
+      return new PollingConnectionManager();
     }
 
     // For test environments, use a trust-all socket factory
     if (isJDBCTestEnv()) {
       LOGGER.info("Using trust-all socket factory for JDBC test environment");
-      return new PoolingHttpClientConnectionManager(
-          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
+      return new PollingConnectionManager(SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
     }
 
     // If self-signed certificates are allowed, use a trust-all socket factory
     if (connectionContext.allowSelfSignedCerts()) {
       LOGGER.warn(
           "Self-signed certificates are allowed. Please only use this parameter (AllowSelfSignedCerts) when you're sure of what you're doing. This is not recommended for production use.");
-      return new PoolingHttpClientConnectionManager(
-          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
+      return new PollingConnectionManager(SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
     }
 
     // For standard SSL configuration, create a custom socket factory registry
     Registry<ConnectionSocketFactory> socketFactoryRegistry =
         createConnectionSocketFactoryRegistry(connectionContext);
-    return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+    return new PollingConnectionManager(socketFactoryRegistry);
   }
 
   /**

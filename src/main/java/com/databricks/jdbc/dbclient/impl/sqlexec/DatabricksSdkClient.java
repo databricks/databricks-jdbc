@@ -406,7 +406,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
             : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT;
     TimeoutHandler timeoutHandler =
-        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this, timeoutErrorCode);
+        TimeoutHandler.forStatement(
+            timeoutInSeconds, typedStatementId, this, timeoutErrorCode, connectionContext);
 
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
@@ -415,7 +416,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
       if (pollCount > 0) { // First poll happens without a delay
         try {
-          Thread.sleep(connectionContext.getAsyncExecPollInterval());
+          timeoutHandler.sleep(connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
           String timeoutErrorMessage =
               String.format(
@@ -431,7 +432,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
             new Request(
                 Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
         req.withHeaders(getHeaders("getStatement"));
-        response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
+        response =
+            wrapGetStatementResponse(
+                timeoutHandler.executeWithTimeout(
+                    () -> apiClient.execute(req, GetStatementResponse.class)));
         updateSessionVersion(session, response.getStatus());
       } catch (IOException e) {
         String errorMessage = "Error while processing the get statement response";
