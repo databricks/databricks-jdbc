@@ -13,8 +13,11 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpRetryHandler;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -25,11 +28,17 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.http.StatusLine;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.protocol.HttpContext;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
@@ -41,6 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -141,6 +151,48 @@ public class DatabricksThriftAccessorTest {
     TOpenSessionResp response = new TOpenSessionResp();
     when(thriftClient.OpenSession(request)).thenReturn(response);
     assertEquals(accessor.getThriftResponse(request), response);
+  }
+
+  @Test
+  void openSessionMarkerDoesNotLeakWhenThriftClientIsReused() throws Exception {
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    StatusLine status = mock(StatusLine.class);
+    when(response.getStatusLine()).thenReturn(status);
+    when(status.getStatusCode()).thenReturn(200);
+    when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+        .thenReturn(response);
+    when(httpClient.execute(any(HttpUriRequest.class))).thenReturn(response);
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Collections.emptyMap());
+    when(configuratorManager.getConfigurator(connectionContext).getDatabricksConfig())
+        .thenReturn(config);
+    try (MockedStatic<DatabricksHttpClientFactory> clients =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory factory = mock(DatabricksHttpClientFactory.class);
+      clients.when(DatabricksHttpClientFactory::getInstance).thenReturn(factory);
+      when(factory.getClient(connectionContext)).thenReturn(httpClient);
+      TCLIService.Client client = new DatabricksThriftAccessor(connectionContext).getThriftClient();
+      client.send_OpenSession(new TOpenSessionReq());
+      client.send_ExecuteStatement(
+          new TExecuteStatementReq()
+              .setSessionHandle(
+                  new TSessionHandle(
+                      new THandleIdentifier(
+                          ByteBuffer.wrap(new byte[16]), ByteBuffer.wrap(new byte[16]))))
+              .setStatement("select 1"));
+      client.send_OpenSession(new TOpenSessionReq());
+
+      ArgumentCaptor<HttpContext> contexts = ArgumentCaptor.forClass(HttpContext.class);
+      verify(httpClient, times(2)).execute(any(HttpUriRequest.class), contexts.capture());
+      verify(httpClient).execute(any(HttpUriRequest.class));
+      assertNotSame(contexts.getAllValues().get(0), contexts.getAllValues().get(1));
+      for (HttpContext context : contexts.getAllValues()) {
+        assertEquals(
+            true, context.getAttribute(DatabricksHttpRetryHandler.OPEN_SESSION_REQUEST_KEY));
+        assertNull(context.getAttribute("tempUnavailableAccumulatedTime"));
+      }
+    }
   }
 
   @Test

@@ -37,6 +37,7 @@ import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.TFieldIdEnum;
 import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.protocol.TMessage;
 import org.apache.thrift.transport.TTransportException;
 
 final class DatabricksThriftAccessor {
@@ -720,7 +721,14 @@ final class DatabricksThriftAccessor {
             endpointUrl,
             databricksConfig,
             connectionContext);
-    return new TCLIService.Client(new TBinaryProtocol(transport));
+    return new TCLIService.Client(
+        new TBinaryProtocol(transport) {
+          @Override
+          public void writeMessageBegin(TMessage message) throws TException {
+            transport.setOpenSessionRequest("OpenSession".equals(message.name));
+            super.writeMessageBegin(message);
+          }
+        });
   }
 
   /**

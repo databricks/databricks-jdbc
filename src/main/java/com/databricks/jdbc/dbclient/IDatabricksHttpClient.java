@@ -7,6 +7,7 @@ import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.protocol.HttpContext;
 
 /** Http client interface for executing http requests. */
 public interface IDatabricksHttpClient {
@@ -18,6 +19,15 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
+
+  /**
+   * HTTP implementations must override this method and forward {@code context}, including retry
+   * markers. This default delegates to the legacy overload for compatibility.
+   */
+  default CloseableHttpResponse execute(HttpUriRequest request, HttpContext context)
+      throws DatabricksHttpException {
+    return execute(request);
+  }
 
   /**
    * Executes the given http request and returns the response
