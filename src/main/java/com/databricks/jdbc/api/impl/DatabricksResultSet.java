@@ -629,6 +629,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult == null) {
       return false;
     }
+    if (statementId != null && statementId.isAllPurposeCluster()) {
+      LOGGER.debug("Heartbeat is not supported for APC statements");
+      return false;
+    }
     // SEA inline — all data loaded in memory at construction
     if (resultSetType == ResultSetType.SEA_INLINE) {
       return false;

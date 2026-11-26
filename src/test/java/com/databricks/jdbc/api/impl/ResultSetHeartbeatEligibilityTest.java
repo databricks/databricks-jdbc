@@ -91,6 +91,19 @@ public class ResultSetHeartbeatEligibilityTest {
   // === Ineligible cases ===
 
   @Test
+  void testApcArrowBatchNotEligible() throws Exception {
+    DatabricksResultSet rs =
+        createResultSet(
+            StatementState.SUCCEEDED,
+            StatementType.QUERY,
+            DatabricksResultSet.ResultSetType.SEA_ARROW_BATCH,
+            true);
+    setField(rs, "statementId", StatementId.deserialize("a|org|cluster|test-stmt"));
+
+    assertFalse(rs.isHeartbeatEligible(), "APC does not support the heartbeat status RPC");
+  }
+
+  @Test
   void testSeaInlineNotEligible() {
     DatabricksResultSet rs =
         createResultSet(
