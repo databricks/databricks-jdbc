@@ -64,8 +64,12 @@ final class CreateSessionRetryHandler {
     this.jitter = jitter;
     this.warehouseId = warehouseId;
     try {
-      this.rateLimitTimeout = context.getRateLimitRetryTimeout();
-      this.unavailableTimeout = context.getTemporarilyUnavailableRetryTimeout();
+      this.rateLimitTimeout =
+          context.shouldRetryRateLimitError() ? context.getRateLimitRetryTimeout() : 0;
+      this.unavailableTimeout =
+          context.shouldRetryTemporarilyUnavailableError()
+              ? context.getTemporarilyUnavailableRetryTimeout()
+              : 0;
     } catch (NumberFormatException exception) {
       throw new DatabricksValidationException(
           "RateLimitRetryTimeout and TemporarilyUnavailableRetryTimeout must be integers in seconds",

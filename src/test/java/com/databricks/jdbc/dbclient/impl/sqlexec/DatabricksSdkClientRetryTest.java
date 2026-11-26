@@ -41,6 +41,73 @@ class DatabricksSdkClientRetryTest {
       "jdbc:databricks://workspace.example.com/default;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse;UseThriftClient=0";
 
   @ParameterizedTest
+  @CsvSource({
+    "RateLimitRetry, RateLimitRetryTimeout, 503, TemporarilyUnavailableRetryTimeout",
+    "TemporarilyUnavailableRetry, TemporarilyUnavailableRetryTimeout, 429, RateLimitRetryTimeout"
+  })
+  void disabledTimeoutsDoNotPreventConnectionsOrOtherRetries(
+      String disabledOption, String disabledTimeout, int status, String enabledTimeout)
+      throws Exception {
+    for (String value : List.of("2m", "")) {
+      for (int failures : new int[] {0, 1}) {
+        AtomicInteger attempts = new AtomicInteger();
+        DatabricksConfig config = config(status, attempts, failures);
+        Properties properties = new Properties();
+        properties.setProperty(disabledOption, "0");
+        properties.setProperty(disabledTimeout, value);
+        properties.setProperty(enabledTimeout, "5");
+        IDatabricksConnectionContext context =
+            DatabricksConnectionContext.parse(JDBC_URL, properties);
+        try (MockedConstruction<ClientConfigurator> ignored =
+            mockConstruction(
+                ClientConfigurator.class,
+                (configurator, construction) ->
+                    when(configurator.getDatabricksConfig()).thenReturn(config))) {
+          DatabricksSdkClient client = new DatabricksSdkClient(context);
+          assertEquals(
+              "session",
+              client.createSession(new Warehouse("warehouse"), null, null, null).sessionId());
+          assertEquals(failures + 1, attempts.get());
+        } finally {
+          DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+        }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {200, 429, 503})
+  void sdkDisabledIgnoresMalformedTimeouts(int status) throws Exception {
+    AtomicInteger attempts = new AtomicInteger();
+    DatabricksConfig config = config(status, attempts, Integer.MAX_VALUE).setDisableRetries(true);
+    Properties properties = new Properties();
+    properties.setProperty("RateLimitRetryTimeout", "2m");
+    properties.setProperty("TemporarilyUnavailableRetryTimeout", "");
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    try (MockedConstruction<ClientConfigurator> ignored =
+        mockConstruction(
+            ClientConfigurator.class,
+            (configurator, construction) ->
+                when(configurator.getDatabricksConfig()).thenReturn(config))) {
+      DatabricksSdkClient client = new DatabricksSdkClient(context);
+      if (status == 200) {
+        assertEquals(
+            "session",
+            client.createSession(new Warehouse("warehouse"), null, null, null).sessionId());
+      } else {
+        DatabricksSQLException error =
+            assertThrows(
+                DatabricksSQLException.class,
+                () -> client.createSession(new Warehouse("warehouse"), null, null, null));
+        assertInstanceOf(DatabricksError.class, error.getCause());
+      }
+      assertEquals(1, attempts.get());
+    } finally {
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(context);
+    }
+  }
+
+  @ParameterizedTest
   @EmptySource
   @ValueSource(strings = {"2m"})
   void malformedTimeoutsFailBeforeAnyRequest(String value) throws Exception {

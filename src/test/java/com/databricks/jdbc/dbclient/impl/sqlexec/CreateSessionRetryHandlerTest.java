@@ -51,6 +51,44 @@ class CreateSessionRetryHandlerTest {
   }
 
   @ParameterizedTest
+  @CsvSource({
+    "RateLimitRetry, RateLimitRetryTimeout, 503, TemporarilyUnavailableRetryTimeout",
+    "TemporarilyUnavailableRetry, TemporarilyUnavailableRetryTimeout, 429, RateLimitRetryTimeout"
+  })
+  void disabledMalformedTimeoutDoesNotChangeEnabledBudget(
+      String disabledOption, String disabledTimeout, int status, String enabledTimeout)
+      throws Exception {
+    Properties properties = new Properties();
+    properties.setProperty(disabledOption, "0");
+    properties.setProperty(disabledTimeout, "2m");
+    properties.setProperty(enabledTimeout, "2");
+    IDatabricksConnectionContext context =
+        spy(
+            DatabricksConnectionContext.parse(
+                "jdbc:databricks://workspace.example.com/default;AuthMech=3;httpPath=/sql/1.0/warehouses/wh",
+                properties));
+    CreateSessionRetryHandler handler =
+        new CreateSessionRetryHandler(context, timer, () -> 1.0, "wh");
+    AtomicInteger attempts = new AtomicInteger();
+    handler.execute(
+        ignored -> {
+          attempts.incrementAndGet();
+          return response(status, "1");
+        },
+        request,
+        config);
+    assertEquals(3, attempts.get());
+    assertEquals(2000, timer.now);
+    if (status == 429) {
+      verify(context).getRateLimitRetryTimeout();
+      verify(context, never()).getTemporarilyUnavailableRetryTimeout();
+    } else {
+      verify(context).getTemporarilyUnavailableRetryTimeout();
+      verify(context, never()).getRateLimitRetryTimeout();
+    }
+  }
+
+  @ParameterizedTest
   @ValueSource(ints = {429, 503})
   void longerBudgetsAllowMoreAttempts(int status) throws Exception {
     for (int seconds : new int[] {1, 5, 10}) {

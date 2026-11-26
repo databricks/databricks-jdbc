@@ -83,14 +83,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean realtimeSession;
     final CreateSessionRetryHandler retryHandler;
 
-    CreateSessionHttpRequest(
-        String path,
-        String body,
-        IDatabricksConnectionContext connectionContext,
-        String warehouseId)
-        throws DatabricksValidationException {
+    CreateSessionHttpRequest(String path, String body, CreateSessionRetryHandler retryHandler) {
       super(Request.POST, path, body);
-      retryHandler = new CreateSessionRetryHandler(connectionContext, warehouseId);
+      this.retryHandler = retryHandler;
     }
   }
 
@@ -147,7 +142,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
             request.withHeader("Accept-Encoding", "identity");
           }
           Response response =
-              request instanceof CreateSessionHttpRequest && !config.getDisableRetries()
+              request instanceof CreateSessionHttpRequest
+                      && ((CreateSessionHttpRequest) request).retryHandler != null
+                      && !config.getDisableRetries()
                   ? ((CreateSessionHttpRequest) request)
                       .retryHandler.execute(delegate, request, config)
                   : delegate.execute(request);
@@ -227,8 +224,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
           new CreateSessionHttpRequest(
               createPath,
               apiClient.serialize(request),
-              connectionContext,
-              ((Warehouse) warehouse).getWarehouseId());
+              clientConfigurator.getDatabricksConfig().getDisableRetries()
+                  ? null
+                  : new CreateSessionRetryHandler(
+                      connectionContext, ((Warehouse) warehouse).getWarehouseId()));
       req.withHeaders(getHeaders("createSession"));
       createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;
@@ -241,7 +240,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 HttpStatus.SC_TOO_MANY_REQUESTS,
                 ((Warehouse) warehouse).getWarehouseId(),
                 e.getMessage());
-        if (req != null && req.retryHandler.hasLoggedExhaustion()) {
+        if (req != null && req.retryHandler != null && req.retryHandler.hasLoggedExhaustion()) {
           LOGGER.debug(errorMessage, e);
         } else {
           LOGGER.warn(errorMessage, e);
