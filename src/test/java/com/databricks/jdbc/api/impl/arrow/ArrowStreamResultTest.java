@@ -29,6 +29,7 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
@@ -735,7 +736,6 @@ public class ArrowStreamResultTest {
 
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
 
-    // Create the ArrowStreamResult
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
 
@@ -821,6 +821,83 @@ public class ArrowStreamResultTest {
     assertTrue(result.hasNext(), "Result should have data");
     assertTrue(result.next());
     assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testApcArrowBatchExternalLinksForceStreamingChunkProvider() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, props);
+    assertFalse(connectionContext.isBoundedSeaApiEnabled());
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_BATCH)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    try {
+      assertInstanceOf(StreamingChunkProvider.class, result.getChunkProvider());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  public void testApcArrowBatchIgnoresZeroTotalChunkCount() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_BATCH)
+            .setTotalChunkCount(0L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    try {
+      assertInstanceOf(StreamingChunkProvider.class, result.getChunkProvider());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  public void testArrowStreamAttachmentRetainsPrecedenceOverExternalLinks() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_STREAM)
+            .setTotalRowCount(2L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData();
+    resultData.setAttachment(TemporalArrowTestData.create());
+    resultData.setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    try {
+      assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
+    } finally {
+      result.close();
+    }
   }
 
   @Test
@@ -949,10 +1026,8 @@ public class ArrowStreamResultTest {
   }
 
   /**
-   * Verifies the bounded-SEA contract: with UseBoundedSeaApi=1 and external links,
-   * ArrowStreamResult routes to StreamingChunkProvider and passes null for totalChunkCount (must
-   * not rely on manifest.total_chunk_count). A regression that reverts to getTotalChunkCount() for
-   * the bounded path would break against real bounded servers that omit the field.
+   * Verifies the bounded-SEA contract: an ARROW_STREAM response with external links does not rely
+   * on manifest.total_chunk_count.
    */
   @Test
   public void testBoundedSeaApiUsesStreamingChunkProviderWithNullTotalChunkCount()
@@ -970,6 +1045,7 @@ public class ArrowStreamResultTest {
     // Intentionally omit total_chunk_count (null) — bounded servers don't populate it.
     ResultManifest resultManifest =
         new ResultManifest()
+            .setFormat(Format.ARROW_STREAM)
             .setTotalRowCount(110L)
             .setTotalByteCount(1000L)
             .setResultCompression(CompressionCodec.NONE)
@@ -1107,17 +1183,13 @@ public class ArrowStreamResultTest {
       assertNextRow(result, 0, 0);
       assertNextRow(result, 1, 1);
       assertNextRow(result, 2, 1000);
-      // Same as before this change: an empty chunk in the middle makes next() return false while
-      // later chunks still hold rows, and it still counts a row position. This is an existing bug
-      // kept as is here; fixing it should update this assertion.
-      assertFalse(result.next());
-      assertEquals(3, result.getCurrentRow());
-      assertNextRow(result, 4, 0);
-      assertNextRow(result, 5, 1);
+      // The empty middle chunk is skipped without ending iteration or consuming a row position.
+      assertNextRow(result, 3, 0);
+      assertNextRow(result, 4, 1);
       assertFalse(result.hasNext());
       assertFalse(result.next());
       assertFalse(result.next());
-      assertEquals(5, result.getCurrentRow());
+      assertEquals(4, result.getCurrentRow());
       result.close();
       chunks.forEach(AbstractArrowResultChunk::releaseChunk);
     }

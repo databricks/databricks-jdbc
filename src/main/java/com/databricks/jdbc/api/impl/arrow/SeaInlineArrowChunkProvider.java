@@ -1,10 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.util.DecompressionUtil.decompressLazy;
-
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
-import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -13,7 +10,6 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.io.InputStream;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
@@ -46,7 +42,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   // Dependencies
   private final IDatabricksSession session;
   private final StatementId statementId;
-  private final CompressionCodec compressionCodec;
+  private final PageDecoder decoder;
 
   // Indexed chunk storage (mirrors ThriftStreamingProvider's ConcurrentHashMap<Long, Batch>)
   private final ConcurrentMap<Long, ArrowResultChunk> chunks = new ConcurrentHashMap<>();
@@ -83,9 +79,22 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
       StatementId statementId,
       IDatabricksSession session)
       throws DatabricksSQLException {
+    this(
+        initialResultData,
+        statementId,
+        session,
+        new ArrowStreamPageDecoder(resultManifest.getResultCompression()));
+  }
+
+  SeaInlineArrowChunkProvider(
+      ResultData initialResultData,
+      StatementId statementId,
+      IDatabricksSession session,
+      PageDecoder decoder)
+      throws DatabricksSQLException {
     this.session = session;
     this.statementId = statementId;
-    this.compressionCodec = resultManifest.getResultCompression();
+    this.decoder = decoder;
 
     IDatabricksConnectionContext ctx = session.getConnectionContext();
     int configuredMax = ctx.getThriftMaxBatchesInMemory();
@@ -101,7 +110,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     // Process initial chunk — use index 0 as the canonical key for the first inline chunk
     long initialChunkIndex = 0L;
     ArrowResultChunk firstChunk = processResultData(initialResultData);
-    long rowCount = initialResultData.getRowCount() != null ? initialResultData.getRowCount() : 0;
+    long rowCount = decoder.getRowCount(initialResultData, firstChunk);
     long rowOffset =
         initialResultData.getRowOffset() != null ? initialResultData.getRowOffset() : 0;
     totalRowCount.addAndGet(rowCount);
@@ -303,7 +312,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     ResultData resultData = client.getResultChunksData(statementId, chunkIndex, rowOffset);
 
     ArrowResultChunk chunk = processResultData(resultData);
-    long rowCount = resultData.getRowCount() != null ? resultData.getRowCount() : 0;
+    long rowCount = decoder.getRowCount(resultData, chunk);
 
     // Store chunk, enqueue for consumption, and update state
     chunks.put(chunkIndex, chunk);
@@ -471,25 +480,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     }
   }
 
-  // ==================== Data Processing ====================
-
-  /**
-   * Creates an ArrowResultChunk from attachment bytes using streaming decompression. The
-   * decompressed data is never fully materialized in memory — LZ4FrameInputStream decompresses
-   * lazily as ArrowStreamReader reads batches.
-   */
   private ArrowResultChunk processResultData(ResultData resultData) throws DatabricksSQLException {
-    byte[] attachment = resultData.getAttachment();
-    if (attachment == null || attachment.length == 0) {
-      throw new DatabricksSQLException(
-          "No inline Arrow data (attachment) in result",
-          DatabricksDriverErrorCode.RESULT_SET_ERROR);
-    }
-
-    InputStream decompressedStream =
-        decompressLazy(attachment, compressionCodec, "SEA inline Arrow chunk decompression");
-
-    long rowCount = resultData.getRowCount() != null ? resultData.getRowCount() : 0;
-    return ArrowResultChunk.builder().withInputStream(decompressedStream, rowCount).build();
+    return decoder.decode(resultData);
   }
 }

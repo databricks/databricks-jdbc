@@ -56,6 +56,7 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
   enum ResultSetType {
+    SEA_ARROW_BATCH,
     SEA_ARROW_ENABLED,
     SEA_INLINE,
     THRIFT_ARROW_ENABLED,
@@ -92,10 +93,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // which java.time results are reported; null otherwise.
   private ZoneId timestampZone = null;
   private boolean geoSpatialSupport = false;
-  private boolean boundedSeaApiEnabled = false;
-  // Set when next() exhausts an Arrow stream whose manifest row count cannot be relied on.
+  private boolean usesBoundedResultContract = false;
+  // True when the owning SEA connection targets an all-purpose cluster. Statement IDs recovered via
+  // getStatement(rawId) carry no APC target, so the connection compute is also consulted.
+  private boolean allPurposeClusterConnection = false;
+  // Set when next() exhausts an Arrow result whose manifest row count cannot be relied on.
   // This lets isAfterLast() distinguish being ON the last row from moving PAST it.
-  private boolean arrowStreamExhausted = false;
+  private boolean arrowResultExhausted = false;
   private boolean thriftNativeMetadataResult = false;
 
   // Cached telemetry collector resolved once at construction time to avoid
@@ -139,6 +143,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               resultData.getExternalLinks() != null,
               session.getConnectionContext());
       switch (resultManifest.getFormat()) {
+        case ARROW_BATCH:
+          this.resultSetType = ResultSetType.SEA_ARROW_BATCH;
+          break;
         case ARROW_STREAM:
           this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
           break;
@@ -152,7 +159,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
-    this.boundedSeaApiEnabled = session.getConnectionContext().isBoundedSeaApiEnabled();
+    this.usesBoundedResultContract =
+        session.getConnectionContext().isBoundedSeaApiEnabled()
+            || session.getConnectionContext().isAllPurposeCluster();
+    this.allPurposeClusterConnection = session.getConnectionContext().isAllPurposeCluster();
     this.strictGetObjectConversion =
         session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
@@ -429,8 +439,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (!hasNext) {
       stopHeartbeat();
       if (executionResult instanceof ArrowStreamResult
-          && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
-        arrowStreamExhausted = true;
+          && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
+        arrowResultExhausted = true;
       }
     }
     return hasNext;
@@ -621,6 +631,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   boolean isHeartbeatEligible() {
     // No execution result — nothing to fetch
     if (executionResult == null) {
+      return false;
+    }
+    if (statementId != null
+        && (statementId.isAllPurposeCluster()
+            || (allPurposeClusterConnection && !statementId.isRealtimeSession()))) {
+      LOGGER.debug("Heartbeat is not supported for APC statements");
       return false;
     }
     // SEA inline — all data loaded in memory at construction
@@ -1038,8 +1054,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     // SEA Arrow manifests may omit total_row_count. Use provider exhaustion so isAfterLast()
     // is true only AFTER the last row, not while the cursor is still positioned ON it.
     if (executionResult instanceof ArrowStreamResult
-        && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
-      return arrowStreamExhausted;
+        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
+      return arrowResultExhausted;
     }
     return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
   }
@@ -1083,7 +1099,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     // SEA Arrow manifests may omit total_row_count, so use provider state.
     if (executionResult instanceof ArrowStreamResult
-        && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
+        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
       return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
     }
     return executionResult.getCurrentRow() == resultSetMetaData.getTotalRows() - 1;
@@ -2408,7 +2424,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public String getStatementId() {
-    return statementId.toString();
+    return statementId.toPublicString();
   }
 
   @Override
@@ -2493,7 +2509,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     boolean hasAffectedRowsColumn =
         this.resultSetMetaData.getColumnNameIndex(AFFECTED_ROWS_COUNT) > -1;
     if (executionResult instanceof ArrowStreamResult
-        && (boundedSeaApiEnabled || !resultSetMetaData.hasKnownTotalRows())) {
+        && (usesBoundedResultContract || !resultSetMetaData.hasKnownTotalRows())) {
       return hasAffectedRowsColumn;
     }
     return hasAffectedRowsColumn && this.resultSetMetaData.getTotalRows() == 1;

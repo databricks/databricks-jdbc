@@ -15,8 +15,10 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.sql.SQLException;
@@ -53,11 +55,22 @@ class ExecutionResultFactory {
       throw new DatabricksParsingException(
           "Empty response format", DatabricksDriverErrorCode.INVALID_STATE);
     }
+    if (manifest.getFormat() == Format.ARROW_BATCH) {
+      ResultSchema schema = manifest.getSchema();
+      if (schema == null
+          || schema.getColumnCount() == null
+          || (schema.getColumnCount() > 0 && schema.getColumns() == null)) {
+        throw new DatabricksParsingException(
+            "ARROW_BATCH response is missing its schema",
+            DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+      }
+    }
     TelemetryHelper.setResultFormat(
-        session.getConnectionContext(), statementId, manifest.getFormat());
+        session.getConnectionContext(), statementId, getTelemetryFormat(manifest, data));
     LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
-    // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
+    // JSON_ARRAY serves metadata and updates; Arrow formats serve query results.
     switch (manifest.getFormat()) {
+      case ARROW_BATCH:
       case ARROW_STREAM:
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:
@@ -68,6 +81,20 @@ class ExecutionResultFactory {
         LOGGER.error(errorMessage);
         throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
+  }
+
+  /**
+   * ARROW_BATCH responses may carry external links instead of inline batches (e.g. APC with
+   * INLINE_OR_EXTERNAL_LINKS); report those as external-link results in telemetry.
+   */
+  static Format getTelemetryFormat(ResultManifest manifest, ResultData data) {
+    if (manifest.getFormat() == Format.ARROW_BATCH
+        && data != null
+        && data.getExternalLinks() != null
+        && !data.getExternalLinks().isEmpty()) {
+      return Format.ARROW_STREAM;
+    }
+    return manifest.getFormat();
   }
 
   static IExecutionResult getResultSet(

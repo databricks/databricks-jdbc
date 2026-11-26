@@ -509,26 +509,145 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
-  @Test
-  public void testAllPurposeClusterAlwaysUsesThriftClient() throws DatabricksSQLException {
-    // Test that all-purpose clusters always use THRIFT client type regardless of feature flags
+  @ParameterizedTest
+  @CsvSource({"1, true, THRIFT", "1, false, THRIFT", "0, true, SEA", "0, false, THRIFT"})
+  public void testAllPurposeClusterExplicitClientSelectionAndFeatureFlag(
+      String useThriftClient, boolean apcSeaEnabled, DatabricksClientType expected)
+      throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=" + useThriftClient,
+                properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            String.valueOf(apcSeaEnabled)));
+
+    assertEquals(expected, connectionContext.getClientType());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"true, SEA", "false, THRIFT"})
+  public void testAllPurposeClusterUsesDedicatedFeatureFlag(
+      boolean apcSeaEnabled, DatabricksClientType expected) throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            String.valueOf(apcSeaEnabled)));
 
-    // Verify it's an all-purpose cluster
-    assertTrue(connectionContext.isAllPurposeCluster());
+    assertEquals(expected, connectionContext.getClientType());
+  }
 
-    // Should use THRIFT client type
+  @Test
+  public void testAllPurposeClusterDefaultsToThriftWhenDedicatedFeatureFlagIsMissing()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_CLUSTER_URL + ";UseBoundedSeaApi=1", properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true"));
+
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
 
-    // Even if we set feature flag to enable SEA, all-purpose cluster should still use THRIFT
-    Map<String, String> flags = new HashMap<>();
-    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+  @Test
+  public void testAllPurposeClusterCatalogPatternForcesThriftBeforeDedicatedFeatureFlag()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_CLUSTER_URL + ";TreatMetadataCatalogNameAsPattern=1",
+                properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "true"));
 
-    // Client type should still be THRIFT for all-purpose cluster
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testAllPurposeClusterExplicitSeaOverridesCatalogPattern()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_CLUSTER_URL
+                    + ";UseThriftClient=0;TreatMetadataCatalogNameAsPattern=1",
+                properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "true"));
+
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testLegacyCliServicePathAlwaysUsesThrift() throws DatabricksSQLException {
+    String legacyCliServiceUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;ssl=1;"
+            + "httpPath=cliservice;AuthMech=3;UseThriftClient=0";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(legacyCliServiceUrl, properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "true"));
+
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testAllPurposeClusterClientTypeIsConnectionScoped() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "true"));
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "false"));
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"';UseThriftClient=0', false", "'', true"})
+  public void testAllPurposeClusterRequiresArrowBeforeExplicitSeaOrDedicatedFeatureFlag(
+      String urlSuffix, boolean apcSeaEnabled) throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        spy(
+            (DatabricksConnectionContext)
+                DatabricksConnectionContext.parse(
+                    TestConstants.VALID_CLUSTER_URL + urlSuffix, properties));
+    doReturn(false).when(connectionContext).shouldEnableArrow();
+    setFeatureFlagsContext(
+        connectionContext,
+        Collections.singletonMap(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            String.valueOf(apcSeaEnabled)));
+
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientTypeFromContext());
   }
 
   @Test
@@ -1915,15 +2034,6 @@ class DatabricksConnectionContextTest {
             TestConstants.VALID_URL_2 + ";TreatMetadataCatalogNameAsPattern=true",
             properties_with_pwd);
     assertEquals(DatabricksClientType.SEA, ctx.getClientType());
-  }
-
-  @Test
-  public void testCluster_metadataParamsIgnored() throws DatabricksSQLException {
-    // All-Purpose Cluster always uses Thrift regardless of metadata params
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_CLUSTER_URL + ";TreatMetadataCatalogNameAsPattern=1", properties);
-    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
   }
 
   @Test

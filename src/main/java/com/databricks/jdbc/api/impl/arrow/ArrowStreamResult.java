@@ -22,6 +22,7 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -66,21 +67,40 @@ public class ArrowStreamResult implements IExecutionResult {
     this.session = session;
 
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    if (totalChunkCount != null && totalChunkCount == 0) {
+    // ARROW_BATCH (APC) results are totals-independent: the payload and next_chunk_index decide.
+    if (resultManifest.getFormat() != Format.ARROW_BATCH
+        && totalChunkCount != null
+        && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
       this.chunkProvider = new EmptyChunkProvider();
     } else {
-      boolean isInlineArrow = resultData.getAttachment() != null;
       IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-      if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
+      if (resultManifest.getFormat() == Format.ARROW_BATCH) {
+        if (hasExternalLinks(resultData)) {
+          LOGGER.debug(
+              "Creating ArrowStreamResult with remote links for statementId: {}",
+              statementId.toSQLExecStatementId());
+          this.chunkProvider =
+              createRemoteChunkProvider(
+                  statementId, resultManifest, resultData, session, httpClient);
+        } else {
+          this.chunkProvider =
+              isEmptyArrowBatchResult(resultData)
+                  ? new EmptyChunkProvider()
+                  : new SeaInlineArrowChunkProvider(
+                      resultData, statementId, session, new ArrowBatchPageDecoder(resultManifest));
+        }
+      } else if (resultData.getAttachment() != null
+          && (connectionContext.isBoundedSeaApiEnabled()
+              || connectionContext.isAllPurposeCluster())) {
         LOGGER.debug(
             "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
             statementId.toSQLExecStatementId());
         this.chunkProvider =
             new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
-      } else if (isInlineArrow) {
+      } else if (resultData.getAttachment() != null) {
         LOGGER.debug(
             "Creating ArrowStreamResult with inline attachment for statementId: {}",
             statementId.toSQLExecStatementId());
@@ -97,6 +117,16 @@ public class ArrowStreamResult implements IExecutionResult {
         resultManifest.getSchema().getColumnCount() == 0
             ? new ArrayList<>()
             : new ArrayList<>(resultManifest.getSchema().getColumns());
+  }
+
+  private static boolean hasExternalLinks(ResultData resultData) {
+    return resultData.getExternalLinks() != null && !resultData.getExternalLinks().isEmpty();
+  }
+
+  private static boolean isEmptyArrowBatchResult(ResultData resultData) {
+    return resultData.getNextChunkIndex() == null
+        && (resultData.getRowCount() == null || Long.valueOf(0L).equals(resultData.getRowCount()))
+        && (resultData.getArrowBatches() == null || resultData.getArrowBatches().isEmpty());
   }
 
   /**
@@ -118,10 +148,11 @@ public class ArrowStreamResult implements IExecutionResult {
       throws DatabricksSQLException {
 
     IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    boolean usesBoundedResultContract =
+        connectionContext.isBoundedSeaApiEnabled() || connectionContext.isAllPurposeCluster();
 
-    // Bounded SEA API forces StreamingChunkProvider — it doesn't rely on total_chunk_count
-    if (connectionContext.isStreamingChunkProviderEnabled()
-        || connectionContext.isBoundedSeaApiEnabled()) {
+    // Bounded SEA and APC results may omit manifest totals, so both require the streaming provider.
+    if (connectionContext.isStreamingChunkProviderEnabled() || usesBoundedResultContract) {
       LOGGER.info(
           "Using StreamingChunkProvider for statementId: {}", statementId.toSQLExecStatementId());
 
@@ -133,10 +164,9 @@ public class ArrowStreamResult implements IExecutionResult {
       double cloudFetchSpeedThreshold = connectionContext.getCloudFetchSpeedThreshold();
 
       // Convert ExternalLinks to ChunkLinkFetchResult for the provider.
-      // Bounded SEA API: pass null for totalChunkCount — we must not depend on
+      // Bounded SEA and APC: pass null for totalChunkCount — we must not depend on
       // manifest.{chunks, total_chunk_count, total_row_count} per the bounded API contract.
-      Long totalChunkCount =
-          connectionContext.isBoundedSeaApiEnabled() ? null : resultManifest.getTotalChunkCount();
+      Long totalChunkCount = usesBoundedResultContract ? null : resultManifest.getTotalChunkCount();
       ChunkLinkFetchResult initialLinks =
           convertToChunkLinkFetchResult(resultData.getExternalLinks(), totalChunkCount);
 
@@ -289,12 +319,6 @@ public class ArrowStreamResult implements IExecutionResult {
     return getObject(columnIndex);
   }
 
-  /**
-   * Checks if the given type is a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY).
-   *
-   * @param type The type to check
-   * @return true if the type is a complex type, false otherwise
-   */
   @VisibleForTesting
   public static boolean isComplexType(ColumnInfoTypeName type) {
     return type == ColumnInfoTypeName.ARRAY
@@ -302,12 +326,6 @@ public class ArrowStreamResult implements IExecutionResult {
         || type == ColumnInfoTypeName.STRUCT;
   }
 
-  /**
-   * Checks if the given type is a geospatial type (GEOMETRY or GEOGRAPHY).
-   *
-   * @param type The type to check
-   * @return true if the type is a geospatial type, false otherwise
-   */
   @VisibleForTesting
   public static boolean isGeospatialType(ColumnInfoTypeName type) {
     return type == ColumnInfoTypeName.GEOMETRY || type == ColumnInfoTypeName.GEOGRAPHY;
@@ -331,14 +349,16 @@ public class ArrowStreamResult implements IExecutionResult {
       return true;
     }
 
-    // The current chunk is exhausted (or none is open yet): move to the next one.
-    if (!chunkProvider.hasNextChunk() || !chunkProvider.next()) {
-      return false;
+    // The current chunk is exhausted (or none is open yet): move to the next one, skipping
+    // zero-row chunks (e.g. an empty page that still carries next_chunk_index).
+    while (chunkProvider.hasNextChunk() && chunkProvider.next()) {
+      chunkIterator = chunkProvider.getChunk().getChunkIterator();
+      if (chunkIterator.nextRow()) {
+        currentRowIndex++;
+        return true;
+      }
     }
-    chunkIterator = chunkProvider.getChunk().getChunkIterator();
-
-    currentRowIndex++;
-    return chunkIterator.nextRow();
+    return false;
   }
 
   /** {@inheritDoc} */
@@ -385,20 +405,6 @@ public class ArrowStreamResult implements IExecutionResult {
     return chunkProvider;
   }
 
-  /**
-   * Helper method to handle complex type and geospatial type conversion when support is disabled.
-   *
-   * <p>This method is also used by LazyThriftInlineArrowResult for consistent type handling.
-   *
-   * @param session The databricks session
-   * @param chunkIterator The chunk iterator
-   * @param columnIndex The column index
-   * @param requiredType The required column type
-   * @param arrowMetadata The arrow metadata
-   * @param columnInfo The column info
-   * @return The object value (converted if complex/geospatial type and support disabled)
-   * @throws DatabricksSQLException if an error occurs
-   */
   protected static Object getObjectWithComplexTypeHandling(
       IDatabricksSession session,
       ArrowResultChunkIterator chunkIterator,
@@ -412,19 +418,10 @@ public class ArrowStreamResult implements IExecutionResult {
     boolean isGeoSpatialSupportEnabled =
         session.getConnectionContext().isGeoSpatialSupportEnabled();
 
-    // Check if we need to convert geospatial types to string when geospatial support is disabled
-    // This check must come before the general complex type check
     if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
       LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
-
-      Object result =
-          chunkIterator.getColumnObjectAtCurrentRow(
-              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
-      if (result == null) {
-        return null;
-      }
-      // Return raw string for geospatial types when support is disabled
-      return result;
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
     }
 
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {

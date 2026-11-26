@@ -1,0 +1,119 @@
+package com.databricks.jdbc.api.impl.arrow;
+
+import static com.databricks.jdbc.common.util.ArrowUtil.createArrowBatchByteStream;
+import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedResultManifestSchema;
+import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
+
+import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.ArrowBatch;
+import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/** Decodes native Arrow record batches from one APC result page. */
+final class ArrowBatchPageDecoder implements PageDecoder {
+  private final ResultManifest resultManifest;
+
+  ArrowBatchPageDecoder(ResultManifest resultManifest) {
+    this.resultManifest = resultManifest;
+  }
+
+  @Override
+  public ArrowResultChunk decode(ResultData page) throws DatabricksSQLException {
+    List<ArrowBatch> arrowBatches = normalizeArrowBatches(page);
+    long pageRows = validateAndCountRows(arrowBatches, page);
+    try {
+      List<ArrowBatch> decompressed =
+          decompressArrowBatches(arrowBatches, resultManifest.getResultCompression());
+      InputStream stream =
+          createArrowBatchByteStream(
+              getSerializedResultManifestSchema(resultManifest), decompressed);
+      return ArrowResultChunk.builder().withInputStream(stream, pageRows).build();
+    } catch (DatabricksSQLException | RuntimeException e) {
+      throw new DatabricksParsingException(
+          "Failed to parse native Arrow batches: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    }
+  }
+
+  @Override
+  public long getRowCount(ResultData page, ArrowResultChunk chunk) {
+    return chunk.getNumRows();
+  }
+
+  private static long validateAndCountRows(List<ArrowBatch> arrowBatches, ResultData resultData)
+      throws DatabricksParsingException {
+    long rowCount = 0;
+    for (int index = 0; index < arrowBatches.size(); index++) {
+      ArrowBatch arrowBatch = arrowBatches.get(index);
+      if (arrowBatch == null
+          || arrowBatch.getBatch() == null
+          || arrowBatch.getBatch().length == 0) {
+        throw parsingError("Arrow batch " + index + " is missing batch bytes");
+      }
+      if (arrowBatch.getRowCount() == null || arrowBatch.getRowCount() < 0) {
+        throw parsingError("Arrow batch " + index + " has an invalid row_count");
+      }
+      try {
+        rowCount = Math.addExact(rowCount, arrowBatch.getRowCount());
+      } catch (ArithmeticException e) {
+        throw parsingError("Arrow batch row_count total overflowed");
+      }
+    }
+
+    if (resultData.getRowCount() != null && resultData.getRowCount() != rowCount) {
+      throw parsingError(
+          String.format(
+              "Arrow batch row_count total %d does not match result row_count %d",
+              rowCount, resultData.getRowCount()));
+    }
+    return rowCount;
+  }
+
+  private static List<ArrowBatch> decompressArrowBatches(
+      List<ArrowBatch> arrowBatches, CompressionCodec compressionCodec)
+      throws DatabricksSQLException {
+    if (compressionCodec == null || compressionCodec == CompressionCodec.NONE) {
+      return arrowBatches;
+    }
+
+    List<ArrowBatch> decompressedBatches = new ArrayList<>(arrowBatches.size());
+    for (int index = 0; index < arrowBatches.size(); index++) {
+      ArrowBatch arrowBatch = arrowBatches.get(index);
+      decompressedBatches.add(
+          new ArrowBatch()
+              .setBatch(
+                  decompress(
+                      arrowBatch.getBatch(), compressionCodec, "Native Arrow batch " + index))
+              .setRowCount(arrowBatch.getRowCount()));
+    }
+    return decompressedBatches;
+  }
+
+  private static List<ArrowBatch> normalizeArrowBatches(ResultData resultData)
+      throws DatabricksParsingException {
+    List<ArrowBatch> arrowBatches = resultData.getArrowBatches();
+    if (arrowBatches != null) {
+      return arrowBatches;
+    }
+
+    Long resultRowCount = resultData.getRowCount();
+    if (Long.valueOf(0L).equals(resultRowCount)
+        || (resultData.getNextChunkIndex() == null && resultRowCount == null)) {
+      return Collections.emptyList();
+    }
+    throw parsingError("ARROW_BATCH response is missing arrow_batches");
+  }
+
+  private static DatabricksParsingException parsingError(String message) {
+    return new DatabricksParsingException(
+        message, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+  }
+}

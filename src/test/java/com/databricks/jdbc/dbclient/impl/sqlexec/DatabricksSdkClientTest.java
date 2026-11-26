@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -35,6 +36,7 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.Disposition;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
@@ -44,16 +46,21 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.service.sql.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
@@ -77,6 +84,9 @@ public class DatabricksSdkClientTest {
   @Mock ResultData resultData;
   private static final String WAREHOUSE_ID = "99999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
+  private static final String CLUSTER_ID = "9999999999999999999";
+  private static final IDatabricksComputeResource allPurposeCluster =
+      new AllPurposeCluster("9999999999999999", CLUSTER_ID);
   // Reference to MetadataOperationType to ensure import is not removed
   private static final MetadataOperationType SAMPLE_OP_TYPE = MetadataOperationType.GET_CATALOGS;
   private static final String SESSION_ID = "session_id";
@@ -87,6 +97,11 @@ public class DatabricksSdkClientTest {
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String APC_JDBC_URL =
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;"
+          + "httpPath=sql/protocolv1/o/9999999999999999/"
+          + CLUSTER_ID
+          + ";UseThriftClient=0;";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
@@ -113,6 +128,12 @@ public class DatabricksSdkClientTest {
     CreateSessionResponse response = createSessionResponse();
     when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenReturn(response);
+  }
+
+  private void useRealJsonSerialization() throws IOException {
+    ApiClient serializer = new ApiClient();
+    when(apiClient.serialize(any()))
+        .thenAnswer(invocation -> serializer.serialize(invocation.getArgument(0)));
   }
 
   private void setupClientMocks(boolean includeResults, boolean async) throws IOException {
@@ -466,6 +487,441 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcCreateAndDeleteSessionCarryBackendCompute()
+      throws DatabricksSQLException, IOException {
+    useRealJsonSerialization();
+    setupSessionMocks();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    ImmutableSessionInfo sessionInfo =
+        databricksSdkClient.createSession(allPurposeCluster, null, null, null);
+
+    ArgumentCaptor<Request> createCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(createCaptor.capture(), eq(CreateSessionResponse.class));
+    assertEquals(Request.POST, createCaptor.getValue().getMethod());
+    assertApcComputeBody(createCaptor.getValue());
+    clearInvocations(apiClient);
+
+    databricksSdkClient.deleteSession(sessionInfo);
+
+    ArgumentCaptor<Request> deleteCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(deleteCaptor.capture(), eq(Void.class));
+    assertEquals(Request.DELETE, deleteCaptor.getValue().getMethod());
+    assertBackendComputeQuery(deleteCaptor.getValue());
+  }
+
+  @Test
+  public void testApcDeleteSessionCarriesBackendComputeOnHttpWire() throws Exception {
+    AtomicReference<String> method = new AtomicReference<>();
+    AtomicReference<String> rawQuery = new AtomicReference<>();
+    AtomicReference<String> body = new AtomicReference<>();
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          method.set(exchange.getRequestMethod());
+          rawQuery.set(exchange.getRequestURI().getRawQuery());
+          body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+          exchange.sendResponseHeaders(200, -1);
+          exchange.close();
+        });
+    server.start();
+    try {
+      DatabricksConfig config =
+          new DatabricksConfig()
+              .setHost("http://127.0.0.1:" + server.getAddress().getPort())
+              .setAuthType("pat")
+              .setToken("test-token");
+      config.setHttpClient(new CommonsHttpClient.Builder().withDatabricksConfig(config).build());
+      ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true);
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+      DatabricksSdkClient client =
+          new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+      ImmutableSessionInfo sessionInfo =
+          ImmutableSessionInfo.builder()
+              .sessionId(SESSION_ID)
+              .computeResource(allPurposeCluster)
+              .build();
+
+      client.deleteSession(sessionInfo);
+
+      assertEquals(Request.DELETE, method.get());
+      assertEquals("", body.get());
+      assertTrue(
+          rawQuery
+              .get()
+              .contains("backend_compute.all_purpose_cluster_compute.cluster_id=" + CLUSTER_ID));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  public void testApcCreateSessionPreservesResultDownloadOptOut() throws Exception {
+    useRealJsonSerialization();
+    setupSessionMocks();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            APC_JDBC_URL + "EnableQueryResultDownload=0;UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    databricksSdkClient.createSession(allPurposeCluster, null, null, Map.of("timezone", "UTC"));
+
+    ArgumentCaptor<Request> createCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(createCaptor.capture(), eq(CreateSessionResponse.class));
+    JsonNode sessionConfigs =
+        new ObjectMapper().readTree(createCaptor.getValue().getBodyString()).path("session_confs");
+    assertEquals("false", sessionConfigs.path("can_cloud_download").asText());
+    assertEquals("UTC", sessionConfigs.path("timezone").asText());
+  }
+
+  @ParameterizedTest(name = "cloudFetch={0}, disposition={1}")
+  @CsvSource({"true, INLINE_OR_EXTERNAL_LINKS", "false, INLINE"})
+  public void testApcExecuteStatementUsesNativeArrowBatchRequest(
+      boolean cloudFetchEnabled, String expectedDisposition) throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            APC_JDBC_URL + "EnableQueryResultDownload=" + (cloudFetchEnabled ? "1" : "0") + ";",
+            new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.LZ4_FRAME);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(response);
+
+    databricksSdkClient.executeStatement(
+        "SELECT 1",
+        allPurposeCluster,
+        Collections.emptyMap(),
+        StatementType.QUERY,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<Request> transportCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(transportCaptor.capture(), eq(ExecuteStatementResponse.class));
+    Request transportRequest = transportCaptor.getValue();
+    assertApcComputeBody(transportRequest);
+    JsonNode body = new ObjectMapper().readTree(transportRequest.getBodyString());
+    assertEquals(SESSION_ID, body.path("session_id").asText());
+    assertEquals("SELECT 1", body.path("statement").asText());
+    assertEquals("ARROW_BATCH", body.path("format").asText());
+    assertEquals(expectedDisposition, body.path("disposition").asText());
+    assertEquals("NONE", body.path("result_compression").asText());
+    assertEquals("CONTINUE", body.path("on_wait_timeout").asText());
+    JsonNode waitTimeout = body.get("wait_timeout");
+    assertTrue(waitTimeout == null || waitTimeout.isNull() || "0s".equals(waitTimeout.asText()));
+  }
+
+  @Test
+  public void testApcExecuteStatementFetchesMissingInitialResult() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .setManifest(emptyJsonManifest());
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(emptyJsonResult());
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.executeStatement(
+            "SELECT 1",
+            allPurposeCluster,
+            Collections.emptyMap(),
+            StatementType.QUERY,
+            session,
+            null,
+            null);
+
+    assertFalse(resultSet.next());
+    ArgumentCaptor<Request> resultRequest = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultRequest.capture(), eq(ResultData.class));
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
+        resultRequest.getValue().getUrl());
+    assertBackendComputeQuery(resultRequest.getValue());
+  }
+
+  @Test
+  public void testApcPassesStatementParameters() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+
+    databricksSdkClient.executeStatement(
+        STATEMENT, allPurposeCluster, sqlParams, StatementType.QUERY, session, null, null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient).serialize(captor.capture());
+    ExecuteStatementRequest request = captor.getValue();
+    assertEquals(SESSION_ID, request.getSessionId());
+    assertEquals(
+        CLUSTER_ID, request.getBackendCompute().getAllPurposeClusterCompute().getClusterId());
+    assertEquals(4, request.getParameters().size());
+    Map<Integer, PositionalStatementParameterListItem> parametersByOrdinal = new HashMap<>();
+    for (StatementParameterListItem parameter : request.getParameters()) {
+      PositionalStatementParameterListItem positional =
+          assertInstanceOf(PositionalStatementParameterListItem.class, parameter);
+      parametersByOrdinal.put(positional.getOrdinal(), positional);
+    }
+    assertEquals("100", parametersByOrdinal.get(1).getValue());
+    assertEquals("value", parametersByOrdinal.get(4).getValue());
+  }
+
+  @Test
+  public void testApcPollRequestCarriesRowOffsetAndBackendCompute() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.RUNNING)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+
+    databricksSdkClient.executeStatement(
+        "SELECT 1",
+        allPurposeCluster,
+        Collections.emptyMap(),
+        StatementType.QUERY,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<Request> pollCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(pollCaptor.capture(), eq(GetStatementResponse.class));
+    Request pollRequest = pollCaptor.getValue();
+    assertEquals(Request.GET, pollRequest.getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
+        pollRequest.getUrl());
+    assertEquals(Collections.singletonList("0"), pollRequest.getQuery().get("row_offset"));
+    assertBackendComputeQuery(pollRequest);
+  }
+
+  @Test
+  public void testApcLifecycleUsesOneBackendComputeWithoutStatusEndpoint() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(new CreateSessionResponse().setSessionId(SESSION_ID));
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+    GetStatementResponse statementResponse =
+        new GetStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(statementResponse);
+
+    ImmutableSessionInfo sessionInfo =
+        databricksSdkClient.createSession(allPurposeCluster, null, null, null);
+    databricksSdkClient.executeStatement(
+        "SELECT 1",
+        allPurposeCluster,
+        Collections.emptyMap(),
+        StatementType.QUERY,
+        session,
+        null,
+        null);
+    databricksSdkClient.getStatementResult(STATEMENT_ID, session, null);
+    databricksSdkClient.closeStatement(STATEMENT_ID);
+    databricksSdkClient.deleteSession(sessionInfo);
+
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient, times(5)).execute(requestCaptor.capture(), any());
+    List<Request> requests = requestCaptor.getAllValues();
+    assertEquals(Request.POST, requests.get(0).getMethod());
+    assertEquals(SESSION_PATH, requests.get(0).getUrl());
+    assertApcComputeBody(requests.get(0));
+    assertEquals(Request.POST, requests.get(1).getMethod());
+    assertEquals(STATEMENT_PATH, requests.get(1).getUrl());
+    assertApcComputeBody(requests.get(1));
+    assertEquals(Request.GET, requests.get(2).getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
+        requests.get(2).getUrl());
+    assertEquals(Collections.singletonList("0"), requests.get(2).getQuery().get("row_offset"));
+    assertBackendComputeQuery(requests.get(2));
+    assertEquals(Request.DELETE, requests.get(3).getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
+        requests.get(3).getUrl());
+    assertBackendComputeQuery(requests.get(3));
+    assertEquals(Request.DELETE, requests.get(4).getMethod());
+    assertEquals(String.format(SESSION_PATH_WITH_ID, SESSION_ID), requests.get(4).getUrl());
+    assertBackendComputeQuery(requests.get(4));
+    assertTrue(requests.stream().noneMatch(request -> request.getUrl().contains("/status")));
+  }
+
+  @Test
+  public void testApcResultDataAndCancelCarryBackendCompute() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
+
+    databricksSdkClient.getResultChunksData(STATEMENT_ID, 0);
+    databricksSdkClient.cancelStatement(STATEMENT_ID);
+
+    ArgumentCaptor<Request> resultCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultCaptor.capture(), eq(ResultData.class));
+    Request resultRequest = resultCaptor.getValue();
+    assertEquals(Request.GET, resultRequest.getMethod());
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
+        resultRequest.getUrl());
+    assertEquals(Collections.singletonList("0"), resultRequest.getQuery().get("row_offset"));
+    assertBackendComputeQuery(resultRequest);
+
+    ArgumentCaptor<Request> cancelCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(cancelCaptor.capture(), eq(Void.class));
+    Request cancelRequest = cancelCaptor.getValue();
+    assertEquals(Request.POST, cancelRequest.getMethod());
+    assertEquals(
+        String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
+        cancelRequest.getUrl());
+    assertApcComputeBody(cancelRequest);
+    assertEquals(
+        STATEMENT_ID.toSQLExecStatementId(),
+        new ObjectMapper().readTree(cancelRequest.getBodyString()).path("statement_id").asText());
+  }
+
+  @Test
+  public void testApcResultDataWithRowOffsetCarriesOffsetAndBackendCompute() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
+
+    databricksSdkClient.getResultChunksData(STATEMENT_ID, 3L, 450L);
+
+    ArgumentCaptor<Request> resultCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultCaptor.capture(), eq(ResultData.class));
+    Request resultRequest = resultCaptor.getValue();
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 3),
+        resultRequest.getUrl());
+    assertEquals(
+        Collections.singletonList("450"), resultRequest.getQuery().get("row_offset"), "row_offset");
+    assertBackendComputeQuery(resultRequest);
+  }
+
+  @Test
+  public void testApcCloudResultLinksCarryRowOffsetWithoutBoundedSeaOptIn() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
+
+    databricksSdkClient.getResultChunks(STATEMENT_ID, 3L, 450L);
+
+    ArgumentCaptor<Request> resultCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultCaptor.capture(), eq(ResultData.class));
+    Request resultRequest = resultCaptor.getValue();
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 3),
+        resultRequest.getUrl());
+    assertEquals(Collections.singletonList("450"), resultRequest.getQuery().get("row_offset"));
+    assertBackendComputeQuery(resultRequest);
+  }
+
+  @Test
+  public void testApcGetStatementResultFetchesMissingInitialResult() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    GetStatementResponse response =
+        new GetStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .setManifest(emptyJsonManifest());
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(emptyJsonResult());
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.getStatementResult(STATEMENT_ID, session, null);
+
+    assertFalse(resultSet.next());
+    ArgumentCaptor<Request> resultRequest = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultRequest.capture(), eq(ResultData.class));
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
+        resultRequest.getValue().getUrl());
+    assertEquals(
+        Collections.singletonList("0"), resultRequest.getValue().getQuery().get("row_offset"));
+    assertBackendComputeQuery(resultRequest.getValue());
+  }
+
+  @Test
   public void testCreateSessionWithoutInitialSessionVersion() throws Exception {
     when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenReturn(new CreateSessionResponse().setSessionId(SESSION_ID));
@@ -591,7 +1047,27 @@ public class DatabricksSdkClientTest {
     assertEquals(1044, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
     assertEquals(429, error.getStatusCode());
     assertSame(rateLimit, error.getCause());
-    assertTrue(error.getMessage().contains(WAREHOUSE_ID));
+    assertTrue(error.getMessage().contains("Warehouse id: " + WAREHOUSE_ID));
+  }
+
+  @Test
+  public void testCreateSessionRateLimitRedactsApcIdentifiers() throws Exception {
+    DatabricksError rateLimit = new DatabricksError("429", "Too many requests", 429);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(rateLimit);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksComputeResource apc = new AllPurposeCluster("org-secret-id", "cluster-secret-id");
+
+    DatabricksRateLimitException error =
+        assertThrows(
+            DatabricksRateLimitException.class, () -> client.createSession(apc, null, null, null));
+
+    assertTrue(error.getMessage().contains("Compute target: all-purpose cluster"));
+    assertFalse(error.getMessage().contains("org-secret-id"));
+    assertFalse(error.getMessage().contains("cluster-secret-id"));
   }
 
   @Test
@@ -609,10 +1085,12 @@ public class DatabricksSdkClientTest {
     databricksSdkClient.deleteSession(sessionInfo);
 
     // Verify a Request with DELETE method is created and executed
-    verify(apiClient)
-        .execute(
-            argThat(req -> req.getMethod().equals(Request.DELETE) && req.getUrl().equals(path)),
-            eq(Void.class));
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(requestCaptor.capture(), eq(Void.class));
+    Request request = requestCaptor.getValue();
+    assertEquals(Request.DELETE, request.getMethod());
+    assertEquals(path, request.getUrl());
+    assertEquals(Collections.singletonList(WAREHOUSE_ID), request.getQuery().get("warehouse_id"));
   }
 
   @Test
@@ -764,6 +1242,28 @@ public class DatabricksSdkClientTest {
     assertFalse(
         databricksSdkClient.supportsNativeParameterBatching(
             new AllPurposeCluster("org", "cluster")));
+  }
+
+  @Test
+  public void testExecuteStatementBatchRejectsAllPurposeCluster() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    List<BatchParameterSet> parameterSets =
+        List.of(BatchParameterSet.from(Map.of(1, getSqlParam(1, 1, DatabricksTypeUtil.INT))));
+
+    assertThrows(
+        com.databricks.jdbc.exception.DatabricksValidationException.class,
+        () ->
+            databricksSdkClient.executeStatementBatch(
+                "INSERT INTO target VALUES (?)",
+                new AllPurposeCluster("org", "cluster"),
+                parameterSets,
+                StatementType.UPDATE,
+                null,
+                null));
+    verify(apiClient, never()).serialize(any());
   }
 
   @Test
@@ -2294,5 +2794,36 @@ public class DatabricksSdkClientTest {
     String path = reqCaptor.getValue().getUrl();
     assertFalse(
         path.contains("row_offset"), "Non-bounded path must NOT append row_offset, got: " + path);
+  }
+
+  private static void assertApcComputeBody(Request request) {
+    String body = request.getBodyString();
+    assertNotNull(body, "APC request must have a JSON body: " + request);
+    assertTrue(body.contains("\"backend_compute\""), "Missing backend_compute: " + body);
+    assertTrue(body.contains("\"cluster_id\":\"" + CLUSTER_ID + "\""), body);
+    assertFalse(body.contains("\"warehouse_id\""), "APC request must omit warehouse_id: " + body);
+  }
+
+  private static ResultManifest emptyJsonManifest() {
+    return new ResultManifest()
+        .setFormat(Format.JSON_ARRAY)
+        .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+        .setTotalChunkCount(1L)
+        .setTotalRowCount(0L);
+  }
+
+  private static ResultData emptyJsonResult() {
+    return new ResultData().setChunkIndex(0L).setRowCount(0L).setDataArray(Collections.emptyList());
+  }
+
+  private static void assertBackendComputeQuery(Request request) {
+    assertNull(request.getBodyString(), "APC query-targeted request must not have a body");
+    assertEquals(
+        Collections.singletonList(CLUSTER_ID),
+        request.getQuery().get("backend_compute.all_purpose_cluster_compute.cluster_id"),
+        "APC request must carry the nested backend-compute query: " + request);
+    assertFalse(
+        request.getQuery().containsKey("warehouse_id"),
+        "APC request must omit warehouse_id: " + request);
   }
 }

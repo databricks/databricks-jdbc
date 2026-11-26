@@ -11,8 +11,8 @@ Let the OSS JDBC driver run all-purpose cluster (APC) workloads through the SQL 
 (SEA), which now routes APC requests to Reyden server-side. This brings APC connections the same
 Arrow/CloudFetch result path, telemetry, and future feature work as SQL warehouses, and unblocks
 retiring the direct-Thrift APC path. Routing is controlled by a dedicated APC server flag so APC
-can ramp and roll back independently of warehouses, with an explicit client setting taking
-precedence so customers can force either protocol.
+can ramp and roll back independently of warehouses. `UseThriftClient=1` forces Thrift;
+`UseThriftClient=0` opts into the connection-scoped APC flag decision rather than forcing SEA.
 
 ## Context
 
@@ -25,8 +25,8 @@ the SEA service and Reyden is the runtime backend.
   SC-254478). Driver behavior and fake-service tests assume those fixes. Only dogfood validation
   of the affected metadata, inline-only, and session-termination behavior waits for the fixes to
   be deployed.
-  The TerminateSession REST binding declares `body: "*"`; the driver tests its DELETE body
-  against the assumed server contract with a fake service.
+  The SDK transport drops DELETE bodies, so APC TerminateSession carries `backend_compute` in the
+  request query and is verified at the HTTP wire.
 - Client-config flags come from connector-service
 (`/api/2.0/connector-service/feature-flags/OSS_JDBC/{version}`), which returns every sub-flag of
 the batch flag `databricks.partnerplatform.clientConfigsFeatureFlags`
@@ -178,13 +178,14 @@ iteration baseline, not the production implementation described by the requireme
 
 - R1: APC routing to SEA is controlled by a dedicated APC client-config flag (Q8), separate from
 the warehouse flag `enableSqlExecForJdbc`, with this precedence: Arrow unavailable → Thrift,
-including when `UseThriftClient=0`; otherwise an explicit `UseThriftClient` value wins (`0` → SEA,
-`1` → Thrift); when `UseThriftClient` is unset, explicit
+including when `UseThriftClient=0`; the legacy `cliservice` placeholder path → Thrift;
+`UseThriftClient=1` → Thrift; when `UseThriftClient` is unset, explicit
 `TreatMetadataCatalogNameAsPattern=1` → Thrift; otherwise the APC flag decides (ON → SEA, OFF,
-absent, or lookup failure → Thrift). The explicit setting's precedence over the metadata parameter
-matches warehouse behavior, but Arrow-first is APC-specific: warehouse routing remains unchanged
-and still lets explicit `UseThriftClient=0` select SEA before its Arrow check.
-`enableSqlExecForJdbc` has no effect on APC routing. When explicit `UseThriftClient=0` selects SEA
+absent, or lookup failure → Thrift). `UseThriftClient=0` skips the metadata-pattern override but
+still defers to that flag. The decision is memoized by the connection context and cannot change
+during the connection lifetime. Warehouse routing remains unchanged and still lets explicit
+`UseThriftClient=0` select SEA before its Arrow check. `enableSqlExecForJdbc` has no effect on APC
+routing. When the flag selects SEA for `UseThriftClient=0`
 alongside `TreatMetadataCatalogNameAsPattern=1`, the Thrift-only property is ignored and metadata uses
 normal SEA SHOW-command semantics. This applies to HTTP paths with a concrete
 `/o/<org>/<cluster>` target; the legacy `cliservice` path has only placeholder `default` ids and
@@ -194,11 +195,12 @@ GetResultData, CancelStatement, CloseStatement, and TerminateSession) carries
 `backend_compute.all_purpose_cluster_compute.cluster_id` and omits `warehouse_id`. The driver's
 `deleteSession` method and `DeleteSessionRequest` model implement the TerminateSession server RPC.
 CreateSession, ExecuteStatement, and CancelStatement encode `backend_compute` in the JSON body.
-GetStatementResult, GetResultData, and CloseStatement encode the cluster id as the
+GetStatementResult, GetResultData, CloseStatement, and TerminateSession encode the cluster id as the
 URL-encoded dotted query field
 `backend_compute.all_purpose_cluster_compute.cluster_id`. Query fields are merged with existing
 parameters such as `row_offset` through a query builder; they are not appended as a second `?`
-fragment. The `row_offset` field is added only to the SEA
+fragment. Independent of `UseBoundedSeaApi`, APC sets `row_offset=0` on GetStatementResult and sets
+the current row offset on every
 `GET /statements/{id}/result/chunks/{n}` GetResultData request. Presigned external-link URLs and
 their required headers are used byte-for-byte as
 returned, without adding the compute field or otherwise modifying them. The driver-owned body
@@ -211,10 +213,10 @@ DELETE have a null request body: do not serialize the SDK request object or send
 JSON body. This overrides the current `DatabricksSdkClient.serializeStatementRequest` behavior on
 standard statement URLs only for these APC bindings. Preserve warehouse request bodies, including
 the standard and Real-time URL variants.
-TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding, which
-declares `body: "*"`: send `backend_compute` in the `DeleteSessionRequest` JSON body. Preserve
-the existing warehouse DELETE serialization and verify the outgoing APC DELETE body with a
-fake-service request test; dogfood verifies server target extraction after the external fix.
+TerminateSession uses the standard `/api/2.0/sql/sessions/{session_id}` DELETE binding. The Java SDK
+maps DELETE to Apache `HttpDelete`, which silently drops request entities, so APC targeting is
+encoded in the same dotted query field as the other bodiless bindings. Preserve existing warehouse
+query serialization and verify the outgoing APC DELETE query with a fake-service request test.
 - R3: For APC over SEA, execution polling uses `GetStatementResult`. Result heartbeats are
 disabled for APC even when `EnableHeartbeat=1`, because `GetStatementStatus` is unsupported and
 using full `GetStatementResult` after completion can re-download result payloads. The driver logs
@@ -311,9 +313,8 @@ empty map. Setting the interpolation flag alone does not affect
 below V8 downgrades to client-side parameter interpolation, the driver records that downgrade
 in logs and telemetry. A missing protocol version is treated conservatively as below V8:
 native parameters and `parameter_sets` are disabled, and telemetry distinguishes a missing-version downgrade from a
-present but old version. Only the live CreateSession response on the current connection grants
-capabilities. A version reconstructed from serialized `SessionId` is diagnostic state and must
-never enable native `parameters` or `parameter_sets` by itself.
+present but old version. The connection ID does not serialize the protocol version. Only the live
+CreateSession response on the current connection grants capabilities.
 For APC `PreparedStatement.getMetaData()` before execution, build `DESCRIBE QUERY` from the
 original SQL with real placeholders quoted as literal `'?'`, then execute that metadata query
 with no original parameter bindings at any protocol version. Do not run ordinary interpolation
@@ -326,8 +327,9 @@ for individual input sets. On success, return a JDBC count array with one
 count into fabricated per-set counts. If native execution fails, report batch failure without
 claiming any individual set succeeded; mark each set `Statement.EXECUTE_FAILED` in the
 `BatchUpdateException` counts.
-- R7: APC uses Thrift only when the pre-connection routing decision selects Thrift (an explicit
-`UseThriftClient=1`, `TreatMetadataCatalogNameAsPattern=1` with no explicit `UseThriftClient`, the
+- R7: APC uses Thrift only when the connection-scoped routing decision selects Thrift (an explicit
+`UseThriftClient=1`, the legacy `cliservice` path,
+`TreatMetadataCatalogNameAsPattern=1` with no explicit `UseThriftClient`, the
 APC client-config flag is off or unavailable, or Arrow is unavailable). `UseBoundedSeaApi` does
 not control APC routing. Once SEA is selected, server errors—including unsupported
 regions—propagate to the client exactly as they do for warehouse SEA; the driver never switches
@@ -336,7 +338,7 @@ an APC routing decision either.
 - R8: Telemetry and logs identify the compute type (APC vs warehouse) and the chosen protocol for
 each connection attempt, including its routing reason and success or failure outcome. Emit a
 routing event even when APC SEA CreateSession, APC Thrift OpenSession, warehouse SEA CreateSession,
-or warehouse Thrift OpenSession fails. When explicit `UseThriftClient=0` selects SEA alongside
+or warehouse Thrift OpenSession fails. When the APC flag selects SEA for `UseThriftClient=0` alongside
 `TreatMetadataCatalogNameAsPattern=1`, the driver logs that the Thrift-only metadata property has no
 effect under SEA. APC SEA diagnostics,
 including existing execute logs and session stringification, must not print org/cluster ids or
@@ -345,18 +347,18 @@ compound session/statement ids; use a redacted compute-type label instead.
 `StatementId` is type-safe — no unchecked cast to `Warehouse`. `ImmutableSessionInfo` records the
 client type, and `SessionId.create` dispatches on it rather than compute-resource class. New APC
 SEA identifiers serialize a compute discriminator, org id, cluster id, and raw session/statement
-id: sessions use `s|a|orgId|clusterId|sessionId|protocolVersion-or--`, and statements use
-`s|a|orgId|clusterId|statementId`. The `-` marker preserves an absent protocol version. Dispatch
-is by prefix: any identifier whose first two segments are exactly `s|a` uses the APC grammar only,
-never the warehouse grammar. Session ids must have exactly six segments and statement ids exactly
-five; any other count, or an empty segment, raises the malformed-id error (`SESSION_ID_PARSING_EXCEPTION`
-for sessions). Parsing of all other identifiers remains backward-compatible with existing warehouse
-`s|warehouseId|sessionId[|r]` and raw SEA statement ids. The compound session form is also returned by the public
+id: sessions use `a|orgId|clusterId|sessionId`, and statements use
+`a|orgId|clusterId|statementId`. APC session and statement ids have exactly four non-empty
+segments and the leading `a` compute discriminator; malformed APC session ids raise
+`SESSION_ID_PARSING_EXCEPTION`. Parsing remains backward-compatible with existing warehouse
+`s|warehouseId|sessionId[|r]` identifiers, including a raw warehouse session id equal to `a`, and
+raw SEA statement ids. The compound session form is also returned by the public
 `IDatabricksConnection.getConnectionId()` API so callers can later close that session; the
 compound statement form is internal routing serialization only: use a separate
-internal statement-id serializer. `StatementId.toString()`, `toSQLExecStatementId()`, and public
-`IDatabricksResultSet.getStatementId()` continue to expose only the raw server statement id;
-statement-id-bearing logs and telemetry use that raw id, not the compound form.
+internal statement-id serializer. `StatementId.toString()` emits the compound APC form, while
+`toSQLExecStatementId()` and public `IDatabricksResultSet.getStatementId()` continue to expose only
+the raw server statement id; statement-id-bearing logs and telemetry use that raw id, not the
+compound form.
 `DatabricksConnection.getStatement(rawId)` attaches the current connection's
 APC SEA session and compute target to its reconstructed internal `StatementId`; fetch, cancel,
 and close use that target. It does not change the public raw id or infer a target from id text.
@@ -367,10 +369,9 @@ decision. It terminates the saved APC target even if the flag changed after the 
 for synchronous execution with direct results and `0s` for asynchronous execution or when direct
 results are disabled. Reyder accepts `0s` as the SEA duration-string representation of zero; no
 APC-specific timeout override is needed.
-- R11: For APC `ARROW_BATCH` results, the driver builds the Arrow schema from
-`manifest.schema` (`type_text`/`type_json`, including nested types) and does not require
-`manifest.arrow_schema`; a populated `manifest.arrow_schema` or `total_byte_count` does not
-change decoding or paging.
+- R11: For APC `ARROW_BATCH` results, the driver uses a non-empty `manifest.arrow_schema` when
+provided. Otherwise it serializes `manifest.schema` into an Arrow schema using the same physical
+type mappings as the APC Thrift fallback. `total_byte_count` does not change decoding or paging.
 - R12: APC result fetching pages by `next_chunk_index` and `row_offset`, never relies on
 `total_chunk_count`, `chunks`, or `total_row_count`, and accepts a `GetStatementResult`
 response with or without inline result data. For inline `arrow_batches`, advance `row_offset`
@@ -405,12 +406,12 @@ even when the request asked for `ARROW_STREAM`.
 
 - Q1: What is the client setting — reuse `UseThriftClient` on cluster URLs (prototype
 behavior; `0` → SEA, `1` → Thrift), or a new dedicated property (e.g. `EnableApcSea`)?
-A1: Reuse `UseThriftClient`: with Arrow available, `0` forces SEA and `1` forces Thrift. Arrow
-unavailability is a hard prerequisite and selects Thrift even when `UseThriftClient=0`; otherwise
-an explicit value takes precedence over `TreatMetadataCatalogNameAsPattern=1` and the APC
-client-config flag. When `UseThriftClient` is unset, `TreatMetadataCatalogNameAsPattern=1` forces
-Thrift before consulting the APC flag, matching warehouse behavior. The Arrow prerequisite remains
-APC-only; warehouse routing is not reordered.
+A1: Reuse `UseThriftClient`: with Arrow available, `1` forces Thrift while `0` defers to the APC
+client-config flag. Arrow unavailability and the legacy `cliservice` path select Thrift before
+either setting. When `UseThriftClient` is unset, `TreatMetadataCatalogNameAsPattern=1` forces Thrift
+before consulting the APC flag; with `UseThriftClient=0`, the flag decides and the metadata property
+is ignored only when SEA is selected. The result is memoized for the connection lifetime. Warehouse
+routing is unchanged.
 - Q2: Should an explicit client setting (`UseThriftClient=0`) still auto-fall back to Thrift on
 unsupported-routing errors, or
 fail loudly so users notice (prototype uses `no_fallback=true`)?
@@ -486,9 +487,8 @@ includes the APC
 every APC GetStatementResult GET (execution poll and explicit result fetch), GetResultData GET
 (external-link and inline chunk fetch), and CloseStatement DELETE, while the cluster query field
 is present exactly once. Warehouse fixtures retain their existing bodies for the same bindings.
-A fake-service fixture asserts the TerminateSession
-DELETE body contains `backend_compute`; dogfood verifies server target extraction after the
-external binding fix is deployed. GIVEN `getConnectionId()` from that open session and an APC
+A fake-service fixture asserts the TerminateSession DELETE query contains the dotted
+`backend_compute` field. GIVEN `getConnectionId()` from that open session and an APC
 flag change from ON to OFF, WHEN public `Driver.closeConnection(url, info, connectionId)` is
 called THEN it selects SEA from the serialized session type and sends the targeted
 TerminateSession request. A saved APC Thrift id still selects Thrift if the flag later turns ON.
@@ -687,15 +687,16 @@ seconds THEN the driver cancels it via CancelStatement with `backend_compute` an
 standard timeout SQLException.
 - AC19: GIVEN Arrow available and a cluster HTTP path with `UseThriftClient=1` AND the APC flag ON
 WHEN a connection is opened THEN the driver uses Thrift; GIVEN Arrow available,
-`UseThriftClient=0`, AND the APC flag OFF THEN it uses SEA (client setting takes precedence after
-the Arrow prerequisite).
+`UseThriftClient=0`, AND the APC flag OFF THEN it uses Thrift; GIVEN the same setting with the flag
+ON THEN it uses SEA. Changing the flag after the first routing decision does not change that
+connection's protocol.
 - AC20: GIVEN a warehouse HTTP path WHEN the APC flag is ON or OFF THEN warehouse routing is
 unchanged and still follows `enableSqlExecForJdbc`.
 - AC21: GIVEN Arrow available and an APC HTTP path with no explicit `UseThriftClient`,
 `TreatMetadataCatalogNameAsPattern=1`, and the APC flag ON WHEN a connection is opened THEN the
 driver selects Thrift and preserves catalog-pattern metadata semantics; GIVEN the same settings
-with explicit `UseThriftClient=0` THEN the explicit override selects SEA and logs that the
-Thrift-only metadata parameter has no effect.
+with explicit `UseThriftClient=0` THEN the APC flag decides; when it selects SEA, the driver logs
+that the Thrift-only metadata parameter has no effect.
 - AC22: GIVEN an APC-SEA `Statement` with three SQL strings added through `addBatch(String)` WHEN
 `executeBatch` runs THEN the driver sends three sequential ExecuteStatement requests without a
 `statements` field and returns update counts in input order; GIVEN the second command fails THEN it
@@ -714,23 +715,22 @@ missing-version session through the binding-free `DESCRIBE QUERY` path in AC6.
 open beyond multiple heartbeat intervals THEN no heartbeat task is scheduled, no
 `GetStatementStatus`, `/status`, or heartbeat `GetStatementResult` request is sent, and the driver
 logs that heartbeat is unsupported for APC.
-- AC25: GIVEN an APC-SEA session with org id, cluster id, session id, and a present or absent
-negotiated protocol version WHEN its `SessionId` and a derived `StatementId` are round-tripped
-through their internal serializers THEN client type, APC compute target, raw ids, and serialized protocol-version field
-round-trip unchanged; existing warehouse and Thrift serialized identifiers still parse identically. Creating
+- AC25: GIVEN an APC-SEA session with org id, cluster id, and session id WHEN its `SessionId` and a
+derived `StatementId` are round-tripped through their internal serializers THEN client type, APC
+compute target, and raw ids round-trip unchanged; existing warehouse and Thrift serialized
+identifiers still parse identically. Creating
 an APC SEA `SessionId` never dereferences a Thrift session handle. The serialized APC forms match
-the R9 formats exactly, including `-` for a missing protocol version. Public
+the R9 formats exactly. Public
 `IDatabricksConnection.getConnectionId()` returns the compound APC session form so a caller can
 pass it to `Driver.closeConnection`; it is not written to logs or telemetry. Public
-`IDatabricksResultSet.getStatementId()` and `StatementId.toString()` return the raw server
-statement id. Statement-id-bearing logs and telemetry use the raw id and never expose the
-internal compound form, org id, or cluster id.
-GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments or a malformed
-version THEN parsing raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
+`IDatabricksResultSet.getStatementId()` returns the raw server statement id, while
+`StatementId.toString()` returns the compound APC statement form. Statement-id-bearing logs and
+telemetry use the raw id and never expose the internal compound form, org id, or cluster id.
+GIVEN a serialized APC `SessionId` with missing, extra, empty, or invalid segments THEN parsing
+raises `SESSION_ID_PARSING_EXCEPTION`; the exception, logs, and telemetry
 describe only the structural defect and never include the serialized input, org id, or cluster
-id. GIVEN a serialized version altered from the current connection's live CreateSession version
-THEN reconstruction may display the altered value for diagnostics but cannot enable native
-`parameters` or `parameter_sets`.
+id. The serialized connection ID cannot affect native `parameters` or `parameter_sets`; those
+capabilities come only from the current connection's live CreateSession response.
 GIVEN `connection.getStatement(resultSet.getStatementId())` on that APC SEA connection, WHEN the
 recovered statement fetches, cancels, and closes THEN all three SEA requests carry the current
 connection's `backend_compute`, while `getStatementId()` remains the raw server id.
@@ -765,9 +765,10 @@ scalar bindings still use native parameters under the R6 capability gates. Cover
 ## Constraints
 
 - APC default protocol is decided by the dedicated APC flag (R1, default off); after the Arrow
-availability prerequisite, an explicit client setting always wins; when it is unset,
-`TreatMetadataCatalogNameAsPattern=1` forces Thrift before the flag is consulted. No change to
-warehouse requests or routing.
+availability and legacy-path prerequisites, `UseThriftClient=1` forces Thrift while
+`UseThriftClient=0` defers to the flag; when the setting is unset,
+`TreatMetadataCatalogNameAsPattern=1` forces Thrift before the flag is consulted. The decision is
+connection-scoped. No change to warehouse requests or routing.
 - No new runtime dependencies; reuse the existing SDK client, Arrow, and LZ4 stack.
 - Protocol selection is final before CreateSession; never switch from SEA to Thrift after an error.
 - New error paths use `DatabricksDriverErrorCode` values per the repo telemetry rules.
@@ -800,45 +801,45 @@ propagate without fallback.
 1. Remove the unconditional `AllPurposeCluster → THRIFT` early return in
    `getClientTypeFromContext` and route APC with this precedence:
    1. Arrow unavailable → Thrift, regardless of client setting or APC flag.
-   2. Explicit `UseThriftClient`: `1` → Thrift, `0` → SEA.
-   3. Explicit `TreatMetadataCatalogNameAsPattern=1` → Thrift.
-   4. Otherwise the dedicated APC flag (`APC_SQL_EXEC_FLAG_NAME`, Q8): ON → SEA; OFF, absent, or
+   2. Legacy `cliservice` placeholder path → Thrift.
+   3. Explicit `UseThriftClient=1` → Thrift.
+   4. Explicit `TreatMetadataCatalogNameAsPattern=1` with `UseThriftClient` unset → Thrift.
+   5. Otherwise, including `UseThriftClient=0`, the dedicated APC flag
+      (`APC_SQL_EXEC_FLAG_NAME`, Q8): ON → SEA; OFF, absent, or
       lookup failure → Thrift. `SQL_EXEC_FLAG_NAME` and `UseBoundedSeaApi` do not decide APC
       protocol selection.
 
-   Once selected, SEA errors propagate without switching to Thrift. T17 creates the APC SAFE
+   Memoize the result for the connection lifetime. Once selected, SEA errors propagate without
+   switching to Thrift. T17 creates the APC SAFE
    sub-flag under `databricks.partnerplatform.clientConfigsFeatureFlags`, default off. Assignment,
    ramp, and the Q9 connector-service partner override are external to this plan.
 2. Add wire models `BackendCompute { AllPurposeClusterCompute all_purpose_cluster_compute }` and
    `AllPurposeClusterCompute { cluster_id }`. Add optional `backend_compute` to the driver-owned
    JSON body models, including `DeleteSessionRequest`; encode APC targeting for SDK-owned GET
-   models and CloseStatement DELETE in the URL.
-3. Add a small `SeaComputeTarget` helper in `dbclient/impl/sqlexec` that, given an
-   `IDatabricksComputeResource`, produces both the request target (`warehouse_id` or
-   `backend_compute`) and the URL family. Warehouses keep today's behavior
+   models and the bodiless CloseStatement and TerminateSession DELETE bindings in the URL.
+3. Add explicit local compute-routing helpers in `DatabricksSdkClient` for request targeting
+   (`warehouse_id` or `backend_compute`) and URL selection. Warehouses keep today's behavior
    (`WAREHOUSE_SESSION_PATH` for CreateSession, `realtimeSession` header for follow-ups). APC uses
    the standard `/api/2.0/sql/sessions/` and `/statements/` paths with `backend_compute` in the
    JSON body for CreateSession, ExecuteStatement, and CancelStatement. For GetStatementResult,
    GetResultData and CloseStatement, append the URL-encoded dotted query field
    `backend_compute.all_purpose_cluster_compute.cluster_id` and pass a null body at every APC GET
    and CloseStatement call site, bypassing standard-URL request serialization for those bindings;
-   use a JSON body for the
-   TerminateSession DELETE binding's declared `body: "*"`. Assert the outgoing DELETE body in a
-   fake-service request test; verify server target extraction in dogfood
-   after the external binding fix is deployed. Use a query builder to merge the
+   use the same URL targeting for TerminateSession because the SDK transport drops DELETE bodies.
+   Assert the outgoing DELETE query in a fake-service request test. Use a query builder to merge the
    compute field with `row_offset` and any other existing parameters rather than concatenating
-   query strings. APC never sets `realtimeSession`. Route every `(Warehouse)` cast in
-   `DatabricksSdkClient`, `SessionId`, and `StatementId` through the helper. Do not pass
-   `SeaComputeTarget` through to CloudFetch: use presigned external-link URLs and headers exactly
-   as returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
+   query strings. APC never sets `realtimeSession`. Keep identifier routing directly in
+   `SessionId` and `StatementId`; do not introduce a compute-target hierarchy. Do not pass compute
+   targeting through to CloudFetch: use presigned external-link URLs and headers exactly as
+   returned. Add `DatabricksClientType` to `ImmutableSessionInfo`; make `SessionId.create`
    dispatch on it. Preserve legacy warehouse identifier parsing, and add APC SEA session and
-   statement forms carrying the compute discriminator, org/cluster ids, raw id, and (for sessions)
-   nullable negotiated protocol version so reconstruction cannot turn APC into warehouse compute.
-   The reconstructed version is diagnostic only; only the live CreateSession response on this
-   connection enables native parameter capabilities. Reject malformed APC segments with
+   statement forms carrying the compute discriminator, org/cluster ids, and raw id so
+   reconstruction cannot turn APC into warehouse compute. Do not serialize the negotiated protocol
+   version; only the live CreateSession response on this connection enables native parameter
+   capabilities. Reject malformed APC segments with
    `SESSION_ID_PARSING_EXCEPTION` and structural-only errors, logs, and telemetry. The compound
    APC session form is public through `DatabricksConnection.getConnectionId()`; the compound
-   statement form stays internal. Public statement-id APIs and `StatementId.toString()` return
+   statement form stays internal through `StatementId.toString()`. Public statement-id APIs return
    the raw server statement id, while logs and telemetry never expose either compound form. On
    `DatabricksConnection.getStatement(rawId)`, attach the current APC SEA connection's session
    and compute target to the reconstructed internal id before any fetch, cancel, or close.
@@ -951,8 +952,9 @@ propagate without fallback.
 ### Affected Components
 
 - `src/main/java/com/databricks/jdbc/api/impl/DatabricksConnectionContext.java` — APC routing
-  (Arrow availability > explicit `UseThriftClient` >
-  `TreatMetadataCatalogNameAsPattern=1` > APC flag), `APC_SQL_EXEC_FLAG_NAME`, client type.
+  (Arrow availability > legacy path > explicit `UseThriftClient=1` >
+  `TreatMetadataCatalogNameAsPattern=1` when `UseThriftClient` is unset > APC flag), memoized
+  connection-scoped client type, and `APC_SQL_EXEC_FLAG_NAME`.
 - SAFE APC sub-flag creation (T17); no connector-service files in this plan.
 - `src/main/java/com/databricks/jdbc/api/impl/DatabricksSession.java` — verify APC SEA errors propagate without
 fallback; keep warehouse KP001 Thrift→SEA recovery off APC.
@@ -977,7 +979,8 @@ paths for APC (no new constants expected).
   SEA target when reconstructing a statement from a public raw id; expose the APC connection id.
 - `src/main/java/com/databricks/client/jdbc/Driver.java` — choose the close client from the
   deserialized public connection id, including after a flag change.
-- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/` — new `SeaComputeTarget` helper.
+- `src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksSdkClient.java` — explicit
+  local compute-routing helpers for request targets and URL families.
 - `src/main/java/com/databricks/jdbc/model/client/sqlexec/` — `BackendCompute`,
   `AllPurposeClusterCompute`; `backend_compute` on the driver-owned
   CreateSession/ExecuteStatement/Cancel/TerminateSession request bodies. `DeleteSessionRequest`
@@ -1071,8 +1074,8 @@ decoder silently corrupts `DatabaseMetaData` — gate strictly on `is_native_met
   fail to terminate the SEA session; AC3 covers saved-session client selection through the public
   close API.
 - Missing `backend_compute` on any one request type causes server-side 400s mid-statement —
-mitigated by centralizing in `SeaComputeTarget`, explicit per-binding body/query encoding in R2,
-and AC3 serialized-request coverage of every call.
+mitigated by explicit local routing helpers, per-binding body/query encoding in R2, and AC3
+serialized-request coverage of every call.
 - Standard statement URLs currently trigger request-body serialization for GET and
   CloseStatement, despite their bodiless REST bindings. APC must pass a null body at every such
   call site; AC3 asserts the captured body and AC11 guards warehouse serialization.
@@ -1121,14 +1124,14 @@ implementation review; its completion includes external dogfood gates.
   assert their pre-change `InlineJsonResult` and `ArrowStreamResult` decoders and rows still work;
   T10 adds the APC result decoder (R16; AC26).
 - [ ] T2: Add optional `backend_compute` to driver-owned CreateSession, ExecuteStatement, and
-  CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession's declared
-  DELETE body. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
+   CancelStatement JSON body models and `DeleteSessionRequest` for TerminateSession query
+   serialization. Preserve warehouse serialization. T3 owns APC query targeting. Do not edit
   SDK-owned GetStatement/GetStatementResultChunkN classes or add bodies to APC GET and
   CloseStatement DELETE bindings (R2).
-- [ ] T3: Add `SeaComputeTarget` (request target + URL family) and route every `(Warehouse)`
-  cast in `DatabricksSdkClient`, `SessionId`, and `StatementId` through it; keep warehouse and
-  Real-time routing byte-identical. Add serialized-request tests for the JSON-body and dotted-query
-  encodings in R2, including TerminateSession's JSON body and merging the compute field with
+- [ ] T3: Add explicit local request-target and URL-family helpers in `DatabricksSdkClient`, with
+  direct identifier routing in `SessionId` and `StatementId`; keep warehouse and Real-time routing
+  byte-identical. Add serialized-request tests for the JSON-body and dotted-query
+   encodings in R2, including TerminateSession's dotted query and merging the compute field with
   `row_offset` (R2, R9; AC2, AC3, AC11, AC14). Pass a null body for APC execution polls, explicit
   result GETs, both GetResultData chunk-fetch paths, and CloseStatement DELETE even though the
   current serializer supplies bodies on standard URLs; assert null captured bodies and unchanged
@@ -1147,11 +1150,11 @@ implementation review; its completion includes external dogfood gates.
 ### Phase 2 — Routing and session lifecycle
 
 - [ ] T4: Replace the `AllPurposeCluster → THRIFT` early return in `getClientTypeFromContext`
-  with Arrow prerequisite > explicit `UseThriftClient` >
-  `TreatMetadataCatalogNameAsPattern=1` > APC flag routing. Keep `UseBoundedSeaApi` out of APC
-  protocol selection. When explicit `UseThriftClient=0` selects SEA, ignore the Thrift-only property
-  and log that it has no effect. Preserve Thrift for the legacy `cliservice` placeholder path (R1, R7,
-  R8; AC1, AC7, AC8, AC19, AC20, AC21).
+  with Arrow prerequisite > legacy path > explicit `UseThriftClient=1` >
+  `TreatMetadataCatalogNameAsPattern=1` when `UseThriftClient` is unset > APC flag routing.
+  `UseThriftClient=0` defers to the flag. Keep `UseBoundedSeaApi` out of APC protocol selection,
+  memoize the result for the connection lifetime, and preserve Thrift for the legacy `cliservice`
+  placeholder path (R1, R7, R8; AC1, AC7, AC8, AC19, AC20, AC21).
 - [ ] T5: Persist client type and `negotiated_protocol_version` from CreateSession into
   `SessionInfo`, including through APC `SessionId` reconstruction. Keep the reconstructed
   version diagnostic only; use the live CreateSession response for native capability decisions and

@@ -91,6 +91,35 @@ public class ResultSetHeartbeatEligibilityTest {
   // === Ineligible cases ===
 
   @Test
+  void testApcArrowBatchNotEligible() throws Exception {
+    DatabricksResultSet rs =
+        createResultSet(
+            StatementState.SUCCEEDED,
+            StatementType.QUERY,
+            DatabricksResultSet.ResultSetType.SEA_ARROW_BATCH,
+            true);
+    setField(rs, "statementId", StatementId.deserialize("a|org|cluster|test-stmt"));
+
+    assertFalse(rs.isHeartbeatEligible(), "APC does not support the heartbeat status RPC");
+  }
+
+  @Test
+  void testRecoveredRawStatementIdOnApcConnectionNotEligible() throws Exception {
+    DatabricksResultSet rs =
+        createResultSet(
+            StatementState.SUCCEEDED,
+            StatementType.QUERY,
+            DatabricksResultSet.ResultSetType.SEA_ARROW_BATCH,
+            true);
+    // getStatement(rawId) yields a StatementId without an APC target.
+    setField(rs, "statementId", StatementId.deserialize("test-stmt"));
+    setField(rs, "allPurposeClusterConnection", true);
+
+    assertFalse(
+        rs.isHeartbeatEligible(), "APC connection compute must disable heartbeat for raw IDs");
+  }
+
+  @Test
   void testSeaInlineNotEligible() {
     DatabricksResultSet rs =
         createResultSet(

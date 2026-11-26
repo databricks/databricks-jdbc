@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -228,6 +229,32 @@ public class DatabricksSessionTest {
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  @Test
+  public void testApcSeaDoesNotFallbackAfterRateLimit() throws SQLException {
+    connectionContext =
+        DatabricksConnectionContext.parse(
+            VALID_CLUSTER_URL + ";UseThriftClient=0", new Properties());
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext,
+        Map.of(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "true"));
+    try {
+      when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
+          .thenThrow(new DatabricksRateLimitException("rate limited", 429));
+
+      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+
+      assertThrows(DatabricksRateLimitException.class, session::open);
+      assertFalse(session.isOpen());
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      verifyNoInteractions(thriftClient);
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+          connectionContext, new HashMap<>());
+    }
   }
 
   @Test
