@@ -1018,7 +1018,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
     Format format;
     Disposition disposition;
-    if (isApc) {
+    if (isApc && statementType == StatementType.METADATA) {
+      format = Format.ARROW_STREAM;
+      disposition = cloudFetch ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
+    } else if (isApc) {
       format = Format.ARROW_BATCH;
       disposition = cloudFetch ? Disposition.INLINE_OR_EXTERNAL_LINKS : Disposition.INLINE;
     } else if (cloudFetch) {
@@ -1037,7 +1040,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     long maxRows =
         (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
-    if (isApc || format.equals(Format.JSON_ARRAY)) {
+    if (format.equals(Format.ARROW_BATCH) || format.equals(Format.JSON_ARRAY)) {
       LOGGER.debug("Results are inline, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }

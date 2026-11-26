@@ -1041,22 +1041,15 @@ public class ArrowResultTest {
   }
 
   @Test
-  public void testBoundedSeaApiUsesSeaInlineProviderForHybridInlineResult() throws Exception {
+  public void testApcInlineContinuationUsesSeaInlineProvider() throws Exception {
     Properties props = new Properties();
-    props.setProperty("UseBoundedSeaApi", "1");
-    props.setProperty("EnableQueryResultDownload", "1");
+    props.setProperty("UseBoundedSeaApi", "0");
+    props.setProperty("EnableQueryResultDownload", "0");
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, props);
     DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
 
-    Schema schema = createTestSchema();
-    Object[][] testData = createTestData(schema, (int) rowsInChunk);
-    byte[] attachment;
-    try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
-      File arrowFile = createTestArrowFile("HybridInlineTestFile", schema, testData, allocator);
-      attachment = Files.readAllBytes(arrowFile.toPath());
-      Files.deleteIfExists(arrowFile.toPath());
-    }
+    byte[] attachment = createInlineArrowAttachment();
 
     ResultManifest resultManifest =
         new ResultManifest()
@@ -1087,6 +1080,43 @@ public class ArrowResultTest {
     }
     assertEquals(rowsInChunk * 2, rowCount);
     assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testNonApcInlineContinuationPreservesInlineProvider() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(2L)
+            .setTotalRowCount(rowsInChunk)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData();
+    resultData.setAttachment(createInlineArrowAttachment());
+    resultData.setNextChunkIndex(1L);
+
+    ArrowResult result =
+        new ArrowResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
+    assertDoesNotThrow(result::close);
+  }
+
+  private byte[] createInlineArrowAttachment() throws Exception {
+    Schema schema = createTestSchema();
+    Object[][] testData = createTestData(schema, (int) rowsInChunk);
+    try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      File arrowFile = createTestArrowFile("InlineTestFile", schema, testData, allocator);
+      byte[] attachment = Files.readAllBytes(arrowFile.toPath());
+      Files.deleteIfExists(arrowFile.toPath());
+      return attachment;
+    }
   }
 
   @Test
