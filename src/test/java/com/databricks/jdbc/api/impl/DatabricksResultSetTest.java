@@ -16,7 +16,7 @@ import com.databricks.jdbc.api.ExecutionState;
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
-import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
+import com.databricks.jdbc.api.impl.arrow.ArrowResult;
 import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -150,7 +150,7 @@ public class DatabricksResultSetTest {
 
   @Test
   void testUnknownTotalArrowResultCursorAndChunkProvider() throws SQLException {
-    ArrowStreamResult arrowResult = mock(ArrowStreamResult.class);
+    ArrowResult arrowResult = mock(ArrowResult.class);
     ChunkProvider chunkProvider = mock(ChunkProvider.class);
     long[] currentRow = {-1};
     int[] nextCalls = {0};

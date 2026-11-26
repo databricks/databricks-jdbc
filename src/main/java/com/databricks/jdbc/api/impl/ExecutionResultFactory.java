@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
+import com.databricks.jdbc.api.impl.arrow.ArrowResult;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
 import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
@@ -72,7 +72,7 @@ class ExecutionResultFactory {
     switch (manifest.getFormat()) {
       case ARROW_BATCH:
       case ARROW_STREAM:
-        return new ArrowStreamResult(manifest, data, statementId, session);
+        return new ArrowResult(manifest, data, statementId, session);
       case JSON_ARRAY:
         // This is used for metadata and update commands
         return new InlineJsonResult(manifest, data, statementId, session);
@@ -116,7 +116,7 @@ class ExecutionResultFactory {
       case ARROW_BASED_SET:
         return createInlineArrowResult(resultsResp, parentStatement, session);
       case URL_BASED_SET:
-        return new ArrowStreamResult(resultsResp, parentStatement, session);
+        return new ArrowResult(resultsResp, parentStatement, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");

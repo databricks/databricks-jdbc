@@ -42,7 +42,7 @@ public class SeaInlineArrowE2ETests {
           databricksResultSet
               .getChunkProvider()
               .orElseThrow(() -> new AssertionError("Expected an Arrow chunk provider"));
-      assertEquals("SeaInlineArrowChunkProvider", provider.getClass().getSimpleName());
+      assertEquals("PagedArrowChunkProvider", provider.getClass().getSimpleName());
 
       long rowCount = 0;
       long checksum = 0;

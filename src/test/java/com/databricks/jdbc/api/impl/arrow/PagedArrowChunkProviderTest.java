@@ -34,7 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SeaInlineArrowChunkProviderTest {
+class PagedArrowChunkProviderTest {
 
   private static final StatementId STATEMENT_ID = new StatementId("test-statement-id");
   private static final int DEFAULT_MAX_BATCHES = 4;
@@ -44,7 +44,7 @@ class SeaInlineArrowChunkProviderTest {
   @Mock private IDatabricksConnectionContext mockConnectionContext;
   @Mock private IDatabricksClient mockSdkClient;
 
-  private SeaInlineArrowChunkProvider provider;
+  private PagedArrowChunkProvider provider;
 
   @AfterEach
   void tearDown() {
@@ -130,10 +130,10 @@ class SeaInlineArrowChunkProviderTest {
     return manifest;
   }
 
-  private SeaInlineArrowChunkProvider createProvider(ResultData initialData, CompressionCodec codec)
+  private PagedArrowChunkProvider createProvider(ResultData initialData, CompressionCodec codec)
       throws DatabricksSQLException {
     setupSessionMocks();
-    return new SeaInlineArrowChunkProvider(
+    return new PagedArrowChunkProvider(
         initialData, createManifest(codec), STATEMENT_ID, mockSession);
   }
 
@@ -250,7 +250,7 @@ class SeaInlineArrowChunkProviderTest {
       when(mockSdkClient.getResultChunksData(eq(STATEMENT_ID), eq(2L), eq(4L))).thenReturn(chunk2);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       ColumnInfo colInfo = new ColumnInfo();
@@ -290,7 +290,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenReturn(chunk1Result);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.LZ4_FRAME), STATEMENT_ID, mockSession);
 
       ColumnInfo colInfo = new ColumnInfo();
@@ -331,7 +331,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenReturn(chunk2Result);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       // Consume all chunks, let prefetch accumulate
@@ -360,7 +360,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenReturn(chunk2Result);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       while (provider.hasNextChunk()) {
@@ -430,7 +430,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenReturn(chunk1Result);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.LZ4_FRAME), STATEMENT_ID, mockSession);
 
       long totalRows = 0;
@@ -464,7 +464,7 @@ class SeaInlineArrowChunkProviderTest {
       assertThrows(
           DatabricksSQLException.class,
           () ->
-              new SeaInlineArrowChunkProvider(
+              new PagedArrowChunkProvider(
                   initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession));
     }
 
@@ -477,7 +477,7 @@ class SeaInlineArrowChunkProviderTest {
       assertThrows(
           DatabricksSQLException.class,
           () ->
-              new SeaInlineArrowChunkProvider(
+              new PagedArrowChunkProvider(
                   initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession));
     }
 
@@ -493,7 +493,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenThrow(serverError);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       // First chunk should be fine
@@ -515,7 +515,7 @@ class SeaInlineArrowChunkProviderTest {
       assertThrows(
           Exception.class,
           () ->
-              new SeaInlineArrowChunkProvider(
+              new PagedArrowChunkProvider(
                   initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession));
     }
 
@@ -529,7 +529,7 @@ class SeaInlineArrowChunkProviderTest {
       assertThrows(
           Exception.class,
           () ->
-              new SeaInlineArrowChunkProvider(
+              new PagedArrowChunkProvider(
                   initial, createManifest(CompressionCodec.LZ4_FRAME), STATEMENT_ID, mockSession));
     }
 
@@ -546,7 +546,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenReturn(badChunk);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       assertTrue(provider.next());
@@ -610,7 +610,7 @@ class SeaInlineArrowChunkProviderTest {
       setupSessionMocks();
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       // Close should interrupt the prefetch thread and return promptly
@@ -662,7 +662,7 @@ class SeaInlineArrowChunkProviderTest {
       }
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       // Wait a bit for prefetch to run
@@ -699,7 +699,7 @@ class SeaInlineArrowChunkProviderTest {
 
       // Should not throw — minimum is enforced to 2
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       assertTrue(provider.next());
@@ -764,7 +764,7 @@ class SeaInlineArrowChunkProviderTest {
           .thenReturn(chunk3Result);
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       int expectedChunkCount = 3;
@@ -807,7 +807,7 @@ class SeaInlineArrowChunkProviderTest {
       }
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       ColumnInfo colInfo = new ColumnInfo();
@@ -892,7 +892,7 @@ class SeaInlineArrowChunkProviderTest {
               });
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       // Chunk 1 should be prefetched before we call next()
@@ -927,7 +927,7 @@ class SeaInlineArrowChunkProviderTest {
               });
 
       provider =
-          new SeaInlineArrowChunkProvider(
+          new PagedArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
       // Consume first chunk immediately

@@ -124,8 +124,8 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       arrowMetadata = columnInfo.getTypeText();
     }
 
-    // Use shared complex type handling from ArrowStreamResult
-    return ArrowStreamResult.getObjectWithComplexTypeHandling(
+    // Use shared complex type handling from ArrowResult
+    return ArrowResult.getObjectWithComplexTypeHandling(
         session, currentChunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 

@@ -33,8 +33,8 @@ import java.util.Collection;
 import java.util.List;
 
 /** Result container for Arrow-based query results. */
-public class ArrowStreamResult implements IExecutionResult {
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowStreamResult.class);
+public class ArrowResult implements IExecutionResult {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResult.class);
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
@@ -42,7 +42,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private List<ColumnInfo> columnInfos;
   private final IDatabricksSession session;
 
-  public ArrowStreamResult(
+  public ArrowResult(
       ResultManifest resultManifest,
       ResultData resultData,
       StatementId statementId,
@@ -57,7 +57,7 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   @VisibleForTesting
-  ArrowStreamResult(
+  ArrowResult(
       ResultManifest resultManifest,
       ResultData resultData,
       StatementId statementId,
@@ -77,7 +77,7 @@ public class ArrowStreamResult implements IExecutionResult {
       if (resultManifest.getFormat() == Format.ARROW_BATCH) {
         if (hasExternalLinks(resultData)) {
           LOGGER.debug(
-              "Creating ArrowStreamResult with remote links for statementId: {}",
+              "Creating ArrowResult with remote links for statementId: {}",
               statementId.toSQLExecStatementId());
           this.chunkProvider =
               createRemoteChunkProvider(
@@ -86,25 +86,25 @@ public class ArrowStreamResult implements IExecutionResult {
           this.chunkProvider =
               isEmptyArrowBatchResult(resultData)
                   ? new EmptyChunkProvider()
-                  : new SeaInlineArrowChunkProvider(
+                  : new PagedArrowChunkProvider(
                       resultData, statementId, session, new ArrowBatchPageDecoder(resultManifest));
         }
       } else if (resultData.getAttachment() != null
           && (connectionContext.isBoundedSeaApiEnabled()
               || connectionContext.isAllPurposeCluster())) {
         LOGGER.debug(
-            "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
+            "Creating ArrowResult with SEA inline Arrow for statementId: {}",
             statementId.toSQLExecStatementId());
         this.chunkProvider =
-            new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
+            new PagedArrowChunkProvider(resultData, resultManifest, statementId, session);
       } else if (resultData.getAttachment() != null) {
         LOGGER.debug(
-            "Creating ArrowStreamResult with inline attachment for statementId: {}",
+            "Creating ArrowResult with inline attachment for statementId: {}",
             statementId.toSQLExecStatementId());
         this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
       } else {
         LOGGER.debug(
-            "Creating ArrowStreamResult with remote links for statementId: {}",
+            "Creating ArrowResult with remote links for statementId: {}",
             statementId.toSQLExecStatementId());
         this.chunkProvider =
             createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
@@ -190,7 +190,7 @@ public class ArrowStreamResult implements IExecutionResult {
     }
   }
 
-  public ArrowStreamResult(
+  public ArrowResult(
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatementId,
       IDatabricksSession session)
@@ -203,7 +203,7 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   @VisibleForTesting
-  ArrowStreamResult(
+  ArrowResult(
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,

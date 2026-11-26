@@ -92,7 +92,7 @@ class ArrowResultChunkIteratorTest {
   /**
    * Walks both iterators until they are exhausted, checking hasNextRow(), nextRow() and the current
    * row at every step. With {@code skipHasNext}, nextRow() is called without a preceding
-   * hasNextRow(), as {@link ArrowStreamResult#next()} does.
+   * hasNextRow(), as {@link ArrowResult#next()} does.
    */
   private void assertSameSteps(int[] layout, long numRows, boolean skipHasNext) throws Exception {
     String ctx = Arrays.toString(layout) + " numRows=" + numRows + " skipHasNext=" + skipHasNext;
