@@ -14,6 +14,7 @@ import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -103,6 +104,11 @@ class ExecutionResultFactory {
       case ARROW_BASED_SET:
         return createInlineArrowResult(resultsResp, parentStatement, session);
       case URL_BASED_SET:
+        if (isInlinedArrowResult(resultsResp.getResults())) {
+          // The server may declare URL_BASED_SET but inline a small result as Arrow batches
+          LOGGER.info("URL_BASED_SET result has no result links but inline Arrow batches");
+          return createInlineArrowResult(resultsResp, parentStatement, session);
+        }
         return new ArrowStreamResult(resultsResp, parentStatement, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
@@ -111,6 +117,12 @@ class ExecutionResultFactory {
         throw new DatabricksSQLFeatureNotImplementedException(
             "Invalid thrift response format " + resultFormat);
     }
+  }
+
+  private static boolean isInlinedArrowResult(TRowSet results) {
+    return results != null
+        && (results.getResultLinks() == null || results.getResultLinks().isEmpty())
+        && results.isSetArrowBatches();
   }
 
   /**
