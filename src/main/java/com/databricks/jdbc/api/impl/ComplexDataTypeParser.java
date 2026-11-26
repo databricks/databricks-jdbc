@@ -811,7 +811,8 @@ public class ComplexDataTypeParser {
       return object;
     }
     if (parser.currentToken() == JsonToken.VALUE_NUMBER_FLOAT
-        || parser.currentToken() == JsonToken.VALUE_NUMBER_INT) {
+        || parser.currentToken() == JsonToken.VALUE_NUMBER_INT
+        || parser.currentToken() == JsonToken.VALUE_STRING) {
       BigDecimal decimal = convertDecimal(parser.getText(), metadata);
       if (decimal != null) {
         return DecimalNode.valueOf(decimal);

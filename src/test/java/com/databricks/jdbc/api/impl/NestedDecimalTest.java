@@ -90,6 +90,9 @@ class NestedDecimalTest {
 
   @Test
   void preservesDefaultMapDecimalsAndEscaping() {
+    assertEquals(
+        "{\"d\":100.00}",
+        parser.formatMapString("[{\"key\":\"d\",\"value\":\"100\"}]", "MAP<STRING,DECIMAL(10,2)>"));
     String json = "[{\"key\":\"a\\\"\\n\",\"value\":100.00}]";
     assertEquals(
         "{\"a\\\"\\n\":100.00}", parser.formatMapString(json, "MAP<STRING,DECIMAL(10,2)>"));
