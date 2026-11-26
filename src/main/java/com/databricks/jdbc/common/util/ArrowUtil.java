@@ -25,8 +25,11 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import org.apache.arrow.vector.types.DateUnit;
@@ -253,7 +256,7 @@ public final class ArrowUtil {
   }
 
   /** Builds a complete Arrow IPC stream from one schema and ordered record-batch messages. */
-  public static ByteArrayInputStream createArrowBatchByteStream(
+  public static InputStream createArrowBatchByteStream(
       byte[] arrowSchema, List<ArrowBatch> arrowBatches) throws DatabricksParsingException {
     if (arrowSchema == null || arrowSchema.length == 0) {
       throw arrowBatchError("missing arrow_schema");
@@ -261,14 +264,14 @@ public final class ArrowUtil {
     if (arrowBatches == null) {
       throw arrowBatchError("missing arrow_batches");
     }
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    output.write(arrowSchema, 0, arrowSchema.length);
+    // Compose the existing byte arrays without copying them into one contiguous buffer.
+    List<InputStream> parts = new ArrayList<>(arrowBatches.size() + 2);
+    parts.add(new ByteArrayInputStream(arrowSchema));
     for (ArrowBatch arrowBatch : arrowBatches) {
-      byte[] batch = arrowBatch.getBatch();
-      output.write(batch, 0, batch.length);
+      parts.add(new ByteArrayInputStream(arrowBatch.getBatch()));
     }
-    output.write(ARROW_STREAM_END_MARKER, 0, ARROW_STREAM_END_MARKER.length);
-    return new ByteArrayInputStream(output.toByteArray());
+    parts.add(new ByteArrayInputStream(ARROW_STREAM_END_MARKER));
+    return new SequenceInputStream(Collections.enumeration(parts));
   }
 
   private static DatabricksParsingException arrowBatchError(String detail) {

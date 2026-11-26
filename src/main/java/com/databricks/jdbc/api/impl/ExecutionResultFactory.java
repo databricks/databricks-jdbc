@@ -66,7 +66,7 @@ class ExecutionResultFactory {
       }
     }
     TelemetryHelper.setResultFormat(
-        session.getConnectionContext(), statementId, manifest.getFormat());
+        session.getConnectionContext(), statementId, getTelemetryFormat(manifest, data));
     LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
     // JSON_ARRAY serves metadata and updates; Arrow formats serve query results.
     switch (manifest.getFormat()) {
@@ -81,6 +81,20 @@ class ExecutionResultFactory {
         LOGGER.error(errorMessage);
         throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
+  }
+
+  /**
+   * ARROW_BATCH responses may carry external links instead of inline batches (e.g. APC with
+   * INLINE_OR_EXTERNAL_LINKS); report those as external-link results in telemetry.
+   */
+  static Format getTelemetryFormat(ResultManifest manifest, ResultData data) {
+    if (manifest.getFormat() == Format.ARROW_BATCH
+        && data != null
+        && data.getExternalLinks() != null
+        && !data.getExternalLinks().isEmpty()) {
+      return Format.ARROW_STREAM;
+    }
+    return manifest.getFormat();
   }
 
   static IExecutionResult getResultSet(

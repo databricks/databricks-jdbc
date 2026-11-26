@@ -236,15 +236,25 @@ public class DatabricksSessionTest {
     connectionContext =
         DatabricksConnectionContext.parse(
             VALID_CLUSTER_URL + ";UseThriftClient=0", new Properties());
-    when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
-        .thenThrow(new DatabricksRateLimitException("rate limited", 429));
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext,
+        Map.of(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbcApc",
+            "true"));
+    try {
+      when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
+          .thenThrow(new DatabricksRateLimitException("rate limited", 429));
 
-    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
 
-    assertThrows(DatabricksRateLimitException.class, session::open);
-    assertFalse(session.isOpen());
-    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-    verifyNoInteractions(thriftClient);
+      assertThrows(DatabricksRateLimitException.class, session::open);
+      assertFalse(session.isOpen());
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      verifyNoInteractions(thriftClient);
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+          connectionContext, new HashMap<>());
+    }
   }
 
   @Test

@@ -67,7 +67,10 @@ public class ArrowStreamResult implements IExecutionResult {
     this.session = session;
 
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    if (totalChunkCount != null && totalChunkCount == 0) {
+    // ARROW_BATCH (APC) results are totals-independent: the payload and next_chunk_index decide.
+    if (resultManifest.getFormat() != Format.ARROW_BATCH
+        && totalChunkCount != null
+        && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
@@ -346,14 +349,16 @@ public class ArrowStreamResult implements IExecutionResult {
       return true;
     }
 
-    // The current chunk is exhausted (or none is open yet): move to the next one.
-    if (!chunkProvider.hasNextChunk() || !chunkProvider.next()) {
-      return false;
+    // The current chunk is exhausted (or none is open yet): move to the next one, skipping
+    // zero-row chunks (e.g. an empty page that still carries next_chunk_index).
+    while (chunkProvider.hasNextChunk() && chunkProvider.next()) {
+      chunkIterator = chunkProvider.getChunk().getChunkIterator();
+      if (chunkIterator.nextRow()) {
+        currentRowIndex++;
+        return true;
+      }
     }
-    chunkIterator = chunkProvider.getChunk().getChunkIterator();
-
-    currentRowIndex++;
-    return chunkIterator.nextRow();
+    return false;
   }
 
   /** {@inheritDoc} */

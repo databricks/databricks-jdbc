@@ -67,6 +67,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private static final String FAST_SESSION_EXECUTION_MODE = "FAST";
+  private static final String APC_LOG_LABEL = "all-purpose cluster";
   private static final String REALTIME_SESSION_HEADER = "x-databricks-rt-session";
   private static final String HEADER_METADATA_OPERATION_TYPE =
       "X-Databricks-Metadata-Operation-Type";
@@ -162,14 +163,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Map<String, String> sessionConf)
       throws DatabricksSQLException {
     // TODO (PECO-1460): Handle sessionConf in public session API
+    boolean isApc = isAllPurposeCluster(computeResource);
+    // Do not log APC cluster or org identifiers.
+    String computeLabel = isApc ? APC_LOG_LABEL : warehouseId(computeResource);
     LOGGER.debug(
         "public Session createSession(computeResource = {}, String catalog = {}, String schema ="
             + " {}, Map<String, String> sessionConf = {})",
-        computeResource,
+        computeLabel,
         catalog,
         schema,
         sessionConf);
-    boolean isApc = isAllPurposeCluster(computeResource);
     BackendCompute backendCompute = backendCompute(computeResource);
     CreateSessionRequest request = new CreateSessionRequest();
     if (isApc) {
@@ -210,9 +213,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String errorMessage =
             String.format(
                 "createSession failed with HTTP %d (rate limit exceeded) after retries. "
-                    + "Compute target: %s, Error: %s",
+                    + "%s, Error: %s",
                 HttpStatus.SC_TOO_MANY_REQUESTS,
-                computeResource.getUniqueIdentifier(),
+                isApc ? "Compute target: " + APC_LOG_LABEL : "Warehouse id: " + computeLabel,
                 e.getMessage());
         LOGGER.warn(errorMessage, e);
         throw new DatabricksRateLimitException(errorMessage, e, HttpStatus.SC_TOO_MANY_REQUESTS);
@@ -457,7 +460,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                   Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
         } else {
           GetStatementResultQuery getRequest =
-              new GetStatementResultQuery().setBackendCompute(backendCompute);
+              new GetStatementResultQuery().setBackendCompute(backendCompute).setRowOffset(0L);
           req = new Request(Request.GET, getStatusPath, (String) null);
           ApiClient.setQuery(req, getRequest);
         }
@@ -555,6 +558,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         "Executing native parameter batch with {} parameter sets on {}",
         parameterSets.size(),
         computeResource);
+    if (!supportsNativeParameterBatching(computeResource)) {
+      throw new DatabricksValidationException(
+          "Native parameter batching is only supported on SQL warehouses");
+    }
     ExecuteStatementRequest request =
         getBatchRequest(
             statementType, sql, computeResource, session, parameterSets, parentStatement);

@@ -26,7 +26,9 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
   public SeaChunkLinkFetcher(IDatabricksSession session, StatementId statementId) {
     this.session = session;
     this.statementId = statementId;
-    LOGGER.debug("Created SeaChunkLinkFetcher for statement {}", statementId);
+    LOGGER.debug(
+        "Created SeaChunkLinkFetcher for statement {}",
+        StatementId.loggableStatementId(statementId));
   }
 
   @Override
@@ -36,7 +38,7 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
     LOGGER.debug(
         "Fetching links starting from chunk index {} for statement {}",
         startChunkIndex,
-        statementId);
+        StatementId.loggableStatementId(statementId));
 
     return session
         .getDatabricksClient()
@@ -46,7 +48,10 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
   @Override
   public ExternalLink refetchLink(long chunkIndex, long rowOffset) throws SQLException {
     // SEA uses chunkIndex; rowOffset is passed through for bounded SEA API
-    LOGGER.info("Refetching expired link for chunk {} of statement {}", chunkIndex, statementId);
+    LOGGER.info(
+        "Refetching expired link for chunk {} of statement {}",
+        chunkIndex,
+        StatementId.loggableStatementId(statementId));
 
     ChunkLinkFetchResult result =
         session.getDatabricksClient().getResultChunks(statementId, chunkIndex, rowOffset);
@@ -61,7 +66,9 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
     for (ExternalLink link : result.getChunkLinks()) {
       if (link.getChunkIndex() == chunkIndex) {
         LOGGER.debug(
-            "Successfully refetched link for chunk {} of statement {}", chunkIndex, statementId);
+            "Successfully refetched link for chunk {} of statement {}",
+            chunkIndex,
+            StatementId.loggableStatementId(statementId));
         return link;
       }
     }
@@ -76,7 +83,9 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
 
   @Override
   public void close() {
-    LOGGER.debug("Closing SeaChunkLinkFetcher for statement {}", statementId);
+    LOGGER.debug(
+        "Closing SeaChunkLinkFetcher for statement {}",
+        StatementId.loggableStatementId(statementId));
     // No resources to clean up for SEA fetcher
   }
 }

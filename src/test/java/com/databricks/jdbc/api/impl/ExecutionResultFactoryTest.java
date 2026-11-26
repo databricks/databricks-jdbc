@@ -118,6 +118,27 @@ public class ExecutionResultFactoryTest {
                 parentStatement));
   }
 
+  @Test
+  public void testGetTelemetryFormat_arrowBatchReflectsExternalLinks() {
+    ResultManifest manifest = new ResultManifest().setFormat(Format.ARROW_BATCH);
+
+    assertEquals(
+        Format.ARROW_BATCH,
+        ExecutionResultFactory.getTelemetryFormat(
+            manifest, new ResultData().setArrowBatches(Collections.<ArrowBatch>emptyList())));
+    assertEquals(
+        Format.ARROW_STREAM,
+        ExecutionResultFactory.getTelemetryFormat(
+            manifest,
+            new ResultData()
+                .setExternalLinks(
+                    Collections.singletonList(new com.databricks.jdbc.model.core.ExternalLink()))));
+    assertEquals(
+        Format.JSON_ARRAY,
+        ExecutionResultFactory.getTelemetryFormat(
+            new ResultManifest().setFormat(Format.JSON_ARRAY), new ResultData()));
+  }
+
   private static byte[] emptyArrowSchema() {
     try {
       return SchemaUtility.serialize(new Schema(Collections.emptyList()));

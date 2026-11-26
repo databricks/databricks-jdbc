@@ -121,12 +121,14 @@ public class Driver implements IDatabricksDriver {
     }
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
+    // Route by the transport that created the session, not the context's current routing.
+    SessionId sessionId = SessionId.deserialize(connectionId);
     IDatabricksClient databricksClient;
-    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+    if (sessionId.getClientType() == DatabricksClientType.THRIFT) {
       databricksClient = new DatabricksThriftServiceClient(connectionContext);
     } else {
       databricksClient = new DatabricksSdkClient(connectionContext);
     }
-    databricksClient.deleteSession(SessionId.deserialize(connectionId).getSessionInfo());
+    databricksClient.deleteSession(sessionId.getSessionInfo());
   }
 }

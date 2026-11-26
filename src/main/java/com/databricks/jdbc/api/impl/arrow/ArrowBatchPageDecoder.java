@@ -11,7 +11,7 @@ import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +31,7 @@ final class ArrowBatchPageDecoder implements PageDecoder {
     try {
       List<ArrowBatch> decompressed =
           decompressArrowBatches(arrowBatches, resultManifest.getResultCompression());
-      ByteArrayInputStream stream =
+      InputStream stream =
           createArrowBatchByteStream(
               getSerializedResultManifestSchema(resultManifest), decompressed);
       return ArrowResultChunk.builder().withInputStream(stream, pageRows).build();

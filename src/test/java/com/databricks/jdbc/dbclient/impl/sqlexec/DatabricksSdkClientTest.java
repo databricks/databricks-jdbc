@@ -705,6 +705,48 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcPollRequestCarriesRowOffsetAndBackendCompute() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL + "UseBoundedSeaApi=0;", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(
+            new ExecuteStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.RUNNING)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(
+            new GetStatementResponse()
+                .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED)));
+
+    databricksSdkClient.executeStatement(
+        "SELECT 1",
+        allPurposeCluster,
+        Collections.emptyMap(),
+        StatementType.QUERY,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<Request> pollCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(pollCaptor.capture(), eq(GetStatementResponse.class));
+    Request pollRequest = pollCaptor.getValue();
+    assertEquals(Request.GET, pollRequest.getMethod());
+    assertEquals(
+        String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID.toSQLExecStatementId()),
+        pollRequest.getUrl());
+    assertEquals(Collections.singletonList("0"), pollRequest.getQuery().get("row_offset"));
+    assertBackendComputeQuery(pollRequest);
+  }
+
+  @Test
   public void testApcLifecycleUsesOneBackendComputeWithoutStatusEndpoint() throws Exception {
     useRealJsonSerialization();
     IDatabricksConnectionContext connectionContext =
@@ -1005,7 +1047,27 @@ public class DatabricksSdkClientTest {
     assertEquals(1044, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
     assertEquals(429, error.getStatusCode());
     assertSame(rateLimit, error.getCause());
-    assertTrue(error.getMessage().contains(WAREHOUSE_ID));
+    assertTrue(error.getMessage().contains("Warehouse id: " + WAREHOUSE_ID));
+  }
+
+  @Test
+  public void testCreateSessionRateLimitRedactsApcIdentifiers() throws Exception {
+    DatabricksError rateLimit = new DatabricksError("429", "Too many requests", 429);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(rateLimit);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksComputeResource apc = new AllPurposeCluster("org-secret-id", "cluster-secret-id");
+
+    DatabricksRateLimitException error =
+        assertThrows(
+            DatabricksRateLimitException.class, () -> client.createSession(apc, null, null, null));
+
+    assertTrue(error.getMessage().contains("Compute target: all-purpose cluster"));
+    assertFalse(error.getMessage().contains("org-secret-id"));
+    assertFalse(error.getMessage().contains("cluster-secret-id"));
   }
 
   @Test
@@ -1160,6 +1222,28 @@ public class DatabricksSdkClientTest {
     assertFalse(
         databricksSdkClient.supportsNativeParameterBatching(
             new AllPurposeCluster("org", "cluster")));
+  }
+
+  @Test
+  public void testExecuteStatementBatchRejectsAllPurposeCluster() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    List<BatchParameterSet> parameterSets =
+        List.of(BatchParameterSet.from(Map.of(1, getSqlParam(1, 1, DatabricksTypeUtil.INT))));
+
+    assertThrows(
+        com.databricks.jdbc.exception.DatabricksValidationException.class,
+        () ->
+            databricksSdkClient.executeStatementBatch(
+                "INSERT INTO target VALUES (?)",
+                new AllPurposeCluster("org", "cluster"),
+                parameterSets,
+                StatementType.UPDATE,
+                null,
+                null));
+    verify(apiClient, never()).serialize(any());
   }
 
   @Test

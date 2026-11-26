@@ -849,6 +849,31 @@ public class ArrowStreamResultTest {
   }
 
   @Test
+  public void testApcArrowBatchIgnoresZeroTotalChunkCount() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_BATCH)
+            .setTotalChunkCount(0L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, resultData, STATEMENT_ID, localSession, mockHttpClient);
+    try {
+      assertInstanceOf(StreamingChunkProvider.class, result.getChunkProvider());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
   public void testArrowStreamAttachmentRetainsPrecedenceOverExternalLinks() throws Exception {
     Properties props = new Properties();
     props.setProperty("UseBoundedSeaApi", "0");
@@ -1158,17 +1183,13 @@ public class ArrowStreamResultTest {
       assertNextRow(result, 0, 0);
       assertNextRow(result, 1, 1);
       assertNextRow(result, 2, 1000);
-      // Same as before this change: an empty chunk in the middle makes next() return false while
-      // later chunks still hold rows, and it still counts a row position. This is an existing bug
-      // kept as is here; fixing it should update this assertion.
-      assertFalse(result.next());
-      assertEquals(3, result.getCurrentRow());
-      assertNextRow(result, 4, 0);
-      assertNextRow(result, 5, 1);
+      // The empty middle chunk is skipped without ending iteration or consuming a row position.
+      assertNextRow(result, 3, 0);
+      assertNextRow(result, 4, 1);
       assertFalse(result.hasNext());
       assertFalse(result.next());
       assertFalse(result.next());
-      assertEquals(5, result.getCurrentRow());
+      assertEquals(4, result.getCurrentRow());
       result.close();
       chunks.forEach(AbstractArrowResultChunk::releaseChunk);
     }

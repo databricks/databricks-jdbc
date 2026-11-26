@@ -4,7 +4,7 @@
 
 ### Added
 
-- All-purpose cluster sessions can now use the SQL Execution API when enabled by the dedicated APC rollout flag or explicitly selected with `UseThriftClient=0`. Native `ARROW_BATCH` responses support inline single-batch and paginated results, plus external-link results when result download is enabled with `EnableQueryResultDownload`.
+- All-purpose cluster sessions can now use the SQL Execution API when enabled by the dedicated APC rollout flag; `UseThriftClient=1` keeps Thrift, and `UseThriftClient=0` lets the rollout flag apply even when `TreatMetadataCatalogNameAsPattern=1` is set. Native `ARROW_BATCH` responses support inline single-batch and paginated results, plus external-link results when result download is enabled with `EnableQueryResultDownload`.
 
 ### Updated
 
