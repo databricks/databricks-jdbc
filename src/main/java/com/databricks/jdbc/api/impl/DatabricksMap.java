@@ -109,6 +109,10 @@ public class DatabricksMap<K, V> implements Map<K, V> {
               DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else {
+        BigDecimal decimal = ComplexDataTypeParser.convertDecimal(value, valueType);
+        if (decimal != null) {
+          return (V) decimal;
+        }
         return convertSimpleValue(value, valueType);
       }
     } catch (Exception e) {

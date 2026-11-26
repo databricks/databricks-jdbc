@@ -159,6 +159,10 @@ public class DatabricksStruct implements Struct {
     }
 
     try {
+      BigDecimal decimal = ComplexDataTypeParser.convertDecimal(value, type);
+      if (decimal != null) {
+        return decimal;
+      }
       switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
