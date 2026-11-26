@@ -3,11 +3,15 @@ package com.databricks.jdbc.common.safe;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -17,6 +21,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -28,6 +33,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -84,6 +90,56 @@ class DatabricksDriverFeatureFlagsContextTest {
         DatabricksDriverFeatureFlagsContext.snapshotKey(
             FEATURE_FLAGS_ENDPOINT, "UA", Map.of("a", "1", "x-databricks-org-id", "222")));
     assertFalse(key.contains("111"));
+  }
+
+  @Test
+  void clusterPathOrgIdReachesInitialFetchAndRefresh() throws Exception {
+    context.shutdown();
+    IDatabricksConnectionContext parsedContext =
+        DatabricksConnectionContext.parse(
+            "jdbc:databricks://host/default;AuthMech=3;"
+                + "httpPath=/sql/protocolv1/o/6051921418418893/0528-cluster",
+            new Properties());
+    DatabricksHttpClientFactory factory = mock(DatabricksHttpClientFactory.class);
+    DatabricksClientConfiguratorManager manager = mock(DatabricksClientConfiguratorManager.class);
+    ClientConfigurator configurator = mock(ClientConfigurator.class);
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+    when(factory.getClient(parsedContext)).thenReturn(httpClientMock);
+    when(manager.getConfigurator(parsedContext)).thenReturn(configurator);
+    when(configurator.getDatabricksConfig()).thenReturn(config);
+    when(config.authenticate()).thenReturn(Map.of());
+    when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
+    when(httpResponseMock.getStatusLine()).thenReturn(statusLineMock);
+    when(statusLineMock.getStatusCode()).thenReturn(404);
+
+    try (MockedStatic<DatabricksHttpClientFactory> factoryStatic =
+            mockStatic(DatabricksHttpClientFactory.class);
+        MockedStatic<DatabricksClientConfiguratorManager> managerStatic =
+            mockStatic(DatabricksClientConfiguratorManager.class);
+        MockedStatic<Executors> executorsStatic = mockStatic(Executors.class)) {
+      factoryStatic.when(DatabricksHttpClientFactory::getInstance).thenReturn(factory);
+      managerStatic.when(DatabricksClientConfiguratorManager::getInstance).thenReturn(manager);
+      executorsStatic
+          .when(() -> Executors.newSingleThreadScheduledExecutor(any(ThreadFactory.class)))
+          .thenReturn(scheduler);
+      context = new DatabricksDriverFeatureFlagsContext(parsedContext);
+      try {
+        ArgumentCaptor<Runnable> refresh = ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler)
+            .scheduleAtFixedRate(refresh.capture(), anyLong(), anyLong(), eq(TimeUnit.SECONDS));
+        refresh.getValue().run();
+
+        ArgumentCaptor<HttpGet> requests = ArgumentCaptor.forClass(HttpGet.class);
+        verify(httpClientMock, times(2)).execute(requests.capture());
+        for (HttpGet request : requests.getAllValues()) {
+          assertEquals(
+              "6051921418418893", request.getFirstHeader("x-databricks-org-id").getValue());
+        }
+      } finally {
+        context.shutdown();
+      }
+    }
   }
 
   private String createFeatureFlagsJson(String flagName, String flagValue, int ttlSeconds)
