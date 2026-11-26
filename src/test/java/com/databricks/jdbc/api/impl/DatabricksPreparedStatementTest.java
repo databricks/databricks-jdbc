@@ -850,14 +850,15 @@ public class DatabricksPreparedStatementTest {
   }
 
   @ParameterizedTest
-  @MethodSource("explicitDecimalPreflightCases")
-  void testExplicitDecimalPreflightPreservesRounding(
+  @MethodSource("explicitDecimalBoundsCases")
+  void testExplicitDecimalBoundsPreserveRounding(
       Object value, int targetType, int scale, String expectedValue) throws SQLException {
     setupMocks();
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, "SELECT ?");
     statement.setObject(1, new BigDecimal("123.45"), targetType);
     DatabricksParameterMetaData metadata =
         (DatabricksParameterMetaData) statement.getParameterMetaData();
+    Object previousBinding = metadata.getParameterBindings().get(1);
     assertTimeoutPreemptively(
         Duration.ofSeconds(2),
         () -> {
@@ -869,10 +870,15 @@ public class DatabricksPreparedStatementTest {
             assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
             assertEquals(1015, exception.getErrorCode());
             assertTrue(exception.getMessage().contains("parameter 1"));
-            assertEquals(new BigDecimal("123.45"), metadata.getParameterBindings().get(1).value());
-            assertThrows(
-                DatabricksSQLException.class,
-                () -> statement.setObject(1, value, JDBCType.valueOf(targetType), scale));
+            assertSame(previousBinding, metadata.getParameterBindings().get(1));
+            DatabricksSQLException jdbcTypeException =
+                assertThrows(
+                    DatabricksSQLException.class,
+                    () -> statement.setObject(1, value, JDBCType.valueOf(targetType), scale));
+            assertEquals("INPUT_VALIDATION_ERROR", jdbcTypeException.getSQLState());
+            assertEquals(1015, jdbcTypeException.getErrorCode());
+            assertTrue(jdbcTypeException.getMessage().contains("parameter 1"));
+            assertSame(previousBinding, metadata.getParameterBindings().get(1));
           } else {
             statement.setObject(1, value, targetType, scale);
             assertEquals(
@@ -884,8 +890,15 @@ public class DatabricksPreparedStatementTest {
         });
   }
 
-  static Stream<Arguments> explicitDecimalPreflightCases() {
+  static Stream<Arguments> explicitDecimalBoundsCases() {
+    String nines36 = String.join("", Collections.nCopies(36, "9"));
     return Stream.of(
+            new Object[] {new BigDecimal(nines36 + "99.9"), 0, null},
+            new Object[] {new BigDecimal("-" + nines36 + "99.9"), 0, null},
+            new Object[] {new BigDecimal(nines36 + "9.999"), 2, null},
+            new Object[] {new BigDecimal("1" + nines36 + ".25"), 2, null},
+            new Object[] {new BigDecimal(nines36 + "99.4"), 0, nines36 + "99"},
+            new Object[] {new BigDecimal(nines36 + ".994"), 2, nines36 + ".99"},
             new Object[] {new ExponentNumber(), 2, null},
             new Object[] {new BigDecimal("1E+1000000000"), 2, null},
             new Object[] {new BigDecimal("1E-1000000000"), 2, "0.00"},

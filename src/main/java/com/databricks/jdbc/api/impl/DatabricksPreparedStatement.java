@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.isDecimalWithinBounds;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.normalizeDecimal;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.toBigDecimal;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
@@ -650,6 +651,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           integerDigits < -(long) scaleOrLength
               ? BigDecimal.ZERO.setScale(scaleOrLength)
               : bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
+      if (!isDecimalWithinBounds(bd)) {
+        throw new DatabricksSQLException(
+            "Invalid DECIMAL/NUMERIC precision or scale for parameter "
+                + parameterIndex
+                + "; precision and scale must not exceed 38",
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+      }
       setObject(parameterIndex, bd, databricksType);
     } else {
       setObject(parameterIndex, x, databricksType);

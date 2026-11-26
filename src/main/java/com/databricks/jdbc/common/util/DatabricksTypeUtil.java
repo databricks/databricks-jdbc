@@ -608,6 +608,10 @@ public class DatabricksTypeUtil {
     }
   }
 
+  /**
+   * Custom Numbers with non-decimal text fall back to {@code doubleValue()}, which can lose
+   * precision beyond about 15-17 significant digits.
+   */
   public static BigDecimal toBigDecimal(Object value) {
     if (value instanceof BigDecimal) {
       return (BigDecimal) value;
