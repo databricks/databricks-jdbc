@@ -401,6 +401,27 @@ public class DatabricksResultSetTest {
     assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal("columnLabel"));
   }
 
+  @Test
+  void testGetBigDecimalByLabelWithScaleReturnsNull() throws SQLException {
+    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertNull(resultSet.getBigDecimal(1, 2));
+    assertTrue(resultSet.wasNull());
+    assertNull(resultSet.getBigDecimal("decimalColumn", 2));
+    assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testGetBigDecimalByLabelWithScaleRejectsMissingColumn() throws SQLException {
+    when(mockedResultSetMetadata.getColumnNameIndex("missing")).thenReturn(-1);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getBigDecimal("missing", 2));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
+    assertEquals(0, exception.getErrorCode());
+  }
+
   @ParameterizedTest
   @CsvSource({
     "123.4500, 2, 123.45",
@@ -410,7 +431,8 @@ public class DatabricksResultSetTest {
     "0.0000, 2, 0.00",
     "123.4500, 4, 123.4500",
     "123.4567, 2, 123.46",
-    "-123.4550, 2, -123.46"
+    "-123.4550, 2, -123.46",
+    "9007199254740993.5550, 2, 9007199254740993.56"
   })
   void testGetBigDecimalByLabelUsesRequestedScale(String input, int scale, String expected)
       throws SQLException {
@@ -446,17 +468,6 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertEquals(expected, resultSet.getBigDecimal(1, 2));
     assertEquals(expected, resultSet.getBigDecimal("decimalColumn", 2));
-  }
-
-  @Test
-  void testGetBigDecimalByLabelWithScaleReturnsNull() throws SQLException {
-    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
-    when(mockedExecutionResult.getObject(0)).thenReturn(null);
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertNull(resultSet.getBigDecimal(1, 2));
-    assertTrue(resultSet.wasNull());
-    assertNull(resultSet.getBigDecimal("decimalColumn", 2));
-    assertTrue(resultSet.wasNull());
   }
 
   @Test
