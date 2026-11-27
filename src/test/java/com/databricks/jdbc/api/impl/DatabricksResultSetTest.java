@@ -56,7 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -219,55 +219,6 @@ public class DatabricksResultSetTest {
     assertEquals("test", resultSet.getString("columnLabel"));
   }
 
-  @ParameterizedTest
-  @CsvSource({
-    "0, 0",
-    "0.0000000, 0.0000000",
-    "0.000001, 0.000001",
-    "0.0000001, 0.0000001",
-    "-0.0000001, -0.0000001",
-    "0.00000010, 0.00000010",
-    "0.5000, 0.5000",
-    "-0.0500, -0.0500",
-    "100.00, 100.00",
-    "1234567890123456789012345678901.1234567, 1234567890123456789012345678901.1234567",
-    "1E+26, 100000000000000000000000000",
-    "1E-38, 0.00000000000000000000000000000000000001",
-    "0E-38, 0.00000000000000000000000000000000000000"
-  })
-  void testGetDecimalStringPreservesPlainNotationAndScale(String input, String expected)
-      throws SQLException {
-    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DECIMAL);
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    for (Object value : new Object[] {new BigDecimal(input), input}) {
-      when(mockedExecutionResult.getObject(0)).thenReturn(value);
-      assertEquals(expected, resultSet.getString(1));
-      assertFalse(resultSet.wasNull());
-      when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
-      assertEquals(expected, resultSet.getString("decimalColumn"));
-      assertFalse(resultSet.wasNull());
-      assertEquals(expected, resultSet.getObject(1, String.class));
-      assertEquals(expected, resultSet.getObject("decimalColumn", String.class));
-    }
-  }
-
-  @Test
-  void testGetDecimalStringAndWasNull() throws SQLException {
-    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DECIMAL);
-    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
-    when(mockedExecutionResult.getObject(0))
-        .thenReturn(new BigDecimal("0.0000001"), null, "0.0000000", null);
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertEquals("0.0000001", resultSet.getString(1));
-    assertFalse(resultSet.wasNull());
-    assertNull(resultSet.getString("decimalColumn"));
-    assertTrue(resultSet.wasNull());
-    assertEquals("0.0000000", resultSet.getString("decimalColumn"));
-    assertFalse(resultSet.wasNull());
-    assertNull(resultSet.getString(1));
-    assertTrue(resultSet.wasNull());
-  }
-
   @Test
   void testGetStringWithWhiteSpaces() throws SQLException {
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
@@ -281,6 +232,72 @@ public class DatabricksResultSetTest {
     // Test with column label
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
     assertEquals("     test     ", resultSet.getString("columnLabel"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "0.0000000",
+        "0.0000001",
+        "-0.0000001",
+        "0.0000000001",
+        "0.00000000000000000000000000000000000001",
+        "0.00000000000000000000000000000000000000",
+        "0.50",
+        "-0.05",
+        "100.00",
+        "123456789012345678901234567.89"
+      })
+  void testDecimalTextGettersPreservePlainNotationAndScale(String expected) throws Exception {
+    BigDecimal decimal = new BigDecimal(expected);
+    String typeName = "DECIMAL(38," + decimal.scale() + ")";
+    ColumnInfo column =
+        inlineColumn("decimalColumn", ColumnInfoTypeName.DECIMAL, typeName, 0)
+            .setTypePrecision(38L)
+            .setTypeScale((long) decimal.scale());
+    Collection<Collection<String>> rows =
+        List.of(
+            Collections.singletonList(expected),
+            Collections.singletonList(null),
+            Collections.singletonList(expected));
+    try (DatabricksResultSet resultSet = getInlineResultSet(false, List.of(column), rows)) {
+      assertEquals(typeName, resultSet.getMetaData().getColumnTypeName(1));
+      assertEquals(decimal.scale(), resultSet.getMetaData().getScale(1));
+      assertEquals(expected, resultSet.getString(1));
+      assertEquals(expected, resultSet.getString("decimalColumn"));
+      assertFalse(resultSet.wasNull());
+      assertEquals(expected, resultSet.getObject(1, String.class));
+      assertEquals(expected, resultSet.getObject("decimalColumn", String.class));
+      Map<String, Class<?>> typeMap = Map.of(typeName, String.class);
+      assertEquals(expected, resultSet.getObject(1, typeMap));
+      assertEquals(expected, resultSet.getObject("decimalColumn", typeMap));
+      assertEquals(expected, resultSet.getObject(1, Object.class));
+      assertEquals(expected, resultSet.getObject(1, Number.class));
+      try (BufferedReader characters = new BufferedReader(resultSet.getCharacterStream(1));
+          BufferedReader labelCharacters =
+              new BufferedReader(resultSet.getCharacterStream("decimalColumn"));
+          BufferedReader ascii =
+              new BufferedReader(new InputStreamReader(resultSet.getAsciiStream(1)));
+          BufferedReader labelAscii =
+              new BufferedReader(
+                  new InputStreamReader(resultSet.getAsciiStream("decimalColumn")))) {
+        assertEquals(expected, characters.readLine());
+        assertEquals(expected, labelCharacters.readLine());
+        assertEquals(expected, ascii.readLine());
+        assertEquals(expected, labelAscii.readLine());
+      }
+      assertEquals(decimal, resultSet.getObject(1));
+      assertEquals(decimal, resultSet.getObject("decimalColumn"));
+      assertEquals(decimal, resultSet.getObject(1, BigDecimal.class));
+      assertTrue(resultSet.next());
+      assertNull(resultSet.getString(1));
+      assertTrue(resultSet.wasNull());
+      assertTrue(resultSet.next());
+      assertEquals(expected, resultSet.getString("decimalColumn"));
+      assertFalse(resultSet.wasNull());
+      assertEquals(decimal, resultSet.getObject(1));
+      assertFalse(resultSet.next());
+    }
   }
 
   @Test
@@ -1932,23 +1949,32 @@ public class DatabricksResultSetTest {
    */
   private DatabricksResultSet getInlineResultSet(boolean strictGetObjectConversion)
       throws SQLException {
-    when(session.getConnectionContext()).thenReturn(databricksConnectionContext);
-    when(databricksConnectionContext.isStrictGetObjectConversionEnabled())
-        .thenReturn(strictGetObjectConversion);
     List<ColumnInfo> columns =
         List.of(
             inlineColumn("s", ColumnInfoTypeName.STRING, "STRING", 0),
             inlineColumn("i", ColumnInfoTypeName.INT, "INT", 1),
             inlineColumn("ts", ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP", 2),
             inlineColumn("n", ColumnInfoTypeName.STRING, "STRING", 3));
+    Collection<Collection<String>> rows =
+        List.of(Arrays.asList("abc", "5", "2026-01-01 05:00:00", null));
+    return getInlineResultSet(strictGetObjectConversion, columns, rows);
+  }
+
+  private DatabricksResultSet getInlineResultSet(
+      boolean strictGetObjectConversion,
+      List<ColumnInfo> columns,
+      Collection<Collection<String>> rows)
+      throws SQLException {
+    when(session.getConnectionContext()).thenReturn(databricksConnectionContext);
+    when(databricksConnectionContext.isStrictGetObjectConversionEnabled())
+        .thenReturn(strictGetObjectConversion);
     ResultManifest manifest =
         new ResultManifest()
             .setFormat(Format.JSON_ARRAY)
             .setTotalChunkCount(1L)
-            .setTotalRowCount(1L)
-            .setSchema(new ResultSchema().setColumns(columns).setColumnCount(4L));
-    Collection<Collection<String>> rows =
-        List.of(Arrays.asList("abc", "5", "2026-01-01 05:00:00", null));
+            .setTotalRowCount((long) rows.size())
+            .setSchema(
+                new ResultSchema().setColumns(columns).setColumnCount((long) columns.size()));
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),

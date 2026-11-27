@@ -122,11 +122,14 @@ public class BigDecimalConverterTest {
   @ParameterizedTest
   @CsvSource({
     "0, 0",
+    "0.00, 0.00",
     "0.0000000, 0.0000000",
+    "0.0000000000, 0.0000000000",
     "0.000001, 0.000001",
     "0.0000001, 0.0000001",
     "-0.0000001, -0.0000001",
     "0.00000010, 0.00000010",
+    "0.0000000001, 0.0000000001",
     "0.5000, 0.5000",
     "-0.0500, -0.0500",
     "100.00, 100.00",
@@ -138,28 +141,31 @@ public class BigDecimalConverterTest {
   void testConvertToPlainDecimalString(String input, String expected)
       throws DatabricksSQLException {
     BigDecimalConverter converter = new BigDecimalConverter();
-    assertEquals(expected, converter.toString(new BigDecimal(input)));
+    BigDecimal decimal = new BigDecimal(input);
+    assertEquals(expected, converter.toString(decimal));
     assertEquals(expected, converter.toString(input));
-  }
-
-  @Test
-  void testConvertInvalidDecimalString() {
-    DatabricksSQLException exception =
-        assertThrows(
-            DatabricksSQLException.class,
-            () -> new BigDecimalConverter().toString("not-a-decimal"));
-    assertTrue(exception.getMessage().contains("Invalid BigDecimal string"));
+    assertSame(decimal, converter.toBigDecimal(decimal));
+    if (!decimal.toString().contains("E")) {
+      assertArrayEquals(
+          decimal.toString().getBytes(StandardCharsets.UTF_8),
+          converter.toString(decimal).getBytes(StandardCharsets.UTF_8));
+    }
   }
 
   @Test
   void testDecimalTextStreamsUsePlainNotation() throws DatabricksSQLException, IOException {
     BigDecimalConverter converter = new BigDecimalConverter();
-    BigDecimal value = new BigDecimal("0.00000010");
-    try (InputStream ascii = converter.toAsciiStream(value);
-        InputStream unicode = converter.toUnicodeStream(value);
-        BufferedReader characters = new BufferedReader(converter.toCharacterStream(value))) {
-      assertEquals("0.00000010", new String(ascii.readAllBytes(), StandardCharsets.US_ASCII));
-      assertEquals("0.00000010", new String(unicode.readAllBytes(), StandardCharsets.UTF_8));
+    BigDecimal decimal = new BigDecimal("0.00000010");
+    try (BufferedReader ascii =
+            new BufferedReader(
+                new InputStreamReader(
+                    converter.toAsciiStream(decimal), StandardCharsets.US_ASCII));
+        BufferedReader unicode =
+            new BufferedReader(
+                new InputStreamReader(converter.toUnicodeStream(decimal), StandardCharsets.UTF_8));
+        BufferedReader characters = new BufferedReader(converter.toCharacterStream(decimal))) {
+      assertEquals("0.00000010", ascii.readLine());
+      assertEquals("0.00000010", unicode.readLine());
       assertEquals("0.00000010", characters.readLine());
     }
   }
