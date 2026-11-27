@@ -73,8 +73,9 @@ public class CommandBuilder {
   }
 
   private static String escapeSqlPattern(String pattern) {
-    // SQL parsing consumes backslashes before the SHOW pattern matcher sees them.
-    return pattern.replace("\\", "\\\\").replace("'", "\\'");
+    return pattern.indexOf('\\') < 0 && pattern.indexOf('\'') < 0
+        ? pattern
+        : pattern.replace("\\", "\\\\").replace("'", "\\'");
   }
 
   private String fetchCatalogSQL() {

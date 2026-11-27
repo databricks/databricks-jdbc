@@ -1,5 +1,7 @@
 package com.databricks.jdbc.common.util;
 
+import java.util.regex.Pattern;
+
 /**
  * This class consists of utility functions with respect to wildcard strings that are required in
  * building SQL queries
@@ -129,5 +131,63 @@ public class WildcardUtil {
       }
     }
     return builder.toString();
+  }
+
+  public static String jdbcPatternToServer(String pattern) {
+    if (pattern == null || (pattern.indexOf('\\') < 0 && pattern.indexOf('\'') < 0)) {
+      return pattern;
+    }
+    StringBuilder builder = new StringBuilder();
+    for (int index = 0; index < pattern.length(); index++) {
+      char character = pattern.charAt(index);
+      if (character == '\\') {
+        if (++index == pattern.length()) {
+          break;
+        }
+        character = pattern.charAt(index);
+        if (character == '%' || character == '_') {
+          builder.append('\\');
+        }
+      }
+      if ("\\.*+?^$|()[]{}'".indexOf(character) >= 0) {
+        builder.append('_');
+      } else {
+        builder.append(character);
+      }
+    }
+    return builder.toString();
+  }
+
+  public static Pattern compileJdbcPattern(String pattern) {
+    if (pattern == null || (pattern.indexOf('\\') < 0 && pattern.indexOf('\'') < 0)) {
+      return null;
+    }
+    StringBuilder regex = new StringBuilder();
+    StringBuilder literal = new StringBuilder();
+    for (int index = 0; index < pattern.length(); ) {
+      int character = pattern.codePointAt(index);
+      index += Character.charCount(character);
+      if (character == '\\') {
+        if (index == pattern.length()) {
+          break;
+        }
+        int escaped = pattern.codePointAt(index);
+        index += Character.charCount(escaped);
+        literal.appendCodePoint(escaped);
+      } else if (character == '%' || character == '_') {
+        if (literal.length() > 0) {
+          regex.append(Pattern.quote(literal.toString()));
+          literal.setLength(0);
+        }
+        regex.append(character == '%' ? ".*" : ".");
+      } else {
+        literal.appendCodePoint(character);
+      }
+    }
+    if (literal.length() > 0) {
+      regex.append(Pattern.quote(literal.toString()));
+    }
+    return Pattern.compile(
+        regex.toString(), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.DOTALL);
   }
 }

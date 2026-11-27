@@ -952,9 +952,20 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         tableNamePattern,
         types);
     throwExceptionIfConnectionIsClosed();
-    return session
-        .getDatabricksMetadataClient()
-        .listTables(session, catalog, schemaPattern, tableNamePattern, types);
+    return metadataResultSetBuilder.filterMetadataPatterns(
+        session
+            .getDatabricksMetadataClient()
+            .listTables(
+                session,
+                catalog,
+                WildcardUtil.jdbcPatternToServer(schemaPattern),
+                WildcardUtil.jdbcPatternToServer(tableNamePattern),
+                types),
+        TABLE_COLUMNS,
+        CommandName.LIST_TABLES,
+        1,
+        schemaPattern,
+        tableNamePattern);
   }
 
   @Override
@@ -990,9 +1001,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             columnNamePattern));
     throwExceptionIfConnectionIsClosed();
 
-    return session
-        .getDatabricksMetadataClient()
-        .listColumns(session, catalog, schemaPattern, tableNamePattern, columnNamePattern);
+    return metadataResultSetBuilder.filterMetadataPatterns(
+        session
+            .getDatabricksMetadataClient()
+            .listColumns(
+                session,
+                catalog,
+                WildcardUtil.jdbcPatternToServer(schemaPattern),
+                WildcardUtil.jdbcPatternToServer(tableNamePattern),
+                WildcardUtil.jdbcPatternToServer(columnNamePattern)),
+        COLUMN_COLUMNS,
+        CommandName.LIST_COLUMNS,
+        1,
+        schemaPattern,
+        tableNamePattern,
+        columnNamePattern);
   }
 
   @Override
@@ -1477,7 +1500,14 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern);
     throwExceptionIfConnectionIsClosed();
 
-    return session.getDatabricksMetadataClient().listSchemas(session, catalog, schemaPattern);
+    return metadataResultSetBuilder.filterMetadataPatterns(
+        session
+            .getDatabricksMetadataClient()
+            .listSchemas(session, catalog, WildcardUtil.jdbcPatternToServer(schemaPattern)),
+        SCHEMA_COLUMNS,
+        CommandName.LIST_SCHEMAS,
+        0,
+        schemaPattern);
   }
 
   @Override
@@ -1515,9 +1545,19 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         functionNamePattern =
             "%"; // This is because functionName is a required parameter in thrift flow.
       }
-      return session
-          .getDatabricksMetadataClient()
-          .listFunctions(session, catalog, schemaPattern, functionNamePattern);
+      return metadataResultSetBuilder.filterMetadataPatterns(
+          session
+              .getDatabricksMetadataClient()
+              .listFunctions(
+                  session,
+                  catalog,
+                  WildcardUtil.jdbcPatternToServer(schemaPattern),
+                  WildcardUtil.jdbcPatternToServer(functionNamePattern)),
+          FUNCTION_COLUMNS,
+          CommandName.LIST_FUNCTIONS,
+          1,
+          schemaPattern,
+          functionNamePattern);
     } catch (Exception e) {
       LOGGER.error(e, "Unable to fetch functions, returning empty result set {}", e);
       return metadataResultSetBuilder.getFunctionsResult(catalog, List.of());

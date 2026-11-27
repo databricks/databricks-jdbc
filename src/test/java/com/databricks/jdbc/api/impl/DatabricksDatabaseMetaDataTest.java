@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_COLUMNS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -714,6 +715,14 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetTables_tableNamePatternLowercaseConversion() throws SQLException {
     ArgumentCaptor<String> patternCaptor = ArgumentCaptor.forClass(String.class);
+    when(metadataClient.listTables(any(), any(), any(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+                    TABLE_COLUMNS,
+                    new ArrayList<>(),
+                    "metadata-pattern-test",
+                    com.databricks.jdbc.common.CommandName.LIST_TABLES));
 
     metaData.getTables(null, null, "MY\\_TABLE", null);
     metaData.getTables(null, null, "my\\_table", null);
