@@ -17,6 +17,7 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -1557,6 +1558,45 @@ public class MetadataResultSetBuilder {
         getThriftRows(rows, SCHEMA_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_SCHEMAS);
+  }
+
+  public DatabricksResultSet filterMetadataPatterns(
+      DatabricksResultSet resultSet,
+      List<ResultColumn> columns,
+      CommandName command,
+      int patternOffset,
+      String... patterns)
+      throws SQLException {
+    Pattern[] matchers = new Pattern[patterns.length];
+    boolean needsFiltering = false;
+    for (int index = 0; index < patterns.length; index++) {
+      matchers[index] = WildcardUtil.compileJdbcPattern(patterns[index]);
+      needsFiltering |= matchers[index] != null;
+    }
+    if (!needsFiltering) {
+      return resultSet;
+    }
+    try (DatabricksResultSet candidates = resultSet) {
+      List<List<Object>> rows = new ArrayList<>();
+      while (candidates.next()) {
+        boolean matches = true;
+        for (int index = 0; index < matchers.length && matches; index++) {
+          if (matchers[index] != null) {
+            String name = candidates.getString(patternOffset + index + 1);
+            matches = name == null || matchers[index].matcher(name).matches();
+          }
+        }
+        if (matches) {
+          List<Object> row = new ArrayList<>();
+          for (int column = 1; column <= columns.size(); column++) {
+            row.add(candidates.getObject(column));
+          }
+          rows.add(row);
+        }
+      }
+      return buildResultSet(
+          columns, rows, candidates.getStatementId(), candidates.getMetaData(), command);
+    }
   }
 
   public DatabricksResultSet getCrossRefsResult(List<List<Object>> rows) {

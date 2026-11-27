@@ -40,6 +40,48 @@ public class WildcardUtilTest {
     assertEquals(expectedOutput, actualOutput, errorMessage);
   }
 
+  static Stream<Arguments> serverPatterns() {
+    return Stream.of(
+        Arguments.of(null, null, null),
+        Arguments.of("", "", null),
+        Arguments.of("plain%_", "plain%_", null),
+        Arguments.of("q'uote", "q_uote", "q'uote"),
+        Arguments.of("x'q_ji_1598", "x_q_ji_1598", "x'q_ji_1598"),
+        Arguments.of("x'q\\_ji\\_1598", "x_q\\_ji\\_1598", "x'q_ji_1598"),
+        Arguments.of("a\\b", "ab", "ab"),
+        Arguments.of("a\\\\b", "a_b", "a\\b"),
+        Arguments.of("a\\\\\\\\b", "a__b", "a\\\\b"),
+        Arguments.of("a\\_b", "a\\_b", "a_b"),
+        Arguments.of("a\\%b", "a\\%b", "a%b"),
+        Arguments.of("a\\\\\\_b", "a_\\_b", "a\\_b"),
+        Arguments.of("a\\\\_b", "a__b", "a\\xb"),
+        Arguments.of("a\\\\%b", "a_%b", "a\\xyzb"),
+        Arguments.of("a\\\\'b", "a__b", "a\\'b"),
+        Arguments.of("a\\\\[b]", "a__b_", "a\\[b]"),
+        Arguments.of("a\\", "a", "a"),
+        Arguments.of("a\\.", "a_", "a."),
+        Arguments.of("t😀\\_a", "t😀\\_a", "t😀_a"),
+        Arguments.of("𠮷野家\\_sales", "𠮷野家\\_sales", "𠮷野家_sales"),
+        Arguments.of("t\\😀\\_a", "t😀\\_a", "t😀_a"),
+        Arguments.of("t\\𠮷\\_a", "t𠮷\\_a", "t𠮷_a"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("serverPatterns")
+  void normalizesServerPatternsAndCompilesJdbcMatches(
+      String pattern, String expectedServerPattern, String matchingName) {
+    assertEquals(expectedServerPattern, WildcardUtil.jdbcPatternToServer(pattern));
+    java.util.regex.Pattern matcher = WildcardUtil.compileJdbcPattern(pattern);
+    if (matchingName == null) {
+      assertNull(matcher);
+      assertSame(pattern, WildcardUtil.jdbcPatternToServer(pattern));
+    } else {
+      assertTrue(matcher.matcher(matchingName).matches());
+      assertTrue(matcher.matcher(matchingName.toUpperCase(java.util.Locale.ROOT)).matches());
+      assertFalse(matcher.matcher("not-" + matchingName).matches());
+    }
+  }
+
   @Test
   public void testIsWildcard() {
     assertTrue(wildcardUtil.isWildcard("*"));
