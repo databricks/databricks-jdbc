@@ -732,6 +732,29 @@ public class DatabricksArrayTest {
     }
   }
 
+  @Test
+  public void getResultSet_DecimalElementsShouldUsePlainText() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(20,7)>"))
+        .thenReturn("DECIMAL(20,7)");
+    DatabricksArray decimalArray =
+        new DatabricksArray(
+            Arrays.asList("0.0000001", "0.0000000", "-0.0000001", 1e-7, 0.0, 1.5),
+            "ARRAY<DECIMAL(20,7)>");
+    String[] expectedValues = {"0.0000001", "0.0000000", "-0.0000001", "0.00000010", "0.0", "1.5"};
+    try (java.sql.ResultSet resultSet = decimalArray.getResultSet()) {
+      assertEquals("DECIMAL(20,7)", resultSet.getMetaData().getColumnTypeName(2));
+      assertEquals(7, resultSet.getMetaData().getScale(2));
+      for (String expected : expectedValues) {
+        assertTrue(resultSet.next());
+        assertEquals(expected, resultSet.getString(2));
+        assertEquals(expected, resultSet.getString("VALUE"));
+        assertEquals(expected, resultSet.getObject(2, String.class));
+      }
+      assertFalse(resultSet.next());
+    }
+  }
+
   /** The VALUE column type must be derived from the base element type, ignoring parameters. */
   @Test
   public void getResultSet_MetadataShouldReflectParameterizedAndNestedElementTypes()
